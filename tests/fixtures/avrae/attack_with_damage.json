@@ -1,15 +1,14 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "Attack embeds carry two numbers. The FIRST is the d20 result; taking the damage roll instead would silently resolve checks against the wrong number.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "Attack via automation. Title is '{name} {verb} {attack_name}!' (actionutils). Effects are queued as '**To Hit**: ...' and '**Damage**: ...'. The FIRST backticked value is the d20 result; taking the damage roll would resolve checks against the wrong number.",
   "message": {
     "content": "",
     "embeds": [{
       "title": "Dorn attacks with a Longsword!",
+      "author": {"name": "Dorn"},
       "fields": [
-        {"name": "Attack", "value": "**1d20 (14) + 6** = `20`"},
-        {"name": "Damage", "value": "**1d8 (5) + 4** = `9`"}
-      ],
-      "author": {"name": "Dorn"}
+        {"name": "Meta", "value": "**To Hit**: 1d20 (14) + 6 = `20`\n**Damage**: 1d8 (5) + 4 = `9`"}
+      ]
     }]
   },
   "expect": {"status": "roll", "actor": "Dorn", "total": 20, "natural": 14, "kind": "attack"}

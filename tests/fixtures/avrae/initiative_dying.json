@@ -1,12 +1,9 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "Initiative tracker with a downed PC. Mirrored read-only; must NEVER resolve a pending check.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) Combat.get_summary and Combatant.get_summary. NOT AN EMBED -- the initiative tracker is a pinned plain message wrapping an ```md code block in message.content. A parser that only reads message.embeds never sees it at all.",
+  "_description": "Format is f\"{init:>2}: {name} {hp_str}{effects}\" where hp_str is \"<12/34 HP>\" and effects render as a parenthetical \"(AC 16, Prone)\". The leading \"# \" marks ONLY the combatant whose turn it is; everyone else is indented two spaces.",
   "message": {
-    "content": "",
-    "embeds": [{
-      "title": "Current initiative: 12 (round 3)",
-      "description": "# 18 Dorn <28/34 HP> [Prone]\n# 12 Kethra <0/32 HP> Death Saves: 1 fail\n# 7 Goblin Boss <5/21 HP> [Poisoned]"
-    }]
+    "content": "```md\nCurrent initiative: 12 (round 3)\n================================\n# 18: Dorn <28/34 HP> (AC 16, Prone)\n  12: Kethra <0/32 HP> (AC 14)\n   7: Goblin Boss <5/21 HP> (Poisoned)\n```",
+    "embeds": []
   },
   "expect": {"status": "initiative", "combatants": 3, "dying": ["Kethra"]}
 }

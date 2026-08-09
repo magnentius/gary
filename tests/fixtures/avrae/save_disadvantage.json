@@ -1,13 +1,13 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "Disadvantage: the HIGHER die is struck through. Taking the first number would read 17 instead of the 3 that counted.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "Disadvantage, kept die listed first this time. Both orderings occur ~50/50; measured over 400 local rolls.",
   "message": {
     "content": "",
     "embeds": [{
-      "title": "Dorn makes a Wisdom save!",
-      "description": "**2d20kl1 (~~17~~, 3) + 1** = `4`",
+      "title": "Dorn makes a Wisdom Save!",
+      "description": "2d20kl1 (2, ~~3~~) + 1 = `3`",
       "author": {"name": "Dorn"}
     }]
   },
-  "expect": {"status": "roll", "actor": "Dorn", "total": 4, "natural": 3, "kind": "save"}
+  "expect": {"status": "roll", "actor": "Dorn", "total": 3, "natural": 2, "kind": "save"}
 }

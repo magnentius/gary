@@ -8,8 +8,8 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 ## Status
 
 The **deterministic core and all three adapters** are implemented. The Avrae parser is
-built against *authored* fixtures rather than real captures, and the MCP binding has never
-been run — see [Before it can run](#before-it-can-run).
+built against fixtures derived from Avrae's own source, not yet confirmed against a live
+bot, and the MCP binding has never been run — see [Before it can run](#before-it-can-run).
 
 ```
 src/drelm/
@@ -19,7 +19,7 @@ src/drelm/
   resolver.py      DC comparison — deliberately boring         §5.2
   fsm.py           the Director: Mode A/B state machine        §4
   context.py       prompt assembly + injection defence         §8, §9.1
-  parser/avrae.py  embed parsing, fixture-driven, fail-loud    §6
+  parser/avrae.py  Avrae output parsing, fail-loud             §6
   state/store.py   journal + snapshot + undo + bounds          §7.3
   state/backend.py storage protocols: in-memory, file          §7.4
   state/firestore.py  managed backend, disposable VM           §7.4, §11.1
@@ -43,14 +43,14 @@ a live Avrae:
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e '.[discord,llm,dev]'
-.venv/bin/python -m pytest -q          # 327 passed, 1 xfailed
+.venv/bin/python -m pytest -q          # 369 passed, 1 xfailed
 ```
 
 `discord.py` and `google-genai` are needed only by `adapters/`; the core imports neither,
 and a test asserts it stays that way.
 
-The one `xfail` is intentional. It fails until the Avrae fixtures are real captures rather
-than guesses, so the gap cannot be forgotten.
+The one `xfail` is intentional: it fails until the Avrae fixtures are confirmed against a
+live bot, so the last gap cannot be quietly forgotten.
 
 ## The three properties worth knowing
 
@@ -92,15 +92,17 @@ before it ever ran.
 1. **Enable the Message Content privileged intent** in the Discord Developer Portal.
    Without it, `message.embeds` arrives empty and the parser sees nothing — it fails
    silently, which is why this is first.
-2. **Capture real Avrae fixtures.** Every pattern in `parser/avrae.py` is a hypothesis
-   until then:
+2. **Capture live Avrae fixtures.** Patterns in `parser/avrae.py` are derived from
+   Avrae's source at `avrae@cb75be2` and from running `d20` locally — not guesses, but
+   not yet checked against what Discord delivers over the wire:
    ```bash
    pip install -e '.[discord]'
    export DISCORD_TOKEN=...
    python scripts/capture_avrae_fixtures.py --channel <id> --minutes 10
    ```
-   Run the commands listed in that script's docstring, correct each generated `expect`
-   block, then `pytest tests/test_parser.py`.
+   Run the commands listed in that script's docstring, **diff** the captures against the
+   derived fixtures (a disagreement means Avrae changed or the derivation was wrong —
+   both worth understanding), then `pytest tests/test_parser.py`.
 3. **Verify the Firestore backend** if you want the disposable-VM setup. `state/firestore.py`
    has never run against Firestore, real or emulated — the fake-client tests cover this
    repo's serialisation and ordering, not Google's semantics:

@@ -1,0 +1,18 @@
+{
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "Player passed -rr 3. With iterations > 1 the rolls move OUT of the description and into fields named 'Check 1..N'. The first is the one a pending check resolves against.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Kethra makes a Stealth check!",
+      "description": "",
+      "author": {"name": "Kethra"},
+      "fields": [
+        {"name": "Check 1", "value": "1d20 (11) + 9 = `20`"},
+        {"name": "Check 2", "value": "1d20 (3) + 9 = `12`"},
+        {"name": "Check 3", "value": "1d20 (17) + 9 = `26`"}
+      ]
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Kethra", "total": 20, "natural": 11, "kind": "check"}
+}

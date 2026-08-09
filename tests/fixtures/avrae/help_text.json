@@ -1,11 +1,11 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "The v1 spam case: a !help embed that must be classified irrelevant, not sent to the model.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06). Exact help layout is not pinned to a source line; what matters is the classification, and a false negative here only costs an unnecessary question.",
+  "_description": "The v1 spam case: help output must never reach the model.",
   "message": {
     "content": "",
     "embeds": [{
       "title": "Avrae Help",
-      "description": "Use !help <command> for more information on a command."
+      "description": "Use `!help <command>` for more information on a command."
     }]
   },
   "expect": {"status": "irrelevant"}

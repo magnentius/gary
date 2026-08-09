@@ -1,13 +1,13 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "Saving throw with advantage. Avrae strikes through the dropped die, so the kept face is not simply the first number in the group.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "Save with advantage. Title is '{name} makes {a_or_an(save_name)}!' where save_name is 'Dexterity Save' -- capital S, no trailing 'check'. Dice list in ROLL order, so the DROPPED die can come first; this fixture is that case, which defeats any parser that takes the first number.",
   "message": {
     "content": "",
     "embeds": [{
-      "title": "Dorn makes a Dexterity save!",
-      "description": "**2d20kh1 (17, ~~3~~) + 4** = `21`",
+      "title": "Dorn makes a Dexterity Save!",
+      "description": "2d20kh1 (~~5~~, 13) + 4 = `17`",
       "author": {"name": "Dorn"}
     }]
   },
-  "expect": {"status": "roll", "actor": "Dorn", "total": 21, "natural": 17, "kind": "save"}
+  "expect": {"status": "roll", "actor": "Dorn", "total": 17, "natural": 13, "kind": "save"}
 }

@@ -1,0 +1,13 @@
+{
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "Death saves take a distinct save_name ('Death Save') in checkutils.run_save, so the title has no ability name.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Kethra makes a Death Save!",
+      "description": "1d20 (8) = `8`",
+      "author": {"name": "Kethra"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Kethra", "total": 8, "natural": 8, "kind": "save"}
+}

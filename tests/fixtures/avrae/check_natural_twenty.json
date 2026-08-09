@@ -1,11 +1,11 @@
 {
-  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
-  "_description": "Avrae bolds the die face on a natural 20. The parser must read the face, not infer a crit from a high total.",
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
+  "_description": "d20's MarkdownStringifier bolds a natural 20 and a natural 1. Verified by rolling locally until both appeared. The parser must read the face, never infer a crit from a high total.",
   "message": {
     "content": "",
     "embeds": [{
       "title": "Kethra makes a Perception check!",
-      "description": "**1d20 (**20**) + 5** = `25`",
+      "description": "1d20 (**20**) + 5 = `25`",
       "author": {"name": "Kethra"}
     }]
   },

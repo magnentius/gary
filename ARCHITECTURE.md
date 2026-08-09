@@ -18,7 +18,7 @@ v1 was architecturally sound in its decomposition but rested on several assumpti
 | 5 | `on_message` handles every Avrae message | Fires on `!help`, `!sheet`, other players' rolls, error embeds → spam, cost, misattribution. | §5: pending-check registry with correlation and TTL. |
 | 6 | MCP tracks effect durations in minutes | Avrae simultaneously tracks them in combat rounds. Two clocks, no reconciliation. | §3: explicit authority boundary. |
 | 7 | `[SYSTEM: ...]` string prefix marks trusted data | Players can type that prefix. Gemini holds state-mutating tools. | §9: structured content parts; trust never derives from a string. |
-| 8 | Parse embeds for `[Dying]`, `[Prone]` | Guessing at formatting that varies by command and release. | §6: fixture-driven parser, fail-loud. |
+| 8 | Parse embeds for `[Dying]`, `[Prone]` | Guessed formatting, and guessed the wrong container: the initiative tracker is a plain ` ```md ` block in `message.content`, and errors are plain text. Neither is an embed. | §6: patterns derived from Avrae's source, fail-loud, provenance recorded per fixture. |
 | 9 | (silent) | No spec for what goes into each Gemini call. Campaigns run for thousands of turns. | §8: explicit context assembly contract. |
 | 10 | D&D Beyond `/character/v2/` | Current working path is `/character/v5/`; endpoint is undocumented and has been removed before. | §7.5: optional enrichment, never a dependency. |
 
@@ -40,7 +40,7 @@ These are hard facts about the runtime environment. Everything downstream depend
 
 - Application ID: **`261302296103747584`** (verify against the Discord App Directory before shipping; keep in config, not source).
 - Avrae supports both legacy `!` prefix commands and slash commands. **The Director pattern depends on `!` prefix commands remaining supported**, because a slash command cannot be copy-pasted and executed. See §14 for the contingency.
-- Avrae is open source (`github.com/avrae/avrae`). Read its embed construction directly rather than reverse-engineering rendered strings.
+- Avrae is open source (`github.com/avrae/avrae`), and reading it is how §6's formats were established. It uses the `d20` library for dice, so `pip install d20` reproduces the exact roll strings locally.
 
 **Gemini**
 
@@ -287,9 +287,11 @@ Any command Drelm posts is rendered from this table with validated parameters, o
 
 ### 6.1 Principles
 
-- **Avrae's embed layout is not an API.** It changes between releases and differs across `!check`, `!attack`, `!save`, `!init list`, and group rolls.
-- **Build against fixtures.** Capture real embeds from a live Avrae into `tests/fixtures/avrae/*.json` (raw `Message.to_dict()`). The parser is developed and regression-tested against these. Re-capture on every Avrae release.
-- **Read the source.** Avrae is open source. Prefer its embed construction over reverse-engineering rendered text.
+- **Avrae's output is not an API.** It changes between releases and differs across `!check`, `!attack`, `!save`, and the initiative tracker.
+- **Read the source — this was decisive.** Every pattern is traced to `cogs5e/utils/checkutils.py`, `cogs5e/initiative/combat.py` at `avrae@cb75be2` (2026-08-06), plus the `d20` library's `MarkdownStringifier`, run locally to confirm dice rendering. Reverse-engineering rendered text had produced four wrong guesses; reading the generating code found them all.
+- **Build against fixtures.** Each fixture records its provenance (`DERIVED`, `CAPTURED`, or `SYNTHETIC`) and a test enforces that. Re-derive or re-capture on every Avrae release.
+
+**Two containers, not one.** Rolls arrive as embeds. The **initiative tracker is not an embed** — it is a pinned plain message wrapping a ` ```md ` code block in `message.content`, formatted `{init:>2}: {name} <hp/max HP> (AC 16, Prone)`, where a leading `# ` marks only the combatant whose turn it is. **Errors are also plain text** (`Error: ...`), not embeds. A parser that inspects only `message.embeds` sees neither.
 - **Fail loud.** A parse miss must never degrade to `is_dying=False`. Unknown → `ParseResult.UNKNOWN` → Drelm asks the player in plain language. Silent false negatives on a death save are worse than an awkward question.
 
 ### 6.2 Correlation
@@ -635,7 +637,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 
 ## 14. Open risks
 
-1. **Avrae embed formats are unverified.** Every claim in §6 about what the embeds contain is inference until real fixtures are captured from a live server. This is the largest remaining unknown and the top implementation task.
+1. **Avrae formats are derived, not captured.** Every pattern in §6 is now traced to Avrae's source at `avrae@cb75be2` and to `d20` run locally — a far stronger position than the inference this started as, and it corrected four wrong guesses including a whole container. What remains unverified is what Discord *actually delivers over the wire*: field ordering, serialisation, and any Avrae version drift. `scripts/capture_avrae_fixtures.py` closes it, and a strict `xfail` tracks the gap.
    **The MCP binding is unverified too**, and for a different reason: the MCP SDK requires Python 3.10+ and the development environment is 3.9, so `adapters/mcp_server.py` has never been imported. Its substance lives in `prep.py` and `state/lock.py`, which are tested; the binding is not.
    Gemini model ids **were** in this category and are now checked: `gemini-3.6-flash` and `gemini-3.5-flash-lite`, verified against the model list on 2026-08-09 and pinned by a test. Ids still move — recheck rather than assume.
 2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Drelm's own dice with sheet data pulled from D&D Beyond.

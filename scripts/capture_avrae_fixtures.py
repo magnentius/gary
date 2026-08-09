@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Capture real Avrae embeds into test fixtures (ARCHITECTURE.md §14.1).
 
-Everything in ``tests/fixtures/avrae/`` is currently an authored guess at Avrae's output
-format. This script replaces those guesses with reality: it joins a Discord channel,
-records every message Avrae posts, and writes each one out as a fixture with the raw
-message dict plus a starter expectation.
+Fixtures in ``tests/fixtures/avrae/`` are derived from Avrae's own source at
+``avrae@cb75be2``, which is strong evidence but not the same as observing what Discord
+actually delivers. This script closes that last gap: it joins a channel, records every
+message Avrae posts, and writes each one out with the raw payload and a starter
+expectation.
+
+**Diff, do not blindly replace.** A capture that disagrees with the derived fixture means
+either Avrae changed or the derivation was wrong -- both worth understanding before
+overwriting. Pay particular attention to the initiative tracker, which is a plain ```md
+code block in ``message.content`` rather than an embed.
 
     pip install -e '.[discord]'
     export DISCORD_TOKEN=...           # Drelm's bot token
@@ -18,13 +24,16 @@ Then, in that channel, run at least:
     !check stealth dis              disadvantage: the HIGHER die is struck through
     !save dex                       saving throw
     !attack longsword               two numbers in one embed
-    !init begin / !init next        initiative tracker
+    !check athletics -dc 15         prepends "**DC 15**" and sets a Success!/Failure! footer
+    !check stealth -rr 3            moves rolls OUT of the description into "Check N" fields
+    !save death                     distinct title: "<name> makes a Death Save!"
+    !init begin / !init next        tracker: plain ```md code block, NOT an embed
     !help                           must classify as irrelevant
-    !check notaskill                error embed
+    !check notaskill                error: PLAIN TEXT "Error: ...", not an embed
 
-Review each generated file, correct the ``expect`` block, drop the ``_provenance``
-HYPOTHETICAL marker, and run ``pytest tests/test_parser.py``. Patterns that were wrong
-will fail there instead of during a session.
+Review each generated file, correct the ``expect`` block, and run
+``pytest tests/test_parser.py``. Once every fixture carries a CAPTURED provenance, delete
+``test_fixtures_are_captured_from_a_live_avrae``.
 
 Requires the Message Content privileged intent (ARCHITECTURE.md §1) -- without it, embeds arrive
 empty and this script silently captures nothing useful. It warns if that happens.

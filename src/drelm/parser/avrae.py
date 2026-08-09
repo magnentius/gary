@@ -7,10 +7,16 @@ rules:
 1. **Fail loud.** A parse miss returns ``UNKNOWN``. It never degrades to ``total=0`` or
    ``is_dying=False`` -- a silent false negative on a death save is far worse than
    asking the player to repeat themselves.
-2. **Fixtures are the spec.** Patterns here are hypotheses until ``tests/fixtures/avrae/``
-   contains real captures. ``tests/test_parser.py`` runs every fixture through
-   ``parse_embed`` and asserts the expectation recorded alongside it, so replacing a
-   guess with reality is a fixture drop, not a rewrite.
+2. **Fixtures are the spec.** Every pattern here is traced to Avrae's own source
+   (``cogs5e/utils/checkutils.py``, ``cogs5e/initiative/combat.py``) at ``avrae@cb75be2``,
+   plus the ``d20`` library's ``MarkdownStringifier``, which was run locally to confirm
+   how dice render. ``tests/test_parser.py`` drives every fixture through ``parse_embed``,
+   so a format change shows up as a failing fixture rather than a silent misread.
+
+**Two containers, not one.** Rolls arrive as embeds. The **initiative tracker is not an
+embed at all** -- it is a pinned plain message wrapping a ```md code block in
+``message.content``. A parser that only inspects ``message.embeds`` never sees combat
+state.
 
 The input type is a plain dict shaped like ``discord.Message.to_dict()``, so this module
 imports nothing from discord.py and is fully testable offline.
@@ -41,11 +47,18 @@ class CombatantView:
     hp_current: Optional[int] = None
     hp_max: Optional[int] = None
     conditions: tuple = ()
-    death_saves: Optional[str] = None
+    is_current_turn: bool = False
 
     @property
     def is_dying(self) -> bool:
-        return self.hp_current == 0 or self.death_saves is not None
+        """At 0 HP, or carrying an effect that says so.
+
+        Avrae's tracker shows no death-save counter, so 0 HP is the signal available.
+        Drelm mirrors this for narrative colour only; Avrae remains authoritative (§3).
+        """
+        if self.hp_current == 0:
+            return True
+        return any("dying" in c.lower() or "unconscious" in c.lower() for c in self.conditions)
 
 
 @dataclass(frozen=True)
@@ -59,11 +72,14 @@ class ParsedAvraeMessage:
 
 
 # -- patterns ---------------------------------------------------------------------------
-# Every pattern below is a HYPOTHESIS pending fixture verification (ARCHITECTURE.md §14.1).
+# Traced to avrae@cb75be2 (2026-08-06) and to d20's MarkdownStringifier, which was run
+# locally to confirm dice rendering. Not guesses -- but not immune to Avrae changing
+# either, which is what the fixture suite is for.
 
 _TOTAL_LABELLED = re.compile(r"\*\*(?:Total|Result)\*\*:?\s*(-?\d+)", re.IGNORECASE)
-# Avrae's usual shape: "**1d20 (13) + 7** = `20`". The backticked value after the last
-# '=' is the headline number.
+# checkutils does `from d20 import roll`, so the default MarkdownStringifier applies and
+# the shape is "1d20 (13) + 7 = `20`" -- no bold wrapper. VerboseMDStringifier, used by
+# other commands, produces "**Total**: N" instead, which _TOTAL_LABELLED covers.
 _TOTAL_EQUALS = re.compile(r"=\s*`(-?\d+)`")
 _TOTAL_BARE = re.compile(r"\btotal\b[^0-9-]{0,12}(-?\d+)", re.IGNORECASE)
 # The parenthesised dice group: "1d20 (13)", "2d20kh1 (17, ~~3~~)", "1d20 (**20**)".
@@ -73,15 +89,21 @@ _D20_GROUP = re.compile(r"\b\d*d20[a-z0-9]*\s*\(([^)]*)\)", re.IGNORECASE)
 _TITLE_CHECK = re.compile(r"^(.+?)\s+makes?\s+an?\s+(.+?)\s+check", re.IGNORECASE)
 _TITLE_SAVE = re.compile(r"^(.+?)\s+makes?\s+an?\s+(.+?)\s+(?:saving throw|save)", re.IGNORECASE)
 _TITLE_ATTACK = re.compile(r"^(.+?)\s+attacks?\s+with\s+(?:an?\s+)?(.+?)!?$", re.IGNORECASE)
-_HP = re.compile(r"<?\s*(\d+)\s*/\s*(\d+)\s*HP", re.IGNORECASE)
-_CONDITIONS = re.compile(r"\[([A-Za-z][A-Za-z ]{2,20})\]")
+# Combatant line: "# 18: Dorn <28/34 HP> (AC 16, Prone)". Leading "# " marks whose turn
+# it is; everyone else is indented two spaces.
+_COMBATANT = re.compile(
+    r"^(?P<turn>#)?\s*(?P<init>-?\d+):\s+(?P<name>.+?)\s+<(?P<hp>[^>]*)>\s*(?:\((?P<effects>[^)]*)\))?\s*$"
+)
+_HP = re.compile(r"(\d+)\s*/\s*(\d+)\s*HP", re.IGNORECASE)
+_HP_BARE = re.compile(r"^(\d+)\s*HP", re.IGNORECASE)
+_INIT_HEADER = re.compile(r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*\d+\)\s*$", re.IGNORECASE)
 
 # Titles that are confidently not rolls. Anything not matched here and not parsed as a
 # roll becomes UNKNOWN rather than being silently dropped.
 _IRRELEVANT_HINTS = (
+    "error",
     "help",
     "commands",
-    "error",
     "invalid",
     "usage",
     "character sheet",
@@ -168,11 +190,34 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
         except (TypeError, ValueError):
             referenced_user_id = None
 
+    content = (message.get("content") or "").strip()
+
+    # The initiative tracker lives in message.content, not in an embed. Checked first so
+    # combat state is never mistaken for a roll.
+    combatants = parse_initiative(content)
+    if combatants is not None:
+        return ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=tuple(combatants),
+            interaction_user_id=interaction_user_id,
+            referenced_user_id=referenced_user_id,
+        )
+
     embeds = message.get("embeds") or []
     if not embeds:
-        content = (message.get("content") or "").strip()
+        # Avrae reports command errors as plain text ("Error: ..."), not embeds. Without
+        # this, an error arriving while a check is pending reads as an unparseable roll
+        # and Drelm asks the player what they rolled -- when nothing was rolled at all.
+        lowered_content = content.lower()
+        if not content or any(hint in lowered_content for hint in _IRRELEVANT_HINTS):
+            return ParsedAvraeMessage(
+                status=ParseStatus.IRRELEVANT,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="plain text, no roll" if content else "empty message",
+            )
         return ParsedAvraeMessage(
-            status=ParseStatus.IRRELEVANT if not content else ParseStatus.UNKNOWN,
+            status=ParseStatus.UNKNOWN,
             interaction_user_id=interaction_user_id,
             referenced_user_id=referenced_user_id,
             reason="no embeds",
@@ -181,15 +226,6 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     embed = embeds[0]
     text = _embed_text(embed)
     lowered = text.lower()
-
-    combatants = _parse_initiative(embed, text)
-    if combatants:
-        return ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=tuple(combatants),
-            interaction_user_id=interaction_user_id,
-            referenced_user_id=referenced_user_id,
-        )
 
     actor, kind, key = _actor_and_kind(embed)
     total = _find_total(text)
@@ -225,29 +261,62 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     )
 
 
-def _parse_initiative(embed: Dict[str, Any], text: str) -> List[CombatantView]:
-    """Extract the combatant mirror from an initiative tracker embed."""
-    title = (embed.get("title") or "").lower()
-    if "initiative" not in title and "current initiative" not in text.lower():
-        return []
+def parse_initiative(content: str) -> Optional[List[CombatantView]]:
+    """Parse the initiative tracker out of a message's content.
+
+    Returns None when this is not a tracker at all, and a (possibly empty) list when it
+    is -- the distinction matters, because an empty combat is still combat and must not
+    fall through to roll parsing.
+    """
+    if "```" not in content:
+        return None
+
+    body = content.split("```", 2)
+    if len(body) < 2:
+        return None
+    block = body[1]
+    if block.startswith("md"):
+        block = block[2:]
+
+    lines = [ln for ln in block.splitlines() if ln.strip()]
+    if not lines:
+        return None
+    if not _INIT_HEADER.match(lines[0].strip()):
+        return None
 
     out: List[CombatantView] = []
-    for line in text.splitlines():
-        hp = _HP.search(line)
-        if not hp:
+    for line in lines[1:]:
+        if set(line.strip()) <= {"="}:  # the ==== underline
             continue
-        name = re.sub(r"^[\s\-*_#>0-9.:]+", "", line).split("<")[0].split("(")[0].strip()
-        conditions = tuple(c.strip() for c in _CONDITIONS.findall(line))
-        deaths = None
-        if "death save" in line.lower():
-            deaths = line.strip()
+        match = _COMBATANT.match(line.rstrip())
+        if not match:
+            continue
+
+        hp_text = match.group("hp") or ""
+        current = maximum = None
+        pair = _HP.search(hp_text)
+        if pair:
+            current, maximum = int(pair.group(1)), int(pair.group(2))
+        else:
+            bare = _HP_BARE.match(hp_text.strip())
+            if bare:
+                current = int(bare.group(1))
+
+        raw_effects = match.group("effects") or ""
+        conditions = tuple(
+            e.strip()
+            for e in raw_effects.split(",")
+            # AC is a stat Avrae renders alongside effects, not a condition.
+            if e.strip() and not e.strip().upper().startswith("AC ")
+        )
+
         out.append(
             CombatantView(
-                name=name,
-                hp_current=int(hp.group(1)),
-                hp_max=int(hp.group(2)),
+                name=match.group("name").strip(),
+                hp_current=current,
+                hp_max=maximum,
                 conditions=conditions,
-                death_saves=deaths,
+                is_current_turn=bool(match.group("turn")),
             )
         )
     return out

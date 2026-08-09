@@ -1,0 +1,9 @@
+{
+  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot.",
+  "_description": "Tracker with nobody down and no effects. Must still parse as initiative and must never resolve a pending check.",
+  "message": {
+    "content": "```md\nCurrent initiative: 3 (round 1)\n===============================\n  21: Kethra <32/32 HP> (AC 14)\n# 14: Dorn <34/34 HP> (AC 16)\n```",
+    "embeds": []
+  },
+  "expect": {"status": "initiative", "combatants": 2, "dying": []}
+}

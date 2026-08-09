@@ -96,12 +96,39 @@ def test_parser_never_raises_on_malformed_input():
         parse_embed(bad)  # must not raise
 
 
+def test_no_fixture_is_an_unverified_guess():
+    """Every fixture is either traced to Avrae's source or deliberately synthetic.
+
+    The earlier bar was "authored guess", and the whole suite failed it. Patterns are now
+    derived from ``cogs5e/utils/checkutils.py``, ``cogs5e/initiative/combat.py`` at
+    ``avrae@cb75be2``, and from running ``d20`` locally.
+    """
+    guesses = [
+        p.name
+        for p in FIXTURES
+        if "HYPOTHETICAL" in load(p).get("_provenance", "")
+    ]
+    assert not guesses, f"still guessing at: {guesses}"
+
+
+def test_every_fixture_records_its_provenance():
+    for path in FIXTURES:
+        provenance = load(path).get("_provenance", "")
+        assert provenance, f"{path.name} has no _provenance"
+        assert any(
+            marker in provenance for marker in ("DERIVED", "CAPTURED", "SYNTHETIC")
+        ), f"{path.name}: unrecognised provenance {provenance[:40]!r}"
+
+
 @pytest.mark.xfail(
-    reason="ARCHITECTURE.md §14.1: fixtures are authored guesses until captured from a live "
-           "Avrae. Run scripts/capture_avrae_fixtures.py, replace them, and delete "
-           "this test.",
+    reason="ARCHITECTURE.md §14.1: fixtures are derived from Avrae's source, which is "
+           "strong but not the same as observing what Discord actually delivers. Run "
+           "scripts/capture_avrae_fixtures.py against a live Avrae, diff the captures "
+           "against these, then delete this test.",
     strict=True,
 )
-def test_no_fixture_is_still_hypothetical():
-    hypothetical = [p.name for p in FIXTURES if "HYPOTHETICAL" in load(p).get("_provenance", "")]
-    assert not hypothetical, f"still guessing at: {hypothetical}"
+def test_fixtures_are_captured_from_a_live_avrae():
+    uncaptured = [
+        p.name for p in FIXTURES if "CAPTURED" not in load(p).get("_provenance", "")
+    ]
+    assert not uncaptured, f"not yet live-captured: {uncaptured}"
