@@ -1,0 +1,13 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Avrae bolds the die face on a natural 20. The parser must read the face, not infer a crit from a high total.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Kethra makes a Perception check!",
+      "description": "**1d20 (**20**) + 5** = `25`",
+      "author": {"name": "Kethra"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Kethra", "total": 25, "natural": 20, "kind": "check"}
+}

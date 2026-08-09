@@ -1,0 +1,12 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Initiative tracker with a downed PC. Mirrored read-only; must NEVER resolve a pending check.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Current initiative: 12 (round 3)",
+      "description": "# 18 Dorn <28/34 HP> [Prone]\n# 12 Kethra <0/32 HP> Death Saves: 1 fail\n# 7 Goblin Boss <5/21 HP> [Poisoned]"
+    }]
+  },
+  "expect": {"status": "initiative", "combatants": 3, "dying": ["Kethra"]}
+}

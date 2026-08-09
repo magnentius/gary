@@ -1,0 +1,208 @@
+"""Prompt assembly (ARCHITECTURE.md §8) and injection defence (§9.1).
+
+v1 of the design never said what goes into a Gemini call. A campaign runs for thousands
+of turns, so "append everything" is not a strategy -- it guarantees runaway cost and then
+truncation of exactly the facts the system depends on.
+
+Four layers, assembled fresh every call:
+
+    1. system instruction   static persona + authority rules       never trimmed
+    2. live state           rebuilt from the store each turn       never trimmed
+    3. retrieved memory     notes + rolling summary                trimmed second
+    4. recent turns         last N verbatim                        trimmed first
+
+Layer 2 being rebuilt every call is the mechanism by which the state server actually *is*
+the source of truth rather than merely being drawn that way on the architecture diagram.
+"""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Optional, Sequence
+
+from .state.schema import format_world_time
+
+DEFAULT_RECENT_TURNS = 30
+DEFAULT_TOKEN_BUDGET = 40_000
+CHARS_PER_TOKEN = 4  # rough; replace with the real tokenizer when metering cost
+
+
+DM_SYSTEM_INSTRUCTION = """\
+You are an expert Tabletop RPG Game Master running D&D 2024 (not the 2014 rules).
+
+AUTHORITY — this is absolute:
+- You do NOT decide whether a roll succeeded. When an action needs a check, call
+  open_check with the skill, a DC, and both outcomes. Then STOP and wait.
+- Roll outcomes arrive as structured tool results. They are established fact. Narrate
+  them. Never re-evaluate, soften, or reverse a result.
+- Never write an Avrae command yourself. open_check renders it.
+- During combat, Avrae owns hit points, conditions, and durations. Describe them; do not
+  contradict or recalculate them.
+
+VOICE — atmospheric, concise, second person. End on a hook or a question.
+"""
+
+
+# -- injection defence --------------------------------------------------------------------
+
+# v1 marked trusted data with a literal "[SYSTEM: ...]" prefix in a flat text stream --
+# a prefix any player could type, while the model held state-mutating tools. Trust now
+# rides on the transport (structured parts), and these patterns are stripped as defence
+# in depth.
+# The trailing [a-z_]* matters: "[tool_result]" and "[function_call: ...]" must be caught
+# too, and \b alone stops at the underscore.
+_IMPERSONATION = re.compile(
+    r"\[\s*(?:system|tool|function|assistant|user|model|dm|gm)[a-z_]*\b[^\]]*\]",
+    re.IGNORECASE,
+)
+_FENCE = re.compile(r"^\s*(<\|.*?\|>|```+\s*(system|tool))", re.IGNORECASE | re.MULTILINE)
+
+
+def sanitize_player_text(text: str, max_chars: int = 2000) -> str:
+    """Strip role-impersonation markers from player input.
+
+    Not a security boundary on its own -- the structured transport is. This is the second
+    layer, and it also stops players confusing the model by accident.
+    """
+    cleaned = _IMPERSONATION.sub("", text)
+    cleaned = _FENCE.sub("", cleaned)
+    cleaned = cleaned.replace("\x00", "")
+    return cleaned.strip()[:max_chars]
+
+
+def attribute(display_name: str, actor: Optional[str], text: str) -> str:
+    """Render player speech with explicit, unforgeable attribution."""
+    who = f"{display_name} (playing {actor})" if actor else display_name
+    return f"Player {who} says: {sanitize_player_text(text)}"
+
+
+# -- layers -------------------------------------------------------------------------------
+
+
+@dataclass
+class Turn:
+    role: str  # "user" | "model"
+    text: str = ""
+    parts: List[dict] = field(default_factory=list)  # structured function responses
+
+    @property
+    def approx_chars(self) -> int:
+        return len(self.text) + sum(len(str(p)) for p in self.parts)
+
+
+def render_live_state(state: Dict[str, Any]) -> str:
+    """Layer 2: a compact render of campaign state. Rebuilt every call."""
+    lines = ["CURRENT WORLD STATE (authoritative — prefer this over anything in history):"]
+    lines.append(f"- Time: {format_world_time(state)}")
+
+    scene = state.get("scene") or {}
+    if scene.get("location"):
+        lines.append(f"- Location: {scene['location']}")
+    if scene.get("summary"):
+        lines.append(f"- Scene: {scene['summary']}")
+
+    if state.get("encounter"):
+        lines.append(
+            "- COMBAT ACTIVE: Avrae owns hit points, conditions, and durations. "
+            "World time is frozen until initiative ends."
+        )
+
+    party = state.get("party") or {}
+    if party:
+        lines.append("- Party:")
+        for actor, data in sorted(party.items()):
+            bits = [f"{data.get('gold', 0)}gp"]
+            inventory = data.get("inventory") or []
+            if inventory:
+                bits.append("carrying " + ", ".join(inventory[:8]))
+            lines.append(f"    - {actor}: {'; '.join(bits)}")
+
+    effects = state.get("effects") or []
+    if effects and not state.get("encounter"):
+        lines.append("- Active effects:")
+        for e in effects:
+            lines.append(f"    - {e['actor']}: {e['name']} (until minute {e['expires_at_minute']})")
+
+    quests = {k: v for k, v in (state.get("quests") or {}).items() if v.get("status") != "done"}
+    if quests:
+        lines.append("- Open quests:")
+        for qid, q in sorted(quests.items()):
+            lines.append(f"    - {q.get('title', qid)} [{q.get('status', 'open')}]")
+
+    return "\n".join(lines)
+
+
+def render_memory(notes: Sequence[Dict[str, Any]], summary: str, subjects: Sequence[str]) -> str:
+    """Layer 3: rolling summary plus notes relevant to who and where we are."""
+    blocks: List[str] = []
+    if summary:
+        blocks.append("STORY SO FAR:\n" + summary)
+
+    wanted = {s.lower() for s in subjects}
+    relevant = [
+        n for n in notes if not wanted or (n.get("subject", "").lower() in wanted)
+    ]
+    if relevant:
+        rendered = "\n".join(
+            f"- [{n.get('kind', 'note')}] {n.get('subject', '')}: {n.get('body', '')}"
+            for n in relevant[-25:]
+        )
+        blocks.append("RELEVANT MEMORY:\n" + rendered)
+    return "\n\n".join(blocks)
+
+
+@dataclass(frozen=True)
+class AssembledContext:
+    system_instruction: List[str]
+    turns: List[Turn]
+    approx_tokens: int
+    dropped_turns: int
+    dropped_memory: bool
+
+
+def assemble(
+    *,
+    state: Dict[str, Any],
+    history: Sequence[Turn],
+    notes: Sequence[Dict[str, Any]] = (),
+    summary: str = "",
+    subjects: Sequence[str] = (),
+    recent_turns: int = DEFAULT_RECENT_TURNS,
+    token_budget: int = DEFAULT_TOKEN_BUDGET,
+) -> AssembledContext:
+    """Build one call's context, trimming layer 4 then layer 3 to fit the budget."""
+    live = render_live_state(state)
+    memory = render_memory(notes, summary, subjects)
+
+    fixed_chars = len(DM_SYSTEM_INSTRUCTION) + len(live)
+    budget_chars = token_budget * CHARS_PER_TOKEN
+
+    window = list(history[-recent_turns:])
+    dropped = len(history) - len(window)
+
+    def total() -> int:
+        return fixed_chars + len(memory) + sum(t.approx_chars for t in window)
+
+    # Layer 4 first: recent turns are the cheapest thing to lose, because anything load-
+    # bearing in them should already be in state or memory.
+    while window and total() > budget_chars:
+        window.pop(0)
+        dropped += 1
+
+    dropped_memory = False
+    if memory and total() > budget_chars:
+        memory = ""
+        dropped_memory = True
+
+    system = [DM_SYSTEM_INSTRUCTION, live]
+    if memory:
+        system.append(memory)
+
+    return AssembledContext(
+        system_instruction=system,
+        turns=window,
+        approx_tokens=total() // CHARS_PER_TOKEN,
+        dropped_turns=dropped,
+        dropped_memory=dropped_memory,
+    )

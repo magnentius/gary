@@ -1,0 +1,14 @@
+{
+  "_provenance": "HYPOTHETICAL - authored from Avrae's documented output shape, NOT captured from a live bot. Replace via scripts/capture_avrae_fixtures.py.",
+  "_description": "A plain skill check via the ! prefix command.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Kethra makes a Sleight of Hand check!",
+      "description": "**1d20 (13) + 7** = `20`",
+      "author": {"name": "Kethra"}
+    }],
+    "referenced_message": {"author": {"id": "111"}}
+  },
+  "expect": {"status": "roll", "actor": "Kethra", "total": 20, "natural": 13, "kind": "check", "referenced_user_id": 111}
+}

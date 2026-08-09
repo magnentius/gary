@@ -1,0 +1,13 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Disadvantage: the HIGHER die is struck through. Taking the first number would read 17 instead of the 3 that counted.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Dorn makes a Wisdom save!",
+      "description": "**2d20kl1 (~~17~~, 3) + 1** = `4`",
+      "author": {"name": "Dorn"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Dorn", "total": 4, "natural": 3, "kind": "save"}
+}

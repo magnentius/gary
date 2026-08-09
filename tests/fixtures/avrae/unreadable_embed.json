@@ -1,0 +1,12 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "An embed we cannot classify. Must surface as UNKNOWN so Drelm asks the player, rather than degrading to a false negative.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Kethra does something inscrutable",
+      "description": "the format changed under us"
+    }]
+  },
+  "expect": {"status": "unknown"}
+}

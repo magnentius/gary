@@ -1,0 +1,12 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Avrae error embed. Irrelevant, not a failed roll.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Error",
+      "description": "No active character. Use !char <name> to select one."
+    }]
+  },
+  "expect": {"status": "irrelevant"}
+}

@@ -1,0 +1,16 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Attack embeds carry two numbers. The FIRST is the d20 result; taking the damage roll instead would silently resolve checks against the wrong number.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Dorn attacks with a Longsword!",
+      "fields": [
+        {"name": "Attack", "value": "**1d20 (14) + 6** = `20`"},
+        {"name": "Damage", "value": "**1d8 (5) + 4** = `9`"}
+      ],
+      "author": {"name": "Dorn"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Dorn", "total": 20, "natural": 14, "kind": "attack"}
+}

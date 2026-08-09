@@ -1,0 +1,14 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Same check via slash command; Discord attributes the invoker, which is the strongest correlation signal.",
+  "message": {
+    "content": "",
+    "interaction": {"user": {"id": "111"}},
+    "embeds": [{
+      "title": "Kethra makes a Stealth check!",
+      "description": "**1d20 (4) + 9** = `13`",
+      "author": {"name": "Kethra"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Kethra", "total": 13, "natural": 4, "kind": "check", "interaction_user_id": 111}
+}

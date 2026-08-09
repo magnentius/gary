@@ -1,0 +1,27 @@
+[project]
+name = "drelm"
+version = "0.1.0"
+description = "AI Game Master: Gemini narrative + Avrae rules + persistent campaign state, over Discord."
+requires-python = ">=3.11"
+dependencies = []
+
+[project.optional-dependencies]
+# The deterministic core (src/drelm, minus the discord/ and llm/ adapters) has no
+# third-party dependencies by design, so it can be tested without a Discord server
+# or an API key. Adapters are additive.
+discord = ["discord.py>=2.4"]
+llm = ["google-genai>=1.0"]
+mcp = ["mcp>=1.2"]
+gcp = ["google-cloud-firestore>=2.16"]
+dev = ["pytest>=8.0"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]

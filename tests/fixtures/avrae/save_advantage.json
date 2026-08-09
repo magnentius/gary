@@ -1,0 +1,13 @@
+{
+  "_provenance": "HYPOTHETICAL - not captured from a live bot.",
+  "_description": "Saving throw with advantage. Avrae strikes through the dropped die, so the kept face is not simply the first number in the group.",
+  "message": {
+    "content": "",
+    "embeds": [{
+      "title": "Dorn makes a Dexterity save!",
+      "description": "**2d20kh1 (17, ~~3~~) + 4** = `21`",
+      "author": {"name": "Dorn"}
+    }]
+  },
+  "expect": {"status": "roll", "actor": "Dorn", "total": 21, "natural": 17, "kind": "save"}
+}
