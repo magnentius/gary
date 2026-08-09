@@ -5,3 +5,4 @@ __pycache__/
 campaign/
 *.egg-info/
 .env
+tests/fixtures/avrae/captured/

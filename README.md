@@ -100,9 +100,14 @@ before it ever ran.
    export DISCORD_TOKEN=...
    python scripts/capture_avrae_fixtures.py --channel <id> --minutes 10
    ```
-   Run the commands listed in that script's docstring, **diff** the captures against the
-   derived fixtures (a disagreement means Avrae changed or the derivation was wrong —
-   both worth understanding), then `pytest tests/test_parser.py`.
+   The script prints the exact commands to run. Then:
+   ```bash
+   python scripts/verify_avrae_fixtures.py    # exits non-zero on any gap
+   ```
+   It flags captures the parser cannot read, containers that disagree with the derived
+   fixtures (the class that hid the initiative tracker), and commands you have not run
+   yet. Captures land in `tests/fixtures/avrae/captured/`, which the test glob ignores —
+   move them up a level once you have filled in each `expect`.
 3. **Verify the Firestore backend** if you want the disposable-VM setup. `state/firestore.py`
    has never run against Firestore, real or emulated — the fake-client tests cover this
    repo's serialisation and ordering, not Google's semantics:
