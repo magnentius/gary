@@ -32,6 +32,7 @@ from ..parser.avrae import ParseStatus, parse_embed
 from ..ports import EchoNarrator, Narrator
 from ..registry import PendingCheckRegistry
 from ..state.backend import FileCheckBackend, FileStateBackend
+from ..state.history import FileHistoryBackend
 from ..state.store import CampaignStore
 from .routing import Route, route_message
 from .runner import EffectRunner
@@ -289,13 +290,16 @@ def build_client(
         from google.cloud import firestore  # imported lazily: optional dependency
 
         from ..state.firestore import FirestoreCheckBackend, FirestoreStateBackend
+        from ..state.history import FirestoreHistoryBackend
 
         db = firestore.Client()
         state_backend = FirestoreStateBackend(db, settings.firestore_campaign_id)
         check_backend = FirestoreCheckBackend(db, settings.firestore_campaign_id)
+        history_backend = FirestoreHistoryBackend(db, settings.firestore_campaign_id)
     else:
         state_backend = FileStateBackend(settings.campaign_root)
         check_backend = FileCheckBackend(settings.campaign_root / "pending_checks.json")
+        history_backend = FileHistoryBackend(settings.campaign_root / "history")
 
     store = CampaignStore(backend=state_backend, clock=clock)
     registry = PendingCheckRegistry(
@@ -307,7 +311,42 @@ def build_client(
         game_channels=set(settings.game_channels),
         freeform_channels=set(settings.freeform_channels),
     )
+
+    if narrator is None:
+        narrator = build_narrator(settings, director, store, history_backend)
+
     return DrelmClient(settings, director, store, narrator=narrator, clock=clock)
+
+
+def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:
+    """Gemini when a key is configured, EchoNarrator otherwise.
+
+    Falling back rather than failing is deliberate: running the whole Discord path with no
+    model attached is the recommended first step (ARCHITECTURE.md §12.2), so an absent key
+    is a valid configuration rather than an error. It is logged loudly enough not to be
+    mistaken for a broken model.
+    """
+    if not settings.gemini_api_key:
+        log.warning(
+            "GEMINI_API_KEY not set — running with EchoNarrator. Rolls resolve and state "
+            "updates, but there is no narrative."
+        )
+        return EchoNarrator()
+
+    from google import genai  # imported lazily: optional dependency
+
+    from .gemini import GeminiNarrator
+
+    log.info("narrating with %s", settings.gemini_model)
+    return GeminiNarrator(
+        client=genai.Client(api_key=settings.gemini_api_key),
+        director=director,
+        store=store,
+        history_backend=history_backend,
+        model=settings.gemini_model,
+        summary_model=settings.gemini_summary_model,
+        window=settings.history_window,
+    )
 
 
 def main() -> None:  # pragma: no cover - operator entry point

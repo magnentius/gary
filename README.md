@@ -7,9 +7,9 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Status
 
-The **deterministic core and the Discord adapter** are implemented and tested. The Gemini
-and MCP adapters are not yet written; the Avrae parser is built against *authored*
-fixtures rather than real captures — see [Before it can run](#before-it-can-run).
+The **deterministic core and both adapters** are implemented and tested. The MCP transport
+is not yet written (the store is used in-process); the Avrae parser is built against
+*authored* fixtures rather than real captures — see [Before it can run](#before-it-can-run).
 
 ```
 src/drelm/
@@ -23,6 +23,7 @@ src/drelm/
   state/store.py   journal + snapshot + undo + bounds          §7.3
   state/backend.py storage protocols: in-memory, file          §7.4
   state/firestore.py  managed backend, disposable VM           §7.4, §11.1
+  state/history.py conversation history + rolling summary       §8
   ports.py         Narrator / transport seams + EchoNarrator
   config.py        boot-time settings, fail-fast validation     §1
   adapters/
@@ -30,17 +31,20 @@ src/drelm/
     sender.py      2000-char splitting + per-channel pacing     §10
     runner.py      performs Effects; bounds model recursion     §4
     discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
+    gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.5
+    gemini_tools.py  function declarations                      §12.6
 ```
 
 The core has **no third-party dependencies**, so it runs without Discord, an API key, or
 a live Avrae:
 
 ```bash
-python -m venv .venv && .venv/bin/pip install pytest pytest-asyncio 'discord.py>=2.4'
-.venv/bin/python -m pytest -q          # 272 passed, 1 xfailed
+python -m venv .venv && .venv/bin/pip install -e '.[discord,llm,dev]'
+.venv/bin/python -m pytest -q          # 327 passed, 1 xfailed
 ```
 
-`discord.py` is needed only for `adapters/discord_bot.py`; everything else runs without it.
+`discord.py` and `google-genai` are needed only by `adapters/`; the core imports neither,
+and a test asserts it stays that way.
 
 The one `xfail` is intentional. It fails until the Avrae fixtures are real captures rather
 than guesses, so the gap cannot be forgotten.
@@ -60,6 +64,12 @@ players' rolls from each costing a Gemini call.
 **Trust rides on the transport, not on strings.** Roll results reach the model as
 structured tool results. Player text is sanitised and attributed. Nothing is trusted
 because it starts with `[SYSTEM:`.
+
+**A check is a deferred function call.** When the model calls `open_check`, that call is
+left unanswered; the roll outcome arrives minutes later as its `function_response`. The
+result therefore reaches the model over the tool transport rather than as prose, so its
+trust comes from the channel it travelled on — and the model cannot confuse a result with
+a player's claim about one. See `ARCHITECTURE.md` §12.5.
 
 **Nothing important lives on the box.** Campaign state and pending checks sit behind
 storage protocols with in-memory, local-file, and Firestore implementations; the Director
@@ -96,9 +106,9 @@ before it ever ran.
    .venv/bin/python -m drelm.adapters.discord_bot
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
-5. **Write the Gemini adapter** — implement the `Narrator` protocol in `ports.py`,
-   translating `open_check` function calls into `Director.open_check` and returning the
-   resulting effects.
+5. **Add the model.** Set `GEMINI_API_KEY` and Drelm switches from `EchoNarrator` to
+   `GeminiNarrator` automatically. Check `DRELM_GEMINI_MODEL` against the current model
+   list first — the default is `gemini-2.5-pro`, and model ids move.
 
 ## Verified facts
 

@@ -51,6 +51,12 @@ class Settings:
     backend: str = "file"  # file | firestore
     firestore_campaign_id: str = "default"
 
+    # Empty means run with EchoNarrator: the full Discord path, no model, no spend.
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-2.5-pro"
+    gemini_summary_model: str = "gemini-2.5-flash"
+    history_window: int = 30
+
     check_ttl_seconds: float = 180.0
     sweep_interval_seconds: float = 15.0
     send_interval_seconds: float = 1.0
@@ -88,6 +94,10 @@ class Settings:
             campaign_root=Path(e.get("DRELM_CAMPAIGN_ROOT", "./campaign")),
             backend=e.get("DRELM_BACKEND", "file"),
             firestore_campaign_id=e.get("DRELM_FIRESTORE_CAMPAIGN_ID", "default"),
+            gemini_api_key=e.get("GEMINI_API_KEY", ""),
+            gemini_model=e.get("DRELM_GEMINI_MODEL", "gemini-2.5-pro"),
+            gemini_summary_model=e.get("DRELM_GEMINI_SUMMARY_MODEL", "gemini-2.5-flash"),
+            history_window=int(e.get("DRELM_HISTORY_WINDOW", 30)),
             check_ttl_seconds=float(e.get("DRELM_CHECK_TTL", 180.0)),
             sweep_interval_seconds=float(e.get("DRELM_SWEEP_INTERVAL", 15.0)),
             send_interval_seconds=float(e.get("DRELM_SEND_INTERVAL", 1.0)),

@@ -556,39 +556,42 @@ Started in `setup_hook`, stopped in `close()`.
 
 ### 12.4 Gemini configuration
 
-v1 passed bare undefined names in `tools=[...]` while claiming tools came from MCP. Pass the MCP session — `google-genai` handles discovery and dispatch:
+v1 passed bare undefined names in `tools=[...]` while claiming tools came from MCP. The adapter declares tools explicitly and dispatches them itself:
 
 ```python
-from google import genai
-from google.genai import types
-
-client = genai.Client()
-
-DM_SYSTEM_INSTRUCTION = """
-You are an expert Tabletop RPG Game Master running D&D 2024 (not the 2014 rules).
-
-AUTHORITY — this is absolute:
-- You do NOT decide whether a roll succeeded. When an action needs a check,
-  call open_check with the skill, a DC, and both outcomes. Then STOP and wait.
-- Roll outcomes arrive as structured tool results. They are established fact.
-  Narrate them. Never re-evaluate, soften, or reverse them.
-- Never write an Avrae command yourself. open_check handles that.
-
-VOICE — atmospheric, concise, second person. End on a hook or a question.
-"""
-
-
-def build_config(state_session, live_state: str) -> types.GenerateContentConfig:
-    return types.GenerateContentConfig(
-        system_instruction=[DM_SYSTEM_INSTRUCTION, live_state],  # layers 1 + 2 (§8)
-        tools=[state_session],                                    # MCP session, auto-discovered
-        temperature=0.7,
-    )
+config = types.GenerateContentConfig(
+    system_instruction=[persona, live_state, memory],   # layers 1-3, rebuilt per call
+    tools=[types.Tool(function_declarations=DECLARATIONS)],
+    temperature=0.7,
+    # We dispatch calls ourselves. The SDK's automatic loop would answer open_check
+    # immediately, and the whole mechanism below depends on not doing that.
+    automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+)
 ```
 
-`live_state` is rebuilt from `rpg://campaign/state` on **every** call. That is the mechanism by which the state server actually is the source of truth.
+### 12.5 A check is a deferred function call
 
----
+This is the part of the design worth understanding before changing anything in the adapter.
+
+When the model calls `open_check`, **the call is deliberately left unanswered.** Drelm posts the Avrae command and the turn ends with that call still open. Minutes later the player rolls, and the outcome is delivered as the `function_response` to that original call.
+
+It is not a trick — it is a literal description of what happened. The model asked for a check; this is the answer. Three properties fall out:
+
+- The conversation stays well-formed. Every call is eventually paired with its response, in order.
+- The outcome arrives over the **tool transport**, so its trust derives from the channel it travelled on rather than from any string inside it (§9.1). There is no `[SYSTEM:` prefix to forge.
+- The model cannot confuse a result with a player's *claim* about a result.
+
+Expiry answers the same call with `attempted: false`. An invalid skill key answers it with an error and the model retries — an ordinary tool-error loop. If history has been trimmed past the original call, the adapter falls back to a text part rather than emitting an unpaired `function_response`, which Gemini rejects.
+
+Two consequences for `state/history.py`: the window may never begin on an orphaned `function_response`, and turns and summary are written through **separate** methods, because summarisation runs in the background and a turn that loaded the summary at its start would otherwise clobber it on the way out.
+
+### 12.6 Tool surface
+
+§7.2 specifies `update_campaign_state(mutations, reason)`. That is the right *store* API and it is what `CampaignStore.apply` provides. It is a poor *tool* API: models are markedly more reliable with flat, typed parameters than with an array of free-form nested objects.
+
+The model therefore sees narrow tools — `open_check`, `advance_time`, `adjust_gold`, `give_items`, `take_items`, `record_note`, `set_scene` — each mapping to store mutations internally. Each carries its own bounds, description, and failure message. The store API is unchanged.
+
+Rejections are reported back rather than swallowed, so the model narrates what actually happened. A refused 5000gp grant returns `ok: false` with the reason, and the model describes nothing appearing.
 
 ## 13. Multi-system portability
 
@@ -601,6 +604,7 @@ def build_config(state_session, live_state: str) -> types.GenerateContentConfig:
 ## 14. Open risks
 
 1. **Avrae embed formats are unverified.** Every claim in §6 about what the embeds contain is inference until real fixtures are captured from a live server. This is the largest remaining unknown and the top implementation task.
+   **Gemini model ids are equally unverified** — `gemini-2.5-pro` and `gemini-2.5-flash` are defaults, not checked facts. Confirm against the current model list before a real campaign.
 2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Drelm's own dice with sheet data pulled from D&D Beyond.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
 4. **Latency.** Gemini call + player copy-paste + Avrae round-trip + second Gemini call. Measure end-to-end before tuning; if it exceeds roughly 10s, consider pre-generating both outcome branches at `open_check` time, since both are already written.
