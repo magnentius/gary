@@ -32,7 +32,7 @@ src/drelm/
     runner.py      performs Effects; bounds model recursion     §4
     discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
     gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.5
-    gemini_tools.py  function declarations                      §12.6
+    gemini_tools.py  function declarations                      §12.7
 ```
 
 The core has **no third-party dependencies**, so it runs without Discord, an API key, or
@@ -107,8 +107,9 @@ before it ever ran.
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
 5. **Add the model.** Set `GEMINI_API_KEY` and Drelm switches from `EchoNarrator` to
-   `GeminiNarrator` automatically. Check `DRELM_GEMINI_MODEL` against the current model
-   list first — the default is `gemini-2.5-pro`, and model ids move.
+   `GeminiNarrator` automatically. Defaults are `gemini-3.6-flash` for narration and
+   `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test.
+   Model ids move — recheck rather than assume.
 
 ## Verified facts
 

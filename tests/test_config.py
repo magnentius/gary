@@ -24,6 +24,17 @@ def test_defaults_are_the_verified_values():
     assert s.avrae_bot_id == 261302296103747584
     assert DEFAULT_AVRAE_BOT_ID == 261302296103747584
     assert not s.command_prefix.startswith("!")
+    # Must track adapters/gemini.py; a drift between them is a silent misconfiguration.
+    assert s.gemini_model == "gemini-3.6-flash"
+    assert s.gemini_summary_model == "gemini-3.5-flash-lite"
+
+
+def test_config_defaults_match_the_adapter_defaults():
+    from drelm.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL
+
+    s = settings()
+    assert s.gemini_model == DEFAULT_MODEL
+    assert s.gemini_summary_model == DEFAULT_SUMMARY_MODEL
 
 
 def test_missing_token_is_fatal():

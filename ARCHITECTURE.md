@@ -585,7 +585,17 @@ Expiry answers the same call with `attempted: false`. An invalid skill key answe
 
 Two consequences for `state/history.py`: the window may never begin on an orphaned `function_response`, and turns and summary are written through **separate** methods, because summarisation runs in the background and a turn that loaded the summary at its start would otherwise clobber it on the way out.
 
-### 12.6 Tool surface
+### 12.6 Model choice
+
+Defaults are `gemini-3.6-flash` for narration and `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test so a stale default fails in CI rather than 404s at the table.
+
+**Flash rather than Pro, and not only because it is newer.** The 3.x family has no stable Pro tier: `gemini-3.1-pro-preview` is preview and `gemini-3-pro-preview` is retired. The stable flagship *is* Flash, carrying Pro-grade reasoning at Flash latency and cost. That suits this system specifically — a single turn costs two model calls straddling a human copy-paste, so latency (§14.4) and cost (§14.5) are live risks rather than theoretical ones.
+
+**Temperature is left unset.** Google's Gemini 3 guidance is to keep it at the default 1.0, warning that lowering it "may lead to unexpected behavior, such as looping or degraded performance". Looping is exactly what the tool-iteration bound in §12.5 exists to catch, so turning temperature down to buy a steadier narrative voice would risk *causing* the failure that bound guards against. It remains settable for anyone pinning a 2.x model.
+
+**Not yet used:** Gemini 3 adds `thinking_level` (`minimal`/`low`/`medium`/`high`, default `high`), which is the obvious lever for the latency risk — narration probably wants `low`, summarisation `minimal`. `google-genai` 1.47.0 exposes only the legacy `thinking_budget`, so this waits on an SDK release.
+
+### 12.7 Tool surface
 
 §7.2 specifies `update_campaign_state(mutations, reason)`. That is the right *store* API and it is what `CampaignStore.apply` provides. It is a poor *tool* API: models are markedly more reliable with flat, typed parameters than with an array of free-form nested objects.
 
@@ -604,7 +614,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 ## 14. Open risks
 
 1. **Avrae embed formats are unverified.** Every claim in §6 about what the embeds contain is inference until real fixtures are captured from a live server. This is the largest remaining unknown and the top implementation task.
-   **Gemini model ids are equally unverified** — `gemini-2.5-pro` and `gemini-2.5-flash` are defaults, not checked facts. Confirm against the current model list before a real campaign.
+   Gemini model ids **were** in this category and are now checked: `gemini-3.6-flash` and `gemini-3.5-flash-lite`, verified against the model list on 2026-08-09 and pinned by a test. Ids still move — recheck rather than assume.
 2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Drelm's own dice with sheet data pulled from D&D Beyond.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
 4. **Latency.** Gemini call + player copy-paste + Avrae round-trip + second Gemini call. Measure end-to-end before tuning; if it exceeds roughly 10s, consider pre-generating both outcome branches at `open_check` time, since both are already written.

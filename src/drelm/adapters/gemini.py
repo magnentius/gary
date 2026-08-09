@@ -47,9 +47,17 @@ from . import gemini_tools as T
 
 log = logging.getLogger("drelm.gemini")
 
-# Verify these against the current model list before a real campaign; ids move.
-DEFAULT_MODEL = "gemini-2.5-pro"
-DEFAULT_SUMMARY_MODEL = "gemini-2.5-flash"
+# Verified against ai.google.dev/gemini-api/docs/models on 2026-08-09. Ids move; recheck.
+#
+# Flash, not Pro, is deliberate. The 3.x family has no stable Pro: the flagship stable
+# model is gemini-3.6-flash, which carries Pro-grade reasoning at Flash latency and cost.
+# (gemini-3.1-pro-preview exists but is preview, and gemini-3-pro-preview is retired.)
+# Latency and cost are live risks here -- §14 (4) and (5) -- and a turn costs two model
+# calls around a human copy-paste, so Flash is the right shape as well as the current one.
+DEFAULT_MODEL = "gemini-3.6-flash"
+
+# Summarisation is a cheap background job on text nobody reads directly.
+DEFAULT_SUMMARY_MODEL = "gemini-3.5-flash-lite"
 
 # Beyond this, a turn is looping rather than working.
 MAX_TOOL_ITERATIONS = 6
@@ -71,7 +79,7 @@ class GeminiNarrator:
         model: str = DEFAULT_MODEL,
         summary_model: str = DEFAULT_SUMMARY_MODEL,
         window: int = DEFAULT_WINDOW,
-        temperature: float = 0.7,
+        temperature: Optional[float] = None,
         max_tool_iterations: int = MAX_TOOL_ITERATIONS,
         max_retries: int = 2,
         max_context_chars: int = 160_000,
@@ -337,6 +345,11 @@ class GeminiNarrator:
     # -- model I/O ---------------------------------------------------------------------
 
     async def _generate(self, contents, system_instruction) -> Any:
+        # temperature is left unset by default. Google's Gemini 3 guidance is to keep it
+        # at the model default of 1.0; lowering it "may lead to unexpected behavior, such
+        # as looping or degraded performance". Looping is precisely the failure the tool
+        # bound in _run_turn exists to catch, so tuning this down to buy a steadier voice
+        # would risk causing the thing we are guarding against. Settable for 2.x models.
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,
             tools=T.tool_config(),

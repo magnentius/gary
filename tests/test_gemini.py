@@ -13,7 +13,7 @@ import pytest
 from google.genai import types
 
 from drelm.adapters import gemini_tools as T
-from drelm.adapters.gemini import GeminiNarrator
+from drelm.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL, GeminiNarrator
 from drelm.fsm import ChannelState, Director, PromptModel, SendMessage
 from drelm.registry import PendingCheckRegistry
 from drelm.state.backend import InMemoryStateBackend
@@ -52,17 +52,20 @@ class FakeModels:
     would show assertions a version of the request that was never sent.
 
     Summarisation runs on a different model, so it draws from its own script -- otherwise
-    a background summary steals the next narration response.
+    a background summary steals the next narration response. Routed by **exact** model id:
+    an earlier version matched on "flash" being in the name, which silently misrouted every
+    call the day both defaults became Flash models.
     """
 
-    def __init__(self, script, summary_script=()):
+    def __init__(self, script, summary_script=(), summary_model=DEFAULT_SUMMARY_MODEL):
         self.script = list(script)
         self.summary_script = list(summary_script)
+        self.summary_model = summary_model
         self.calls = []
         self.summary_calls = []
 
     async def generate_content(self, *, model, contents, config=None):
-        summary = "flash" in model
+        summary = model == self.summary_model
         record = self.summary_calls if summary else self.calls
         record.append({"model": model, "contents": list(contents), "config": config})
 
@@ -76,9 +79,9 @@ class FakeModels:
 
 
 class FakeClient:
-    def __init__(self, *script, summary_script=()):
+    def __init__(self, *script, summary_script=(), summary_model=DEFAULT_SUMMARY_MODEL):
         self.aio = type("aio", (), {})()
-        self.aio.models = FakeModels(script, summary_script)
+        self.aio.models = FakeModels(script, summary_script, summary_model)
 
     @property
     def calls(self):
@@ -512,3 +515,54 @@ async def test_automatic_function_calling_is_disabled(rig):
     n = narrator(rig, text_response("ok"))
     await player(n)
     assert n.client.calls[0]["config"].automatic_function_calling.disable is True
+
+
+# -- model selection ---------------------------------------------------------------------------------
+
+
+def test_defaults_are_current_stable_models():
+    """Verified against ai.google.dev/gemini-api/docs/models on 2026-08-09.
+
+    Pinned as a test so a stale default is a failure rather than a 404 at the table. If
+    this fails, recheck the model list -- do not just update the constant.
+    """
+    assert DEFAULT_MODEL == "gemini-3.6-flash"
+    assert DEFAULT_SUMMARY_MODEL == "gemini-3.5-flash-lite"
+    assert "preview" not in DEFAULT_MODEL
+    assert "preview" not in DEFAULT_SUMMARY_MODEL
+
+
+async def test_temperature_is_left_at_the_model_default(rig):
+    """Gemini 3 guidance: lowering temperature risks looping and degraded reasoning.
+
+    Looping is exactly what the tool-iteration bound exists to catch, so tuning this down
+    for a steadier voice would risk causing the failure it guards against.
+    """
+    n = narrator(rig, text_response("ok"))
+    await player(n)
+    assert n.client.calls[0]["config"].temperature is None
+
+
+async def test_temperature_is_still_settable(rig):
+    """2.x models still take it, and the adapter should not forbid what they support."""
+    n = narrator(rig, text_response("ok"), temperature=0.7)
+    await player(n)
+    assert n.client.calls[0]["config"].temperature == 0.7
+
+
+async def test_summary_runs_on_the_cheaper_model(rig):
+    director, store, history = rig
+    client = FakeClient(
+        *[text_response(f"r{i}") for i in range(6)],
+        summary_script=[text_response("SUMMARY")] * 5,
+    )
+    n = GeminiNarrator(client, director, store, history, window=2, summarize=True)
+    for i in range(4):
+        await n.narrate(channel_id=CHANNEL, kind="player_action",
+                        payload={"speaker_display_name": "Alice", "speaker_user_id": ALICE,
+                                 "text": f"t{i}"})
+    if n._tasks:
+        await asyncio.gather(*list(n._tasks), return_exceptions=True)
+
+    assert all(c["model"] == DEFAULT_MODEL for c in client.calls)
+    assert all(c["model"] == DEFAULT_SUMMARY_MODEL for c in client.aio.models.summary_calls)
