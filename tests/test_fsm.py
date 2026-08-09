@@ -253,9 +253,7 @@ def test_a_fresh_director_on_the_same_registry_agrees(director, registry, clock)
 
     open_check(director, user_id=ALICE, actor="Kethra", dc=15)
 
-    replacement = Director(
-        registry=registry, clock=clock, bot_user_id=999, game_channels={CHANNEL}
-    )
+    replacement = Director(registry=registry, clock=clock, game_channels={CHANNEL})
     assert replacement.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
     effects = replacement.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))

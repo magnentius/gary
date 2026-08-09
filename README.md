@@ -7,9 +7,9 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Status
 
-The **deterministic core** is implemented and tested. The adapters (Discord, Gemini, MCP
-transport) are not yet written, and the Avrae parser is built against *authored* fixtures
-rather than real captures — see [Before it can run](#before-it-can-run).
+The **deterministic core and the Discord adapter** are implemented and tested. The Gemini
+and MCP adapters are not yet written; the Avrae parser is built against *authored*
+fixtures rather than real captures — see [Before it can run](#before-it-can-run).
 
 ```
 src/drelm/
@@ -23,15 +23,24 @@ src/drelm/
   state/store.py   journal + snapshot + undo + bounds          §7.3
   state/backend.py storage protocols: in-memory, file          §7.4
   state/firestore.py  managed backend, disposable VM           §7.4, §11.1
+  ports.py         Narrator / transport seams + EchoNarrator
+  config.py        boot-time settings, fail-fast validation     §1
+  adapters/
+    routing.py     pure ingest decision                         §6.3
+    sender.py      2000-char splitting + per-channel pacing     §10
+    runner.py      performs Effects; bounds model recursion     §4
+    discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
 ```
 
 The core has **no third-party dependencies**, so it runs without Discord, an API key, or
 a live Avrae:
 
 ```bash
-python -m venv .venv && .venv/bin/pip install pytest
-.venv/bin/python -m pytest -q          # 206 passed, 1 xfailed
+python -m venv .venv && .venv/bin/pip install pytest pytest-asyncio 'discord.py>=2.4'
+.venv/bin/python -m pytest -q          # 272 passed, 1 xfailed
 ```
+
+`discord.py` is needed only for `adapters/discord_bot.py`; everything else runs without it.
 
 The one `xfail` is intentional. It fails until the Avrae fixtures are real captures rather
 than guesses, so the gap cannot be forgotten.
@@ -79,8 +88,17 @@ before it ever ran.
    ```bash
    gcloud emulators firestore start --host-port=localhost:8080
    ```
-4. **Write the adapters** — `discord.py` ingest, `google-genai` client, MCP stdio
-   transport. The core is pure and returns `Effect` objects; adapters perform the I/O.
+4. **Run it with no model attached.** `EchoNarrator` reports outcomes in plain text, so
+   the entire Discord path — intents, routing, parsing, correlation, resolution, sending —
+   can be proven against a live Avrae before spending a token:
+   ```bash
+   export DISCORD_TOKEN=... DRELM_GAME_CHANNELS=<channel id>
+   .venv/bin/python -m drelm.adapters.discord_bot
+   ```
+   In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
+5. **Write the Gemini adapter** — implement the `Narrator` protocol in `ports.py`,
+   translating `open_check` function calls into `Director.open_check` and returning the
+   resulting effects.
 
 ## Verified facts
 

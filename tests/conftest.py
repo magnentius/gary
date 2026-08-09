@@ -37,9 +37,7 @@ BOT = 999
 
 @pytest.fixture
 def director(registry: PendingCheckRegistry, clock: FakeClock) -> Director:
-    return Director(
-        registry=registry, clock=clock, bot_user_id=BOT, game_channels={CHANNEL}
-    )
+    return Director(registry=registry, clock=clock, game_channels={CHANNEL})
 
 
 class _FakeSnapshot:

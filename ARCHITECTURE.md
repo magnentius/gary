@@ -509,7 +509,19 @@ That is an architecture change, not a deployment-target change, and it is out of
 
 Python: `discord.py`, `mcp` (official SDK), `google-genai`. Chosen over TypeScript for the numeric/rules work and for `d20`-family library availability, not for any Discord-side advantage.
 
-### 12.2 MCP session lifetime
+### 12.2 The adapter boundary
+
+The core decides and returns `Effect` objects; it performs nothing and imports no third-party library. Adapters perform. Two protocols in `ports.py` name the seam: `Narrator` (prose from a structured payload) and `MessageTransport` (text to a channel).
+
+This is not architecture for its own sake — it is what let the Discord adapter be written and tested before the Gemini one exists. `EchoNarrator` reports outcomes in plain text, so the whole Discord path can be proven against a live Avrae with no API key and no token spend. Wire that up first; swap in Gemini once the plumbing is known good.
+
+Within the Discord adapter, only the discord.py event glue is untested — the routing decision, message splitting, pacing, and effect execution are all extracted into pure or fake-driven modules.
+
+**Narrating can produce more effects**, because the model may call `open_check`, which posts a command. `EffectRunner` recurses with a depth bound: without one, a model responding to its own output loops until the quota is gone. Exceeding the bound is logged as a model misbehaviour, not swallowed.
+
+**A narrator failure must never silence the channel.** A model error or an empty response yields an in-character stall line. A bot that appears dead is worse at the table than an awkward sentence.
+
+### 12.3 MCP session lifetime
 
 v1's snippet opened the session inside `async with` and returned — killing it on function exit. The session must live for the process lifetime:
 
@@ -542,7 +554,7 @@ class StateServer:
 
 Started in `setup_hook`, stopped in `close()`.
 
-### 12.3 Gemini configuration
+### 12.4 Gemini configuration
 
 v1 passed bare undefined names in `tools=[...]` while claiming tools came from MCP. Pass the MCP session — `google-genai` handles discovery and dispatch:
 

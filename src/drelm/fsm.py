@@ -100,13 +100,11 @@ class Director:
         self,
         registry: PendingCheckRegistry,
         clock: Callable[[], float],
-        bot_user_id: int,
         game_channels: Optional[Set[int]] = None,
         freeform_channels: Optional[Set[int]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
-        self.bot_user_id = bot_user_id
         self.game_channels = game_channels if game_channels is not None else set()
         self.freeform_channels = (
             freeform_channels if freeform_channels is not None else set()
