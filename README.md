@@ -7,9 +7,9 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Status
 
-The **deterministic core and both adapters** are implemented and tested. The MCP transport
-is not yet written (the store is used in-process); the Avrae parser is built against
-*authored* fixtures rather than real captures — see [Before it can run](#before-it-can-run).
+The **deterministic core and all three adapters** are implemented. The Avrae parser is
+built against *authored* fixtures rather than real captures, and the MCP binding has never
+been run — see [Before it can run](#before-it-can-run).
 
 ```
 src/drelm/
@@ -24,6 +24,8 @@ src/drelm/
   state/backend.py storage protocols: in-memory, file          §7.4
   state/firestore.py  managed backend, disposable VM           §7.4, §11.1
   state/history.py conversation history + rolling summary       §8
+  state/lock.py    single-writer enforcement                     §7.6
+  prep.py          between-session campaign prep API             §2.1
   ports.py         Narrator / transport seams + EchoNarrator
   config.py        boot-time settings, fail-fast validation     §1
   adapters/
@@ -33,6 +35,7 @@ src/drelm/
     discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
     gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.5
     gemini_tools.py  function declarations                      §12.7
+    mcp_server.py  MCP binding over prep.py (unverified)         §2.1
 ```
 
 The core has **no third-party dependencies**, so it runs without Discord, an API key, or
@@ -71,6 +74,12 @@ result therefore reaches the model over the tool transport rather than as prose,
 trust comes from the channel it travelled on — and the model cannot confuse a result with
 a player's claim about one. See `ARCHITECTURE.md` §12.5.
 
+**Drelm is not an MCP client.** It uses the store in-process; a protocol boundary between
+two objects in one program buys nothing. MCP sits *beside* Drelm so you can open the
+campaign from Claude Desktop between sessions — audit what the model did, write NPCs,
+plant foreshadowing. Two processes on one campaign would break the single-writer rule, so
+the writer holds a lock and a prep client that cannot take it runs read-only.
+
 **Nothing important lives on the box.** Campaign state and pending checks sit behind
 storage protocols with in-memory, local-file, and Firestore implementations; the Director
 derives channel state from the registry rather than holding it. Point the backends at
@@ -106,7 +115,17 @@ before it ever ran.
    .venv/bin/python -m drelm.adapters.discord_bot
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
-5. **Add the model.** Set `GEMINI_API_KEY` and Drelm switches from `EchoNarrator` to
+5. **Verify the MCP binding** if you want Claude Desktop access. `adapters/mcp_server.py`
+   has never been imported: the MCP SDK needs Python 3.10+ and this repo's environment is
+   3.9. Everything with behaviour worth trusting is in `prep.py` and `state/lock.py`,
+   which are fully tested; what is unverified is decorator shapes and transport wiring.
+   ```json
+   {"mcpServers": {"drelm": {
+     "command": "/path/to/.venv/bin/python",
+     "args": ["-m", "drelm.adapters.mcp_server"],
+     "env": {"DRELM_CAMPAIGN_ROOT": "/path/to/campaign"}}}}
+   ```
+6. **Add the model.** Set `GEMINI_API_KEY` and Drelm switches from `EchoNarrator` to
    `GeminiNarrator` automatically. Defaults are `gemini-3.6-flash` for narration and
    `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test.
    Model ids move — recheck rather than assume.

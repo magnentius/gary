@@ -33,6 +33,7 @@ from ..ports import EchoNarrator, Narrator
 from ..registry import PendingCheckRegistry
 from ..state.backend import FileCheckBackend, FileStateBackend
 from ..state.history import FileHistoryBackend
+from ..state.lock import CampaignLock, lock_path
 from ..state.store import CampaignStore
 from .routing import Route, route_message
 from .runner import EffectRunner
@@ -96,6 +97,7 @@ class DrelmClient(discord.Client):
         store: CampaignStore,
         narrator: Optional[Narrator] = None,
         clock=time.time,
+        lock: Optional[CampaignLock] = None,
     ) -> None:
         intents = discord.Intents.default()
         intents.message_content = True  # PRIVILEGED — also enable in the Developer Portal
@@ -106,6 +108,7 @@ class DrelmClient(discord.Client):
         self.director = director
         self.store = store
         self.clock = clock
+        self.lock = lock
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
@@ -141,6 +144,10 @@ class DrelmClient(discord.Client):
             self.store.snapshot()
         except Exception:  # noqa: BLE001 - never block shutdown on this
             log.exception("final snapshot failed; journal replay will cover it")
+        if self.lock is not None:
+            # Released last, so a prep client cannot take the campaign while we are still
+            # writing the closing snapshot.
+            self.lock.release()
         await super().close()
 
     async def _sweep_loop(self) -> None:
@@ -301,6 +308,19 @@ def build_client(
         check_backend = FileCheckBackend(settings.campaign_root / "pending_checks.json")
         history_backend = FileHistoryBackend(settings.campaign_root / "history")
 
+    # Drelm is the live writer, so it takes the campaign lock (§7.3). An MCP prep client
+    # that finds the lock held degrades to read-only rather than interleaving writes into
+    # a journal we are appending to. Failing to acquire is a warning, not a refusal:
+    # a stale lock must never stop a game from starting.
+    lock = CampaignLock(lock_path(settings.campaign_root), owner="drelm")
+    if not lock.acquire():
+        log.warning(
+            "campaign lock held by %s. Another Drelm or an MCP prep client may be "
+            "writing to this campaign. Continuing, but concurrent writes can corrupt "
+            "the journal.",
+            lock.holder(),
+        )
+
     store = CampaignStore(backend=state_backend, clock=clock)
     registry = PendingCheckRegistry(
         clock=clock, ttl_seconds=settings.check_ttl_seconds, backend=check_backend
@@ -315,7 +335,7 @@ def build_client(
     if narrator is None:
         narrator = build_narrator(settings, director, store, history_backend)
 
-    return DrelmClient(settings, director, store, narrator=narrator, clock=clock)
+    return DrelmClient(settings, director, store, narrator=narrator, clock=clock, lock=lock)
 
 
 def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:

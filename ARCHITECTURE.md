@@ -72,15 +72,23 @@ These are hard facts about the runtime environment. Everything downstream depend
               │  │ Context     → prompt assembly  │  │
               │  └────────────────────────────────┘  │
               └────────┬───────────────────┬─────────┘
-                       │                   │
-              Google GenAI API      MCP (stdio subprocess)
-                       │                   │
-                       ▼                   ▼
-              ┌──────────────┐    ┌──────────────────────┐
-              │  Gemini API  │    │  Campaign State      │
-              │   (cloud)    │    │  Server (local)      │
-              └──────────────┘    │  journal + snapshot  │
-                                  └──────────────────────┘
+                       │                   │ in-process
+              Google GenAI API             │
+                       │                   ▼
+                       ▼          ┌──────────────────────┐
+              ┌──────────────┐    │  Campaign Store      │
+              │  Gemini API  │    │  journal + snapshot  │
+              │   (cloud)    │    └──────────┬───────────┘
+              └──────────────┘               │ same backend,
+                                             │ guarded by a lock
+                                             ▼
+                                  ┌──────────────────────┐
+                                  │  MCP server          │
+                                  │  (between sessions)  │
+                                  └──────────┬───────────┘
+                                             │ stdio
+                                             ▼
+                                     Claude Desktop / IDE
 ```
 
 **Components**
@@ -93,11 +101,15 @@ These are hard facts about the runtime environment. Everything downstream depend
 
 ### 2.1 On the MCP boundary
 
-As specified there is exactly one client, one server, one machine, one repo. MCP buys no decoupling over a plain module of tool functions — it adds a protocol, a serialization boundary, and a process lifecycle to manage.
+**Drelm is not an MCP client.** It uses `CampaignStore` in-process. A protocol, a subprocess, and a serialisation boundary between two objects in the same program buy nothing, and every turn would pay for them.
 
-**It is retained for one reason only:** the campaign state server is independently useful from other MCP clients (Claude Desktop, an IDE) for between-session prep — writing NPCs, auditing the journal, planning encounters — without running Drelm or Discord.
+MCP earns its place on the *other* side of the store, and for the one reason §2.1 has always given: the campaign should be reachable from another client — Claude Desktop, an IDE — for between-session prep. Auditing what the model did to the campaign, writing NPCs, planting foreshadowing, undoing a hallucinated magic sword. That is real value, and it is value Drelm's own process cannot provide because the DM is not in Discord when they are planning.
 
-If that use case does not materialize, collapse the server into an in-process `tools/` module. The tool interface in §7 is defined so this swap is a transport change and nothing more. **Do not let MCP leak into the domain logic.**
+So the server sits *beside* Drelm rather than inside it, over the same backend. Consequences:
+
+- The MCP surface (`prep.py`) is a **prep API, not the game loop**. It never opens checks or narrates.
+- Two processes now share one campaign, which §7.3 forbids. That is what the lock in §7.6 is for.
+- The MCP SDK never reaches the core. `prep.py` and `state/lock.py` hold the behaviour; `adapters/mcp_server.py` is a binding.
 
 ---
 
@@ -410,6 +422,16 @@ The correct path is **v5**, not v1's v2. This endpoint is **undocumented, unsupp
 
 ---
 
+### 7.6 The campaign lock
+
+§7.3 specifies a single writer, and that was true by construction until the MCP server existed. A prep client is a second process on the same campaign, so the invariant now needs enforcing rather than assuming.
+
+The writer takes an advisory exclusive lock (`flock`) on `.drelm.lock` in the campaign root. Drelm takes it at boot; a prep client that cannot take it **runs read-only and says so**, in the overview banner and in every refused write. Non-blocking on purpose: a prep client that waited would hang silently for the length of a session, while one that is refused can offer reads immediately and explain why.
+
+Drelm releases the lock *after* its closing snapshot, so a prep client cannot claim the campaign mid-write. A lock Drelm cannot acquire is a loud warning, never a refusal to start — a stale lock file must not be able to stop a game.
+
+**Limit.** `flock` is per-machine. It protects the file backend, which is the setup that can actually suffer this. It does nothing for Firestore, where two machines could write concurrently; that would need a lease held in Firestore itself, and is not implemented.
+
 ## 8. Context assembly contract
 
 v1 never specified what goes into a Gemini call. A campaign runs for thousands of turns; naive appending guarantees runaway cost and eventual truncation of exactly the facts the system depends on.
@@ -614,6 +636,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 ## 14. Open risks
 
 1. **Avrae embed formats are unverified.** Every claim in §6 about what the embeds contain is inference until real fixtures are captured from a live server. This is the largest remaining unknown and the top implementation task.
+   **The MCP binding is unverified too**, and for a different reason: the MCP SDK requires Python 3.10+ and the development environment is 3.9, so `adapters/mcp_server.py` has never been imported. Its substance lives in `prep.py` and `state/lock.py`, which are tested; the binding is not.
    Gemini model ids **were** in this category and are now checked: `gemini-3.6-flash` and `gemini-3.5-flash-lite`, verified against the model list on 2026-08-09 and pinned by a test. Ids still move — recheck rather than assume.
 2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Drelm's own dice with sheet data pulled from D&D Beyond.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
