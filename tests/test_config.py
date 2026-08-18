@@ -25,7 +25,7 @@ def test_defaults_are_the_verified_values():
     assert DEFAULT_AVRAE_BOT_ID == 261302296103747584
     assert not s.command_prefix.startswith("!")
     # Must track adapters/gemini.py; a drift between them is a silent misconfiguration.
-    assert s.gemini_model == "gemini-3.6-flash"
+    assert s.gemini_model == "gemini-3.7-flash"
     assert s.gemini_summary_model == "gemini-3.5-flash-lite"
 
 

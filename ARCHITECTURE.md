@@ -545,40 +545,7 @@ Within the Discord adapter, only the discord.py event glue is untested — the r
 
 **A narrator failure must never silence the channel.** A model error or an empty response yields an in-character stall line. A bot that appears dead is worse at the table than an awkward sentence.
 
-### 12.3 MCP session lifetime
-
-v1's snippet opened the session inside `async with` and returned — killing it on function exit. The session must live for the process lifetime:
-
-```python
-from contextlib import AsyncExitStack
-from mcp import ClientSession, StdioServerParameters
-from mcp.client.stdio import stdio_client
-
-
-class StateServer:
-    """Owns the MCP subprocess and session for the life of the process."""
-
-    def __init__(self, params: StdioServerParameters) -> None:
-        self._params = params
-        self._stack: AsyncExitStack | None = None
-        self.session: ClientSession | None = None
-
-    async def start(self) -> None:
-        self._stack = AsyncExitStack()
-        read, write = await self._stack.enter_async_context(stdio_client(self._params))
-        self.session = await self._stack.enter_async_context(ClientSession(read, write))
-        await self.session.initialize()
-
-    async def stop(self) -> None:
-        if self._stack is not None:
-            await self._stack.aclose()
-            self._stack = None
-            self.session = None
-```
-
-Started in `setup_hook`, stopped in `close()`.
-
-### 12.4 Gemini configuration
+### 12.3 Gemini configuration
 
 v1 passed bare undefined names in `tools=[...]` while claiming tools came from MCP. The adapter declares tools explicitly and dispatches them itself:
 
@@ -593,7 +560,7 @@ config = types.GenerateContentConfig(
 )
 ```
 
-### 12.5 A check is a deferred function call
+### 12.4 A check is a deferred function call
 
 This is the part of the design worth understanding before changing anything in the adapter.
 
@@ -609,17 +576,17 @@ Expiry answers the same call with `attempted: false`. An invalid skill key answe
 
 Two consequences for `state/history.py`: the window may never begin on an orphaned `function_response`, and turns and summary are written through **separate** methods, because summarisation runs in the background and a turn that loaded the summary at its start would otherwise clobber it on the way out.
 
-### 12.6 Model choice
+### 12.5 Model choice
 
-Defaults are `gemini-3.6-flash` for narration and `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test so a stale default fails in CI rather than 404s at the table.
+Defaults are `gemini-3.7-flash` for narration (verified 2026-08-18) and `gemini-3.5-flash-lite` for summarisation (verified 2026-08-09), pinned by a test so a stale default fails in CI rather than 404s at the table.
 
 **Flash rather than Pro, and not only because it is newer.** The 3.x family has no stable Pro tier: `gemini-3.1-pro-preview` is preview and `gemini-3-pro-preview` is retired. The stable flagship *is* Flash, carrying Pro-grade reasoning at Flash latency and cost. That suits this system specifically — a single turn costs two model calls straddling a human copy-paste, so latency (§14.4) and cost (§14.5) are live risks rather than theoretical ones.
 
-**Temperature is left unset.** Google's Gemini 3 guidance is to keep it at the default 1.0, warning that lowering it "may lead to unexpected behavior, such as looping or degraded performance". Looping is exactly what the tool-iteration bound in §12.5 exists to catch, so turning temperature down to buy a steadier narrative voice would risk *causing* the failure that bound guards against. It remains settable for anyone pinning a 2.x model.
+**Temperature is left unset.** Google's Gemini 3 guidance is to keep it at the default 1.0, warning that lowering it "may lead to unexpected behavior, such as looping or degraded performance". Looping is exactly what the tool-iteration bound in §12.4 exists to catch, so turning temperature down to buy a steadier narrative voice would risk *causing* the failure that bound guards against. It remains settable for anyone pinning a 2.x model.
 
 **Not yet used:** Gemini 3 adds `thinking_level` (`minimal`/`low`/`medium`/`high`, default `high`), which is the obvious lever for the latency risk — narration probably wants `low`, summarisation `minimal`. `google-genai` 1.47.0 exposes only the legacy `thinking_budget`, so this waits on an SDK release.
 
-### 12.7 Tool surface
+### 12.6 Tool surface
 
 §7.2 specifies `update_campaign_state(mutations, reason)`. That is the right *store* API and it is what `CampaignStore.apply` provides. It is a poor *tool* API: models are markedly more reliable with flat, typed parameters than with an array of free-form nested objects.
 
@@ -639,7 +606,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 
 1. **Avrae formats are derived, not captured.** Every pattern in §6 is now traced to Avrae's source at `avrae@cb75be2` and to `d20` run locally — a far stronger position than the inference this started as, and it corrected four wrong guesses including a whole container. What remains unverified is what Discord *actually delivers over the wire*: field ordering, serialisation, and any Avrae version drift. `scripts/capture_avrae_fixtures.py` closes it, and a strict `xfail` tracks the gap.
    **The MCP binding is unverified too**, and for a different reason: the MCP SDK requires Python 3.10+ and the development environment is 3.9, so `adapters/mcp_server.py` has never been imported. Its substance lives in `prep.py` and `state/lock.py`, which are tested; the binding is not.
-   Gemini model ids **were** in this category and are now checked: `gemini-3.6-flash` and `gemini-3.5-flash-lite`, verified against the model list on 2026-08-09 and pinned by a test. Ids still move — recheck rather than assume.
+   Gemini model ids **were** in this category and are now checked: `gemini-3.7-flash` (verified 2026-08-18) and `gemini-3.5-flash-lite` (verified 2026-08-09), both checked against the model list and pinned by a test. Ids still move — recheck rather than assume.
 2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Gary's own dice with sheet data pulled from D&D Beyond.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
 4. **Latency.** Gemini call + player copy-paste + Avrae round-trip + second Gemini call. Measure end-to-end before tuning; if it exceeds roughly 10s, consider pre-generating both outcome branches at `open_check` time, since both are already written.

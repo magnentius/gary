@@ -53,7 +53,7 @@ class Settings:
 
     # Empty means run with EchoNarrator: the full Discord path, no model, no spend.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.6-flash"
+    gemini_model: str = "gemini-3.7-flash"
     gemini_summary_model: str = "gemini-3.5-flash-lite"
     history_window: int = 30
 
@@ -95,7 +95,7 @@ class Settings:
             backend=e.get("GARY_BACKEND", "file"),
             firestore_campaign_id=e.get("GARY_FIRESTORE_CAMPAIGN_ID", "default"),
             gemini_api_key=e.get("GEMINI_API_KEY", ""),
-            gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.6-flash"),
+            gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.7-flash"),
             gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
             history_window=int(e.get("GARY_HISTORY_WINDOW", 30)),
             check_ttl_seconds=float(e.get("GARY_CHECK_TTL", 180.0)),

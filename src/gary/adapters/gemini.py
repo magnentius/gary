@@ -1,4 +1,4 @@
-"""The Gemini adapter (ARCHITECTURE.md §5, §8, §9.1, §12.4).
+"""The Gemini adapter (ARCHITECTURE.md §5, §8, §9.1, §12.3).
 
 Implements ``Narrator``. Assembles context, calls the model, dispatches its tool calls,
 and returns prose plus whatever effects those calls produced.
@@ -47,14 +47,15 @@ from . import gemini_tools as T
 
 log = logging.getLogger("gary.gemini")
 
-# Verified against ai.google.dev/gemini-api/docs/models on 2026-08-09. Ids move; recheck.
+# Narration id verified 2026-08-18, summariser 2026-08-09, against
+# ai.google.dev/gemini-api/docs/models. Ids move; recheck.
 #
 # Flash, not Pro, is deliberate. The 3.x family has no stable Pro: the flagship stable
-# model is gemini-3.6-flash, which carries Pro-grade reasoning at Flash latency and cost.
+# model is gemini-3.7-flash, which carries Pro-grade reasoning at Flash latency and cost.
 # (gemini-3.1-pro-preview exists but is preview, and gemini-3-pro-preview is retired.)
 # Latency and cost are live risks here -- §14 (4) and (5) -- and a turn costs two model
 # calls around a human copy-paste, so Flash is the right shape as well as the current one.
-DEFAULT_MODEL = "gemini-3.6-flash"
+DEFAULT_MODEL = "gemini-3.7-flash"
 
 # Summarisation is a cheap background job on text nobody reads directly.
 DEFAULT_SUMMARY_MODEL = "gemini-3.5-flash-lite"

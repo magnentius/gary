@@ -35,8 +35,8 @@ src/gary/
     sender.py      2000-char splitting + per-channel pacing     §10
     runner.py      performs Effects; bounds model recursion     §4
     discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
-    gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.5
-    gemini_tools.py  function declarations                      §12.7
+    gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.4
+    gemini_tools.py  function declarations                      §12.6
     mcp_server.py  MCP binding over prep.py (unverified)         §2.1
 ```
 
@@ -74,7 +74,7 @@ because it starts with `[SYSTEM:`.
 left unanswered; the roll outcome arrives minutes later as its `function_response`. The
 result therefore reaches the model over the tool transport rather than as prose, so its
 trust comes from the channel it travelled on — and the model cannot confuse a result with
-a player's claim about one. See `ARCHITECTURE.md` §12.5.
+a player's claim about one. See `ARCHITECTURE.md` §12.4.
 
 **Gary is not an MCP client.** It uses the store in-process; a protocol boundary between
 two objects in one program buys nothing. MCP sits *beside* Gary so you can open the
@@ -135,8 +135,9 @@ before it ever ran.
      "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign"}}}}
    ```
 6. **Add the model.** Set `GEMINI_API_KEY` and Gary switches from `EchoNarrator` to
-   `GeminiNarrator` automatically. Defaults are `gemini-3.6-flash` for narration and
-   `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test.
+   `GeminiNarrator` automatically. Defaults are `gemini-3.7-flash` for narration
+   (verified 2026-08-18) and `gemini-3.5-flash-lite` for summarisation (verified
+   2026-08-09), both pinned by a test.
    Model ids move — recheck rather than assume.
 
 ## Verified facts

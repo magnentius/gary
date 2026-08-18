@@ -521,12 +521,13 @@ async def test_automatic_function_calling_is_disabled(rig):
 
 
 def test_defaults_are_current_stable_models():
-    """Verified against ai.google.dev/gemini-api/docs/models on 2026-08-09.
+    """Narration id verified 2026-08-18, summariser 2026-08-09, against
+    ai.google.dev/gemini-api/docs/models.
 
     Pinned as a test so a stale default is a failure rather than a 404 at the table. If
     this fails, recheck the model list -- do not just update the constant.
     """
-    assert DEFAULT_MODEL == "gemini-3.6-flash"
+    assert DEFAULT_MODEL == "gemini-3.7-flash"
     assert DEFAULT_SUMMARY_MODEL == "gemini-3.5-flash-lite"
     assert "preview" not in DEFAULT_MODEL
     assert "preview" not in DEFAULT_SUMMARY_MODEL
