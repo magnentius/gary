@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drelm.models import AvraeRoll, CancelReason, CheckKind
+from gary.models import AvraeRoll, CancelReason, CheckKind
 
 CHANNEL = 555
 ALICE = 111
@@ -112,9 +112,9 @@ def test_consume_removes_the_check(registry):
 
 
 def test_restore_after_restart(registry, clock):
-    """Pending checks survive a Drelm restart (ARCHITECTURE.md §10)."""
+    """Pending checks survive a Gary restart (ARCHITECTURE.md §10)."""
     check, _ = open_for(registry, ALICE, "Kethra")
-    from drelm.registry import PendingCheckRegistry
+    from gary.registry import PendingCheckRegistry
 
     fresh = PendingCheckRegistry(clock=clock)
     assert not fresh.has_open(CHANNEL)

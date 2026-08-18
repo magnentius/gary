@@ -6,12 +6,12 @@ import json
 
 import pytest
 
-from drelm.models import Mutation, MutationKind
-from drelm.state.backend import FileStateBackend, InMemoryStateBackend
-from drelm.state.firestore import FirestoreStateBackend
+from gary.models import Mutation, MutationKind
+from gary.state.backend import FileStateBackend, InMemoryStateBackend
+from gary.state.firestore import FirestoreStateBackend
 
 from .conftest import FakeFirestoreClient
-from drelm.state.store import Bounds, CampaignStore, EncounterActive, StateError
+from gary.state.store import Bounds, CampaignStore, EncounterActive, StateError
 
 
 @pytest.fixture(params=["file", "memory", "firestore"])

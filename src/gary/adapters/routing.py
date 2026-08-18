@@ -6,12 +6,12 @@ it is glue.
 
 Order is load-bearing:
 
-1. **Self first.** Drelm posts narration into the same channel it listens to. Anything
+1. **Self first.** Gary posts narration into the same channel it listens to. Anything
    else first risks a feedback loop where the bot answers itself forever.
 2. **Avrae before the generic bot check.** Avrae *is* a bot; a blanket "ignore bots"
    ahead of this would discard every roll the system depends on.
 3. **All other bots.** Other dice bots, webhooks, bridges — none are ours to interpret.
-4. **Drelm's own commands**, before ordinary player text, so ``?dm undo`` is never
+4. **Gary's own commands**, before ordinary player text, so ``?dm undo`` is never
    narrated at the table as though a character said it.
 5. **Game channels only.** An unregistered channel is silence, not an error.
 """

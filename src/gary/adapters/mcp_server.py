@@ -1,23 +1,23 @@
 """MCP server exposing the campaign (ARCHITECTURE.md §2.1, §7.1).
 
 Lets Claude Desktop (or any MCP client) read and edit the campaign between sessions —
-auditing what the model did, writing NPCs, planting foreshadowing — without running Drelm
+auditing what the model did, writing NPCs, planting foreshadowing — without running Gary
 or Discord. §2.1 names this as the *only* justification for keeping MCP in the design, so
 this server is that justification made real.
 
-**Note the direction.** Drelm is not an MCP client. It uses ``CampaignStore`` in-process,
+**Note the direction.** Gary is not an MCP client. It uses ``CampaignStore`` in-process,
 because a protocol, a subprocess, and a serialisation boundary between two objects in one
-program buys nothing. MCP sits beside Drelm for outside clients, not inside its hot path.
+program buys nothing. MCP sits beside Gary for outside clients, not inside its hot path.
 
 Configure Claude Desktop:
 
 ```json
 {
   "mcpServers": {
-    "drelm": {
+    "gary": {
       "command": "/path/to/.venv/bin/python",
-      "args": ["-m", "drelm.adapters.mcp_server"],
-      "env": {"DRELM_CAMPAIGN_ROOT": "/path/to/campaign"}
+      "args": ["-m", "gary.adapters.mcp_server"],
+      "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign"}
     }
   }
 }
@@ -25,11 +25,11 @@ Configure Claude Desktop:
 
 ⚠️ **UNVERIFIED.** The MCP SDK requires Python 3.10+, and this repository's environment is
 3.9, so this module has never been imported or run. Everything with behaviour worth
-trusting lives in ``drelm/prep.py`` and ``drelm/state/lock.py``, which are fully tested;
+trusting lives in ``gary/prep.py`` and ``gary/state/lock.py``, which are fully tested;
 what is unverified here is the binding — decorator shapes, transport wiring, SDK
 signatures. Check those against the SDK before relying on it.
 
-**Writes need the lock.** If Drelm holds the campaign (a session is live), this starts
+**Writes need the lock.** If Gary holds the campaign (a session is live), this starts
 read-only and says so rather than interleaving writes into a journal someone is appending
 to (§7.3).
 """
@@ -50,9 +50,9 @@ from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
 from ..state.store import CampaignStore
 
-log = logging.getLogger("drelm.mcp")
+log = logging.getLogger("gary.mcp")
 
-mcp = FastMCP("drelm")
+mcp = FastMCP("gary")
 
 _prep: CampaignPrep
 
@@ -187,7 +187,7 @@ def _guard(fn) -> str:
 def main() -> None:  # pragma: no cover - operator entry point
     logging.basicConfig(level=logging.INFO, stream=sys.stderr)
     global _prep
-    _prep = _build(Path(os.environ.get("DRELM_CAMPAIGN_ROOT", "./campaign")))
+    _prep = _build(Path(os.environ.get("GARY_CAMPAIGN_ROOT", "./campaign")))
     mcp.run(transport="stdio")
 
 

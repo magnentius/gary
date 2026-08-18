@@ -13,7 +13,7 @@ import textwrap
 
 import pytest
 
-from drelm.state.lock import CampaignLock, lock_path
+from gary.state.lock import CampaignLock, lock_path
 
 
 @pytest.fixture
@@ -29,7 +29,7 @@ def test_lock_is_acquired_on_a_fresh_campaign(path):
 
 
 def test_release_makes_it_available_again(path):
-    first = CampaignLock(path, owner="drelm")
+    first = CampaignLock(path, owner="gary")
     assert first.acquire()
     first.release()
 
@@ -52,10 +52,10 @@ def test_context_manager_releases(path):
 
 
 def test_holder_records_who_and_which_pid(path):
-    lock = CampaignLock(path, owner="drelm")
+    lock = CampaignLock(path, owner="gary")
     lock.acquire()
     holder = lock.holder()
-    assert "drelm" in holder
+    assert "gary" in holder
     assert str(os.getpid()) in holder
     lock.release()
 
@@ -72,7 +72,7 @@ def test_a_second_process_cannot_take_a_held_lock(path, tmp_path):
     to cross a real process boundary to prove anything -- which is exactly the case the
     MCP server creates.
     """
-    holder = CampaignLock(path, owner="drelm")
+    holder = CampaignLock(path, owner="gary")
     assert holder.acquire()
 
     script = textwrap.dedent(
@@ -81,7 +81,7 @@ def test_a_second_process_cannot_take_a_held_lock(path, tmp_path):
         sys.path.insert(0, {str(tmp_path.parent.parent / "src")!r})
         sys.path.insert(0, {os.path.join(os.getcwd(), "src")!r})
         from pathlib import Path
-        from drelm.state.lock import CampaignLock
+        from gary.state.lock import CampaignLock
         lock = CampaignLock(Path({str(path)!r}), owner="mcp")
         print("ACQUIRED" if lock.acquire() else "REFUSED")
         """

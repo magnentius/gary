@@ -15,15 +15,15 @@ from pathlib import Path
 
 import pytest
 
-from drelm.adapters.discord_bot import message_to_dict
-from drelm.adapters.runner import EffectRunner
-from drelm.adapters.sender import ChannelSender
-from drelm.fsm import ChannelState, Director
-from drelm.models import CheckKind
-from drelm.parser.avrae import parse_embed
-from drelm.ports import EchoNarrator, NarrationResult
-from drelm.registry import PendingCheckRegistry
-from drelm.state.backend import FileCheckBackend
+from gary.adapters.discord_bot import message_to_dict
+from gary.adapters.runner import EffectRunner
+from gary.adapters.sender import ChannelSender
+from gary.fsm import ChannelState, Director
+from gary.models import CheckKind
+from gary.parser.avrae import parse_embed
+from gary.ports import EchoNarrator, NarrationResult
+from gary.registry import PendingCheckRegistry
+from gary.state.backend import FileCheckBackend
 
 FIXTURES = Path(__file__).parent / "fixtures" / "avrae"
 CHANNEL = 555
@@ -214,7 +214,7 @@ async def test_expiry_narrates_a_pivot(rig, clock):
 
 
 async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
-    """Drelm dies after posting the command and before the player rolls."""
+    """Gary dies after posting the command and before the player rolls."""
     director, narrator, runner, transport, _ = rig
     narrator.open_next = dict(
         actor="Kethra", kind=CheckKind.CHECK, key="sleight of hand", dc=15,

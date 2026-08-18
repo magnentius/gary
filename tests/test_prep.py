@@ -9,11 +9,11 @@ from __future__ import annotations
 
 import pytest
 
-from drelm.models import Mutation, MutationKind
-from drelm.prep import CampaignPrep, ReadOnly
-from drelm.state.backend import InMemoryStateBackend
-from drelm.state.history import InMemoryHistoryBackend
-from drelm.state.store import CampaignStore
+from gary.models import Mutation, MutationKind
+from gary.prep import CampaignPrep, ReadOnly
+from gary.state.backend import InMemoryStateBackend
+from gary.state.history import InMemoryHistoryBackend
+from gary.state.store import CampaignStore
 
 CHANNEL = 555
 
@@ -141,7 +141,7 @@ def test_quest_status_can_be_closed(prep):
 
 def test_recorded_notes_reach_the_model_context(prep, store):
     """§8 layer 3: this is how foreshadowing is seeded before a session."""
-    from drelm.context import render_memory
+    from gary.context import render_memory
 
     prep.record_note("foreshadow", "Varo", "Will betray them at the bridge.")
     rendered = render_memory(store.state()["notes"], "", ["Varo"])
@@ -200,7 +200,7 @@ def test_reads_work_without_the_lock(readonly, store):
     ],
 )
 def test_every_write_is_refused_without_the_lock(readonly, action):
-    """Drelm is mid-session; interleaving writes would corrupt the journal (§7.3)."""
+    """Gary is mid-session; interleaving writes would corrupt the journal (§7.3)."""
     with pytest.raises(ReadOnly):
         action(readonly)
 

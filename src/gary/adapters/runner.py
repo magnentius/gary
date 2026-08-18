@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from ..fsm import AskPlayer, Effect, LogDrop, PromptModel, SendMessage
 from ..ports import Narrator, NarrationResult
 
-log = logging.getLogger("drelm.runner")
+log = logging.getLogger("gary.runner")
 
 STALL_MESSAGE = "*(The DM pauses, gathering the thread...)*"
 

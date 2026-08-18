@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from drelm.context import (
+from gary.context import (
     DM_SYSTEM_INSTRUCTION,
     Turn,
     assemble,
@@ -10,7 +10,7 @@ from drelm.context import (
     render_live_state,
     sanitize_player_text,
 )
-from drelm.state.schema import empty_state
+from gary.state.schema import empty_state
 
 
 # -- injection defence ----------------------------------------------------------------------

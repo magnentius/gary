@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from drelm.fsm import Director
-from drelm.registry import PendingCheckRegistry
+from gary.fsm import Director
+from gary.registry import PendingCheckRegistry
 
 
 class FakeClock:

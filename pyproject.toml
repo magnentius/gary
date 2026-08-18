@@ -1,12 +1,12 @@
 [project]
-name = "drelm"
+name = "gary"
 version = "0.1.0"
 description = "AI Game Master: Gemini narrative + Avrae rules + persistent campaign state, over Discord."
 requires-python = ">=3.11"
 dependencies = []
 
 [project.optional-dependencies]
-# The deterministic core (src/drelm, minus the discord/ and llm/ adapters) has no
+# The deterministic core (src/gary, minus the discord/ and llm/ adapters) has no
 # third-party dependencies by design, so it can be tested without a Discord server
 # or an API key. Adapters are additive.
 discord = ["discord.py>=2.4"]

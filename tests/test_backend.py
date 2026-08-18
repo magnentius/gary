@@ -9,9 +9,9 @@ from __future__ import annotations
 
 import pytest
 
-from drelm.models import AvraeRoll, CheckKind, PendingCheck
-from drelm.registry import PendingCheckRegistry
-from drelm.state.backend import (
+from gary.models import AvraeRoll, CheckKind, PendingCheck
+from gary.registry import PendingCheckRegistry
+from gary.state.backend import (
     CheckBackend,
     FileCheckBackend,
     FileStateBackend,
@@ -19,7 +19,7 @@ from drelm.state.backend import (
     InMemoryStateBackend,
     StateBackend,
 )
-from drelm.state.firestore import FirestoreCheckBackend, FirestoreStateBackend
+from gary.state.firestore import FirestoreCheckBackend, FirestoreStateBackend
 
 from .conftest import FakeFirestoreClient
 
@@ -170,7 +170,7 @@ def test_corrupt_check_file_does_not_block_boot(tmp_path):
 
 
 def test_pending_check_survives_a_process_restart(check_backend_factory, clock):
-    """Drelm dies between "run this command" and the player rolling.
+    """Gary dies between "run this command" and the player rolling.
 
     The DC was committed before the dice; a restart must not lose it, or the guarantee
     the whole design exists to provide is void.

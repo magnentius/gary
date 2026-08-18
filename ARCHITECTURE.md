@@ -1,4 +1,4 @@
-# Drelm — AI Game Master
+# Gary — AI Game Master
 
 **System architecture & technical specification, v2**
 Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (persistence), orchestrated over Discord.
@@ -11,7 +11,7 @@ v1 was architecturally sound in its decomposition but rested on several assumpti
 
 | # | v1 said | Reality | Resolution |
 |---|---------|---------|------------|
-| 1 | Serverless/HTTP-webhook deployment is a viable alternative | Discord's Interactions Endpoint delivers only interactions targeted at your app — never arbitrary channel messages. Drelm would never see Avrae's embeds, so Mode B is unreachable. | §11: a persistent Gateway connection on an always-on process is the only topology. |
+| 1 | Serverless/HTTP-webhook deployment is a viable alternative | Discord's Interactions Endpoint delivers only interactions targeted at your app — never arbitrary channel messages. Gary would never see Avrae's embeds, so Mode B is unreachable. | §11: a persistent Gateway connection on an always-on process is the only topology. |
 | 2 | (silent) | `message.content` and `message.embeds` are gated behind the **Message Content privileged intent**. Without it the parser silently reads empty strings. | §1: hard prerequisite, with scaling ceiling. |
 | 3 | Avrae bot ID `265889285011603457` | Avrae is `261302296103747584`. | §6, config-driven. |
 | 4 | "Gemini compares the result against its internal DC" | An LLM asked post hoc will rationalize; context truncation erases the DC entirely. | §5: DCs are persisted *before* the roll and resolved deterministically. |
@@ -30,11 +30,11 @@ These are hard facts about the runtime environment. Everything downstream depend
 
 **Discord**
 
-- **Message Content is a privileged intent.** Drelm must read both player prose and Avrae's embeds. Enable `MESSAGE CONTENT INTENT` in the Developer Portal *and* set `intents.message_content = True` in code — both are required. Free to toggle while the bot is in **fewer than 100 guilds**; beyond that, Discord verification and intent approval are required. Drelm is designed as a single-table tool, so this ceiling is acceptable; if it ever becomes a public bot, that is a re-architecture, not a config change.
+- **Message Content is a privileged intent.** Gary must read both player prose and Avrae's embeds. Enable `MESSAGE CONTENT INTENT` in the Developer Portal *and* set `intents.message_content = True` in code — both are required. Free to toggle while the bot is in **fewer than 100 guilds**; beyond that, Discord verification and intent approval are required. Gary is designed as a single-table tool, so this ceiling is acceptable; if it ever becomes a public bot, that is a re-architecture, not a config change.
 - **Bots cannot invoke other bots.** Avrae ignores messages authored by bots, and there is no supported way to programmatically trigger another app's slash command. This is the constraint the Director pattern (§4) exists to work around.
 - **Never use a user token.** Self-botting to bypass the above violates Discord's ToS and results in permanent account termination. Non-negotiable.
 - **Rate limits.** 5 messages per 5 seconds per channel; 2000 characters per message. Gemini prose routinely exceeds the latter.
-- **Drelm's own command prefix must not collide with Avrae's.** Avrae owns `!`. Drelm uses `?dm ` for text commands and slash commands for everything else.
+- **Gary's own command prefix must not collide with Avrae's.** Avrae owns `!`. Gary uses `?dm ` for text commands and slash commands for everything else.
 
 **Avrae**
 
@@ -62,7 +62,7 @@ These are hard facts about the runtime environment. Everything downstream depend
                                    │
                                    ▼
               ┌──────────────────────────────────────┐
-              │               DRELM                  │
+              │               GARY                  │
               │  ┌────────────────────────────────┐  │
               │  │ Ingest      → routes messages  │  │
               │  │ Director    → Mode A/B FSM     │  │
@@ -93,19 +93,19 @@ These are hard facts about the runtime environment. Everything downstream depend
 
 **Components**
 
-- **Players** — write actions in Discord; execute Avrae commands Drelm hands them.
-- **Drelm (orchestrator)** — the only component with authority to decide outcomes. Owns the finite state machine, the pending-check registry, embed parsing, prompt assembly, and all writes to campaign state.
+- **Players** — write actions in Discord; execute Avrae commands Gary hands them.
+- **Gary (orchestrator)** — the only component with authority to decide outcomes. Owns the finite state machine, the pending-check registry, embed parsing, prompt assembly, and all writes to campaign state.
 - **Gemini** — writes prose, roleplays NPCs, proposes DCs and consequences. **It narrates outcomes; it does not determine them.**
 - **Campaign State Server** — persistent source of truth for world time, out-of-combat effects, inventory, quest state, NPC relationships, and house rules.
 - **Avrae** — independent official bot; resolves character sheets, dice, and in-combat mechanics.
 
 ### 2.1 On the MCP boundary
 
-**Drelm is not an MCP client.** It uses `CampaignStore` in-process. A protocol, a subprocess, and a serialisation boundary between two objects in the same program buy nothing, and every turn would pay for them.
+**Gary is not an MCP client.** It uses `CampaignStore` in-process. A protocol, a subprocess, and a serialisation boundary between two objects in the same program buy nothing, and every turn would pay for them.
 
-MCP earns its place on the *other* side of the store, and for the one reason §2.1 has always given: the campaign should be reachable from another client — Claude Desktop, an IDE — for between-session prep. Auditing what the model did to the campaign, writing NPCs, planting foreshadowing, undoing a hallucinated magic sword. That is real value, and it is value Drelm's own process cannot provide because the DM is not in Discord when they are planning.
+MCP earns its place on the *other* side of the store, and for the one reason §2.1 has always given: the campaign should be reachable from another client — Claude Desktop, an IDE — for between-session prep. Auditing what the model did to the campaign, writing NPCs, planting foreshadowing, undoing a hallucinated magic sword. That is real value, and it is value Gary's own process cannot provide because the DM is not in Discord when they are planning.
 
-So the server sits *beside* Drelm rather than inside it, over the same backend. Consequences:
+So the server sits *beside* Gary rather than inside it, over the same backend. Consequences:
 
 - The MCP surface (`prep.py`) is a **prep API, not the game loop**. It never opens checks or narrates.
 - Two processes now share one campaign, which §7.3 forbids. That is what the lock in §7.6 is for.
@@ -119,12 +119,12 @@ The most common failure mode in a system like this is two components confidently
 
 | Fact | Owner | Notes |
 |------|-------|-------|
-| Character sheet, stats, proficiencies | **D&D Beyond → Avrae** | Drelm reads, never writes. |
-| Dice results | **Avrae** | Sole roller. Drelm never rolls a d20 for a player. |
-| HP, conditions, effect durations **inside initiative** | **Avrae** | Round-based. Drelm mirrors read-only. |
+| Character sheet, stats, proficiencies | **D&D Beyond → Avrae** | Gary reads, never writes. |
+| Dice results | **Avrae** | Sole roller. Gary never rolls a d20 for a player. |
+| HP, conditions, effect durations **inside initiative** | **Avrae** | Round-based. Gary mirrors read-only. |
 | Combat turn order | **Avrae** | |
-| DC of any check | **Drelm** (proposed by Gemini) | Persisted before the roll. §5. |
-| Success/failure of any check | **Drelm** | Deterministic comparison. Never the LLM. |
+| DC of any check | **Gary** (proposed by Gemini) | Persisted before the roll. §5. |
+| Success/failure of any check | **Gary** | Deterministic comparison. Never the LLM. |
 | World date/time | **State server** | Minute granularity. |
 | Effects, conditions, resources **outside initiative** | **State server** | Wall-clock based. |
 | Inventory, gold, quest state, NPC relationships | **State server** | |
@@ -134,9 +134,9 @@ The most common failure mode in a system like this is two components confidently
 
 The round/minute mismatch that made v1 incoherent is resolved by an explicit two-way handoff, not by continuous sync.
 
-**On `!init begin`** — Drelm freezes the wall clock, snapshots all active out-of-combat effects into the encounter record, and hands Gemini a note listing which effects Avrae now owns. From this point the state server does not expire anything.
+**On `!init begin`** — Gary freezes the wall clock, snapshots all active out-of-combat effects into the encounter record, and hands Gemini a note listing which effects Avrae now owns. From this point the state server does not expire anything.
 
-**On `!init end`** — Drelm reads Avrae's final initiative state, advances the wall clock by `rounds × 6 seconds`, reconciles surviving effects back to wall-clock expiry, and drops anything Avrae shows as expired. Divergences are logged, and Avrae wins.
+**On `!init end`** — Gary reads Avrae's final initiative state, advances the wall clock by `rounds × 6 seconds`, reconciles surviving effects back to wall-clock expiry, and drops anything Avrae shows as expired. Divergences are logged, and Avrae wins.
 
 Between those two events, `advance_time` is rejected with an error. This is the single most important invariant in the system.
 
@@ -146,11 +146,11 @@ Between those two events, `advance_time` is rejected with an error. This is the 
 
 ### Mode A — Narrative
 
-Freeform conversation, description, risk-free exploration. Player writes → Drelm assembles context (§8) → Gemini responds in prose. No dice. Gemini may call state tools to spend gold, record a clue, or advance time.
+Freeform conversation, description, risk-free exploration. Player writes → Gary assembles context (§8) → Gemini responds in prose. No dice. Gemini may call state tools to spend gold, record a clue, or advance time.
 
 ### Mode B — Mechanical (the Director pattern)
 
-Discord forbids bot-to-bot invocation, so the *player* is the actuator. Gemini stops before the outcome, Drelm hands over a command, the player runs it, Avrae rolls publicly, Drelm resolves.
+Discord forbids bot-to-bot invocation, so the *player* is the actuator. Gemini stops before the outcome, Gary hands over a command, the player runs it, Avrae rolls publicly, Gary resolves.
 
 ```
        player declares risky action
@@ -159,10 +159,10 @@ Discord forbids bot-to-bot invocation, so the *player* is the actuator. Gemini s
    Gemini proposes: skill, DC, consequences        ← LLM judgment ends here
                   │
                   ▼
-   Drelm validates + PERSISTS the pending check    ← authority begins here
+   Gary validates + PERSISTS the pending check    ← authority begins here
                   │
                   ▼
-   Drelm posts the exact Avrae command to run
+   Gary posts the exact Avrae command to run
                   │
                   ▼
         ┌─────────┴──────────┐
@@ -174,7 +174,7 @@ Discord forbids bot-to-bot invocation, so the *player* is the actuator. Gemini s
   embed → check        narrates hesitation/pivot
         │
         ▼
-  Drelm compares total vs. persisted DC
+  Gary compares total vs. persisted DC
         │
         ▼
   Gemini narrates a FACT it was handed
@@ -182,7 +182,7 @@ Discord forbids bot-to-bot invocation, so the *player* is the actuator. Gemini s
 
 ### 4.1 Channel state is derived, not stored
 
-There are exactly two states, and Drelm keeps neither of them in memory:
+There are exactly two states, and Gary keeps neither of them in memory:
 
 ```
                      registry has an open check for this channel?
@@ -203,10 +203,10 @@ Preventing two overlapping narrations in one channel is a real concern, but it i
 
 ### 4.2 Multiplayer arbitration
 
-- Drelm responds to a player message only when the channel is a registered game channel **and** one of: the message mentions Drelm, that player has a check open, or the channel is in freeform mode (a per-channel setting, default off, loaded from config at boot rather than accumulated at runtime).
+- Gary responds to a player message only when the channel is a registered game channel **and** one of: the message mentions Gary, that player has a check open, or the channel is in freeform mode (a per-channel setting, default off, loaded from config at boot rather than accumulated at runtime).
 - One pending check per player at a time. A second request from the same player replaces the first and logs the supersede.
 - Multiple players may hold concurrent checks in the same channel; correlation is per-player, so this is safe.
-- Out-of-combat turn order is a social problem, not a software one. Drelm does not arbitrate it.
+- Out-of-combat turn order is a social problem, not a software one. Gary does not arbitrate it.
 
 ---
 
@@ -214,7 +214,7 @@ Preventing two overlapping narrations in one channel is a real concern, but it i
 
 This section replaces v1's "Gemini compares the result against its internal DC," which was the design's central soundness bug.
 
-### 5.1 Gemini proposes, Drelm decides
+### 5.1 Gemini proposes, Gary decides
 
 Gemini calls one tool to open a check. It never resolves one.
 
@@ -269,7 +269,7 @@ Gemini receives the outcome as a **structured function response** — `succeeded
 
 ### 5.3 Command generation is validated
 
-Gemini does not emit raw Avrae syntax into the channel. It calls `open_check`; Drelm renders the command from a template table it controls:
+Gemini does not emit raw Avrae syntax into the channel. It calls `open_check`; Gary renders the command from a template table it controls:
 
 ```python
 AVRAE_TEMPLATES = {
@@ -279,7 +279,7 @@ AVRAE_TEMPLATES = {
 }
 ```
 
-Any command Drelm posts is rendered from this table with validated parameters, or it is not posted. A hallucinated `!init end` or a malformed alias can never reach the channel. This makes v1's `get_avrae_template` tool unnecessary — the template is applied by Drelm, not suggested to the model.
+Any command Gary posts is rendered from this table with validated parameters, or it is not posted. A hallucinated `!init end` or a malformed alias can never reach the channel. This makes v1's `get_avrae_template` tool unnecessary — the template is applied by Gary, not suggested to the model.
 
 ---
 
@@ -292,7 +292,7 @@ Any command Drelm posts is rendered from this table with validated parameters, o
 - **Build against fixtures.** Each fixture records its provenance (`DERIVED`, `CAPTURED`, or `SYNTHETIC`) and a test enforces that. Re-derive or re-capture on every Avrae release.
 
 **Two containers, not one.** Rolls arrive as embeds. The **initiative tracker is not an embed** — it is a pinned plain message wrapping a ` ```md ` code block in `message.content`, formatted `{init:>2}: {name} <hp/max HP> (AC 16, Prone)`, where a leading `# ` marks only the combatant whose turn it is. **Errors are also plain text** (`Error: ...`), not embeds. A parser that inspects only `message.embeds` sees neither.
-- **Fail loud.** A parse miss must never degrade to `is_dying=False`. Unknown → `ParseResult.UNKNOWN` → Drelm asks the player in plain language. Silent false negatives on a death save are worse than an awkward question.
+- **Fail loud.** A parse miss must never degrade to `is_dying=False`. Unknown → `ParseResult.UNKNOWN` → Gary asks the player in plain language. Silent false negatives on a death save are worse than an awkward question.
 
 ### 6.2 Correlation
 
@@ -334,7 +334,7 @@ async def on_message(message: discord.Message) -> None:
     if message.channel.id in settings.game_channels:
         await director.on_player_message(message)
 
-    # 5. Required, or Drelm's own ?dm commands never dispatch.
+    # 5. Required, or Gary's own ?dm commands never dispatch.
     await bot.process_commands(message)
 ```
 
@@ -349,7 +349,7 @@ async def on_message(message: discord.Message) -> None:
 | `conditions` | init tracker effects | narrative penalties |
 | `death_saves` | init tracker | dying arc |
 
-HP and conditions are **mirrored read-only** for narrative color. Drelm never writes them back to Avrae (§3).
+HP and conditions are **mirrored read-only** for narrative color. Gary never writes them back to Avrae (§3).
 
 ---
 
@@ -362,7 +362,7 @@ HP and conditions are **mirrored read-only** for narrative color. Drelm never wr
 - `rpg://rules/house_rules` — homebrew, rest variants, setting modifications.
 - `rpg://rules/edition_notes` — 2024 ruleset deltas used to ground the model (§13).
 
-`rpg://rules/avrae_syntax` from v1 is **removed**. Command rendering moved into Drelm (§5.3), where it can be validated.
+`rpg://rules/avrae_syntax` from v1 is **removed**. Command rendering moved into Gary (§5.3), where it can be validated.
 
 ### 7.2 Tools
 
@@ -420,7 +420,7 @@ The correct path is **v5**, not v1's v2. This endpoint is **undocumented, unsupp
 - Poll at most once per few minutes, out of combat only, with caching.
 - Every consumer must tolerate `None`. There is no fallback fetch and no retry storm.
 - If it disappears, the system degrades to asking players — an inconvenience, not an outage.
-- Inventory remains manual: the player adds loot on D&D Beyond, Drelm records it via `update_campaign_state` so narrative context matches the sheet. There is no write path.
+- Inventory remains manual: the player adds loot on D&D Beyond, Gary records it via `update_campaign_state` so narrative context matches the sheet. There is no write path.
 
 ---
 
@@ -428,9 +428,9 @@ The correct path is **v5**, not v1's v2. This endpoint is **undocumented, unsupp
 
 §7.3 specifies a single writer, and that was true by construction until the MCP server existed. A prep client is a second process on the same campaign, so the invariant now needs enforcing rather than assuming.
 
-The writer takes an advisory exclusive lock (`flock`) on `.drelm.lock` in the campaign root. Drelm takes it at boot; a prep client that cannot take it **runs read-only and says so**, in the overview banner and in every refused write. Non-blocking on purpose: a prep client that waited would hang silently for the length of a session, while one that is refused can offer reads immediately and explain why.
+The writer takes an advisory exclusive lock (`flock`) on `.gary.lock` in the campaign root. Gary takes it at boot; a prep client that cannot take it **runs read-only and says so**, in the overview banner and in every refused write. Non-blocking on purpose: a prep client that waited would hang silently for the length of a session, while one that is refused can offer reads immediately and explain why.
 
-Drelm releases the lock *after* its closing snapshot, so a prep client cannot claim the campaign mid-write. A lock Drelm cannot acquire is a loud warning, never a refusal to start — a stale lock file must not be able to stop a game.
+Gary releases the lock *after* its closing snapshot, so a prep client cannot claim the campaign mid-write. A lock Gary cannot acquire is a loud warning, never a refusal to start — a stale lock file must not be able to stop a game.
 
 **Limit.** `flock` is per-machine. It protects the file backend, which is the setup that can actually suffer this. It does nothing for Firestore, where two machines could write concurrently; that would need a lease held in Firestore itself, and is not implemented.
 
@@ -468,11 +468,11 @@ v1 marked trusted data with the literal prefix `[SYSTEM: ...]` in a flat text st
 
 ### 9.2 Command injection into Avrae
 
-Drelm only ever posts commands rendered from its own template table (§5.3). Model-authored command strings are never relayed.
+Gary only ever posts commands rendered from its own template table (§5.3). Model-authored command strings are never relayed.
 
 ### 9.3 Secrets
 
-Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot via the VM's attached service account. Not in `.env`, not in the image, not in the repo. Rotate on any suspicion of exposure; a leaked bot token lets anyone speak as Drelm in the server.
+Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot via the VM's attached service account. Not in `.env`, not in the image, not in the repo. Rotate on any suspicion of exposure; a leaked bot token lets anyone speak as Gary in the server.
 
 ---
 
@@ -484,10 +484,10 @@ Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot
 | Gemini quota exhausted | Announce degraded mode; Mode B still works (checks resolve deterministically without the model). |
 | Response > 2000 chars | Split on paragraph boundaries, or post as an embed. Required — Gemini prose regularly exceeds this. |
 | Discord rate limit | Per-channel send queue at 1 msg/sec, well under 5/5s. |
-| Avrae offline | Detect via unanswered checks; fall back to `?dm roll` using Drelm's own dice with an explicit "Avrae unavailable" notice. |
+| Avrae offline | Detect via unanswered checks; fall back to `?dm roll` using Gary's own dice with an explicit "Avrae unavailable" notice. |
 | Player never rolls | TTL expiry → check cancelled → Gemini narrates a pivot (§4). |
-| State server crash | Drelm blocks mutations, serves last-known state read-only, restarts the subprocess, replays the journal. |
-| Drelm restart mid-session | Pending checks are persisted; reload `AWAITING_ROLL` state on boot. |
+| State server crash | Gary blocks mutations, serves last-known state read-only, restarts the subprocess, replays the journal. |
+| Gary restart mid-session | Pending checks are persisted; reload `AWAITING_ROLL` state on boot. |
 
 **Observability.** Structured JSON logs to Cloud Logging. Per-turn: latency, tokens in/out, cost, tool calls, state machine transition. Track parse-failure rate as the leading indicator of an Avrae format change.
 
@@ -499,13 +499,13 @@ Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot
 
 Two properties of the design fix this choice, and both are consequences of §1 rather than preferences:
 
-- **The Gateway connection must be continuous.** Drelm's ingest path depends on observing *arbitrary channel messages* — specifically Avrae's embeds, which are addressed to nobody. Only a persistent Gateway WebSocket receives those. Any host that suspends or recycles the process between player turns breaks Mode B outright.
+- **The Gateway connection must be continuous.** Gary's ingest path depends on observing *arbitrary channel messages* — specifically Avrae's embeds, which are addressed to nobody. Only a persistent Gateway WebSocket receives those. Any host that suspends or recycles the process between player turns breaks Mode B outright.
 - **The state server is a stdio subprocess holding local state.** It must outlive individual turns.
 
 The topology:
 
-- `e2-micro` on Compute Engine. GCP's Always Free tier covers it, but **only in `us-west1`, `us-central1`, or `us-east1`** — pin the region explicitly. 1 GB RAM is adequate for Drelm plus the state server subprocess.
-- Drelm launches the state server as a stdio subprocess and supervises it.
+- `e2-micro` on Compute Engine. GCP's Always Free tier covers it, but **only in `us-west1`, `us-central1`, or `us-east1`** — pin the region explicitly. 1 GB RAM is adequate for Gary plus the state server subprocess.
+- Gary launches the state server as a stdio subprocess and supervises it.
 - `systemd` unit with `Restart=always`.
 - Secrets from Secret Manager via the attached service account.
 
@@ -521,9 +521,9 @@ The local-disk backend remains the default and is a perfectly good choice for on
 
 ### 11.2 If the always-on process ever needs to shrink
 
-Ingest cannot scale to zero: the Gateway is a session-bound WebSocket, and Drelm depends on observing messages addressed to nobody. But **receiving requires that connection and sending does not** — posting narration is a plain REST call. That asymmetry allows a split: a minimal always-on publisher, with stateless workers behind Pub/Sub doing assembly, the Gemini call, and the reply.
+Ingest cannot scale to zero: the Gateway is a session-bound WebSocket, and Gary depends on observing messages addressed to nobody. But **receiving requires that connection and sending does not** — posting narration is a plain REST call. That asymmetry allows a split: a minimal always-on publisher, with stateless workers behind Pub/Sub doing assembly, the Gemini call, and the reply.
 
-That is an architecture change, not a deployment-target change, and it is out of scope here. Recorded because the shape is not obvious and the naive version — Drelm itself in a scale-to-zero container — does not work. If it is ever taken up, three things become load-bearing: **ordering keys** on `channel_id` (which also supply the per-channel serialisation §7.3 requires), **idempotency** keyed on the Discord message ID and checked *before* the Gemini call, and a **dead-letter topic**, since a poison message otherwise stalls one channel permanently.
+That is an architecture change, not a deployment-target change, and it is out of scope here. Recorded because the shape is not obvious and the naive version — Gary itself in a scale-to-zero container — does not work. If it is ever taken up, three things become load-bearing: **ordering keys** on `channel_id` (which also supply the per-channel serialisation §7.3 requires), **idempotency** keyed on the Discord message ID and checked *before* the Gemini call, and a **dead-letter topic**, since a poison message otherwise stalls one channel permanently.
 
 ---
 
@@ -597,7 +597,7 @@ config = types.GenerateContentConfig(
 
 This is the part of the design worth understanding before changing anything in the adapter.
 
-When the model calls `open_check`, **the call is deliberately left unanswered.** Drelm posts the Avrae command and the turn ends with that call still open. Minutes later the player rolls, and the outcome is delivered as the `function_response` to that original call.
+When the model calls `open_check`, **the call is deliberately left unanswered.** Gary posts the Avrae command and the turn ends with that call still open. Minutes later the player rolls, and the outcome is delivered as the `function_response` to that original call.
 
 It is not a trick — it is a literal description of what happened. The model asked for a check; this is the answer. Three properties fall out:
 
@@ -640,7 +640,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 1. **Avrae formats are derived, not captured.** Every pattern in §6 is now traced to Avrae's source at `avrae@cb75be2` and to `d20` run locally — a far stronger position than the inference this started as, and it corrected four wrong guesses including a whole container. What remains unverified is what Discord *actually delivers over the wire*: field ordering, serialisation, and any Avrae version drift. `scripts/capture_avrae_fixtures.py` closes it, and a strict `xfail` tracks the gap.
    **The MCP binding is unverified too**, and for a different reason: the MCP SDK requires Python 3.10+ and the development environment is 3.9, so `adapters/mcp_server.py` has never been imported. Its substance lives in `prep.py` and `state/lock.py`, which are tested; the binding is not.
    Gemini model ids **were** in this category and are now checked: `gemini-3.6-flash` and `gemini-3.5-flash-lite`, verified against the model list on 2026-08-09 and pinned by a test. Ids still move — recheck rather than assume.
-2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Drelm's own dice with sheet data pulled from D&D Beyond.
+2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Gary's own dice with sheet data pulled from D&D Beyond.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
 4. **Latency.** Gemini call + player copy-paste + Avrae round-trip + second Gemini call. Measure end-to-end before tuning; if it exceeds roughly 10s, consider pre-generating both outcome branches at `open_check` time, since both are already written.
 5. **Cost.** Unbounded without §8. Instrument per-turn token spend from day one.

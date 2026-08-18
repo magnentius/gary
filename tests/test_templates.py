@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import pytest
 
-from drelm.models import CheckKind
-from drelm.templates import TemplateError, normalize_key, render_command
+from gary.models import CheckKind
+from gary.templates import TemplateError, normalize_key, render_command
 
 
 @pytest.mark.parametrize(
@@ -81,7 +81,7 @@ def test_ambiguous_save_abbreviation_is_refused():
 
 
 def test_rendered_commands_are_single_line_and_pingless():
-    from drelm.templates import AVRAE_SAVE_TOKEN, AVRAE_SKILL_TOKEN
+    from gary.templates import AVRAE_SAVE_TOKEN, AVRAE_SKILL_TOKEN
 
     for skill in AVRAE_SKILL_TOKEN:
         cmd = render_command(CheckKind.CHECK, skill)

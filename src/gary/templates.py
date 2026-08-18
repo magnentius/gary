@@ -1,7 +1,7 @@
 """Avrae command rendering (ARCHITECTURE.md §5.3).
 
 The model never writes an Avrae command. It calls ``open_check`` with a *canonical key*,
-and Drelm renders the command from this table. A hallucinated ``!init end``, a mention
+and Gary renders the command from this table. A hallucinated ``!init end``, a mention
 injected into a skill name, or a malformed alias cannot reach the channel, because the
 only strings ever posted are built here from an allowlist.
 

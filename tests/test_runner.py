@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import pytest
 
-from drelm.adapters.runner import STALL_MESSAGE, EffectRunner
-from drelm.fsm import AskPlayer, LogDrop, PromptModel, SendMessage
-from drelm.ports import EchoNarrator, NarrationResult
+from gary.adapters.runner import STALL_MESSAGE, EffectRunner
+from gary.fsm import AskPlayer, LogDrop, PromptModel, SendMessage
+from gary.ports import EchoNarrator, NarrationResult
 
 CHANNEL = 555
 

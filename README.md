@@ -1,4 +1,4 @@
-# Drelm
+# Gary
 
 An AI Game Master for D&D 2024 over Discord. Gemini writes the narrative, Avrae rolls the
 dice and enforces the maths, and a local state server owns the persistent world.
@@ -12,7 +12,7 @@ built against fixtures derived from Avrae's own source, not yet confirmed agains
 bot, and the MCP binding has never been run — see [Before it can run](#before-it-can-run).
 
 ```
-src/drelm/
+src/gary/
   models.py        frozen domain types
   templates.py     Avrae command rendering from an allowlist   §5.3
   registry.py      pending-check registry + correlation        §5
@@ -74,8 +74,8 @@ result therefore reaches the model over the tool transport rather than as prose,
 trust comes from the channel it travelled on — and the model cannot confuse a result with
 a player's claim about one. See `ARCHITECTURE.md` §12.5.
 
-**Drelm is not an MCP client.** It uses the store in-process; a protocol boundary between
-two objects in one program buys nothing. MCP sits *beside* Drelm so you can open the
+**Gary is not an MCP client.** It uses the store in-process; a protocol boundary between
+two objects in one program buys nothing. MCP sits *beside* Gary so you can open the
 campaign from Claude Desktop between sessions — audit what the model did, write NPCs,
 plant foreshadowing. Two processes on one campaign would break the single-writer rule, so
 the writer holds a lock and a prep client that cannot take it runs read-only.
@@ -118,8 +118,8 @@ before it ever ran.
    the entire Discord path — intents, routing, parsing, correlation, resolution, sending —
    can be proven against a live Avrae before spending a token:
    ```bash
-   export DISCORD_TOKEN=... DRELM_GAME_CHANNELS=<channel id>
-   .venv/bin/python -m drelm.adapters.discord_bot
+   export DISCORD_TOKEN=... GARY_GAME_CHANNELS=<channel id>
+   .venv/bin/python -m gary.adapters.discord_bot
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
 5. **Verify the MCP binding** if you want Claude Desktop access. `adapters/mcp_server.py`
@@ -127,12 +127,12 @@ before it ever ran.
    3.9. Everything with behaviour worth trusting is in `prep.py` and `state/lock.py`,
    which are fully tested; what is unverified is decorator shapes and transport wiring.
    ```json
-   {"mcpServers": {"drelm": {
+   {"mcpServers": {"gary": {
      "command": "/path/to/.venv/bin/python",
-     "args": ["-m", "drelm.adapters.mcp_server"],
-     "env": {"DRELM_CAMPAIGN_ROOT": "/path/to/campaign"}}}}
+     "args": ["-m", "gary.adapters.mcp_server"],
+     "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign"}}}}
    ```
-6. **Add the model.** Set `GEMINI_API_KEY` and Drelm switches from `EchoNarrator` to
+6. **Add the model.** Set `GEMINI_API_KEY` and Gary switches from `EchoNarrator` to
    `GeminiNarrator` automatically. Defaults are `gemini-3.6-flash` for narration and
    `gemini-3.5-flash-lite` for summarisation, verified 2026-08-09 and pinned by a test.
    Model ids move — recheck rather than assume.
@@ -143,5 +143,5 @@ before it ever ran.
 - D&D Beyond's character endpoint is `/character/v5/` — undocumented, unsupported,
   public-characters-only. Treated as optional enrichment that may vanish.
 - Discord's HTTP Interactions Endpoint cannot receive arbitrary channel messages. Since
-  ingest depends on observing Avrae's embeds, Drelm needs a persistent Gateway connection
+  ingest depends on observing Avrae's embeds, Gary needs a persistent Gateway connection
   on an always-on process. See `ARCHITECTURE.md` §11.

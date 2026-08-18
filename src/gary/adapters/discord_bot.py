@@ -6,14 +6,14 @@ then obeys.
 
 **Message Content is a privileged intent.** It must be enabled in the Discord Developer
 Portal *and* set in code. Enabling only one of the two produces the same silent failure —
-``message.embeds`` arrives empty, the parser sees nothing, and Drelm looks alive while
-resolving no rolls. ``DrelmClient.on_ready`` checks for this and complains loudly.
+``message.embeds`` arrives empty, the parser sees nothing, and Gary looks alive while
+resolving no rolls. ``GaryClient.on_ready`` checks for this and complains loudly.
 
 Run it:
 
     export DISCORD_TOKEN=...
-    export DRELM_GAME_CHANNELS=123456789
-    python -m drelm.adapters.discord_bot
+    export GARY_GAME_CHANNELS=123456789
+    python -m gary.adapters.discord_bot
 """
 
 from __future__ import annotations
@@ -39,7 +39,7 @@ from .routing import Route, route_message
 from .runner import EffectRunner
 from .sender import ChannelSender
 
-log = logging.getLogger("drelm.discord")
+log = logging.getLogger("gary.discord")
 
 
 def message_to_dict(message: "discord.Message") -> Dict[str, Any]:
@@ -89,7 +89,7 @@ class DiscordTransport:
         await channel.send(text)
 
 
-class DrelmClient(discord.Client):
+class GaryClient(discord.Client):
     def __init__(
         self,
         settings: Settings,
@@ -287,7 +287,7 @@ class DrelmClient(discord.Client):
 
 def build_client(
     settings: Settings, narrator: Optional[Narrator] = None, clock=time.time
-) -> DrelmClient:
+) -> GaryClient:
     """Assemble the object graph from configuration.
 
     Pending checks are restored here, before the Gateway connects, so a restart between
@@ -308,14 +308,14 @@ def build_client(
         check_backend = FileCheckBackend(settings.campaign_root / "pending_checks.json")
         history_backend = FileHistoryBackend(settings.campaign_root / "history")
 
-    # Drelm is the live writer, so it takes the campaign lock (§7.3). An MCP prep client
+    # Gary is the live writer, so it takes the campaign lock (§7.3). An MCP prep client
     # that finds the lock held degrades to read-only rather than interleaving writes into
     # a journal we are appending to. Failing to acquire is a warning, not a refusal:
     # a stale lock must never stop a game from starting.
-    lock = CampaignLock(lock_path(settings.campaign_root), owner="drelm")
+    lock = CampaignLock(lock_path(settings.campaign_root), owner="gary")
     if not lock.acquire():
         log.warning(
-            "campaign lock held by %s. Another Drelm or an MCP prep client may be "
+            "campaign lock held by %s. Another Gary or an MCP prep client may be "
             "writing to this campaign. Continuing, but concurrent writes can corrupt "
             "the journal.",
             lock.holder(),
@@ -335,7 +335,7 @@ def build_client(
     if narrator is None:
         narrator = build_narrator(settings, director, store, history_backend)
 
-    return DrelmClient(settings, director, store, narrator=narrator, clock=clock, lock=lock)
+    return GaryClient(settings, director, store, narrator=narrator, clock=clock, lock=lock)
 
 
 def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:

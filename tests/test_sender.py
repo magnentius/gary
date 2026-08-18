@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from drelm.adapters.sender import DISCORD_LIMIT, ChannelSender, split_message
+from gary.adapters.sender import DISCORD_LIMIT, ChannelSender, split_message
 
 
 class FakeTransport:
@@ -80,7 +80,7 @@ def test_code_fences_are_closed_and_reopened_across_a_split():
 
 
 def test_inline_backticks_in_a_short_command_are_untouched():
-    """The Avrae command post is the most common message Drelm sends."""
+    """The Avrae command post is the most common message Gary sends."""
     text = "**Kethra** — run this:\n`!check sleightOfHand`"
     assert split_message(text) == [text]
 

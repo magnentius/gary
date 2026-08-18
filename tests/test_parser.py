@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from drelm.parser.avrae import ParseStatus, parse_embed
+from gary.parser.avrae import ParseStatus, parse_embed
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "avrae"
 FIXTURES = sorted(FIXTURE_DIR.glob("*.json"))

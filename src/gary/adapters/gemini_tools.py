@@ -105,7 +105,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=GIVE_ITEMS,
         description=(
-            "Record items gained. Drelm cannot write to D&D Beyond, so also tell the "
+            "Record items gained. Gary cannot write to D&D Beyond, so also tell the "
             "player in your narration to add them to their sheet."
         ),
         parameters=_s(

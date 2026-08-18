@@ -6,7 +6,7 @@ and returns prose plus whatever effects those calls produced.
 The one non-obvious idea here is how a check's result gets back to the model.
 
 **A check is a deferred function call.** When the model calls ``open_check``, the call is
-*deliberately left unanswered*. Drelm posts the Avrae command and the turn ends with that
+*deliberately left unanswered*. Gary posts the Avrae command and the turn ends with that
 call still open. Minutes later the player rolls, and the outcome is delivered as the
 ``function_response`` to that original call. This is not a trick — it is exactly what
 happened: the model asked for a check, and this is the answer. It gives three things for
@@ -45,7 +45,7 @@ from ..state.history import DEFAULT_WINDOW, trim
 from ..state.store import CampaignStore, StateError
 from . import gemini_tools as T
 
-log = logging.getLogger("drelm.gemini")
+log = logging.getLogger("gary.gemini")
 
 # Verified against ai.google.dev/gemini-api/docs/models on 2026-08-09. Ids move; recheck.
 #

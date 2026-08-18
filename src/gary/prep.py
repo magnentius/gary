@@ -1,14 +1,14 @@
 """Between-session campaign prep (ARCHITECTURE.md §2.1).
 
 §2.1 keeps MCP for exactly one reason: the campaign state should be reachable from
-another client — Claude Desktop, an IDE — while you plan next week, without running Drelm
+another client — Claude Desktop, an IDE — while you plan next week, without running Gary
 or Discord. This module is that capability. ``adapters/mcp_server.py`` is a thin binding
 over it.
 
 Kept free of the MCP SDK on purpose. The SDK needs Python 3.10+, and confining it to the
 binding means everything with behaviour worth trusting is testable wherever the core is.
 
-**Read-only is the default.** Writes require the campaign lock (§7.3). If Drelm holds it
+**Read-only is the default.** Writes require the campaign lock (§7.3). If Gary holds it
 — mid-session, at the table — this degrades to reads and says why, rather than corrupting
 a journal that someone is actively appending to.
 """
@@ -22,10 +22,10 @@ from .models import Mutation, MutationKind
 from .state.schema import format_world_time
 from .state.store import CampaignStore
 
-log = logging.getLogger("drelm.prep")
+log = logging.getLogger("gary.prep")
 
 READ_ONLY_REASON = (
-    "This campaign is locked by another process (usually Drelm running a live session). "
+    "This campaign is locked by another process (usually Gary running a live session). "
     "Reads are available; writes are refused to protect the journal."
 )
 

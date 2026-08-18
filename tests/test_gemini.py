@@ -12,13 +12,13 @@ import asyncio
 import pytest
 from google.genai import types
 
-from drelm.adapters import gemini_tools as T
-from drelm.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL, GeminiNarrator
-from drelm.fsm import ChannelState, Director, PromptModel, SendMessage
-from drelm.registry import PendingCheckRegistry
-from drelm.state.backend import InMemoryStateBackend
-from drelm.state.history import InMemoryHistoryBackend
-from drelm.state.store import CampaignStore
+from gary.adapters import gemini_tools as T
+from gary.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL, GeminiNarrator
+from gary.fsm import ChannelState, Director, PromptModel, SendMessage
+from gary.registry import PendingCheckRegistry
+from gary.state.backend import InMemoryStateBackend
+from gary.state.history import InMemoryHistoryBackend
+from gary.state.store import CampaignStore
 
 CHANNEL = 555
 ALICE = 111
@@ -438,7 +438,7 @@ async def test_window_trims_oldest_turns(rig):
 
 async def test_trim_never_orphans_a_function_response(rig):
     """A window starting on an unpaired function_response is malformed."""
-    from drelm.state.history import trim
+    from gary.state.history import trim
 
     turns = [
         {"role": "user", "parts": [{"text": "a"}]},

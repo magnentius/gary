@@ -6,7 +6,7 @@ Delete the instance, recreate it, and the campaign is intact.
     pip install -e '.[gcp]'
 
     from google.cloud import firestore
-    from drelm.state.firestore import FirestoreStateBackend, FirestoreCheckBackend
+    from gary.state.firestore import FirestoreStateBackend, FirestoreCheckBackend
 
     db = firestore.Client()
     store = CampaignStore(FirestoreStateBackend(db, "my-campaign"), clock=time.time)

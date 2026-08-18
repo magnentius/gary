@@ -14,7 +14,7 @@ a network. The adapters do the I/O; the Director decides.
 
 **The Director holds no per-channel state.** Channel state is *derived* from the pending-
 check registry, which is the only thing that was ever load-bearing. Storing it separately
-was both an obstacle to running Drelm on a disposable VM and an outright bug: a player
+was both an obstacle to running Gary on a disposable VM and an outright bug: a player
 saying anything while holding a pending check flipped the channel out of AWAITING_ROLL,
 and their actual roll was then silently dropped.
 """

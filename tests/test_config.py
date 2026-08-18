@@ -1,6 +1,6 @@
 """Configuration (ARCHITECTURE.md §1, §9.3).
 
-Every check here fails at boot rather than at runtime. A misconfigured Drelm that starts
+Every check here fails at boot rather than at runtime. A misconfigured Gary that starts
 successfully and then silently ignores the table is the worst outcome available.
 """
 
@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from drelm.config import DEFAULT_AVRAE_BOT_ID, ConfigError, Settings
+from gary.config import DEFAULT_AVRAE_BOT_ID, ConfigError, Settings
 
 
 def settings(**kw) -> Settings:
@@ -30,7 +30,7 @@ def test_defaults_are_the_verified_values():
 
 
 def test_config_defaults_match_the_adapter_defaults():
-    from drelm.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL
+    from gary.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL
 
     s = settings()
     assert s.gemini_model == DEFAULT_MODEL
@@ -43,7 +43,7 @@ def test_missing_token_is_fatal():
 
 
 def test_no_game_channels_is_fatal():
-    """Otherwise Drelm joins the server, looks healthy, and ignores every message."""
+    """Otherwise Gary joins the server, looks healthy, and ignores every message."""
     with pytest.raises(ConfigError, match="ignore every message"):
         settings(game_channels=frozenset())
 
@@ -55,7 +55,7 @@ def test_prefix_colliding_with_avrae_is_fatal():
 
 
 def test_freeform_channel_outside_game_channels_is_fatal():
-    """A freeform channel Drelm does not watch is silently inert -- catch the typo."""
+    """A freeform channel Gary does not watch is silently inert -- catch the typo."""
     with pytest.raises(ConfigError, match="not game channels"):
         settings(freeform_channels=frozenset({999}))
 
@@ -69,8 +69,8 @@ def test_from_env_parses_channel_lists():
     s = Settings.from_env(
         {
             "DISCORD_TOKEN": "tok",
-            "DRELM_GAME_CHANNELS": "111, 222 333",
-            "DRELM_FREEFORM_CHANNELS": "222",
+            "GARY_GAME_CHANNELS": "111, 222 333",
+            "GARY_FREEFORM_CHANNELS": "222",
         }
     )
     assert s.game_channels == frozenset({111, 222, 333})
@@ -79,24 +79,24 @@ def test_from_env_parses_channel_lists():
 
 def test_from_env_rejects_a_non_snowflake():
     with pytest.raises(ConfigError, match="not a Discord snowflake"):
-        Settings.from_env({"DISCORD_TOKEN": "tok", "DRELM_GAME_CHANNELS": "111,abc"})
+        Settings.from_env({"DISCORD_TOKEN": "tok", "GARY_GAME_CHANNELS": "111,abc"})
 
 
 def test_from_env_overrides():
     s = Settings.from_env(
         {
             "DISCORD_TOKEN": "tok",
-            "DRELM_GAME_CHANNELS": "555",
-            "DRELM_AVRAE_BOT_ID": "12345",
-            "DRELM_BACKEND": "firestore",
-            "DRELM_CHECK_TTL": "300",
-            "DRELM_CAMPAIGN_ROOT": "/srv/drelm",
+            "GARY_GAME_CHANNELS": "555",
+            "GARY_AVRAE_BOT_ID": "12345",
+            "GARY_BACKEND": "firestore",
+            "GARY_CHECK_TTL": "300",
+            "GARY_CAMPAIGN_ROOT": "/srv/gary",
         }
     )
     assert s.avrae_bot_id == 12345
     assert s.backend == "firestore"
     assert s.check_ttl_seconds == 300.0
-    assert s.campaign_root == Path("/srv/drelm")
+    assert s.campaign_root == Path("/srv/gary")
 
 
 def test_settings_are_immutable():

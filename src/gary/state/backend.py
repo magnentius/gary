@@ -1,6 +1,6 @@
 """Storage backends (ARCHITECTURE.md §7.3, §11).
 
-Durable state is addressed through two narrow protocols so the process that runs Drelm
+Durable state is addressed through two narrow protocols so the process that runs Gary
 owns none of it. Point the backends at managed storage and the VM becomes replaceable:
 delete it, recreate it, and the campaign is intact.
 
@@ -16,7 +16,7 @@ Two implementations live here:
 ``firestore.py`` adds a managed backend for the disposable-VM setup.
 
 **Concurrency.** Every implementation here assumes a single writer, which is what
-ARCHITECTURE.md §7.3 specifies. Running two Drelm processes against one backend is not
+ARCHITECTURE.md §7.3 specifies. Running two Gary processes against one backend is not
 supported by these classes and needs per-channel serialisation first.
 """
 

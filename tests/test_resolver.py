@@ -8,8 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from drelm.models import AvraeRoll, CheckKind, PendingCheck
-from drelm.resolver import outcome_for_model, resolve
+from gary.models import AvraeRoll, CheckKind, PendingCheck
+from gary.resolver import outcome_for_model, resolve
 
 
 def make_check(dc: int = 15) -> PendingCheck:

@@ -54,7 +54,7 @@ class CombatantView:
         """At 0 HP, or carrying an effect that says so.
 
         Avrae's tracker shows no death-save counter, so 0 HP is the signal available.
-        Drelm mirrors this for narrative colour only; Avrae remains authoritative (§3).
+        Gary mirrors this for narrative colour only; Avrae remains authoritative (§3).
         """
         if self.hp_current == 0:
             return True
@@ -207,7 +207,7 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     if not embeds:
         # Avrae reports command errors as plain text ("Error: ..."), not embeds. Without
         # this, an error arriving while a check is pending reads as an unparseable roll
-        # and Drelm asks the player what they rolled -- when nothing was rolled at all.
+        # and Gary asks the player what they rolled -- when nothing was rolled at all.
         lowered_content = content.lower()
         if not content or any(hint in lowered_content for hint in _IRRELEVANT_HINTS):
             return ParsedAvraeMessage(

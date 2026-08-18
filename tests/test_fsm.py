@@ -6,9 +6,9 @@ central bug, where every Avrae message triggered a Gemini call.
 
 from __future__ import annotations
 
-from drelm.fsm import AskPlayer, ChannelState, LogDrop, PromptModel, SendMessage
-from drelm.models import AvraeRoll, CheckKind
-from drelm.parser.avrae import ParsedAvraeMessage, ParseStatus
+from gary.fsm import AskPlayer, ChannelState, LogDrop, PromptModel, SendMessage
+from gary.models import AvraeRoll, CheckKind
+from gary.parser.avrae import ParsedAvraeMessage, ParseStatus
 
 CHANNEL = 555
 ALICE = 111
@@ -176,7 +176,7 @@ def test_unaddressed_chatter_does_not_reach_the_model(director):
 def test_mention_reaches_the_model(director):
     effects = director.on_player_message(
         channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-        content="@Drelm I pick the lock", mentions_bot=True,
+        content="@Gary I pick the lock", mentions_bot=True,
     )
     assert len(effects) == 1 and isinstance(effects[0], PromptModel)
 
@@ -249,7 +249,7 @@ def test_state_is_derived_from_the_registry(director, registry):
 
 def test_a_fresh_director_on_the_same_registry_agrees(director, registry, clock):
     """The property that makes the process replaceable: no state to hand over."""
-    from drelm.fsm import Director
+    from gary.fsm import Director
 
     open_check(director, user_id=ALICE, actor="Kethra", dc=15)
 

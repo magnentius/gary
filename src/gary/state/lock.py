@@ -5,7 +5,7 @@ process, one store. Adding an MCP server breaks that assumption on purpose — t
 point is a second process reaching the same campaign from Claude Desktop while you plan
 next week's session.
 
-If Drelm is live at the table and someone opens the campaign in another client, two
+If Gary is live at the table and someone opens the campaign in another client, two
 processes interleave writes to one journal. This makes that impossible rather than
 unlikely: the writer holds an advisory exclusive lock, and anyone who cannot take it runs
 read-only and says so.
@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 from typing import Optional
 
-log = logging.getLogger("drelm.lock")
+log = logging.getLogger("gary.lock")
 
 try:
     import fcntl
@@ -43,7 +43,7 @@ class CampaignLock:
     access immediately and explain why.
     """
 
-    def __init__(self, path: Path, owner: str = "drelm") -> None:
+    def __init__(self, path: Path, owner: str = "gary") -> None:
         self.path = Path(path)
         self.owner = owner
         self._fd: Optional[int] = None
@@ -104,4 +104,4 @@ class CampaignLock:
 
 
 def lock_path(campaign_root: Path) -> Path:
-    return Path(campaign_root) / ".drelm.lock"
+    return Path(campaign_root) / ".gary.lock"

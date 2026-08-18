@@ -19,7 +19,7 @@ from typing import FrozenSet, Optional
 # that turns out to be wrong is exactly how v1 of this design shipped a dead parser.
 DEFAULT_AVRAE_BOT_ID = 261302296103747584
 
-# Avrae owns "!". A collision would make Drelm answer commands meant for the dice bot.
+# Avrae owns "!". A collision would make Gary answer commands meant for the dice bot.
 DEFAULT_COMMAND_PREFIX = "?dm "
 
 
@@ -67,7 +67,7 @@ class Settings:
             raise ConfigError("DISCORD_TOKEN is empty")
         if not self.game_channels:
             raise ConfigError(
-                "DRELM_GAME_CHANNELS is empty; Drelm would join the server and ignore "
+                "GARY_GAME_CHANNELS is empty; Gary would join the server and ignore "
                 "every message"
             )
         if self.command_prefix.startswith("!"):
@@ -87,19 +87,19 @@ class Settings:
         e = os.environ if env is None else env
         return cls(
             discord_token=e.get("DISCORD_TOKEN", ""),
-            game_channels=_ids(e.get("DRELM_GAME_CHANNELS")),
-            freeform_channels=_ids(e.get("DRELM_FREEFORM_CHANNELS")),
-            avrae_bot_id=int(e.get("DRELM_AVRAE_BOT_ID", DEFAULT_AVRAE_BOT_ID)),
-            command_prefix=e.get("DRELM_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
-            campaign_root=Path(e.get("DRELM_CAMPAIGN_ROOT", "./campaign")),
-            backend=e.get("DRELM_BACKEND", "file"),
-            firestore_campaign_id=e.get("DRELM_FIRESTORE_CAMPAIGN_ID", "default"),
+            game_channels=_ids(e.get("GARY_GAME_CHANNELS")),
+            freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
+            avrae_bot_id=int(e.get("GARY_AVRAE_BOT_ID", DEFAULT_AVRAE_BOT_ID)),
+            command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
+            campaign_root=Path(e.get("GARY_CAMPAIGN_ROOT", "./campaign")),
+            backend=e.get("GARY_BACKEND", "file"),
+            firestore_campaign_id=e.get("GARY_FIRESTORE_CAMPAIGN_ID", "default"),
             gemini_api_key=e.get("GEMINI_API_KEY", ""),
-            gemini_model=e.get("DRELM_GEMINI_MODEL", "gemini-3.6-flash"),
-            gemini_summary_model=e.get("DRELM_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
-            history_window=int(e.get("DRELM_HISTORY_WINDOW", 30)),
-            check_ttl_seconds=float(e.get("DRELM_CHECK_TTL", 180.0)),
-            sweep_interval_seconds=float(e.get("DRELM_SWEEP_INTERVAL", 15.0)),
-            send_interval_seconds=float(e.get("DRELM_SEND_INTERVAL", 1.0)),
-            max_effect_depth=int(e.get("DRELM_MAX_EFFECT_DEPTH", 4)),
+            gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.6-flash"),
+            gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
+            history_window=int(e.get("GARY_HISTORY_WINDOW", 30)),
+            check_ttl_seconds=float(e.get("GARY_CHECK_TTL", 180.0)),
+            sweep_interval_seconds=float(e.get("GARY_SWEEP_INTERVAL", 15.0)),
+            send_interval_seconds=float(e.get("GARY_SEND_INTERVAL", 1.0)),
+            max_effect_depth=int(e.get("GARY_MAX_EFFECT_DEPTH", 4)),
         )

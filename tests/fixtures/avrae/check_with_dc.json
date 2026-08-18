@@ -1,6 +1,6 @@
 {
   "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "Player passed -dc. checkutils prepends '**DC N**' to the description and sets a Success!/Failure! footer. Drelm must read the ROLL total, not the DC, and must ignore Avrae's verdict -- the authoritative DC is the one Drelm committed before the dice (§5).",
+  "_description": "Player passed -dc. checkutils prepends '**DC N**' to the description and sets a Success!/Failure! footer. Gary must read the ROLL total, not the DC, and must ignore Avrae's verdict -- the authoritative DC is the one Gary committed before the dice (§5).",
   "message": {
     "content": "",
     "embeds": [{

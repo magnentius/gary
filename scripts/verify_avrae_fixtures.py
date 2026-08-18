@@ -31,7 +31,7 @@ from typing import Dict, List
 REPO = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(REPO / "src"))
 
-from drelm.parser.avrae import ParseStatus, parse_embed  # noqa: E402
+from gary.parser.avrae import ParseStatus, parse_embed  # noqa: E402
 
 FIXTURES = REPO / "tests" / "fixtures" / "avrae"
 CAPTURED = FIXTURES / "captured"

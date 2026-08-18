@@ -6,7 +6,7 @@ and from running ``d20`` locally. That is strong evidence, but it is not the sam
 observing what Discord actually delivers. This closes that gap.
 
     pip install -e '.[discord]'
-    export DISCORD_TOKEN=...                  # Drelm's bot token
+    export DISCORD_TOKEN=...                  # Gary's bot token
     python scripts/capture_avrae_fixtures.py --channel 123456789 --minutes 12
 
 Then run the commands it prints. When you are done:
@@ -40,7 +40,7 @@ try:
 except ImportError:  # pragma: no cover - operator-facing
     sys.exit("discord.py not installed. Run: pip install -e '.[discord]'")
 
-from drelm.parser.avrae import parse_embed  # noqa: E402
+from gary.parser.avrae import parse_embed  # noqa: E402
 
 AVRAE_BOT_ID = 261302296103747584
 OUT_DIR = REPO / "tests" / "fixtures" / "avrae" / "captured"
