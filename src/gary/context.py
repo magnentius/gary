@@ -162,13 +162,17 @@ def render_live_state(state: Dict[str, Any]) -> str:
             "World time is frozen until initiative ends."
         )
 
+    # Everyone at the table, from `?dm playing`, union whoever has acquired anything.
+    # Without the roster the model only learns a character exists when they speak: it
+    # cannot address a quiet player, say "the three of you", or know Dorn is there at all.
     party = state.get("party") or {}
-    if party:
+    roster = sorted({*(state.get("players") or {}).values(), *party.keys()})
+    if roster:
         lines.append("- Party:")
-        for actor, data in sorted(party.items()):
+        for actor in roster:
             # Coin is deliberately absent: Avrae owns it (§3). A stale number inside a
             # block headed "authoritative" is worse than no number at all.
-            inventory = data.get("inventory") or []
+            inventory = (party.get(actor) or {}).get("inventory") or []
             carried = "carrying " + ", ".join(inventory[:8]) if inventory else "carrying nothing"
             lines.append(f"    - {actor}: {carried}")
 

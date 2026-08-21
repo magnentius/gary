@@ -320,3 +320,31 @@ def test_short_and_common_words_do_not_match():
     """"the harbour master" must not fire on "the" or a three-letter common word."""
     notes = [{"kind": "clue", "subject": "the old boy", "body": "Nope."}]
     assert "Nope" not in render_memory(notes, "", [], mentioned_in="the boy ran off")
+
+
+def test_the_roster_is_always_visible_even_before_anyone_owns_anything():
+    """`party` only fills when someone acquires an item, so a fresh table was invisible:
+    the model learned a character existed only when they spoke, and could not address a
+    quiet player or know how many were present."""
+    state = empty_state()
+    state["players"] = {"111": "Caspian Varr", "222": "Kethra Vane", "333": "Dorn"}
+    rendered = render_live_state(state)
+    for name in ("Caspian Varr", "Kethra Vane", "Dorn"):
+        assert name in rendered
+
+
+def test_roster_and_party_are_unioned_not_duplicated():
+    """Someone registered AND holding items appears once, with what they carry."""
+    state = empty_state()
+    state["players"] = {"111": "Caspian Varr"}
+    state["party"] = {"Caspian Varr": {"inventory": ["a brass key"]}}
+    rendered = render_live_state(state)
+    assert rendered.count("Caspian Varr") == 1
+    assert "carrying a brass key" in rendered
+
+
+def test_an_unregistered_actor_with_items_still_appears():
+    """An NPC-turned-ally or a character given loot before registering is not dropped."""
+    state = empty_state()
+    state["party"] = {"Dorn": {"inventory": ["a torch"]}}
+    assert "Dorn: carrying a torch" in render_live_state(state)
