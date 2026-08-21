@@ -10,21 +10,59 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from datetime import date, timedelta
 from typing import Any, Dict, List, Optional
 
 SCHEMA_VERSION = 1
+
+#: How far back the campaign calendar sits from the real one. The Gregorian calendar with
+#: a millennium taken off it beats an invented one: everybody already knows that August is
+#: harvest and January is dark, so the model gets season, day length and weather for free
+#: and the table needs no lore to read a date.
+YEARS_BEHIND = 1000
+
+#: Used when no epoch is supplied. `empty_state()` has to stay a pure function -- it is
+#: what `_replay` rebuilds a reset campaign with, and an epoch that came from
+#: `date.today()` there would make replay depend on the day it ran. The live epoch is set
+#: once, when the campaign is created, and then lives in the snapshot.
+DEFAULT_EPOCH_DATE = "1000-01-01"
+
+MONTH_NAMES = (
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December",
+)
+
+
+def default_epoch_date(today: Optional[date] = None) -> str:
+    """Today, a millennium ago, as ISO. Frozen into the campaign at creation.
+
+    Anchored once rather than tracked: a clock that followed the real date would jump
+    weeks between sessions, and §3.1 hands the world clock to Avrae mid-encounter on the
+    assumption that nothing else moves it.
+    """
+    today = today or date.today()
+    try:
+        return today.replace(year=today.year - YEARS_BEHIND).isoformat()
+    except ValueError:
+        # 29 February, and the target year is not a leap year.
+        return today.replace(year=today.year - YEARS_BEHIND, day=28).isoformat()
 
 # In-game minutes per real combat round (ARCHITECTURE.md §3.1).
 SECONDS_PER_ROUND = 6
 
 
-def empty_state() -> Dict[str, Any]:
+def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         # Absolute in-world clock, in minutes since campaign epoch. Minute granularity
         # is deliberate: finer resolution invites conflict with Avrae's round timing.
         "world_minutes": 0,
-        "calendar": {"epoch_label": "1st of Hammer, 1492 DR", "minutes_per_day": 1440},
+        # `epoch_date` is day 1. Time is stored as minutes since it, never as a date, so
+        # the clock stays a single integer that can only move forward.
+        "calendar": {
+            "epoch_date": epoch_date or DEFAULT_EPOCH_DATE,
+            "minutes_per_day": 1440,
+        },
         # The standing frame: premise, tone, region. Rendered every turn, unlike a
         # note, which only surfaces when its subject is mentioned — and the premise is
         # needed most at the start of a scene, before anyone has said the magic word.
@@ -101,28 +139,77 @@ class Encounter:
         )
 
 
+def _epoch(state: Dict[str, Any]) -> Optional[date]:
+    raw = str(state.get("calendar", {}).get("epoch_date", "") or "")
+    try:
+        year, month, day = (int(part) for part in raw.split("-"))
+        return date(year, month, day)
+    except (ValueError, TypeError):
+        # A campaign written before the calendar existed, or a hand-edited snapshot.
+        # Falling back to "Day N" is better than refusing to render the time at all.
+        return None
+
+
+def format_world_date(day: date) -> str:
+    """`21 August 1026`. Built by hand, not strftime: %Y is not portable below year 1000,
+    and zero-padding a year is exactly the kind of thing that renders as `0026` on one
+    platform and `26` on another."""
+    return f"{day.day} {MONTH_NAMES[day.month - 1]} {day.year}"
+
+
 def format_world_time(state: Dict[str, Any]) -> str:
     minutes = int(state.get("world_minutes", 0))
     per_day = int(state.get("calendar", {}).get("minutes_per_day", 1440))
     day, rem = divmod(minutes, per_day)
     hour, minute = divmod(rem, 60)
-    return f"Day {day + 1}, {hour:02d}:{minute:02d}"
+
+    epoch = _epoch(state)
+    if epoch is None:
+        return f"Day {day + 1}, {hour:02d}:{minute:02d}"
+    return f"{format_world_date(epoch + timedelta(days=day))}, {hour:02d}:{minute:02d}"
 
 
 def parse_world_time(text: str, state: Dict[str, Any]) -> int:
-    """Absolute world-minute for "HH:MM" or "day N HH:MM". Inverse of format_world_time.
+    """Absolute world-minute for a time, a date, or a day number. Inverse of
+    format_world_time.
 
     The clock can only ever be *advanced* (``_h_time`` adds a delta), so setting a time
-    means computing the gap to it. A fresh campaign therefore opens at Day 1, 00:00 —
-    midnight — which is almost never the intended hour for a first scene.
+    means computing the gap to it. A fresh campaign opens at midnight on its epoch date,
+    which is almost never the intended hour for a first scene.
+
+    Three forms, because all three get typed: ``18:30`` (today, in world terms),
+    ``1026-08-25 06:00`` (an absolute date), and ``day 2 06:00`` (the original form, kept
+    working -- it is what every campaign written before the calendar used).
     """
     per_day = int(state.get("calendar", {}).get("minutes_per_day", 1440))
     raw = text.strip().lower()
     day = int(state.get("world_minutes", 0)) // per_day + 1
 
+    dated = re.match(r"^(\d{1,4})-(\d{1,2})-(\d{1,2})[\s,]+(\d{1,2}):(\d{2})$", raw)
+    if dated:
+        epoch = _epoch(state)
+        if epoch is None:
+            raise ValueError("this campaign has no calendar; use 'HH:MM' or 'day N HH:MM'")
+        try:
+            target = date(int(dated.group(1)), int(dated.group(2)), int(dated.group(3)))
+        except ValueError as exc:
+            raise ValueError(f"{text!r} is not a real date ({exc})")
+        hour, minute = int(dated.group(4)), int(dated.group(5))
+        if hour > 23 or minute > 59:
+            raise ValueError(f"{text!r} is not a valid time")
+        if target < epoch:
+            raise ValueError(
+                f"the campaign begins on {format_world_date(epoch)}; "
+                f"{format_world_date(target)} is before it"
+            )
+        return (target - epoch).days * per_day + hour * 60 + minute
+
     match = re.match(r"^(?:day\s+(\d{1,4})\s+)?(\d{1,2}):(\d{2})$", raw)
     if not match:
-        raise ValueError("expected 'HH:MM' or 'day N HH:MM', e.g. '18:30' or 'day 2 06:00'")
+        raise ValueError(
+            "expected 'HH:MM', 'YYYY-MM-DD HH:MM' or 'day N HH:MM' — "
+            "e.g. '18:30', '1026-08-25 06:00' or 'day 2 06:00'"
+        )
     if match.group(1):
         day = int(match.group(1))
     hour, minute = int(match.group(2)), int(match.group(3))

@@ -496,8 +496,9 @@ class GaryClient(discord.Client):
                 await self.sender.send(
                     channel_id,
                     f"It is {format_world_time(state)}. Set it with "
-                    f"`{self.settings.command_prefix}time 18:30` or "
-                    f"`{self.settings.command_prefix}time day 2 06:00`.",
+                    f"`{self.settings.command_prefix}time 18:30` for later today, or "
+                    f"`{self.settings.command_prefix}time 1026-09-04 06:00` for a date. "
+                    "The clock only moves forward.",
                 )
                 return
             try:
@@ -628,7 +629,8 @@ class GaryClient(discord.Client):
             log.warning("campaign reset by %s in channel %d", message.author, channel_id)
             await self.sender.send(
                 channel_id,
-                "Campaign reset. Day 1, 00:00. Everyone run "
+                f"Campaign reset. It is {format_world_time(self.store.state())}. "
+                "Everyone run "
                 f"`{self.settings.command_prefix}playing <character name>` again before "
                 "the first roll.",
             )

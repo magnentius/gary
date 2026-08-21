@@ -72,7 +72,7 @@ def test_live_state_renders_the_clock_and_party():
     state["scene"] = {"location": "The Drowned Rat", "summary": "Waiting on a contact."}
 
     rendered = render_live_state(state)
-    assert "Day 1, 08:30" in rendered
+    assert "1 January 1000, 08:30" in rendered
     assert "Kethra: carrying rope, torch" in rendered
     assert "gp" not in rendered  # Avrae owns coin (§3); a stale number here would mislead
     assert "rope" in rendered

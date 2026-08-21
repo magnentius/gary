@@ -30,7 +30,14 @@ from ..models import (
     new_id,
 )
 from .backend import FileStateBackend, StateBackend, atomic_write_json  # noqa: F401
-from .schema import SCHEMA_VERSION, EffectRecord, Encounter, empty_state
+from .schema import (
+    DEFAULT_EPOCH_DATE,
+    SCHEMA_VERSION,
+    EffectRecord,
+    Encounter,
+    default_epoch_date,
+    empty_state,
+)
 
 SNAPSHOT_EVERY = 25
 
@@ -123,6 +130,12 @@ class CampaignStore:
             self._replay(entry)
         self._since_snapshot = len(self._journal) - replay_from
 
+        if loaded is None and not self._journal:
+            # A campaign that has never been written to. Anchor its calendar now, while
+            # "now" still means anything: the epoch is today a millennium ago, fixed for
+            # the life of the campaign.
+            self._anchor_calendar()
+
     def reset_campaign(self) -> None:
         """Wipe everything back to Day 1: state, roster, and the journal itself.
 
@@ -151,6 +164,14 @@ class CampaignStore:
             self._state = empty_state()
             self._since_snapshot = 0
         self.snapshot()
+        # A reset is a new campaign, so it gets a new epoch rather than the old one's.
+        self._anchor_calendar()
+
+    def _anchor_calendar(self) -> None:
+        self.apply(
+            [Mutation(MutationKind.CALENDAR, "", {"epoch_date": default_epoch_date()})],
+            reason="campaign calendar anchored",
+        )
 
     def mirror_combat(self, combatants: Sequence[Any], round_number: Optional[int]) -> None:
         """Cache Avrae's tracker: who is in the fight, whose turn, and their state.
@@ -692,6 +713,31 @@ def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_calendar(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """Set the epoch the world clock counts from.
+
+    Journalled rather than written straight into the snapshot, so that a campaign which
+    loses its snapshot rebuilds to the same dates. The journal is the record and the
+    snapshot is an optimisation (§7.3); an epoch that lived only in the snapshot would
+    quietly make that false, and every date in the campaign would shift by the gap
+    between its real start and DEFAULT_EPOCH_DATE.
+    """
+    calendar = dict(store._state.get("calendar", {}))
+    before = calendar.get("epoch_date", DEFAULT_EPOCH_DATE)
+    calendar["epoch_date"] = str(m.payload.get("epoch_date", before))
+    store._state["calendar"] = calendar
+    return AppliedMutation(
+        mutation=m,
+        # Deliberately irreversible. The epoch is set once, at campaign creation, and
+        # nothing offers to change it -- so an inverse here would only ever be reached by
+        # `?dm undo` running out of real mutations, at which point it would silently
+        # rewind every date in the campaign and report that it had undone something.
+        inverse=None,
+        before=before,
+        after=calendar["epoch_date"],
+    )
+
+
 def _h_scene(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = dict(store._state.get("scene", {}))
     store._state["scene"] = {**before, **m.payload}
@@ -715,5 +761,6 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.NOTE: _h_note,
     MutationKind.SCENE: _h_scene,
     MutationKind.SETTING: _h_setting,
+    MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
 }

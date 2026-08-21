@@ -104,6 +104,12 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
       a night's watch 120 · overland travel by the hour
   Under a minute is not worth recording. For rests use request_rest instead, which moves
   the clock and posts the Avrae command together.
+- The date in CURRENT WORLD STATE is a real calendar date, a thousand years back. Read it
+  the way you would read any date: 21 August is late summer, harvest and long evenings; 4
+  February is dark by five. Weather, daylight, what is in season and what a farmer is
+  doing that week all follow from it, and they should show up in description without
+  anyone asking. Days roll into months correctly, so a journey of three weeks in late
+  December lands in January.
 - Before putting more than one creature in front of the party, or anything you suspect is
   large, call weigh_encounter and name every creature. It looks their CR up in the SRD and
   does the sum, so do not supply CRs from memory — 5.2.1 revised many of them, and six

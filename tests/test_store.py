@@ -379,18 +379,21 @@ def test_reset_empties_the_journal(backend_factory, clock):
     )
     first.reset_campaign()
 
-    assert first.journal() == []
+    # Nothing of the old campaign survives. The one entry left is the new campaign's own
+    # calendar epoch, written by the reset itself -- it has to be journalled or a lost
+    # snapshot would shift every date in the campaign (see _h_calendar).
+    assert [e["kind"] for e in first.journal()] == ["calendar"]
     assert first.state()["party"] == {}
 
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
-    assert reopened.journal() == []
+    assert [e["kind"] for e in reopened.journal()] == ["calendar"]
     assert reopened.state()["party"] == {}
     assert reopened.state()["notes"] == []
 
     # And the journal is usable again: seq restarts at 0 rather than continuing from the
     # old length, which would leave a permanent gap that document-based backends key on.
     reopened.apply([gold("Kethra", 5)], reason="after the reset")
-    assert [e["seq"] for e in reopened.journal()] == [0]
+    assert [e["seq"] for e in reopened.journal()] == [0, 1]
 
 
 def test_reset_leaves_no_snapshot_pointing_past_the_journal(backend_factory, clock):
@@ -434,21 +437,55 @@ def test_parse_world_time_round_trips_the_formatter():
     """?dm time computes a forward delta, because the clock can only be advanced."""
     from gary.state.schema import empty_state, format_world_time, parse_world_time
 
-    st = empty_state()
-    assert format_world_time(st) == "Day 1, 00:00"      # a fresh campaign opens at midnight
+    st = empty_state("1026-08-21")
+    assert format_world_time(st) == "21 August 1026, 00:00"  # fresh campaigns open at midnight
 
     st["world_minutes"] = parse_world_time("18:30", st)
-    assert format_world_time(st) == "Day 1, 18:30"
+    assert format_world_time(st) == "21 August 1026, 18:30"
 
     st["world_minutes"] = parse_world_time("day 2 06:00", st)
-    assert format_world_time(st) == "Day 2, 06:00"
+    assert format_world_time(st) == "22 August 1026, 06:00"
+
+    # An absolute date, which is the form a date on screen invites you to type back.
+    st["world_minutes"] = parse_world_time("1026-09-04 06:00", st)
+    assert format_world_time(st) == "4 September 1026, 06:00"
 
     # a bare HH:MM means "today", where today comes from the current clock
-    assert parse_world_time("07:00", st) == 1440 + 420
+    assert parse_world_time("07:00", st) == 14 * 1440 + 420
 
-    for bad in ("25:00", "18:60", "soon", "", "day 0 10:00"):
+    for bad in ("25:00", "18:60", "soon", "", "day 0 10:00", "1026-02-30 06:00"):
         with pytest.raises(ValueError):
             parse_world_time(bad, st)
+
+    # The epoch is the floor: the clock only moves forward, so a date before day 1 has
+    # no world-minute to name.
+    with pytest.raises(ValueError, match="before it"):
+        parse_world_time("1026-08-20 06:00", st)
+
+
+def test_month_boundaries_and_leap_years_come_from_the_real_calendar():
+    """The whole point of borrowing the Gregorian calendar is not having to implement
+    one. A month that rolls at 30 days would be an invented calendar wearing real names."""
+    from gary.state.schema import empty_state, format_world_time
+
+    st = empty_state("1026-08-30")
+    st["world_minutes"] = 2 * 1440          # 30 Aug + 2 days
+    assert format_world_time(st) == "1 September 1026, 00:00"
+
+    leap = empty_state("1024-02-28")        # 1024 is a leap year
+    leap["world_minutes"] = 1440
+    assert format_world_time(leap) == "29 February 1024, 00:00"
+
+
+def test_a_campaign_without_a_calendar_still_renders_its_clock():
+    """Snapshots written before the calendar existed carry an epoch_label and no date.
+    Refusing to render the time would take the campaign down over a display concern."""
+    from gary.state.schema import empty_state, format_world_time
+
+    st = empty_state()
+    st["calendar"] = {"epoch_label": "1st of Hammer, 1492 DR", "minutes_per_day": 1440}
+    st["world_minutes"] = 510
+    assert format_world_time(st) == "Day 1, 08:30"
 
 
 def test_mirror_sheet_caches_class_and_level(store):
