@@ -62,18 +62,26 @@ TEMPLATES: Mapping[CheckKind, str] = {
 # charset guard rather than an allowlist. Deliberately excludes the characters that make
 # Discord or Avrae interpret the string as something other than a name.
 _ATTACK_NAME = re.compile(r"^[A-Za-z0-9 '\-+]{1,40}$")
-# Coins Rewritten (https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea).
-# Documented syntax: "+/- # [cp/sp/ep/gp/pp]", denomination optional (defaults to gp),
-# and spacing is irrelevant -- "+5gp" == "+ 5 gp".
+# Avrae's built-in coinpurse, per `!help game coinpurse` (2026-08-21):
 #
-# The SIGN is not optional, which is what "1gp 5sp" tripped over when it was refused as
-# "contained invalid coins" on 2026-08-21. That was first read here as a ban on mixed
-# denominations; it was a missing sign. Mixed terms are fine once signed: "-1gp -5sp" was
-# confirmed live the same day.
+#     !game coins <amount>
 #
-# Confirmed live: `!coins -2cp` spends, and breaks a larger coin for change automatically.
-_COIN_TERM = re.compile(r"[+-]\d{1,5}(?:cp|sp|ep|gp|pp)?")
-_COIN_AMOUNT = re.compile(r"^(?:[+-]\d{1,5}(?:cp|sp|ep|gp|pp)?){1,5}$")
+# "The amount can either be a number like +102.13 (gold pieces), or explicit numbers of
+# currencies like +10pp +2gp +1sp +3cp." Avrae autoconverts, breaking larger coins for
+# change. `coinpurse` and `coin` are accepted in place of `coins`.
+#
+# Built in, which matters more than it sounds: an earlier version rendered a workshop
+# alias, and an alias that is not installed does nothing at all -- silently -- while the
+# fiction says the pint was paid for.
+#
+# The SIGN is required on every term. An unsigned "1gp 5sp" was refused on 2026-08-21,
+# which was first misread here as a ban on mixed denominations.
+#
+# A term is signed, and is either an explicit denomination or a bare number of gold --
+# which may carry decimals. Written as one alternation so "+1.5gp" is refused: decimals
+# are only meaningful on the bare-gold form.
+_COIN_TERM = re.compile(r"[+-]\d{1,6}(?:\.\d{1,2}|pp|gp|ep|sp|cp)?")
+_COIN_AMOUNT = re.compile(r"^(?:[+-]\d{1,6}(?:\.\d{1,2}|pp|gp|ep|sp|cp)?){1,5}$")
 
 
 class TemplateError(ValueError):
@@ -116,8 +124,8 @@ def normalize_key(kind: CheckKind, key: str) -> str:
     raise TemplateError(f"unsupported kind: {kind!r}")
 
 
-def render_coin_command(amount: str, alias: str = "coins") -> str:
-    """Render a Coins Rewritten invocation, or raise.
+def render_coin_command(amount: str, command: str = "game coins") -> str:
+    """Render an Avrae coinpurse invocation, or raise.
 
     Avrae owns coin (§3), so Gary never records a payment — it posts a command the player
     runs, the same Director pattern as a check. The alias refuses an overspend itself
@@ -126,14 +134,15 @@ def render_coin_command(amount: str, alias: str = "coins") -> str:
     raw = amount.strip().replace(" ", "")
     if not _COIN_AMOUNT.match(raw):
         raise TemplateError(
-            f"coin amount {amount!r} must be signed terms like '-2cp', '+5gp', '-2' "
-            "(bare numbers are gold) or '-1gp -5sp'. Every term needs its own sign."
+            f"coin amount {amount!r} must be signed terms like '-2cp', '+5gp', '-2' or "
+            "'+102.13' (bare numbers are gold), or several such as '-1gp -5sp'. Every term "
+            "needs its own sign, and decimals apply only to bare gold."
         )
-    if not alias.isalnum():
-        raise TemplateError(f"unsafe coin alias: {alias!r}")
+    if not command.strip() or not all(w.isalnum() for w in command.split()):
+        raise TemplateError(f"unsafe coin command: {command!r}")
     # Re-spaced for readability at the table. Spacing is irrelevant to the alias, but
     # "-1gp -5sp" is what a player reads back as a price; "-1gp-5sp" is not.
-    return f"!{alias} " + " ".join(_COIN_TERM.findall(raw))
+    return f"!{command} " + " ".join(_COIN_TERM.findall(raw))
 
 
 def render_command(kind: CheckKind, key: str) -> str:

@@ -147,8 +147,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "— this posts a command the player runs on their own sheet, and their purse "
             "refuses an overspend by itself. ALWAYS sign every term: '-2cp' spends two "
             "copper, '+5gp' grants five gold, '-1gp -5sp' spends a gold and five silver. "
-            "A bare number is gold ('-2' is two gold). Never state what someone can "
-            "afford; you cannot see their purse."
+            "A bare number is gold and may have decimals ('-2', '+102.13'). Never state "
+            "what someone can afford; you cannot see their purse."
         ),
         parameters=_s(
             type=_OBJECT,

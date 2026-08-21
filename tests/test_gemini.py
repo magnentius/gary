@@ -635,7 +635,7 @@ async def test_request_payment_posts_a_command_and_claims_nothing(rig):
     assert "slides the pint" in result.text
     posted = [e for e in result.effects if isinstance(e, SendMessage)]
     assert len(posted) == 1
-    assert "`!coins -2cp`" in posted[0].text
+    assert "`!game coins -2cp`" in posted[0].text
     assert "Caspian Varr" in posted[0].text
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response

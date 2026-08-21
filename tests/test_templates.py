@@ -112,15 +112,18 @@ def test_coin_amounts_must_be_signed():
     actually tripped over — first misread here as a ban on mixed denominations."""
     from gary.templates import render_coin_command
 
-    assert render_coin_command("-2cp") == "!coins -2cp"
-    assert render_coin_command("+5gp") == "!coins +5gp"
-    assert render_coin_command("- 5 gp") == "!coins -5gp"
-    assert render_coin_command("-2") == "!coins -2"          # bare number is gold
-    assert render_coin_command("+3gp", alias="purse") == "!purse +3gp"
-    # Mixed terms, confirmed live 2026-08-21, re-spaced so a player can read the price.
-    assert render_coin_command("-1gp -5sp") == "!coins -1gp -5sp"
-    assert render_coin_command("+1gp+5sp") == "!coins +1gp +5sp"
+    assert render_coin_command("-2cp") == "!game coins -2cp"
+    assert render_coin_command("+5gp") == "!game coins +5gp"
+    assert render_coin_command("- 5 gp") == "!game coins -5gp"
+    assert render_coin_command("-2") == "!game coins -2"      # bare number is gold
+    assert render_coin_command("+102.13") == "!game coins +102.13"  # decimals, bare gold
+    assert render_coin_command("+3gp", command="coins") == "!coins +3gp"  # alias override
+    # Mixed terms, per `!help game coinpurse`, re-spaced so a player can read the price.
+    assert render_coin_command("-1gp -5sp") == "!game coins -1gp -5sp"
+    assert render_coin_command("+10pp +2gp +1sp +3cp") == "!game coins +10pp +2gp +1sp +3cp"
 
-    for bad in ("2cp", "1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp", "-1gp -"):
+    # "+1.5gp" is refused: decimals are only meaningful on the bare-gold form.
+    for bad in ("2cp", "1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp",
+                "-1gp -", "+1.5gp"):
         with pytest.raises(TemplateError):
             render_coin_command(bad)

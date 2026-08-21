@@ -86,7 +86,7 @@ class GeminiNarrator:
         max_retries: int = 2,
         timeout_seconds: float = 90.0,
         fallback_model: str = "",
-        coins_alias: str = "coins",
+        coins_command: str = "game coins",
         max_context_chars: int = 160_000,
         summarize: bool = True,
     ) -> None:
@@ -102,7 +102,7 @@ class GeminiNarrator:
         self._max_retries = max_retries
         self._timeout = timeout_seconds
         self._fallback_model = fallback_model
-        self._coins_alias = coins_alias
+        self._coins_command = coins_command
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
@@ -258,7 +258,7 @@ class GeminiNarrator:
             if name == T.REQUEST_PAYMENT:
                 try:
                     command = render_coin_command(
-                        str(args.get("amount", "")), self._coins_alias
+                        str(args.get("amount", "")), self._coins_command
                     )
                 except TemplateError as exc:
                     responses.append(

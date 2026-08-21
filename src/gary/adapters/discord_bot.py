@@ -570,7 +570,7 @@ def build_narrator(settings: Settings, director, store, history_backend) -> Narr
         window=settings.history_window,
         timeout_seconds=settings.gemini_timeout_seconds,
         fallback_model=settings.gemini_fallback_model,
-        coins_alias=settings.coins_alias,
+        coins_command=settings.coins_command,
     )
 
 
