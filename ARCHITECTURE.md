@@ -210,6 +210,7 @@ Preventing two overlapping narrations in one channel is a real concern, but it i
 - One pending check per player at a time. A second request from the same player replaces the first and logs the supersede.
 - Multiple players may hold concurrent checks in the same channel; correlation is per-player, so this is safe.
 - Out-of-combat turn order is a social problem, not a software one. Gary does not arbitrate it.
+- **Turns serialise per channel.** discord.py dispatches `on_message` concurrently, so two players addressing Gary within a few seconds would otherwise both load the same history, both run a turn against it, and both save — the second write silently discarding the first player's exchange, and the second turn having been assembled without the first player's message. A per-channel lock in the narrator serialises them, which is also correct at a table: the second player's turn sees the first player's message and the reply to it. The cost is that the second player waits out the first turn.
 
 ---
 

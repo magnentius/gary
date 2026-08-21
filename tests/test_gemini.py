@@ -690,3 +690,40 @@ async def test_rest_is_refused_during_combat(rig):
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
     assert store.state()["world_minutes"] == 0
+
+
+@pytest.mark.asyncio
+async def test_concurrent_turns_in_one_channel_do_not_lose_history(rig):
+    """Two players addressing Gary at once both loaded the same history, both ran a turn
+    against it, and both saved -- the second write discarding the first player's entire
+    exchange, silently."""
+    director, store, history = rig
+    n = narrator(rig, text_response("Toby nods."), text_response("Toby shrugs."))
+
+    await asyncio.gather(
+        n.narrate(channel_id=CHANNEL, kind="player_action",
+                  payload={"speaker_display_name": "Alice", "text": "I ask about crates"}),
+        n.narrate(channel_id=CHANNEL, kind="player_action",
+                  payload={"speaker_display_name": "Bob", "text": "I ask who else knows"}),
+    )
+
+    turns, _ = history.load(CHANNEL)
+    said = str(turns)
+    assert "I ask about crates" in said     # neither exchange lost
+    assert "I ask who else knows" in said
+
+
+@pytest.mark.asyncio
+async def test_the_second_turn_sees_the_first(rig):
+    """Serialising is also the right table behaviour: the second player's turn is built
+    on the first player's message and the reply to it."""
+    n = narrator(rig, text_response("Toby nods."), text_response("Toby shrugs."))
+
+    await n.narrate(channel_id=CHANNEL, kind="player_action",
+                    payload={"speaker_display_name": "Alice", "text": "I ask about crates"})
+    await n.narrate(channel_id=CHANNEL, kind="player_action",
+                    payload={"speaker_display_name": "Bob", "text": "I ask who else knows"})
+
+    second_call = str(n.client.calls[1]["contents"])
+    assert "I ask about crates" in second_call
+    assert "Toby nods." in second_call

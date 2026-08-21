@@ -121,11 +121,36 @@ class GeminiNarrator:
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
+        self._turn_locks: Dict[int, asyncio.Lock] = {}
 
     # -- Narrator ----------------------------------------------------------------------
 
+    def _turn_lock(self, channel_id: int) -> asyncio.Lock:
+        if channel_id not in self._turn_locks:
+            self._turn_locks[channel_id] = asyncio.Lock()
+        return self._turn_locks[channel_id]
+
     async def narrate(
         self, *, channel_id: int, kind: str, payload: Dict[str, Any]
+    ) -> NarrationResult:
+        """One turn at a time per channel.
+
+        discord.py dispatches on_message concurrently, so two players addressing Gary
+        within the same few seconds would both load the same history, both run a turn
+        against it, and both save -- the second write silently discarding the first
+        player's entire exchange. The second turn would also have been assembled without
+        the first player's message, so the NPC answered them as though nobody else had
+        spoken.
+
+        Invisible with one player, who cannot send two messages at once. The lock also
+        gives the right table behaviour: the second player's turn sees the first player's
+        message and the reply to it.
+        """
+        async with self._turn_lock(channel_id):
+            return await self._narrate_locked(channel_id, kind, payload)
+
+    async def _narrate_locked(
+        self, channel_id: int, kind: str, payload: Dict[str, Any]
     ) -> NarrationResult:
         raw_turns, summary = self._history.load(channel_id)
         kept, overflow = trim(raw_turns, self._window)
