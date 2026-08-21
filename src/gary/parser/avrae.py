@@ -98,6 +98,10 @@ class ParsedAvraeMessage:
     sheet: Optional["SheetView"] = None
     # Round number from the tracker header, so §3.1 can convert rounds to minutes.
     round_number: Optional[int] = None
+    # Targets that took a critical hit, from the per-target fields of an attack
+    # embed. A crit on a creature at 0 HP costs two death saves, and Avrae
+    # applies the damage without applying that.
+    critical_targets: tuple = ()
     reason: str = ""
 
 
@@ -133,6 +137,8 @@ _HP_BARE = re.compile(r"^(\d+)\s*HP", re.IGNORECASE)
 # Confirmed live 2026-08-21: `!init begin` posts "Everyone roll for initiative!" and an
 # empty tracker reading "```Awaiting combatants...```"; `!init end` posts "Combat ended."
 # after a yes/no confirmation.
+# "**Damage (CRIT!)**: 2d6 (5, 1) + 1 [piercing] = `7`" — the target is the field name.
+_CRIT = re.compile(r"crit!?", re.IGNORECASE)
 _ROUND = re.compile(r"\(round\s*(\d+)\)", re.IGNORECASE)
 _COMBAT_BEGIN = re.compile(r"everyone roll for initiative|awaiting combatants", re.IGNORECASE)
 _COMBAT_END = re.compile(r"^combat ended|-----COMBAT ENDED-----", re.IGNORECASE)
@@ -378,8 +384,15 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     total = _find_total(text)
 
     if total is not None:
+        crits = tuple(
+            str(field.get("name") or "").strip()
+            for field in (embed.get("fields") or [])
+            if _CRIT.search(str(field.get("value") or ""))
+            and str(field.get("name") or "").strip().lower() != "effect"
+        )
         return ParsedAvraeMessage(
             status=ParseStatus.ROLL,
+            critical_targets=crits,
             roll=AvraeRoll(
                 actor=actor,
                 total=total,

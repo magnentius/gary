@@ -673,3 +673,56 @@ def test_a_downed_combatant_may_not_attack(director):
 def test_attack_refusal_permits_when_nothing_is_known(director):
     """Unknown permits, as everywhere else."""
     assert director.attack_refusal(CHANNEL, "Anyone") is None
+
+
+def test_a_crit_on_a_downed_character_prompts_two_failed_death_saves(director):
+    """Any melee hit on an unconscious creature is an automatic crit, and a crit costs two
+    failed death saves. Avrae rolled the crit, applied the damage, and tracked neither --
+    the sheet read zero failures while the fighter was two from dead."""
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),),
+            round_number=4,
+        ),
+    )
+
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.ROLL,
+            roll=AvraeRoll(actor="GU1", total=23),
+            critical_targets=("Kethra",),
+        ),
+    )
+    posts = [e for e in effects if isinstance(e, SendMessage)]
+    assert len(posts) == 1
+    assert posts[0].text.count("!game deathsave fail") == 2
+    assert "Kethra" in posts[0].text
+
+
+def test_a_crit_on_someone_standing_is_just_a_crit(director):
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(CombatantView(name="Kethra", hp_current=9, hp_max=15),),
+            round_number=4,
+        ),
+    )
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.ROLL,
+            roll=AvraeRoll(actor="GU1", total=23),
+            critical_targets=("Kethra",),
+        ),
+    )
+    assert not [e for e in effects if isinstance(e, SendMessage)]

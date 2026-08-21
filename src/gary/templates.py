@@ -136,6 +136,10 @@ def normalize_key(kind: CheckKind, key: str) -> str:
 # Per `!help game longrest` / `shortrest` (2026-08-21). Avrae resets each character's
 # counters; the clock is Gary's (§3). A rest is per-character but time is per-world, so
 # these durations are applied ONCE for the whole party however many people rest.
+# Per `!help game deathsave` (2026-08-21). A critical hit on a creature at 0 HP
+# costs two failed death saves; Avrae applies the damage and tracks neither.
+DEATHSAVE_FAIL = "!game deathsave fail"
+
 REST_MINUTES = {"short": 60, "long": 480}
 REST_COMMAND = {"short": "!game shortrest", "long": "!game longrest"}
 

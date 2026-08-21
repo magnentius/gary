@@ -29,7 +29,7 @@ from .models import CancelReason, CheckKind, CheckOutcome, PendingCheck
 from .parser.avrae import ParsedAvraeMessage, ParseStatus
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import outcome_for_model, resolve
-from .templates import TemplateError, normalize_key, render_command
+from .templates import DEATHSAVE_FAIL, TemplateError, normalize_key, render_command
 
 
 class ChannelState(str, Enum):
@@ -472,6 +472,24 @@ class Director:
             # convert rounds to wall-clock minutes when combat ends.
             if parsed.round_number is not None:
                 self._last_round[channel_id] = parsed.round_number
+
+        # Before the gate: a crit on a downed creature is a rules consequence, not a roll
+        # to correlate. Avrae applies the damage and knows nothing about the death saves.
+        down_crits = [
+            name
+            for name in parsed.critical_targets
+            if normalize_actor(name) in self._down.get(channel_id, set())
+        ]
+        if down_crits:
+            return [
+                SendMessage(
+                    channel_id,
+                    f"**{name}** was critically hit while down — that is two failed "
+                    f"death saves. They run:\n"
+                    f"`{DEATHSAVE_FAIL}`\n`{DEATHSAVE_FAIL}`",
+                )
+                for name in down_crits
+            ]
 
         if parsed.status is ParseStatus.SHEET and parsed.sheet is not None:
             # Before the gate, like INITIATIVE: a sheet is state, not a roll, and a
