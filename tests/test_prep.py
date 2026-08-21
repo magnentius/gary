@@ -215,3 +215,18 @@ def test_refused_write_changes_nothing(readonly, store):
     with pytest.raises(ReadOnly):
         readonly.set_scene("Elsewhere")
     assert store.state() == before
+
+
+def test_omitting_disposition_leaves_it_unchanged(prep):
+    """The contract the MCP binding has to respect.
+
+    prep treats "not None" as "set it", so any caller defaulting disposition to 0 rather
+    than None silently neutralises every NPC it touches for an unrelated reason. That is
+    exactly what adapters/mcp_server.py did before 2026-08-20.
+    """
+    prep.upsert_npc("gorm", name="Gorm", disposition=5)
+    prep.upsert_npc("gorm", note="mentioned the caravan")
+    assert prep.npcs()["gorm"]["disposition"] == 5
+
+    prep.upsert_npc("gorm", disposition=0)
+    assert prep.npcs()["gorm"]["disposition"] == 0

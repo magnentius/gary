@@ -41,6 +41,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from typing import Optional
 
 from mcp.server.fastmcp import FastMCP
 
@@ -125,9 +126,14 @@ def read_last_session(channel_id: int) -> str:
 
 @mcp.tool()
 def upsert_npc(
-    npc_id: str, name: str = "", disposition: int = 0, note: str = ""
+    npc_id: str, name: str = "", disposition: Optional[int] = None, note: str = ""
 ) -> str:
-    """Create or update an NPC. Disposition is roughly -5 hostile to +5 devoted."""
+    """Create or update an NPC. Disposition is roughly -5 hostile to +5 devoted.
+
+    Omitting a field leaves it unchanged. ``disposition`` must default to None rather than
+    0: prep treats "not None" as "set it", so a 0 default silently reset every NPC touched
+    for any other reason -- adding a note to a devoted ally would drop them to neutral.
+    """
     return _guard(
         lambda: _prep.upsert_npc(
             npc_id, name=name or None, disposition=disposition, note=note or None
