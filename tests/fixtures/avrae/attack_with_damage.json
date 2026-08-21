@@ -1,15 +1,48 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "Attack via automation. Title is '{name} {verb} {attack_name}!' (actionutils). Effects are queued as '**To Hit**: ...' and '**Damage**: ...'. The FIRST backticked value is the d20 result; taking the damage roll would resolve checks against the wrong number.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:39:25.182474+00:00",
+  "_description": "An attack that hit, against a target. The field holds BOTH '**To Hit**: ... = `21`' and '**Damage**: ... = `5`'. The check resolves against To Hit; reading the damage roll instead would compare 5 to an attack DC. Confirmed live.",
   "message": {
+    "id": "1540158349008441345",
     "content": "",
-    "embeds": [{
-      "title": "Dorn attacks with a Longsword!",
-      "author": {"name": "Dorn"},
-      "fields": [
-        {"name": "Meta", "value": "**To Hit**: 1d20 (14) + 6 = `20`\n**Damage**: 1d8 (5) + 4 = `9`"}
-      ]
-    }]
+    "embeds": [
+      {
+        "footer": {
+          "text": "Dummy: <None>: Dealt 5 damage!"
+        },
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "fields": [
+          {
+            "value": "**To Hit**: 1d20 (17) + 4 = `21`\n**Damage**: 1d8 (3) + 2 [slashing] = `5`",
+            "name": "Dummy",
+            "inline": false
+          },
+          {
+            "value": "Proficiency with a Longsword allows you to add your proficiency bonus to the attack roll for any attack you make with it.\n\n---\n\nThis weapon has the following mastery property. To use this property, you must have a feature that lets you use it.\n\n***Sap.*** If you hit a creature with this weapon, that creature has Disadvantage on its next attack roll before the start of your next turn.",
+            "name": "Effect",
+            "inline": false
+          }
+        ],
+        "flags": 0,
+        "color": 3205812,
+        "type": "rich",
+        "title": "Caspian Varr attacks with a Longsword!"
+      }
+    ]
   },
-  "expect": {"status": "roll", "actor": "Dorn", "total": 20, "natural": 14, "kind": "attack"}
+  "expect": {
+    "status": "roll",
+    "actor": "Caspian Varr",
+    "total": 21,
+    "natural": 17,
+    "kind": "attack"
+  }
 }

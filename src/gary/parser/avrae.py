@@ -112,6 +112,10 @@ _AVRAE_PROMPT = re.compile(
 # terminal: no roll is coming from that command, so the Director can re-prompt instead of
 # leaving the check to lapse on TTL. Confirmed live 2026-08-20.
 _PROMPT_ABANDONED = re.compile(r"selection timed out|selection .{0,20}cancelled", re.IGNORECASE)
+# Combatant status announcements: "GO1: <Dead>", "GO1: <Bloodied>". Confirmed live
+# 2026-08-20 from `!init hp GO1 set 0`. Avrae owns combat state (§3); these never resolve
+# a check.
+_COMBATANT_STATUS = re.compile(r"^\S+:\s*<[^>]+>\s*$")
 
 # Titles that are confidently not rolls. Anything not matched here and not parsed as a
 # roll becomes UNKNOWN rather than being silently dropped.
@@ -134,6 +138,13 @@ _IRRELEVANT_HINTS = (
     # ARCHITECTURE.md §6 says errors are plain text, which is true of command errors but
     # not of these. Neither carries a roll, so neither may reach the player as a question.
     "cannot cast",
+    # Initiative chatter, confirmed live 2026-08-20. DANGER: "added to combat" lines read
+    # "... initiative 1d20 (4) + 0 = `4`", which _TOTAL_EQUALS matches. They are safe only
+    # because the no-embed path never mines content for a total. If that ever changes, an
+    # initiative roll could resolve a pending skill check -- someone else's dice deciding
+    # another character's outcome, which §3 gives to Avrae and §5 gives to the resolver.
+    "added to combat",
+    "already in combat",
 )
 
 
@@ -234,6 +245,13 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
         # this, an error arriving while a check is pending reads as an unparseable roll
         # and Gary asks the player what they rolled -- when nothing was rolled at all.
         lowered_content = content.lower()
+        if _COMBATANT_STATUS.match(content):
+            return ParsedAvraeMessage(
+                status=ParseStatus.IRRELEVANT,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="combatant status line",
+            )
         if _PROMPT_ABANDONED.search(content):
             return ParsedAvraeMessage(
                 status=ParseStatus.PROMPT_ABANDONED,

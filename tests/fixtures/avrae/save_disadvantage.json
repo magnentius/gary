@@ -1,13 +1,34 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "Disadvantage, kept die listed first this time. Both orderings occur ~50/50; measured over 400 local rolls.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:37:20.640696+00:00",
+  "_description": "Disadvantage: `2d20kl1 (~~19~~, 3) + 1 = `4``. The struck-through 19 must NOT be read as the natural -- taking it would turn a failure into a success. The mirror image of save_advantage, and the pair is why _D20_GROUP skips struck dice.",
   "message": {
+    "id": "1540157825995767871",
     "content": "",
-    "embeds": [{
-      "title": "Dorn makes a Wisdom Save!",
-      "description": "2d20kl1 (2, ~~3~~) + 1 = `3`",
-      "author": {"name": "Dorn"}
-    }]
+    "embeds": [
+      {
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "flags": 0,
+        "color": 5847169,
+        "type": "rich",
+        "description": "2d20kl1 (~~19~~, 3) + 1 = `4`",
+        "title": "Caspian Varr makes a Wisdom Save!"
+      }
+    ]
   },
-  "expect": {"status": "roll", "actor": "Dorn", "total": 3, "natural": 2, "kind": "save"}
+  "expect": {
+    "status": "roll",
+    "actor": "Caspian Varr",
+    "total": 4,
+    "natural": 3,
+    "kind": "save"
+  }
 }

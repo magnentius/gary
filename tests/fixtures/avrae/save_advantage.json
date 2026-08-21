@@ -1,13 +1,34 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "Save with advantage. Title is '{name} makes {a_or_an(save_name)}!' where save_name is 'Dexterity Save' -- capital S, no trailing 'check'. Dice list in ROLL order, so the DROPPED die can come first; this fixture is that case, which defeats any parser that takes the first number.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:37:11.577062+00:00",
+  "_description": "Advantage: `2d20kh1 (~~5~~, **20**) - 1 = `19``. The kept die is the SECOND one and the dropped die is struck through, which is why the natural cannot be read as the first number in the group. Confirmed live -- and the kept die here is a 20.",
   "message": {
+    "id": "1540157788750086175",
     "content": "",
-    "embeds": [{
-      "title": "Dorn makes a Dexterity Save!",
-      "description": "2d20kh1 (~~5~~, 13) + 4 = `17`",
-      "author": {"name": "Dorn"}
-    }]
+    "embeds": [
+      {
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "flags": 0,
+        "color": 3428224,
+        "type": "rich",
+        "description": "2d20kh1 (~~5~~, **20**) - 1 = `19`",
+        "title": "Caspian Varr makes a Dexterity Save!"
+      }
+    ]
   },
-  "expect": {"status": "roll", "actor": "Dorn", "total": 17, "natural": 13, "kind": "save"}
+  "expect": {
+    "status": "roll",
+    "actor": "Caspian Varr",
+    "total": 19,
+    "natural": 20,
+    "kind": "save"
+  }
 }

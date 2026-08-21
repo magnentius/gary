@@ -64,8 +64,8 @@ def test_fixtures_exist():
 def test_attack_uses_the_d20_not_the_damage_roll():
     """Explicit: reading the damage number would resolve checks against the wrong value."""
     parsed = parse_embed(load(FIXTURE_DIR / "attack_with_damage.json")["message"])
-    assert parsed.roll.total == 20  # attack roll
-    assert parsed.roll.total != 9  # damage
+    assert parsed.roll.total == 21  # **To Hit**
+    assert parsed.roll.total != 5  # **Damage**, in the same field
 
 
 def test_high_total_alone_is_not_a_crit():
