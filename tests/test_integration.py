@@ -322,3 +322,53 @@ def test_message_to_dict_output_is_parseable():
     parsed = parse_embed(json.loads(json.dumps(message_to_dict(msg))))
     assert parsed.roll.total == 20
     assert parsed.roll.natural == 13
+
+
+class _Tags:
+    def __init__(self, bot_id):
+        self.bot_id = bot_id
+
+
+class _Role:
+    def __init__(self, bot_id):
+        self.tags = _Tags(bot_id)
+
+
+class _Msg:
+    def __init__(self, mentions=(), role_mentions=()):
+        self.mentions = list(mentions)
+        self.role_mentions = list(role_mentions)
+
+
+class _Client:
+    """Just enough of GaryClient to exercise _addressed_directly."""
+
+    def __init__(self, user):
+        self.user = user
+
+    _addressed_directly = None  # bound below
+
+
+def test_bot_role_mention_counts_as_addressing_gary():
+    """Discord auto-creates a role named after the bot, so the picker shows two
+    identical '@Gary' entries. Picking the role put the mention in role_mentions and the
+    message read as unaddressed -- silently, while looking addressed at the table."""
+    from gary.adapters.discord_bot import GaryClient
+
+    class _User:
+        """discord.py compares users by id, not identity."""
+        id = 42
+
+        def __eq__(self, other):
+            return getattr(other, "id", None) == self.id
+
+        def __hash__(self):
+            return hash(self.id)
+
+    client = _Client(_User())
+    addressed = GaryClient._addressed_directly.__get__(client, _Client)
+
+    assert addressed(_Msg(mentions=[_User()])) is True
+    assert addressed(_Msg(role_mentions=[_Role(bot_id=42)])) is True
+    assert addressed(_Msg(role_mentions=[_Role(bot_id=999)])) is False
+    assert addressed(_Msg()) is False

@@ -223,8 +223,24 @@ class GaryClient(discord.Client):
         )
         await self.runner.run(effects)
 
+    def _addressed_directly(self, message: "discord.Message") -> bool:
+        """Was Gary mentioned -- as the user, or as his own managed role?
+
+        Discord auto-creates a role named after the bot when it joins, so the picker
+        offers two identical-looking "@Gary" entries. Picking the role puts it in
+        ``role_mentions``, not ``mentions``, and the message reads as unaddressed while
+        looking addressed to everyone at the table.
+        """
+        if self.user in message.mentions:
+            return True
+        for role in getattr(message, "role_mentions", ()) or ():
+            tags = getattr(role, "tags", None)
+            if tags is not None and getattr(tags, "bot_id", None) == self.user.id:
+                return True
+        return False
+
     async def _on_player(self, message: "discord.Message") -> None:
-        mentions_bot = self.user in message.mentions
+        mentions_bot = self._addressed_directly(message)
         effects = self.director.on_player_message(
             channel_id=message.channel.id,
             user_id=message.author.id,
