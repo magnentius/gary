@@ -324,7 +324,8 @@ class GeminiNarrator:
                     response={
                         "ok": True,
                         "posted": command,
-                        "note": "Avrae rolls this against the target's AC and applies the "
+                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
+                                "Avrae rolls it against the target's AC and applies the "
                                 "damage itself. You are told nothing until it reports, and "
                                 "you must not decide whether it hit.",
                     },
@@ -351,7 +352,8 @@ class GeminiNarrator:
                         "ok": True,
                         "monsters": names,
                         "not_in_srd": unknown,
-                        "note": "Initiative is Avrae's from here: it owns turn order, hit "
+                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
+                                "Initiative is Avrae's from here: it owns turn order, hit "
                                 "points and durations, and the world clock is frozen until "
                                 "!init end. Describe what happens; do not recalculate it.",
                     },
@@ -387,7 +389,8 @@ class GeminiNarrator:
                         "minutes_elapsed": minutes,
                         "world_minutes": state["world_minutes"],
                         "posted": command,
-                        "note": "The clock has moved for the whole party. Each player "
+                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
+                                "The clock has moved for the whole party. Each player "
                                 "resets their own sheet; you are not told when they do.",
                     },
                 ))
@@ -421,7 +424,8 @@ class GeminiNarrator:
                         response={
                             "ok": True,
                             "posted": command,
-                            "note": "The player runs this. You will not be told the result "
+                            "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
+                                    "The player runs it. You will not be told the result "
                                     "and must not assume it succeeded.",
                         },
                     )

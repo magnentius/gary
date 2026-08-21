@@ -783,3 +783,18 @@ async def test_a_target_cannot_smuggle_a_flag(rig):
     assert not [e for e in result.effects if isinstance(e, SendMessage)]
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
+
+
+@pytest.mark.asyncio
+async def test_the_model_is_told_its_command_was_already_posted(rig):
+    """It posted `!attack "Longsword" -t NO1`, then narrated "Run !attack ... in the
+    channel to resolve the strike" — the command appeared twice, because nothing told it
+    Gary had already sent one."""
+    n = narrator(
+        rig,
+        call_response(T.ATTACK, {"actor": "X", "weapon": "Longsword", "target": "NO1"}),
+        text_response("Steel rings."),
+    )
+    await player(n, "I swing")
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert "ALREADY POSTED" in fr.response["note"]
