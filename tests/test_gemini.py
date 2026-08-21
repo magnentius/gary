@@ -657,4 +657,4 @@ async def test_unsigned_amount_is_refused_back_to_the_model(rig):
     assert not [e for e in result.effects if isinstance(e, SendMessage)]
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
-    assert "sign is required" in fr.response["error"]
+    assert "needs its own sign" in fr.response["error"]
