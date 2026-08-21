@@ -136,15 +136,24 @@ def trim(
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
     """Split into ``(kept, overflow)``.
 
-    Never splits a model turn from the tool result that answers it: an orphaned
-    ``function_response`` at the head of the window is a malformed conversation, and
-    Gemini rejects it. The window edge walks forward until it lands on a clean boundary.
+    Never splits a tool exchange across the window edge. Gemini rejects both halves:
+
+    * a leading ``function_response`` answers a call that is no longer there;
+    * a leading ``function_call`` is rejected with "function call turn comes immediately
+      after a user turn or after a function response turn" — observed live 2026-08-21,
+      once a session's worth of set_scene, record_note and upsert_npc calls had filled the
+      history with these pairs and the window finally landed inside one.
+
+    The edge walks forward until the head is a clean start. The two cases cascade: dropping
+    a call turn exposes its response turn, which is then dropped in turn.
     """
     if len(turns) <= window:
         return turns, []
 
     cut = len(turns) - window
-    while cut < len(turns) and _opens_with_function_response(turns[cut]):
+    while cut < len(turns) and (
+        _opens_with_function_response(turns[cut]) or _has_function_call(turns[cut])
+    ):
         cut += 1
     return turns[cut:], turns[:cut]
 
@@ -155,3 +164,9 @@ def _opens_with_function_response(turn: Dict[str, Any]) -> bool:
             return True
         break
     return False
+
+
+def _has_function_call(turn: Dict[str, Any]) -> bool:
+    """Any call in the turn, not just the first part: a model turn may carry prose and a
+    call together, and the call is still unanchored if it leads the window."""
+    return any("function_call" in part for part in turn.get("parts", []))

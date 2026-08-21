@@ -133,3 +133,37 @@ def test_trim_tolerates_a_window_of_all_function_responses():
     ]
     kept, overflow = trim(turns, window=2)
     assert kept == [] and len(overflow) == 4
+
+
+def test_window_never_starts_on_an_unanchored_function_call():
+    """Live 2026-08-21: "function call turn comes immediately after a user turn or after a
+    function response turn". A session of set_scene/record_note/upsert_npc calls filled the
+    history with these pairs and the window landed inside one."""
+    turns = [
+        {"role": "user", "parts": [{"text": "I ask about her son"}]},
+        {"role": "model", "parts": [{"function_call": {"name": "upsert_npc", "args": {}}}]},
+        {"role": "user", "parts": [{"function_response": {"name": "upsert_npc", "response": {}}}]},
+        {"role": "model", "parts": [{"text": "Name's Toby."}]},
+    ]
+    kept, overflow = trim(turns, window=3)
+
+    # window=3 would start on the call turn; it and its response are dropped together
+    assert "function_call" not in str(kept[0])
+    assert "function_response" not in str(kept[0])
+    assert len(kept) + len(overflow) == len(turns)
+
+
+def test_a_call_carried_alongside_prose_still_anchors():
+    """A model turn may hold text and a call together; the call is still unanchored if it
+    leads the window, so the whole turn goes."""
+    turns = [
+        {"role": "user", "parts": [{"text": "I look around"}]},
+        {"role": "model", "parts": [
+            {"text": "The market stirs."},
+            {"function_call": {"name": "set_scene", "args": {}}},
+        ]},
+        {"role": "user", "parts": [{"function_response": {"name": "set_scene", "response": {}}}]},
+        {"role": "model", "parts": [{"text": "What now?"}]},
+    ]
+    kept, _ = trim(turns, window=3)
+    assert kept == [{"role": "model", "parts": [{"text": "What now?"}]}]
