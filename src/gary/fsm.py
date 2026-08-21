@@ -115,6 +115,15 @@ class Director:
         self.players = dict(players or {})
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
+    def set_player_character(self, user_id: int, actor: str) -> None:
+        """Register who is playing whom, from ``?dm playing`` or persisted state.
+
+        Deliberately not a model tool. This mapping decides whose roll resolves whose
+        check, which is the class of decision §5 keeps away from the model entirely.
+        """
+        self.players[user_id] = actor
+        self._known_actors = {normalize_actor(a) for a in self.players.values()}
+
     def state(self, channel_id: int) -> ChannelState:
         """Derived from the registry -- the single source of truth for 'are we waiting?'."""
         return (

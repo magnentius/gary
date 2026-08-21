@@ -27,7 +27,7 @@ import discord
 
 from ..config import Settings
 from ..fsm import Director
-from ..models import CancelReason
+from ..models import CancelReason, Mutation, MutationKind
 from ..parser.avrae import ParseStatus, parse_embed
 from ..ports import EchoNarrator, Narrator
 from ..registry import PendingCheckRegistry
@@ -130,6 +130,13 @@ class GaryClient(discord.Client):
             self.settings.avrae_bot_id,
             len(list(self.director.registry.open_checks())),
         )
+        persisted = {
+            int(uid): actor
+            for uid, actor in (self.store.state().get("players") or {}).items()
+        }
+        for user_id, actor in persisted.items():
+            self.director.set_player_character(user_id, actor)
+
         if self.settings.players:
             log.info(
                 "roster: %s",
@@ -231,6 +238,25 @@ class GaryClient(discord.Client):
         command = parts[0].lower() if parts else "help"
         channel_id = message.channel.id
 
+        if command == "playing":
+            actor = body[len("playing"):].strip()
+            if not actor:
+                await self.sender.send(
+                    channel_id,
+                    f"`{self.settings.command_prefix}playing <character name>` — the name "
+                    "exactly as Avrae shows it.",
+                )
+                return
+            self.store.apply(
+                [Mutation(MutationKind.PLAYER_CHARACTER, str(message.author.id), {"actor": actor})],
+                reason=f"{message.author.display_name} plays {actor}",
+            )
+            self.director.set_player_character(message.author.id, actor)
+            await self.sender.send(
+                channel_id, f"Noted — **{message.author.display_name}** is playing **{actor}**."
+            )
+            return
+
         if command == "undo":
             entry = self.store.undo_last()
             if entry is None:
@@ -288,7 +314,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: undo | cancel | checks | state | stats",
+                f"`{self.settings.command_prefix}`: playing <name> | undo | cancel | checks | state | stats",
             )
 
 

@@ -282,3 +282,20 @@ def test_schema_mismatch_refuses_to_load(backend_factory, clock):
 
     with pytest.raises(StateError, match="migration required"):
         CampaignStore(backend=backend_factory(), clock=clock)
+
+
+def test_player_character_is_persisted_and_undoable(store):
+    store.apply(
+        [Mutation(MutationKind.PLAYER_CHARACTER, "111", {"actor": "Kethra"})],
+        reason="alice plays kethra",
+    )
+    assert store.state()["players"] == {"111": "Kethra"}
+
+    store.apply(
+        [Mutation(MutationKind.PLAYER_CHARACTER, "111", {"actor": "Caspian Varr"})],
+        reason="alice switches character",
+    )
+    assert store.state()["players"] == {"111": "Caspian Varr"}
+
+    store.undo_last()
+    assert store.state()["players"] == {"111": "Kethra"}

@@ -541,6 +541,23 @@ def _h_note(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     return AppliedMutation(mutation=m, inverse=None, after=note)
 
 
+def _h_player_character(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the discord user id as a string; payload carries {"actor": name}."""
+    players = store._state.setdefault("players", {})
+    before = players.get(m.target)
+    players[m.target] = m.payload["actor"]
+    return AppliedMutation(
+        mutation=m,
+        inverse=(
+            Mutation(MutationKind.PLAYER_CHARACTER, m.target, {"actor": before})
+            if before
+            else None
+        ),
+        before=before,
+        after=players[m.target],
+    )
+
+
 def _h_scene(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = dict(store._state.get("scene", {}))
     store._state["scene"] = {**before, **m.payload}
@@ -563,4 +580,5 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.NPC_RELATION: _h_npc,
     MutationKind.NOTE: _h_note,
     MutationKind.SCENE: _h_scene,
+    MutationKind.PLAYER_CHARACTER: _h_player_character,
 }

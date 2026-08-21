@@ -29,6 +29,10 @@ def empty_state() -> Dict[str, Any]:
         "effects": [],  # out-of-combat only; see EffectRecord
         "quests": {},  # quest_id -> {"title": str, "status": str, "notes": [str]}
         "npcs": {},  # npc_id -> {"name": str, "disposition": int, "notes": [str]}
+        # discord user id (as str -- JSON object keys are strings) -> Avrae character
+        # name. Correlation is name-based in practice (§14 (7)), so this is what lets
+        # open_check name an actor Avrae will echo back.
+        "players": {},
         "notes": [],  # narrative memory, feeds context retrieval
         "encounter": None,  # non-None while Avrae owns combat state
     }

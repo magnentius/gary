@@ -369,3 +369,19 @@ def test_no_roster_configured_validates_nothing(director):
         key="stealth", dc=15, on_success="ok", on_failure="no",
     )
     assert any(isinstance(e, SendMessage) for e in effects)
+
+
+def test_set_player_character_updates_validation(director):
+    """?dm playing must take effect immediately, without a restart."""
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
+        key="stealth", dc=15, on_success="ok", on_failure="no",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)  # no roster yet: anything goes
+
+    director.set_player_character(ALICE, "Kethra")
+    rejected = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="John K", kind=CheckKind.CHECK,
+        key="stealth", dc=15, on_success="ok", on_failure="no",
+    )
+    assert rejected[0].kind == "system_note"
