@@ -150,6 +150,20 @@ class CampaignStore:
             self._state["players"] = players
         self.snapshot()
 
+    def mirror_sheet(self, actor: str, descriptor: str, level: Optional[int]) -> None:
+        """Cache what `!sheet` reported about a character.
+
+        A mirror, not a mutation: Avrae owns the sheet (§3) and this is only what Gary
+        last saw. It is not journalled — there is nothing to undo, and replaying a stale
+        mirror would be worse than not having one. It is overwritten whenever a newer
+        sheet goes past, which is what `!update` then `!sheet` is for after a level-up.
+        """
+        with self._lock:
+            slot = self._party_slot(actor)
+            slot["sheet"] = descriptor
+            if level is not None:
+                slot["level"] = int(level)
+
     def record_check_outcome(self, outcome: "CheckOutcome") -> None:
         """Journal a resolved check.
 

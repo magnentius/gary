@@ -400,3 +400,24 @@ def test_resolution_emits_a_record_alongside_the_narration(director):
     assert records[0].outcome.dc == 15
     assert records[0].outcome.total == 19
     assert records[0].outcome.succeeded is True
+
+
+def test_a_sheet_mirrors_without_consuming_a_pending_check(director):
+    """A player checking their sheet mid-check must not resolve it. Sheets are state, not
+    rolls -- handled before the AWAITING_ROLL gate, like the initiative tracker."""
+    from gary.fsm import MirrorSheet
+    from gary.parser.avrae import SheetView
+
+    open_check(director)
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.SHEET,
+            sheet=SheetView(actor="Kethra", descriptor="Human Fighter 3", level=3),
+        ),
+    )
+
+    assert len(effects) == 1
+    assert isinstance(effects[0], MirrorSheet)
+    assert effects[0].level == 3
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL   # still pending

@@ -35,10 +35,27 @@ from ..models import AvraeRoll, CheckKind
 class ParseStatus(str, Enum):
     ROLL = "roll"
     INITIATIVE = "initiative"
+    SHEET = "sheet"  # !sheet output: the character sheet, mirrored read-only (§3)
     IRRELEVANT = "irrelevant"  # confidently not something we care about (!help, sheets)
     AVRAE_PROMPT = "avrae_prompt"  # Avrae is asking the player something -- a roll may still come
     PROMPT_ABANDONED = "prompt_abandoned"  # that question lapsed; no roll is coming
     UNKNOWN = "unknown"  # looked like a roll but could not be read -- escalate
+
+
+@dataclass(frozen=True)
+class SheetView:
+    """What `!sheet` says about a character. Mirrored, never authored (§3).
+
+    ``descriptor`` is Avrae's own first line verbatim -- "Human Fighter 1". Kept raw
+    rather than split into race/class, because multiclass renders inside it and a parser
+    that guessed at that shape would be wrong in exactly the way today has been wrong
+    repeatedly. ``level`` is the sum of every level number on that line, so a multiclass
+    total is right even though the split is not attempted.
+    """
+
+    actor: str
+    descriptor: str
+    level: Optional[int] = None
 
 
 @dataclass(frozen=True)
@@ -76,6 +93,7 @@ class ParsedAvraeMessage:
     combatants: tuple = ()
     interaction_user_id: Optional[int] = None
     referenced_user_id: Optional[int] = None
+    sheet: Optional["SheetView"] = None
     reason: str = ""
 
 
@@ -104,6 +122,11 @@ _COMBATANT = re.compile(
 )
 _HP = re.compile(r"(\d+)\s*/\s*(\d+)\s*HP", re.IGNORECASE)
 _HP_BARE = re.compile(r"^(\d+)\s*HP", re.IGNORECASE)
+# `!sheet`, captured live 2026-08-21: no title, the character in embed.author.name, and a
+# description whose first line is "Human Fighter 1". "**Proficiency Bonus**" is the marker
+# -- it appears on every sheet and nowhere else.
+_SHEET_MARKER = re.compile(r"\*\*Proficiency Bonus\*\*", re.IGNORECASE)
+_SHEET_LEVEL = re.compile(r"\b(\d{1,2})\b")
 _INIT_HEADER = re.compile(r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*\d+\)\s*$", re.IGNORECASE)
 
 # Avrae's disambiguation selector. Confirmed live 2026-08-20: an embed titled "Multiple
@@ -299,6 +322,25 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     embed = embeds[0]
     text = _embed_text(embed)
     lowered = text.lower()
+
+    # Checked before the roll branch: a sheet carries numbers everywhere and must never
+    # be mistaken for a total. Like INITIATIVE, this is state rather than a roll.
+    description = str(embed.get("description") or "")
+    if _SHEET_MARKER.search(description):
+        first_line = description.splitlines()[0].strip() if description.strip() else ""
+        levels = [int(n) for n in _SHEET_LEVEL.findall(first_line)]
+        actor = str((embed.get("author") or {}).get("name") or "").strip()
+        if actor:
+            return ParsedAvraeMessage(
+                status=ParseStatus.SHEET,
+                sheet=SheetView(
+                    actor=actor,
+                    descriptor=first_line,
+                    level=sum(levels) if levels else None,
+                ),
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+            )
 
     actor, kind, key = _actor_and_kind(embed)
     total = _find_total(text)

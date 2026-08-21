@@ -119,7 +119,7 @@ The most common failure mode in a system like this is two components confidently
 
 | Fact | Owner | Notes |
 |------|-------|-------|
-| Character sheet, stats, proficiencies | **D&D Beyond → Avrae** | Gary reads, never writes. |
+| Character sheet, stats, proficiencies, **level and XP** | **D&D Beyond → Avrae** | Gary reads, never writes. Levels are the input to encounter difficulty and Gary has no other way to learn them, so `!sheet` output is parsed and **mirrored** into `party[actor]` as `sheet` and `level` — Avrae's own first line verbatim ("Human Fighter 1"), kept raw rather than split, because multiclass renders inside it. The mirror is not journalled: there is nothing to undo, and replaying a stale one is worse than having none. Milestone levelling therefore needs no bookkeeping in Gary — level up on D&D Beyond, `!update`, then `!sheet`, and the mirror refreshes itself. |
 | Dice results | **Avrae** | Sole roller. Gary never rolls a d20 for a player. |
 | HP, conditions, effect durations **inside initiative** | **Avrae** | Round-based. Gary mirrors read-only. |
 | Combat turn order | **Avrae** | |

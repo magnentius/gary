@@ -42,7 +42,16 @@ def test_fixture(path: Path):
     if "natural" in expect:
         assert parsed.roll.natural == expect["natural"]
     if "actor" in expect:
-        assert parsed.roll.actor == expect["actor"]
+        # A sheet names its character in embed.author.name and carries no roll.
+        source = parsed.sheet if parsed.status is ParseStatus.SHEET else parsed.roll
+        assert source is not None
+        assert source.actor == expect["actor"]
+    if "level" in expect:
+        assert parsed.sheet is not None
+        assert parsed.sheet.level == expect["level"]
+    if "descriptor" in expect:
+        assert parsed.sheet is not None
+        assert parsed.sheet.descriptor == expect["descriptor"]
     if "kind" in expect:
         assert parsed.roll.kind is not None
         assert parsed.roll.kind.value == expect["kind"]

@@ -20,7 +20,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from ..fsm import AskPlayer, Effect, LogDrop, PromptModel, RecordOutcome, SendMessage
+from ..fsm import (
+    AskPlayer,
+    Effect,
+    LogDrop,
+    MirrorSheet,
+    PromptModel,
+    RecordOutcome,
+    SendMessage,
+)
 from ..ports import Narrator, NarrationResult
 
 log = logging.getLogger("gary.runner")
@@ -40,6 +48,7 @@ class RunnerStats:
     narrated: int = 0
     narrator_failures: int = 0
     outcomes_recorded: int = 0
+    sheets_mirrored: int = 0
     depth_exceeded: int = 0
     drops_by_status: Dict[str, int] = field(default_factory=dict)
 
@@ -82,6 +91,12 @@ class EffectRunner:
         if isinstance(effect, (SendMessage, AskPlayer)):
             await self._sender.send(effect.channel_id, effect.text)
             self.stats.sent += 1
+            return
+
+        if isinstance(effect, MirrorSheet):
+            if self._store is not None:
+                self._store.mirror_sheet(effect.actor, effect.descriptor, effect.level)
+            self.stats.sheets_mirrored += 1
             return
 
         if isinstance(effect, RecordOutcome):

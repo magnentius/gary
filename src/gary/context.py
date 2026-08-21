@@ -172,9 +172,14 @@ def render_live_state(state: Dict[str, Any]) -> str:
         for actor in roster:
             # Coin is deliberately absent: Avrae owns it (§3). A stale number inside a
             # block headed "authoritative" is worse than no number at all.
-            inventory = (party.get(actor) or {}).get("inventory") or []
+            data = party.get(actor) or {}
+            inventory = data.get("inventory") or []
             carried = "carrying " + ", ".join(inventory[:8]) if inventory else "carrying nothing"
-            lines.append(f"    - {actor}: {carried}")
+            # Class and level as `!sheet` last reported them — this is what encounter
+            # difficulty is judged from, and Gary has no other way to know it.
+            sheet = str(data.get("sheet") or "").strip()
+            who = f"{actor} ({sheet})" if sheet else actor
+            lines.append(f"    - {who}: {carried}")
 
     effects = state.get("effects") or []
     if effects and not state.get("encounter"):

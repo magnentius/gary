@@ -413,3 +413,21 @@ def test_parse_world_time_round_trips_the_formatter():
     for bad in ("25:00", "18:60", "soon", "", "day 0 10:00"):
         with pytest.raises(ValueError):
             parse_world_time(bad, st)
+
+
+def test_mirror_sheet_caches_class_and_level(store):
+    """Avrae owns the sheet (§3); this is only what Gary last saw go past."""
+    store.mirror_sheet("Caspian Varr", "Human Fighter 1", 1)
+    slot = store.state()["party"]["Caspian Varr"]
+    assert slot["sheet"] == "Human Fighter 1"
+    assert slot["level"] == 1
+
+    store.mirror_sheet("Caspian Varr", "Human Fighter 2", 2)   # after !update, !sheet
+    assert store.state()["party"]["Caspian Varr"]["level"] == 2
+
+
+def test_mirroring_a_sheet_is_not_journalled(store):
+    """Nothing to undo, and replaying a stale mirror is worse than not having one."""
+    before = len(store.journal())
+    store.mirror_sheet("Kethra", "Elf Wizard 4", 4)
+    assert len(store.journal()) == before

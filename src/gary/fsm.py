@@ -68,6 +68,21 @@ class PromptModel(Effect):
 
 
 @dataclass(frozen=True)
+class MirrorSheet(Effect):
+    """Cache what `!sheet` reported. Read-only mirror of a fact Avrae owns (§3).
+
+    The party's exact levels are what encounter difficulty is judged from, and nothing
+    else in Gary knows them: levels live on the character sheet, and Gary never writes
+    there. Seeing a sheet go past is the only way it can learn.
+    """
+
+    channel_id: int
+    actor: str
+    descriptor: str
+    level: Optional[int]
+
+
+@dataclass(frozen=True)
 class RecordOutcome(Effect):
     """Journal a resolved check. History, not state.
 
@@ -288,6 +303,18 @@ class Director:
         self, *, channel_id: int, parsed: ParsedAvraeMessage
     ) -> List[Effect]:
         """The gate. Only AWAITING_ROLL consumes Avrae output."""
+        if parsed.status is ParseStatus.SHEET and parsed.sheet is not None:
+            # Before the gate, like INITIATIVE: a sheet is state, not a roll, and a
+            # player checking their sheet mid-check must not consume the pending one.
+            return [
+                MirrorSheet(
+                    channel_id=channel_id,
+                    actor=parsed.sheet.actor,
+                    descriptor=parsed.sheet.descriptor,
+                    level=parsed.sheet.level,
+                )
+            ]
+
         if parsed.status is ParseStatus.INITIATIVE:
             # Mirrored read-only for narrative colour; never resolves a check.
             return [LogDrop(channel_id, parsed.status.value, "initiative mirror")]
