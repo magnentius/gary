@@ -65,6 +65,17 @@ class StateBackend(Protocol):
     def read_journal(self) -> List[Dict[str, Any]]:
         """Every entry, in ``seq`` order."""
 
+    def truncate_journal(self) -> None:
+        """Discard every entry. The one operation on this protocol that destroys history.
+
+        Exists solely for `?dm reset`, where the point is that the campaign is gone: a
+        reset that leaves the old world's notes, gold and NPC dispositions sitting in the
+        journal has not reset anything a reader can see. Callers must write a snapshot of
+        the empty state with ``journal_offset`` 0 immediately afterwards -- a truncated
+        journal under a stale snapshot replays as the old campaign minus its history,
+        which is worse than either.
+        """
+
 
 @runtime_checkable
 class CheckBackend(Protocol):
@@ -103,6 +114,9 @@ class InMemoryStateBackend:
 
     def read_journal(self) -> List[Dict[str, Any]]:
         return [json.loads(json.dumps(e)) for e in self._journal]
+
+    def truncate_journal(self) -> None:
+        self._journal.clear()
 
 
 class InMemoryCheckBackend:
@@ -179,6 +193,22 @@ class FileStateBackend:
                 f.write(json.dumps(entry, sort_keys=True) + "\n")
                 f.flush()
                 os.fsync(f.fileno())
+
+    def truncate_journal(self) -> None:
+        with self._lock:
+            # Replace rather than open("w"): a truncate-in-place is briefly a file that
+            # is neither the old journal nor the new one, and a crash inside that window
+            # leaves a half-empty journal that still replays.
+            tmp = self.journal_path.with_suffix(".ndjson.tmp")
+            with open(tmp, "w", encoding="utf-8") as f:
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp, self.journal_path)
+            dir_fd = os.open(self.journal_path.parent, os.O_RDONLY)
+            try:
+                os.fsync(dir_fd)
+            finally:
+                os.close(dir_fd)
 
     def read_journal(self) -> List[Dict[str, Any]]:
         if not self.journal_path.exists():

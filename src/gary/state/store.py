@@ -124,31 +124,32 @@ class CampaignStore:
         self._since_snapshot = len(self._journal) - replay_from
 
     def reset_campaign(self) -> None:
-        """Wipe everything back to Day 1, including the roster.
+        """Wipe everything back to Day 1: state, roster, and the journal itself.
 
-        The journal is NOT truncated. A reset is appended as its own entry and replays as
-        "state becomes empty", so the history of what happened before it survives and
-        remains auditable -- the campaign is gone, the record that it existed is not.
+        The journal goes too. Keeping it meant `journal.ndjson` still held the dead
+        campaign's notes, gold and NPC dispositions after a reset that was supposed to
+        have ended it -- and a reset you can still read is not one a person will trust.
+        This is the only operation in the store that destroys history, and it is
+        unrecoverable by design.
 
-        The roster goes too. An earlier version kept it, on the grounds that who is
+        The roster goes as well. An earlier version kept it, on the grounds that who is
         playing whom is table setup rather than fiction; a reset that leaves anything
         behind is a reset with an exception to remember, and forgetting `?dm playing`
         after one is loud (the boot warning, and open_check refusing an unknown actor)
         rather than silent.
+
+        **Order matters, and only one order is safe.** Truncate first, snapshot second.
+        A crash in between leaves the old snapshot with an offset past the end of an
+        empty journal, which replays as the old campaign: the reset simply did not
+        happen, and re-running it works. The reverse order writes an empty snapshot at
+        offset 0 over a journal that is still full, and replay walks the whole dead
+        campaign back into existence.
         """
         with self._lock:
-            self._append_journal(
-                {
-                    "entry_id": new_id(self._clock()),
-                    "at": self._clock(),
-                    "kind": "campaign_reset",
-                    "target": "",
-                    "payload": {},
-                    "inverse": None,
-                    "reason": "campaign reset",
-                }
-            )
+            self.backend.truncate_journal()
+            self._journal.clear()
             self._state = empty_state()
+            self._since_snapshot = 0
         self.snapshot()
 
     def mirror_combat(self, combatants: Sequence[Any], round_number: Optional[int]) -> None:
@@ -229,6 +230,9 @@ class CampaignStore:
             self._state["encounter"] = entry["payload"]
             return
         if kind == "campaign_reset":
+            # Reset truncates the journal now, so nothing writes this kind any more.
+            # Journals written before that change still contain one, and dropping the
+            # handler would replay those campaigns straight through their own reset.
             self._state = empty_state()
             return
         if kind == "check_outcome":

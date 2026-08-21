@@ -598,8 +598,8 @@ class GaryClient(discord.Client):
                 await self.sender.send(
                     channel_id,
                     "**This deletes the campaign.** World state, quests, NPCs, notes, "
-                    "inventories and conversation memory all go. The journal is kept, so "
-                    "the record of what happened survives, but the campaign does not. "
+                    "inventories and conversation memory all go — and so does the "
+                    "journal, so there is no record afterwards and no undo. "
                     f"Currently: {len(state.get('notes') or [])} note(s), "
                     f"{len(state.get('quests') or {})} quest(s), "
                     f"{len(state.get('npcs') or {})} NPC(s).\n"

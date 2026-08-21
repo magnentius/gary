@@ -154,6 +154,14 @@ class FirestoreStateBackend:
         return out
 
 
+    def truncate_journal(self) -> None:
+        # No collection-level delete exists in Firestore: a subcollection is emptied one
+        # document at a time. The set is bounded by a single campaign's history, and this
+        # runs once per reset, so it is not batched.
+        for doc in self._journal.stream():
+            self._journal.document(doc.id).delete()
+
+
 class FirestoreCheckBackend:
     """One document per pending check.
 

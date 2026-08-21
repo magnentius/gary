@@ -368,18 +368,50 @@ def test_reset_clears_everything_including_the_roster(store):
     assert st["world_minutes"] == 0
 
 
-def test_reset_preserves_the_journal(backend_factory, clock):
-    """The campaign is gone; the record that it existed is not."""
+def test_reset_empties_the_journal(backend_factory, clock):
+    """A reset that leaves the dead campaign readable in journal.ndjson has not reset
+    anything a person can see. This is the one operation that destroys history."""
     first = CampaignStore(backend=backend_factory(), clock=clock)
     first.apply([gold("Kethra", 10)], reason="before the reset")
+    first.apply(
+        [Mutation(MutationKind.NOTE, "Leafmoor", {"body": "The Reeve takes bribes."})],
+        reason="note",
+    )
     first.reset_campaign()
 
-    kinds = [e["kind"] for e in first.journal()]
-    assert "gold" in kinds  # history of the old campaign survives
-    assert kinds[-1] == "campaign_reset"
+    assert first.journal() == []
+    assert first.state()["party"] == {}
 
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
-    assert reopened.state()["party"] == {}  # and replay honours the reset
+    assert reopened.journal() == []
+    assert reopened.state()["party"] == {}
+    assert reopened.state()["notes"] == []
+
+    # And the journal is usable again: seq restarts at 0 rather than continuing from the
+    # old length, which would leave a permanent gap that document-based backends key on.
+    reopened.apply([gold("Kethra", 5)], reason="after the reset")
+    assert [e["seq"] for e in reopened.journal()] == [0]
+
+
+def test_reset_leaves_no_snapshot_pointing_past_the_journal(backend_factory, clock):
+    """The snapshot's journal_offset must come back to 0 with the journal. Left at the
+    old length it points past the end of an empty journal -- harmless until the next
+    entry lands, which then sits below the offset and is never replayed."""
+    store = CampaignStore(backend=backend_factory(), clock=clock)
+    for i in range(5):
+        store.apply([gold("Kethra", 1)], reason=f"turn {i}")
+    store.reset_campaign()
+
+    backend = backend_factory()
+    loaded = backend.load_snapshot()
+    assert loaded is not None
+    _, offset = loaded
+    assert offset == 0
+
+    store.apply([gold("Kethra", 7)], reason="after")
+    assert CampaignStore(backend=backend_factory(), clock=clock).state()["party"][
+        "Kethra"
+    ]["gold"] == 7
 
 
 def test_setting_a_location_clears_a_stale_summary(store):
