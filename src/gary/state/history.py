@@ -51,6 +51,15 @@ class HistoryBackend(Protocol):
         silently clobber any summary produced while that turn was in flight.
         """
 
+    def clear_all(self) -> None:
+        """Discard every channel's history. For `?dm reset` only.
+
+        Every channel, not just the configured ones. Reset used to loop over
+        ``GARY_GAME_CHANNELS`` and blank each in turn, which left the full transcript of
+        any channel that had since been removed from the setting -- readable, and loaded
+        straight back into layer 4 if that channel was ever re-added.
+        """
+
 
 class InMemoryHistoryBackend:
     def __init__(self) -> None:
@@ -67,6 +76,9 @@ class InMemoryHistoryBackend:
     def save_summary(self, channel_id: int, summary: str) -> None:
         turns, _ = self._data.get(channel_id, ([], ""))
         self._data[channel_id] = (turns, summary)
+
+    def clear_all(self) -> None:
+        self._data.clear()
 
 
 class FileHistoryBackend:
@@ -101,6 +113,14 @@ class FileHistoryBackend:
             turns, _ = self.load(channel_id)
             atomic_write_json(self._path(channel_id), {"turns": turns, "summary": summary})
 
+    def clear_all(self) -> None:
+        with self._lock:
+            # Unlink rather than write an empty file: an empty history and an absent one
+            # already load identically, so leaving a husk behind only invites the
+            # question of whether the reset finished.
+            for path in self.root.glob("history_*.json"):
+                path.unlink(missing_ok=True)
+
 
 class FirestoreHistoryBackend:
     """⚠️ Unverified against real Firestore, like the other Firestore backends."""
@@ -129,6 +149,10 @@ class FirestoreHistoryBackend:
         self._history.document(str(channel_id)).set(
             {"turns_json": json.dumps(turns), "summary": summary}
         )
+
+    def clear_all(self) -> None:
+        for doc in self._history.stream():
+            self._history.document(doc.id).delete()
 
 
 def trim(

@@ -621,9 +621,7 @@ class GaryClient(discord.Client):
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
             if self.history_backend is not None:
-                for cid in self.settings.game_channels:
-                    self.history_backend.save_turns(cid, [])
-                    self.history_backend.save_summary(cid, "")
+                self.history_backend.clear_all()
             self.store.reset_campaign()
             self.director.forget_everything()
             log.warning("campaign reset by %s in channel %d", message.author, channel_id)

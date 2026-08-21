@@ -167,3 +167,36 @@ def test_a_call_carried_alongside_prose_still_anchors():
     ]
     kept, _ = trim(turns, window=3)
     assert kept == [{"role": "model", "parts": [{"text": "What now?"}]}]
+
+
+def test_clear_all_forgets_every_channel(history_factory):
+    """Reset used to loop over GARY_GAME_CHANNELS and blank each in turn. A channel that
+    had since been dropped from that setting kept its whole transcript through a reset --
+    readable on disk, and loaded straight back into layer 4 if it was ever re-added."""
+    backend = history_factory()
+    backend.save_turns(111, TURNS)
+    backend.save_summary(111, "The party burned the drying sheds.")
+    backend.save_turns(222, TURNS)
+    backend.save_summary(222, "A different table entirely.")
+
+    backend.clear_all()
+
+    for channel in (111, 222):
+        turns, summary = history_factory().load(channel)
+        assert turns == []
+        assert summary == ""
+
+
+def test_clear_all_leaves_the_backend_usable(history_factory):
+    """A reset is followed immediately by play, so this cannot be a one-way door."""
+    backend = history_factory()
+    backend.save_turns(111, TURNS)
+    backend.clear_all()
+
+    backend.save_turns(111, TURNS)
+    turns, _ = history_factory().load(111)
+    assert turns == TURNS
+
+
+def test_clear_all_on_an_empty_backend_is_not_an_error(history_factory):
+    history_factory().clear_all()
