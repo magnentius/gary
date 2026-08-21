@@ -182,10 +182,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=UPSERT_NPC,
         description=(
-            "Create or update an NPC the party has actually met or heard named. Use this "
-            "the moment you give someone a name — a named character who exists only in "
-            "your prose is forgotten, and you will contradict yourself about them later. "
-            "Omit a field to leave it unchanged; disposition runs -5 hostile to +5 devoted."
+            "Create or update an NPC the party has met OR merely heard named — someone "
+            "another character mentions counts, and needs this more than someone present, "
+            "because nothing else anchors them until the party finally meets them. A role "
+            "a player could ask for ('the harbour master', 'Maren's son') is a name. Omit "
+            "a field to leave it unchanged; disposition runs -5 hostile to +5 devoted."
         ),
         parameters=_s(
             type=_OBJECT,

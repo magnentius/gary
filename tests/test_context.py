@@ -256,3 +256,12 @@ def test_record_note_has_observable_triggers():
     assert "nobody asked about" in text
     for kind in ("clue", "foreshadow", "promise"):
         assert f"kind={kind}" in text
+
+
+def test_npc_trigger_covers_offscreen_names():
+    """Maren named Harbour Master Vane, gave him a temper and a role in the plot, and
+    upsert_npc did not fire -- he was not in the room. Offscreen names are exactly the
+    ones that get reinvented, since nothing anchors them until the party arrives."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "only spoken about" in text
+    assert "Offscreen names need this MORE" in text

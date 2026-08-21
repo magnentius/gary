@@ -54,9 +54,13 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
       Bad:  "You push open the door and the smell of wet wool hits you."
   Do not put the time of day in it — the clock above is authoritative. Do not restate NPC
   attitudes or quest status; those are recorded separately and would drift.
-- The moment you give someone a name, call upsert_npc. A named character who lives only
-  in your prose is forgotten, and you will contradict yourself about them in three
-  sessions. Set disposition when their attitude is clear.
+- The moment a person acquires a name, call upsert_npc — whether they are standing in
+  front of the party or only spoken about. Offscreen names need this MORE, not less: a
+  harbour master an NPC mentions in passing has nothing anchoring him, so by the time the
+  party finally meets him you will have reinvented his rank, his temper and his motive.
+  "Maren's son who works the customs slip" counts: a role is a name a player can ask for.
+  Set disposition when their attitude is clear — someone who lowers their voice and tells
+  you what their son saw is not neutral.
 - Call record_note whenever you put information in an NPC's mouth, or draw attention to
   something nobody asked about. Those are plants: you invented them for a reason, and the
   reason is what you will have forgotten in three sessions while the player has not.
