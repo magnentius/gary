@@ -207,6 +207,46 @@ def render_enemy_attack_command(
     return f'!init attack "{attack}" -t "{target}"' + _prone_modifier(advantage, ranged)
 
 
+# The 5e conditions, plus room for a narrative label. Per `!help init effect` the command
+# accepts a large mechanical argument set -- `-ac +10`, `-maxhp +100`, `-attack`,
+# `-immune`, `adv` -- so NONE of it is rendered here. A model that can pass those under a
+# condition name can grant itself armour class, hit points and attacks, which is precisely
+# what §5.3 renders from an allowlist to prevent. Name and duration only.
+CONDITIONS = (
+    "blinded", "charmed", "deafened", "exhaustion", "frightened", "grappled",
+    "incapacitated", "invisible", "paralyzed", "petrified", "poisoned", "prone",
+    "restrained", "stunned", "unconscious",
+)
+_EFFECT_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9 '-]{0,29}$")
+
+
+def render_effect_command(
+    target: str, effect: str, rounds: Optional[int] = None
+) -> str:
+    """`!init effect GU1 Poisoned -dur 3`, or raise.
+
+    Conditions are mechanical facts Avrae will track faithfully once told, and will never
+    infer -- it held Caspian at 0 HP for three rounds without Prone or Incapacitated on
+    him. Telling it is adjudication, which is Gary's (§3).
+    """
+    target = target.strip()
+    effect = effect.strip()
+    if not _COMBATANT_NAME.match(target):
+        raise TemplateError(f"unsafe target {target!r} — use the tracker name")
+    if not _EFFECT_NAME.match(effect):
+        raise TemplateError(
+            f"unsafe effect name {effect!r} — a condition or a short label, no arguments"
+        )
+    # Both quoted: a multi-word target read bare would split, making "Caspian Varr"
+    # a target of "Caspian" with an effect called "Varr".
+    command = f'!init effect "{target}" "{effect}"'
+    if rounds is not None:
+        if not isinstance(rounds, int) or not 1 <= rounds <= 100:
+            raise TemplateError(f"duration {rounds!r} must be 1-100 rounds")
+        command += f" -dur {rounds}"
+    return command
+
+
 def render_coin_command(amount: str, command: str = "game coins") -> str:
     """Render an Avrae coinpurse invocation, or raise.
 

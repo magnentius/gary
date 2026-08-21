@@ -34,6 +34,7 @@ WEIGH_ENCOUNTER = "weigh_encounter"
 START_COMBAT = "start_combat"
 ATTACK = "attack"
 ENEMY_ATTACK = "enemy_attack"
+APPLY_EFFECT = "apply_effect"
 
 
 def _s(**kw) -> types.Schema:
@@ -145,6 +146,27 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=APPLY_EFFECT,
+        description=(
+            "Put a condition on a combatant — poisoned, restrained, frightened, prone. "
+            "Avrae tracks a condition faithfully once told and never infers one, so if "
+            "you do not apply it, it does not exist mechanically and nobody at the table "
+            "can see it. Use the standard condition names where one fits; a short label "
+            "is fine for something narrative. Duration is in rounds; omit it for "
+            "something that lasts until removed. You cannot pass mechanical arguments "
+            "here, deliberately — nothing that changes AC, hit points, damage or attacks."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "target": _s(type=_STRING, description="Tracker name, e.g. 'GU1'."),
+                "effect": _s(type=_STRING, description="Condition or short label, e.g. 'Poisoned'."),
+                "rounds": _s(type=_INTEGER, description="Duration in rounds. Omit for indefinite."),
+            },
+            required=["target", "effect"],
         ),
     ),
     types.FunctionDeclaration(

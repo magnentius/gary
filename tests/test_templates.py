@@ -151,3 +151,25 @@ def test_prone_modifier_depends_on_range():
         '!init attack "Longbow" -t "Kethra"'
     )
     assert render_attack_command("Fire Bolt", "GU1", advantage=True, ranged=True).endswith(" dis")
+
+
+def test_effect_commands_carry_no_mechanical_arguments():
+    """`!init effect` accepts -ac, -maxhp, -attack, -immune, adv and more. A model that
+    can pass those under a condition name grants itself armour class, hit points and
+    attacks, which is what §5.3 renders from an allowlist to prevent."""
+    from gary.templates import render_effect_command
+
+    assert render_effect_command("GU1", "Poisoned", 3) == '!init effect "GU1" "Poisoned" -dur 3'
+    assert render_effect_command("Caspian Varr", "Prone") == '!init effect "Caspian Varr" "Prone"'
+    assert render_effect_command("GU1", "Blessed by the tide", 10).endswith("-dur 10")
+
+    for target, effect, rounds in [
+        ("GU1", "Prone -ac +10", None),
+        ("GU1", 'x" -maxhp +100 "', None),
+        ("GU1", '-attack "|2d6[fire]|"', None),
+        ("GU1 -t GU2", "Prone", None),
+        ("GU1", "Prone", 999),
+        ("GU1", "", None),
+    ]:
+        with pytest.raises(TemplateError):
+            render_effect_command(target, effect, rounds)
