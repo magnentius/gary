@@ -39,7 +39,7 @@ from ..context import (
     render_memory,
 )
 from ..fsm import Director, SendMessage
-from ..templates import TemplateError, render_coin_command
+from ..templates import REST_MINUTES, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -254,6 +254,41 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.REQUEST_REST:
+                kind = str(args.get("kind", "")).strip().lower()
+                try:
+                    command = render_rest_command(kind)
+                except TemplateError as exc:
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": str(exc)}))
+                    continue
+                minutes = REST_MINUTES[kind]
+                try:
+                    # ONCE for the party. A rest is per-character but the clock is
+                    # per-world, so advancing per character would burn four nights on one.
+                    state = self._store.advance_time(minutes, reason=f"{kind} rest")
+                except Exception as exc:  # noqa: BLE001 - EncounterActive and friends
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": str(exc)}))
+                    continue
+                effects.append(SendMessage(
+                    channel_id,
+                    f"The party takes a **{kind} rest**. "
+                    f"Everyone run:\n`{command}`",
+                ))
+                responses.append(types.Part.from_function_response(
+                    name=name,
+                    response={
+                        "ok": True,
+                        "minutes_elapsed": minutes,
+                        "world_minutes": state["world_minutes"],
+                        "posted": command,
+                        "note": "The clock has moved for the whole party. Each player "
+                                "resets their own sheet; you are not told when they do.",
+                    },
+                ))
+                continue
 
             if name == T.REQUEST_PAYMENT:
                 try:

@@ -124,6 +124,21 @@ def normalize_key(kind: CheckKind, key: str) -> str:
     raise TemplateError(f"unsupported kind: {kind!r}")
 
 
+# Per `!help game longrest` / `shortrest` (2026-08-21). Avrae resets each character's
+# counters; the clock is Gary's (§3). A rest is per-character but time is per-world, so
+# these durations are applied ONCE for the whole party however many people rest.
+REST_MINUTES = {"short": 60, "long": 480}
+REST_COMMAND = {"short": "!game shortrest", "long": "!game longrest"}
+
+
+def render_rest_command(kind: str) -> str:
+    """The Avrae command each player runs for a rest, or raise."""
+    try:
+        return REST_COMMAND[kind.strip().lower()]
+    except KeyError:
+        raise TemplateError(f"rest kind must be 'short' or 'long', not {kind!r}")
+
+
 def render_coin_command(amount: str, command: str = "game coins") -> str:
     """Render an Avrae coinpurse invocation, or raise.
 

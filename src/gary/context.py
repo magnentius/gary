@@ -62,11 +62,13 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
   it concerns.
 - When time passes outside combat, call advance_time. "Meaningful" is not a judgement
   call — use these anchors:
-      short rest 60 · long rest 480 · searching a room 10 · a conversation 5
-      crossing a town 30 · a night's watch 120 · overland travel by the hour
-  The two rests matter most: they are fixed durations in the rules, and the clock is what
-  expires ongoing effects. A long rest that does not move the clock leaves an eight-hour
-  poison still running. Under a minute is not worth recording.
+      searching a room 10 · a conversation 5 · crossing a town 30
+      a night's watch 120 · overland travel by the hour
+  Under a minute is not worth recording. For rests use request_rest instead, which moves
+  the clock and posts the Avrae command together.
+- When the party rests, call request_rest ONCE — not once per character. A rest resets
+  each player's sheet individually, but there is only one night: calling it four times
+  for four characters burns four nights and expires everyone's effects four times over.
 Record while you are narrating. Do NOT issue these alongside open_check: once you ask for
 a roll, the turn ends and anything else in it is discarded.
 

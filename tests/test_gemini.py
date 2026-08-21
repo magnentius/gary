@@ -658,3 +658,35 @@ async def test_unsigned_amount_is_refused_back_to_the_model(rig):
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
     assert "needs its own sign" in fr.response["error"]
+
+
+@pytest.mark.asyncio
+async def test_request_rest_moves_the_clock_once_for_the_party(rig):
+    """A rest is per-character; the clock is per-world. One call covers the party."""
+    director, store, _ = rig
+    n = narrator(
+        rig,
+        call_response(T.REQUEST_REST, {"kind": "long"}),
+        text_response("You wake to grey light."),
+    )
+    result = await player(n, "we bed down for the night")
+
+    assert store.state()["world_minutes"] == 480          # one night, not four
+    posted = [e for e in result.effects if isinstance(e, SendMessage)]
+    assert "`!game longrest`" in posted[0].text
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["minutes_elapsed"] == 480
+
+
+@pytest.mark.asyncio
+async def test_rest_is_refused_during_combat(rig):
+    """§3.1: Avrae owns duration while initiative runs, so the world clock is frozen."""
+    director, store, _ = rig
+    store.begin_encounter()
+    n = narrator(rig, call_response(T.REQUEST_REST, {"kind": "short"}), text_response("Not now."))
+    await player(n, "can we rest?")
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False
+    assert store.state()["world_minutes"] == 0

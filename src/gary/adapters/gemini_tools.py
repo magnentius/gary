@@ -29,6 +29,7 @@ RECORD_NOTE = "record_note"
 SET_SCENE = "set_scene"
 UPSERT_NPC = "upsert_npc"
 REQUEST_PAYMENT = "request_payment"
+REQUEST_REST = "request_rest"
 
 
 def _s(**kw) -> types.Schema:
@@ -138,6 +139,22 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=REQUEST_REST,
+        description=(
+            "The party rests. Call this ONCE for the whole party, however many characters "
+            "are resting — it moves the world clock (short 60 minutes, long 480) and posts "
+            "the Avrae command each player runs on their own sheet. Calling it per "
+            "character would advance the clock several times for one night. Refused during "
+            "combat. If a rest is interrupted, do not call this: narrate the interruption "
+            "and use advance_time for however long actually passed."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"kind": _s(type=_STRING, enum=["short", "long"])},
+            required=["kind"],
         ),
     ),
     types.FunctionDeclaration(

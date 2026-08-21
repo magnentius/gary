@@ -218,13 +218,16 @@ def test_persona_disclaims_coin():
     assert "never claim a payment happened" in text.lower() or "payment happened" in text
 
 
-def test_persona_anchors_the_two_rest_durations():
+def test_rest_durations_are_pinned_and_applied_once():
     """advance_time never fired across two live scenes: "meaningful time" gave the model
-    nothing to calibrate against. The rests are fixed by the rules, and a long rest that
-    does not move the clock leaves an eight-hour effect still running."""
-    text = DM_SYSTEM_INSTRUCTION
-    assert "short rest 60" in text
-    assert "long rest 480" in text
+    nothing to calibrate against. Rests are now request_rest, which carries the fixed
+    durations and applies them once for the party -- a rest is per-character but the
+    clock is per-world."""
+    from gary.templates import REST_MINUTES
+
+    assert REST_MINUTES == {"short": 60, "long": 480}
+    assert "call request_rest ONCE" in DM_SYSTEM_INSTRUCTION
+    assert "not once per character" in DM_SYSTEM_INSTRUCTION
 
 
 def test_persona_stays_a_small_fraction_of_the_budget():
