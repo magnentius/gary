@@ -184,10 +184,16 @@ class PendingCheckRegistry:
 
         Priority mirrors ARCHITECTURE.md §6.2, strongest signal first:
 
-        1. ``interaction_user_id`` -- present when the player used a slash command.
-           Unambiguous: Discord tells us exactly who invoked it.
-        2. ``referenced_user_id`` -- Avrae replying to the invoking message.
-        3. actor name from the embed, matched against ``PendingCheck.actor``.
+        1. ``interaction_user_id`` -- would be unambiguous, but Avrae registers no slash
+           commands, so it never arrives (ARCHITECTURE.md §14 (7)).
+        2. ``referenced_user_id`` -- Avrae replying rather than sending. Never observed
+           in live capture either.
+        3. actor name from the embed, matched against ``PendingCheck.actor``. Despite
+           being listed last, this is the tier that carries every real roll.
+
+        Tiers 1 and 2 are kept because they cost nothing and are correct if Avrae ever
+        changes. Nothing may depend on them firing. Identity is not sufficient on its own
+        regardless -- see ``_answers_the_request``.
 
         Returning None is the common, correct case: it is how ``!help`` and unrelated
         rolls get dropped instead of triggering an LLM call.

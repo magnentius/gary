@@ -39,7 +39,7 @@ These are hard facts about the runtime environment. Everything downstream depend
 **Avrae**
 
 - Application ID: **`261302296103747584`** (verify against the Discord App Directory before shipping; keep in config, not source).
-- Avrae supports both legacy `!` prefix commands and slash commands. **The Director pattern depends on `!` prefix commands remaining supported**, because a slash command cannot be copy-pasted and executed. See §14 for the contingency.
+- **Avrae is prefix-only.** It registers no slash commands: granting `applications.commands` for the Avrae application leaves the picker empty, and public command listings show zero, verified 2026-08-20. An earlier draft of this document asserted it supported both; that was derivation, not observation. The Director pattern therefore rests on the only interface Avrae has, which is also the copy-pasteable one. See §14 (2) for what happens if that changes.
 - Avrae is open source (`github.com/avrae/avrae`), and reading it is how §6's formats were established. It uses the `d20` library for dice, so `pip install d20` reproduces the exact roll strings locally.
 
 **Gemini**
@@ -298,9 +298,11 @@ Any command Gary posts is rendered from this table with validated parameters, or
 
 Only embeds matching an `AWAITING_ROLL` check are consumed. Matching, in priority order:
 
-1. `message.interaction.user.id` — present when the player used a slash command. Exact and unambiguous.
-2. `message.reference` — Avrae often replies to the invoking message.
-3. `embed.author.name` / `embed.title` — contains the character name; matched against `PendingCheck.actor` (normalized).
+1. `message.interaction.user.id` — would be exact and unambiguous, but **cannot fire**: Avrae has no slash commands (§1), so it never produces an interaction.
+2. `message.reference` — **never observed**. Avrae sends rather than replies; `referenced_message` appeared in 0 of 57 live captures.
+3. `embed.author.name` / `embed.title` — contains the character name; matched against `PendingCheck.actor` (normalized). **In practice this is not the fallback, it is the whole mechanism.**
+
+Tiers 1 and 2 are retained because they cost nothing and become live the moment Avrae grows either behaviour. Nothing may depend on them. Identity alone does not authorise a resolution in any case — see §14 (6).
 
 If none match, the embed is logged at `INFO` and dropped. If more than one pending check matches, resolve to the oldest and log a warning.
 
@@ -607,7 +609,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 1. **Avrae formats are derived, not captured.** Every pattern in §6 is now traced to Avrae's source at `avrae@cb75be2` and to `d20` run locally — a far stronger position than the inference this started as, and it corrected four wrong guesses including a whole container. What remains unverified is what Discord *actually delivers over the wire*: field ordering, serialisation, and any Avrae version drift. `scripts/capture_avrae_fixtures.py` closes it, and a strict `xfail` tracks the gap.
    **The MCP binding is unverified too**, and for a different reason: the MCP SDK requires Python 3.10+ and the development environment is 3.9, so `adapters/mcp_server.py` has never been imported. Its substance lives in `prep.py` and `state/lock.py`, which are tested; the binding is not.
    Gemini model ids **were** in this category and are now checked: `gemini-3.7-flash` (verified 2026-08-18) and `gemini-3.5-flash-lite` (verified 2026-08-09), both checked against the model list and pinned by a test. Ids still move — recheck rather than assume.
-2. **Avrae could go slash-only.** The Director pattern needs copy-pasteable `!` commands. Contingency: post an Avrae *alias* the player invokes, or fall back to Gary's own dice with sheet data pulled from D&D Beyond.
+2. **Avrae could add slash commands, or go slash-only.** Today it is prefix-only (§1), so the Director pattern is on solid ground and the risk is entirely prospective. If Avrae ever went slash-only the pattern breaks, because a slash command cannot be copy-pasted and executed. Contingency: post an Avrae *alias* the player invokes, or fall back to Gary's own dice with sheet data pulled from D&D Beyond. The same change would, as a side effect, make §6.2 tier 1 reachable for the first time.
 3. **D&D Beyond endpoint removal.** Mitigated by §7.5 — degrades, does not break.
 4. **Latency.** Gemini call + player copy-paste + Avrae round-trip + second Gemini call. Measure end-to-end before tuning; if it exceeds roughly 10s, consider pre-generating both outcome branches at `open_check` time, since both are already written.
 5. **Cost.** Unbounded without §8. Instrument per-turn token spend from day one.
@@ -615,5 +617,5 @@ Rejections are reported back rather than swallowed, so the model narrates what a
    **Residual:** an embed whose title does not parse yields `kind=None, key=None` and is still correlated on identity alone. Every live capture so far parsed, so this is a robustness gap rather than an observed one.
    **Two players sharing a character name** remains unresolved. Both hold checks; a roll by that name resolves the *older* one regardless of who rolled it, so with DCs of 10 and 25 an 18 lands wherever creation order put it. Deterministic, not correct. Fixing it needs an attribution signal that survives prefix commands, and there isn't one.
    **`normalize_actor` folds hard** — non-alphanumerics stripped, case dropped — so `Kel'thas`/`Kelthas` and `Sir Dorn`/`sirdorn` collide. Acceptable at one table; it is the tier carrying all real traffic.
-7. **Both strong correlation tiers are unreachable in practice.** Across 57 live captures, `interaction` appeared 0 times and `referenced_message` 0 times. Slash commands were absent from the server's picker (Avrae invited without `applications.commands`), and Avrae sends rather than replies, so tier 2 may not be triggerable at all. Tier 3, name matching, is doing 100% of the work. Before tiers 1 and 2 are trusted as safeguards, confirm they can fire.
+7. **Both strong correlation tiers are dead, not merely unused.** Tier 1 cannot fire at all: Avrae registers no slash commands, so no Avrae message will ever carry an interaction. Tier 2 requires Avrae to reply rather than send, which it does not do — 0 of 57 live captures had a `referenced_message`. Name matching is therefore not a fallback but the entire correlation mechanism, and always has been; the tiering in §6.2 described a robustness that was never there. The code paths stay (they are free, and correct if Avrae ever changes), but no safeguard may rest on them. This is why the roll/request comparison in (6) matters as much as it does: it is the only check standing between *a roll happened* and *this roll settles this DC*.
 8. **The model may refuse to stop.** Gemini narrating past the check instead of calling `open_check` is the most likely behavioral failure. Detect it (narration containing outcome language while in `NARRATING`), and consider a validation pass that rejects and re-prompts.
