@@ -38,6 +38,7 @@ from ..context import (
     render_live_state,
     render_memory,
 )
+from ..encounters import benchmark, weigh
 from ..fsm import Director, SendMessage
 from ..templates import REST_MINUTES, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
@@ -432,6 +433,19 @@ class GeminiNarrator:
                 return {"ok": False, "error": str(exc)}
             return {"ok": True, "world_minutes": state["world_minutes"],
                     "active_effects": [e["name"] for e in state.get("effects", [])]}
+
+        if name == T.WEIGH_ENCOUNTER:
+            state = store.state()
+            bench = benchmark(
+                state.get("party") or {}, (state.get("players") or {}).values()
+            )
+            if bench is None:
+                return {
+                    "ok": False,
+                    "error": "No character levels known yet — nobody has run !sheet, so "
+                             "there is nothing to weigh against.",
+                }
+            return weigh(bench, list(args.get("monsters") or []))
 
         if name == T.UPSERT_NPC:
             payload: Dict[str, Any] = {}

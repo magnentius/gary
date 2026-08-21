@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from .encounters import benchmark
 from .state.schema import format_world_time
 
 DEFAULT_RECENT_TURNS = 30
@@ -77,6 +78,10 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
       a night's watch 120 · overland travel by the hour
   Under a minute is not worth recording. For rests use request_rest instead, which moves
   the clock and posts the Avrae command together.
+- Before putting more than one creature in front of the party, or anything you suspect is
+  large, call weigh_encounter with every monster and its CR. The gauge above is the
+  threshold; the tool does the sum, which is where six CR 1/4s quietly become the wrong
+  number. Deadly is a legitimate choice — make it deliberately, not by arithmetic error.
 - When the party rests, call request_rest ONCE — not once per character. A rest resets
   each player's sheet individually, but there is only one night: calling it four times
   for four characters burns four nights and expires everyone's effects four times over.
@@ -180,6 +185,21 @@ def render_live_state(state: Dict[str, Any]) -> str:
             sheet = str(data.get("sheet") or "").strip()
             who = f"{actor} ({sheet})" if sheet else actor
             lines.append(f"    - {who}: {carried}")
+
+        bench = benchmark(party, roster)
+        if bench is not None:
+            gauge = (
+                f"    - Encounter gauge: total party level {bench.total_level}; an "
+                f"encounter may be deadly above CR {bench.deadly_total_cr:g} total, or a "
+                f"single monster above CR {bench.deadly_single_cr:g}. A loose gauge, not "
+                "a rule."
+            )
+            if bench.partial:
+                gauge += (
+                    f" ({bench.known} of {bench.characters} levels known — the rest have "
+                    "not run !sheet, so the total is understated.)"
+                )
+            lines.append(gauge)
 
     effects = state.get("effects") or []
     if effects and not state.get("encounter"):

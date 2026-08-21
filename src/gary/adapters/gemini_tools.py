@@ -30,6 +30,7 @@ SET_SCENE = "set_scene"
 UPSERT_NPC = "upsert_npc"
 REQUEST_PAYMENT = "request_payment"
 REQUEST_REST = "request_rest"
+WEIGH_ENCOUNTER = "weigh_encounter"
 
 
 def _s(**kw) -> types.Schema:
@@ -141,6 +142,35 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=WEIGH_ENCOUNTER,
+        description=(
+            "Weigh a planned line-up against the Lazy Encounter Benchmark before you "
+            "commit to it. Give every monster and its CR; fractions are fine (0.125, "
+            "0.25, 0.5). Returns the totals and whether it may be deadly. Use it whenever "
+            "you are about to put more than one creature in front of the party, or "
+            "anything you suspect is large — the arithmetic over six CR 1/4s is exactly "
+            "what goes wrong unnoticed. Deadly is allowed; it is a gauge, not a veto."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "monsters": _s(
+                    type=types.Type.ARRAY,
+                    description="Every creature in the encounter, with duplicates listed separately.",
+                    items=_s(
+                        type=_OBJECT,
+                        properties={
+                            "name": _s(type=_STRING),
+                            "cr": _s(type=types.Type.NUMBER, description="Challenge rating, e.g. 0.25 or 5."),
+                        },
+                        required=["name", "cr"],
+                    ),
+                ),
+            },
+            required=["monsters"],
         ),
     ),
     types.FunctionDeclaration(
