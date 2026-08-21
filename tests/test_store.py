@@ -11,6 +11,7 @@ from gary.state.backend import FileStateBackend, InMemoryStateBackend
 from gary.state.firestore import FirestoreStateBackend
 
 from .conftest import FakeFirestoreClient
+from gary.state.schema import DEFAULT_EPOCH_DATE
 from gary.state.store import Bounds, CampaignStore, EncounterActive, StateError
 
 
@@ -396,20 +397,26 @@ def test_reset_empties_the_journal(backend_factory, clock):
     assert [e["seq"] for e in reopened.journal()] == [0, 1]
 
 
-def test_reset_leaves_no_snapshot_pointing_past_the_journal(backend_factory, clock):
-    """The snapshot's journal_offset must come back to 0 with the journal. Left at the
-    old length it points past the end of an empty journal -- harmless until the next
-    entry lands, which then sits below the offset and is never replayed."""
+def test_reset_leaves_the_snapshot_agreeing_with_the_journal(backend_factory, clock):
+    """The offset must come back down with the journal. Left at the old length it points
+    past the end, and the next entry written lands below it and is never replayed.
+
+    The snapshot must also already carry the new epoch. Replay reconciles it either way,
+    so this is not a correctness bug -- but a stored snapshot saying 1000-01-01 while the
+    journal beside it says 1026-08-21 costs an investigation to dismiss, and the snapshot
+    is the first thing anyone opens.
+    """
     store = CampaignStore(backend=backend_factory(), clock=clock)
     for i in range(5):
         store.apply([gold("Kethra", 1)], reason=f"turn {i}")
     store.reset_campaign()
 
-    backend = backend_factory()
-    loaded = backend.load_snapshot()
+    loaded = backend_factory().load_snapshot()
     assert loaded is not None
-    _, offset = loaded
-    assert offset == 0
+    state, offset = loaded
+    assert offset == len(store.journal())          # nothing stranded below the offset
+    assert state["calendar"]["epoch_date"] == store.state()["calendar"]["epoch_date"]
+    assert state["calendar"]["epoch_date"] != DEFAULT_EPOCH_DATE
 
     store.apply([gold("Kethra", 7)], reason="after")
     assert CampaignStore(backend=backend_factory(), clock=clock).state()["party"][

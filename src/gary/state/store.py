@@ -151,21 +151,26 @@ class CampaignStore:
         after one is loud (the boot warning, and open_check refusing an unknown actor)
         rather than silent.
 
-        **Order matters, and only one order is safe.** Truncate first, snapshot second.
-        A crash in between leaves the old snapshot with an offset past the end of an
-        empty journal, which replays as the old campaign: the reset simply did not
-        happen, and re-running it works. The reverse order writes an empty snapshot at
-        offset 0 over a journal that is still full, and replay walks the whole dead
-        campaign back into existence.
+        **Order matters, and only one order is safe.** Truncate first, snapshot last.
+        A crash anywhere before the snapshot leaves the old one with an offset past the
+        end of a short journal, which replays as the old campaign: the reset simply did
+        not happen, and re-running it works. Snapshotting first instead would write an
+        empty snapshot at offset 0 over a journal that is still full, and replay would
+        walk the whole dead campaign back into existence.
         """
         with self._lock:
             self.backend.truncate_journal()
             self._journal.clear()
             self._state = empty_state()
             self._since_snapshot = 0
-        self.snapshot()
         # A reset is a new campaign, so it gets a new epoch rather than the old one's.
+        # Anchored before the snapshot, not after: snapshotting first leaves a stored
+        # snapshot carrying DEFAULT_EPOCH_DATE while the journal carries the real one.
+        # Replay reconciles them, so the campaign loads correctly either way -- but the
+        # snapshot is what anyone looking at the campaign reads first, and one that
+        # disagrees with the journal costs an investigation to dismiss.
         self._anchor_calendar()
+        self.snapshot()
 
     def _anchor_calendar(self) -> None:
         self.apply(
