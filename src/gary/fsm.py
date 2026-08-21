@@ -268,6 +268,16 @@ class Director:
             )
         return None
 
+    def is_down(self, channel_id: int, name: str) -> bool:
+        """Does the tracker show this combatant at 0 HP?
+
+        A creature at 0 HP is Prone and Incapacitated, and a melee attack against a prone
+        target has advantage. Avrae applies none of that: it has the hit points and the
+        conditions and joins them to nothing, so every attack on a downed character was
+        rolled once when it should have been rolled twice.
+        """
+        return normalize_actor(name) in self._down.get(channel_id, set())
+
     def _monster_turn(
         self, channel_id: int, parsed: ParsedAvraeMessage
     ) -> List[Effect]:

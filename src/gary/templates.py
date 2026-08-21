@@ -152,7 +152,7 @@ def render_rest_command(kind: str) -> str:
         raise TemplateError(f"rest kind must be 'short' or 'long', not {kind!r}")
 
 
-def render_attack_command(weapon: str, target: str) -> str:
+def render_attack_command(weapon: str, target: str, advantage: bool = False) -> str:
     """`!attack "Longsword" -t NO1`, or raise.
 
     Separate from render_command because an in-combat attack is not a check. It resolves
@@ -168,10 +168,12 @@ def render_attack_command(weapon: str, target: str) -> str:
         raise TemplateError(
             f"unsafe target {target!r} — use the name from the initiative tracker, e.g. 'NO1'"
         )
-    return f'!attack "{weapon}" -t {target}'
+    return f'!attack "{weapon}" -t {target}' + (" adv" if advantage else "")
 
 
-def render_enemy_attack_command(attack: str, target: str) -> str:
+def render_enemy_attack_command(
+    attack: str, target: str, advantage: bool = False
+) -> str:
     """`!init attack "Spear" -t "Caspian Varr"`, or raise.
 
     Attacks as whoever's turn it currently is, which is how a monster acts. Monsters do
@@ -188,7 +190,7 @@ def render_enemy_attack_command(attack: str, target: str) -> str:
         raise TemplateError(
             f"unsafe target {target!r} — use the name from the initiative tracker"
         )
-    return f'!init attack "{attack}" -t "{target}"'
+    return f'!init attack "{attack}" -t "{target}"' + (" adv" if advantage else "")
 
 
 def render_coin_command(amount: str, command: str = "game coins") -> str:

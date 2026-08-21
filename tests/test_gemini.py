@@ -817,3 +817,33 @@ async def test_enemy_attack_posts_the_monsters_turn(rig):
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert "only correct on this creature's turn" in fr.response["note"]
+
+
+@pytest.mark.asyncio
+async def test_an_attack_on_a_downed_target_gets_advantage(rig):
+    """A creature at 0 HP is Prone and Incapacitated, and a melee attack against a prone
+    target has advantage. Avrae applies none of it, so every spear thrust at an
+    unconscious fighter was rolled once when it should have been rolled twice."""
+    from gary.parser.avrae import CombatantView, ParsedAvraeMessage, ParseStatus
+
+    director, _, _ = rig
+    director._encounter_active = lambda: True
+    director.set_player_character(ALICE, "Kethra")
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),
+                        CombatantView(name="GU1", status="Healthy", is_current_turn=True)),
+            round_number=6,
+        ),
+    )
+
+    n = narrator(
+        rig,
+        call_response(T.ENEMY_ATTACK, {"attacker": "GU1", "attack": "Spear", "target": "Kethra"}),
+        text_response("The spear comes down."),
+    )
+    result = await player(n, "go on then")
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert '`!init attack "Spear" -t "Kethra" adv`' in posted

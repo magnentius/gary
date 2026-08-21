@@ -326,8 +326,11 @@ class GeminiNarrator:
                         name=name, response={"ok": False, "error": refusal}))
                     continue
                 try:
+                    target = str(args.get("target", ""))
                     command = render_enemy_attack_command(
-                        str(args.get("attack", "")), str(args.get("target", ""))
+                        str(args.get("attack", "")),
+                        target,
+                        advantage=self._director.is_down(channel_id, target),
                     )
                 except TemplateError as exc:
                     responses.append(types.Part.from_function_response(
@@ -366,8 +369,13 @@ class GeminiNarrator:
                     ))
                     continue
                 try:
+                    target = str(args.get("target", ""))
                     command = render_attack_command(
-                        str(args.get("weapon", "")), str(args.get("target", ""))
+                        str(args.get("weapon", "")),
+                        target,
+                        # Prone: melee attacks against a downed creature have advantage,
+                        # and Avrae will not add it for us.
+                        advantage=self._director.is_down(channel_id, target),
                     )
                 except TemplateError as exc:
                     responses.append(types.Part.from_function_response(
