@@ -798,3 +798,22 @@ async def test_the_model_is_told_its_command_was_already_posted(rig):
     await player(n, "I swing")
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert "ALREADY POSTED" in fr.response["note"]
+
+
+@pytest.mark.asyncio
+async def test_enemy_attack_posts_the_monsters_turn(rig):
+    """Monsters do not act on their own -- Avrae pings whoever added them -- and Gary
+    cannot run commands itself (§1). So the Director pattern covers the opposition too."""
+    n = narrator(
+        rig,
+        call_response(T.ENEMY_ATTACK, {"attacker": "GU2", "attack": "Spear", "target": "Caspian Varr"}),
+        text_response("The guard lunges."),
+    )
+    result = await player(n, "what does the guard do")
+
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert '`!init attack "Spear" -t "Caspian Varr"`' in posted
+    assert "GU2's turn" in posted
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert "only correct on this creature's turn" in fr.response["note"]

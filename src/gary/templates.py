@@ -163,6 +163,26 @@ def render_attack_command(weapon: str, target: str) -> str:
     return f'!attack "{weapon}" -t {target}'
 
 
+def render_enemy_attack_command(attack: str, target: str) -> str:
+    """`!init attack "Spear" -t "Caspian Varr"`, or raise.
+
+    Attacks as whoever's turn it currently is, which is how a monster acts. Monsters do
+    not act on their own in Avrae -- whoever added them runs their turns -- and Gary
+    cannot run commands itself (§1: bots cannot invoke bots). So the Director pattern
+    applies to the opposition too: Gary decides what the creature does and posts the
+    command for a human to paste.
+    """
+    attack = attack.strip()
+    target = target.strip()
+    if not _ATTACK_NAME.match(attack):
+        raise TemplateError(f"unsafe attack name: {attack!r}")
+    if not _COMBATANT_NAME.match(target):
+        raise TemplateError(
+            f"unsafe target {target!r} — use the name from the initiative tracker"
+        )
+    return f'!init attack "{attack}" -t "{target}"'
+
+
 def render_coin_command(amount: str, command: str = "game coins") -> str:
     """Render an Avrae coinpurse invocation, or raise.
 

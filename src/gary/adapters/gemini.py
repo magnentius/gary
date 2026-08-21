@@ -40,7 +40,7 @@ from ..context import (
 )
 from ..encounters import benchmark, lookup, weigh
 from ..fsm import Director, SendMessage
-from ..templates import REST_MINUTES, render_attack_command, render_rest_command, TemplateError, render_coin_command
+from ..templates import REST_MINUTES, render_attack_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -305,6 +305,32 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.ENEMY_ATTACK:
+                try:
+                    command = render_enemy_attack_command(
+                        str(args.get("attack", "")), str(args.get("target", ""))
+                    )
+                except TemplateError as exc:
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": str(exc)}))
+                    continue
+                attacker = str(args.get("attacker", "")).strip() or "The enemy"
+                effects.append(SendMessage(
+                    channel_id, f"**{attacker}'s turn** — run this:\n`{command}`"
+                ))
+                responses.append(types.Part.from_function_response(
+                    name=name,
+                    response={
+                        "ok": True,
+                        "posted": command,
+                        "note": "ALREADY POSTED to the channel — do not repeat it in your "
+                                "narration. It attacks as whoever's turn it currently is, "
+                                "so it is only correct on this creature's turn. Avrae "
+                                "resolves it; you are told nothing until it reports.",
+                    },
+                ))
+                continue
 
             if name == T.ATTACK:
                 try:

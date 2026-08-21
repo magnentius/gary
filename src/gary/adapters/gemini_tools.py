@@ -33,6 +33,7 @@ REQUEST_REST = "request_rest"
 WEIGH_ENCOUNTER = "weigh_encounter"
 START_COMBAT = "start_combat"
 ATTACK = "attack"
+ENEMY_ATTACK = "enemy_attack"
 
 
 def _s(**kw) -> types.Schema:
@@ -144,6 +145,27 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ENEMY_ATTACK,
+        description=(
+            "A monster takes its turn. Call this when initiative reaches a creature you "
+            "control — they do not act on their own, and nothing else in the fight will "
+            "make them. Narrate what the creature does, then call this; the command is "
+            "posted for the DM to run, and it attacks as whoever's turn it currently is, "
+            "so only call it on that creature's turn. Use `!init attack list` in the "
+            "channel if you do not know a creature's attacks. You are told nothing until "
+            "Avrae reports, and you do not decide whether it hit."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "attacker": _s(type=_STRING, description="Tracker name whose turn it is, e.g. 'GU2'."),
+                "attack": _s(type=_STRING, description="The creature's attack, e.g. 'Spear'."),
+                "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'Caspian Varr'."),
+            },
+            required=["attacker", "attack", "target"],
         ),
     ),
     types.FunctionDeclaration(
