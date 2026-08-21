@@ -411,7 +411,9 @@ Durability sits behind two narrow protocols — `StateBackend` (snapshot + journ
 
 One test suite runs against all three backends. That is what keeps a second implementation from quietly diverging — and it is how the Firestore ordering defect above was found.
 
-The Firestore module is **unverified against real or emulated Firestore**; the fake-client tests cover this repo's serialisation and ordering, not Google's semantics. Verify before trusting a campaign to it.
+The Firestore module is **unverified against real or emulated Firestore**; the fake-client tests cover this repo's serialisation and ordering, not Google's semantics. Verify before trusting a campaign to it. Its client surface *is* checked: every method it duck-types — `collection`, `document`, `get`, `set`, `delete`, `order_by`, `stream`, `to_dict`, `exists` — exists on `google-cloud-firestore` 2.28.1 with compatible signatures (2026-08-20).
+
+**The 1 MiB document ceiling is a real limit on campaign length.** `write_snapshot` puts the entire state into one `state_json` field of one document, and Firestore rejects any document over 1 MiB outright. Campaign state grows monotonically — notes accumulate, NPC note lists append — so a long campaign will eventually hit it. The failure is quiet in the worst way: snapshots stop advancing while the journal keeps growing, so recovery still works but replay gets longer every session, and nothing says why. The file backend has no such ceiling, and **the shared backend test suite cannot catch this**, because the fake client has no size limit to violate. If a campaign approaches it, the fix is to split the snapshot across documents or move large collections (notes, journal) out of the state blob.
 
 ### 7.5 D&D Beyond — optional enrichment only
 
