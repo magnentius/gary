@@ -143,10 +143,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         description=(
             "Ask a player to pay or receive coin. You do not hold coin and cannot move it "
             "— this posts a command the player runs on their own sheet, and their purse "
-            "refuses an overspend by itself. ALWAYS sign the amount: '-2cp' spends two "
-            "copper, '+5gp' grants five gold. A bare number is gold ('-2' is two gold). "
-            "One term per call, so a gold and five silver is two calls. Never state what "
-            "someone can afford; you cannot see their purse."
+            "refuses an overspend by itself. ALWAYS sign every term: '-2cp' spends two "
+            "copper, '+5gp' grants five gold, '-1gp -5sp' spends a gold and five silver. "
+            "A bare number is gold ('-2' is two gold). Never state what someone can "
+            "afford; you cannot see their purse."
         ),
         parameters=_s(
             type=_OBJECT,

@@ -117,7 +117,10 @@ def test_coin_amounts_must_be_signed():
     assert render_coin_command("- 5 gp") == "!coins -5gp"
     assert render_coin_command("-2") == "!coins -2"          # bare number is gold
     assert render_coin_command("+3gp", alias="purse") == "!purse +3gp"
+    # Mixed terms, confirmed live 2026-08-21, re-spaced so a player can read the price.
+    assert render_coin_command("-1gp -5sp") == "!coins -1gp -5sp"
+    assert render_coin_command("+1gp+5sp") == "!coins +1gp +5sp"
 
-    for bad in ("2cp", "1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp"):
+    for bad in ("2cp", "1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp", "-1gp -"):
         with pytest.raises(TemplateError):
             render_coin_command(bad)
