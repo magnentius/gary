@@ -376,3 +376,19 @@ def test_reset_preserves_the_journal(backend_factory, clock):
 
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
     assert reopened.state()["party"] == {}  # and replay honours the reset
+
+
+def test_setting_a_location_clears_a_stale_summary(store):
+    """A summary describing somewhere else is worse than no summary at all."""
+    store.apply(
+        [Mutation(MutationKind.SCENE, "", {"location": "The Rusty Anchor",
+                                           "summary": "Low tide, rain on the shutters"})],
+        reason="scene",
+    )
+    assert store.state()["scene"]["summary"].startswith("Low tide")
+
+    store.apply(
+        [Mutation(MutationKind.SCENE, "", {"location": "Dock 9", "summary": ""})],
+        reason="scene",
+    )
+    assert store.state()["scene"] == {"location": "Dock 9", "summary": ""}

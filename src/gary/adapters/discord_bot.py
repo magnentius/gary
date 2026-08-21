@@ -287,6 +287,35 @@ class GaryClient(discord.Client):
         command = parts[0].lower() if parts else "help"
         channel_id = message.channel.id
 
+        if command == "scene":
+            raw = body[len("scene"):].strip()
+            if not raw:
+                await self.sender.send(
+                    channel_id,
+                    f"`{self.settings.command_prefix}scene <location> | <what is going on>`"
+                    " — the summary is optional.",
+                )
+                return
+            location, _, summary = raw.partition("|")
+            # Both fields are set, always. Setting a location while leaving a summary
+            # that described somewhere else is worse than setting no summary at all.
+            self.store.apply(
+                [
+                    Mutation(
+                        MutationKind.SCENE,
+                        "",
+                        {"location": location.strip(), "summary": summary.strip()},
+                    )
+                ],
+                reason=f"scene set by {message.author.display_name}",
+            )
+            await self.sender.send(
+                channel_id,
+                f"Scene set: **{location.strip()}**"
+                + (f" — {summary.strip()}" if summary.strip() else ""),
+            )
+            return
+
         if command == "reset":
             token = parts[1] if len(parts) > 1 else ""
             if not token:
@@ -404,7 +433,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: playing <name> | undo | cancel | checks | state | stats | reset",
+                f"`{self.settings.command_prefix}`: scene <location> | playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 
