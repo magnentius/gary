@@ -531,6 +531,7 @@ def build_narrator(settings: Settings, director, store, history_backend) -> Narr
         summary_model=settings.gemini_summary_model,
         window=settings.history_window,
         timeout_seconds=settings.gemini_timeout_seconds,
+        fallback_model=settings.gemini_fallback_model,
     )
 
 

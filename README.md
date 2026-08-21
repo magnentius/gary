@@ -172,6 +172,11 @@ before it ever ran.
    (verified 2026-08-18) and `gemini-3.5-flash-lite` for summarisation (verified
    2026-08-09), both pinned by a test.
    Model ids move — recheck rather than assume.
+   Two knobs exist because `gemini-3.7-flash` spent 2026-08-21 answering 503
+   "experiencing high demand": `GARY_GEMINI_TIMEOUT` (default 90s) bounds every
+   call, and `GARY_GEMINI_FALLBACK_MODEL` (default `gemini-3.6-flash`) is tried
+   once when the primary exhausts its retries on a transient failure. Set the
+   fallback to an empty string to disable it.
 
 ## Verified facts
 

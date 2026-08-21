@@ -567,3 +567,29 @@ async def test_summary_runs_on_the_cheaper_model(rig):
 
     assert all(c["model"] == DEFAULT_MODEL for c in client.calls)
     assert all(c["model"] == DEFAULT_SUMMARY_MODEL for c in client.aio.models.summary_calls)
+
+
+@pytest.mark.asyncio
+async def test_falls_back_to_the_second_model_when_the_first_is_unavailable(rig):
+    """gemini-3.7-flash spent 2026-08-21 answering 503 "high demand". Retries alone did
+    not clear it, and the table saw a stall message for a model that was merely busy."""
+    n = narrator(
+        rig, Boom(503), Boom(503), Boom(503), text_response("You ease the lid open."),
+        fallback_model="gemini-3.6-flash", max_retries=2,
+    )
+    result = await player(n)
+
+    assert "ease the lid" in result.text
+    models = [c["model"] for c in n.client.calls]
+    assert models[:3] == [DEFAULT_MODEL] * 3       # primary, retried to exhaustion
+    assert models[3] == "gemini-3.6-flash"         # then the fallback
+
+
+@pytest.mark.asyncio
+async def test_no_fallback_on_a_non_transient_failure(rig):
+    """A 400 fails the same way on the second model; retrying only delays the stall."""
+    n = narrator(rig, Boom(400), fallback_model="gemini-3.6-flash", max_retries=2)
+    result = await player(n)
+
+    assert result.text == ""                       # surfaced, not papered over
+    assert [c["model"] for c in n.client.calls] == [DEFAULT_MODEL]

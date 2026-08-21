@@ -84,6 +84,7 @@ class GeminiNarrator:
         max_tool_iterations: int = MAX_TOOL_ITERATIONS,
         max_retries: int = 2,
         timeout_seconds: float = 90.0,
+        fallback_model: str = "",
         max_context_chars: int = 160_000,
         summarize: bool = True,
     ) -> None:
@@ -98,6 +99,7 @@ class GeminiNarrator:
         self._max_iterations = max_tool_iterations
         self._max_retries = max_retries
         self._timeout = timeout_seconds
+        self._fallback_model = fallback_model
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
@@ -362,29 +364,53 @@ class GeminiNarrator:
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
         return await self._with_retries(
-            lambda: self._client.aio.models.generate_content(
-                model=self._model, contents=contents, config=config
+            lambda model: self._client.aio.models.generate_content(
+                model=model, contents=contents, config=config
             )
         )
 
     async def _with_retries(self, make_call) -> Any:
-        """Bounded retries, and — §1 — a bound on each attempt.
+        """Retry the primary model, then try the fallback once before giving up.
+
+        TEMPORARY (2026-08-21): gemini-3.7-flash was eight days old and repeatedly
+        answering 503 "experiencing high demand". Retries alone did not clear it. Revisit
+        once the model settles — a permanent fallback quietly hides a model that has
+        genuinely gone away.
+
+        Only transient failures fall back. A 400 or an auth error would fail identically
+        on the second model, and retrying it would just double the latency before the
+        table sees the stall message.
+        """
+        try:
+            return await self._attempts(make_call, self._model)
+        except Exception as exc:  # noqa: BLE001
+            if not self._fallback_model or not _is_transient(exc):
+                raise
+            log.error(
+                "%s unavailable after %d attempts (%s); falling back to %s",
+                self._model, self._max_retries + 1, exc, self._fallback_model,
+            )
+            return await self._attempts(make_call, self._fallback_model)
+
+    async def _attempts(self, make_call, model: str) -> Any:
+        """Bounded retries against one model, and — §1 — a bound on each attempt.
 
         Without the timeout a hung request stalls the turn indefinitely: no exception, so
-        no retry, no log, and no stall message at the table. Observed 2026-08-21 against a
-        contended model. asyncio.TimeoutError is already classed transient, so a hung
-        attempt now becomes a retry and, if they all go, the runner's stall message.
+        no retry, no log, and no stall message at the table. asyncio.TimeoutError is
+        classed transient, so a hung attempt becomes a retry.
         """
         last: Optional[Exception] = None
         for attempt in range(self._max_retries + 1):
             try:
-                return await asyncio.wait_for(make_call(), timeout=self._timeout)
+                return await asyncio.wait_for(make_call(model), timeout=self._timeout)
             except Exception as exc:  # noqa: BLE001
                 last = exc
                 if not _is_transient(exc) or attempt == self._max_retries:
                     raise
                 delay = (2 ** attempt) + random.random()
-                log.warning("gemini call failed (%s); retrying in %.1fs", exc, delay)
+                log.warning(
+                    "gemini call failed on %s (%s); retrying in %.1fs", model, exc, delay
+                )
                 await asyncio.sleep(delay)
         raise last  # pragma: no cover - unreachable
 
