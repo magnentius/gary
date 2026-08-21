@@ -15,7 +15,10 @@ an encounter — it reports, and the phrasing stays "may be".
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 # Fraction of total party levels that total monster CR may reach before an encounter "may
@@ -32,6 +35,44 @@ _SOLO_CR_MULTIPLE: Tuple[Tuple[int, float], ...] = (
     (4, 1.0),    # levels 1-4
     (99, 1.5),   # levels 5+
 )
+
+
+_MONSTERS_PATH = Path(__file__).with_name("data") / "monsters.json"
+
+
+def _fold(name: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _load_monsters() -> Dict[str, Dict[str, Any]]:
+    try:
+        raw = json.loads(_MONSTERS_PATH.read_text())["monsters"]
+    except (OSError, ValueError, KeyError):  # pragma: no cover - data is shipped
+        return {}
+    return {_fold(m["name"]): m for m in raw.values()}
+
+
+#: SRD 5.2.1 monsters, folded name -> record. Names and CRs only: Avrae owns statblocks
+#: and rolls against them, so holding them here too would be a second source of truth.
+MONSTERS: Dict[str, Dict[str, Any]] = _load_monsters()
+
+
+def lookup(name: str) -> Optional[Dict[str, Any]]:
+    """Find an SRD monster by name, forgiving case, punctuation and a leading article.
+
+    The model supplies the name; the CR comes from here. Left to the model, CR is exactly
+    the kind of numeric detail it recalls confidently and wrongly -- and SRD 5.2.1 revised
+    many of them, so even a good memory of 2014 values is wrong now.
+    """
+    folded = _fold(name)
+    if not folded:
+        return None
+    if folded in MONSTERS:
+        return MONSTERS[folded]
+    for prefix in ("a", "an", "the"):
+        if folded.startswith(prefix) and folded[len(prefix):] in MONSTERS:
+            return MONSTERS[folded[len(prefix):]]
+    return None
 
 
 def _band(average_level: float, table: Sequence[Tuple[int, float]]) -> float:
@@ -90,13 +131,30 @@ def benchmark(party: Dict[str, Any], roster: Iterable[str] = ()) -> Optional[Ben
 def weigh(bench: Benchmark, monsters: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
     """Weigh a specific line-up against the benchmark. Reports; never refuses."""
     # Normalised once, so nothing downstream re-parses a value that may not be a number.
+    # The SRD is preferred over whatever CR the caller supplied: the model recalls CR
+    # confidently and wrongly, and 5.2.1 revised many of them.
     weighed: List[Tuple[str, float]] = []
+    unknown: List[str] = []
+    corrected: List[str] = []
     for monster in monsters:
-        try:
-            cr = float(monster.get("cr", 0) or 0)
-        except (TypeError, ValueError):
-            cr = 0.0
-        weighed.append((str(monster.get("name") or "one monster"), cr))
+        given = str(monster.get("name") or "one monster")
+        record = lookup(given)
+        if record is not None:
+            name, cr = record["name"], float(record["cr"])
+            try:
+                claimed = float(monster.get("cr"))
+            except (TypeError, ValueError):
+                claimed = None
+            if claimed is not None and abs(claimed - cr) > 1e-9:
+                corrected.append(f"{name} is CR {cr:g}, not {claimed:g}")
+        else:
+            unknown.append(given)
+            name = given
+            try:
+                cr = float(monster.get("cr", 0) or 0)
+            except (TypeError, ValueError):
+                cr = 0.0
+        weighed.append((name, cr))
 
     total_cr = sum(cr for _, cr in weighed)
     highest = max(weighed, key=lambda pair: pair[1], default=None)
@@ -118,6 +176,8 @@ def weigh(bench: Benchmark, monsters: Sequence[Dict[str, Any]]) -> Dict[str, Any
         "may_be_deadly": bool(reasons),
         "why": "; ".join(reasons) or "within the benchmark",
         "partial_party": bench.partial,
+        "corrected": corrected,
+        "not_in_srd": unknown,
         "note": (
             "A loose gauge, not a rule. It misleads when one side badly outnumbers the "
             "other, when the objective is not defeating everything, and when the party is "

@@ -148,11 +148,12 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=WEIGH_ENCOUNTER,
         description=(
             "Weigh a planned line-up against the Lazy Encounter Benchmark before you "
-            "commit to it. Give every monster and its CR; fractions are fine (0.125, "
-            "0.25, 0.5). Returns the totals and whether it may be deadly. Use it whenever "
-            "you are about to put more than one creature in front of the party, or "
-            "anything you suspect is large — the arithmetic over six CR 1/4s is exactly "
-            "what goes wrong unnoticed. Deadly is allowed; it is a gauge, not a veto."
+            "commit to it. Name every creature, listing duplicates separately. CRs are "
+            "looked up in the SRD, so give the name exactly and do not worry about the "
+            "number — pass a cr only for something homebrew that is not in the SRD, and "
+            "the reply will tell you which names it did not recognise. Use it whenever "
+            "more than one creature faces the party, or anything you suspect is large. "
+            "Deadly is allowed; it is a gauge, not a veto."
         ),
         parameters=_s(
             type=_OBJECT,
@@ -164,9 +165,12 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         type=_OBJECT,
                         properties={
                             "name": _s(type=_STRING),
-                            "cr": _s(type=types.Type.NUMBER, description="Challenge rating, e.g. 0.25 or 5."),
+                            "cr": _s(
+                                type=types.Type.NUMBER,
+                                description="Only for homebrew. SRD creatures are looked up.",
+                            ),
                         },
-                        required=["name", "cr"],
+                        required=["name"],
                     ),
                 ),
             },

@@ -79,9 +79,10 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
   Under a minute is not worth recording. For rests use request_rest instead, which moves
   the clock and posts the Avrae command together.
 - Before putting more than one creature in front of the party, or anything you suspect is
-  large, call weigh_encounter with every monster and its CR. The gauge above is the
-  threshold; the tool does the sum, which is where six CR 1/4s quietly become the wrong
-  number. Deadly is a legitimate choice — make it deliberately, not by arithmetic error.
+  large, call weigh_encounter and name every creature. It looks their CR up in the SRD and
+  does the sum, so do not supply CRs from memory — 5.2.1 revised many of them, and six
+  CR 1/4s is exactly the arithmetic that goes wrong unnoticed. Deadly is a legitimate
+  choice; make it deliberately, not by mistake.
 - When the party rests, call request_rest ONCE — not once per character. A rest resets
   each player's sheet individually, but there is only one night: calling it four times
   for four characters burns four nights and expires everyone's effects four times over.

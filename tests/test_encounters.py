@@ -64,9 +64,17 @@ def test_one_more_goblin_crosses_it():
 
 
 def test_a_single_monster_can_be_deadly_while_the_total_is_not():
-    """An ogre alone is under the total budget but over the solo threshold."""
-    bench = benchmark(party(3, 3, 3, 3))     # total 12, deadly total CR 3, single CR 3
-    result = weigh(bench, [{"name": "ogre", "cr": 4}])
+    """The case the tool exists for: under the encounter budget, over the solo threshold.
+
+    Four level-10 characters: total 40, so the encounter budget is CR 20 and a lone
+    monster may be deadly above CR 15. An Adult Red Dragon at CR 17 sits between them --
+    a judgement a model eyeballing the numbers gets wrong.
+    """
+    bench = benchmark(party(10, 10, 10, 10))
+    assert (bench.deadly_total_cr, bench.deadly_single_cr) == (20.0, 15.0)
+
+    result = weigh(bench, [{"name": "Adult Red Dragon", "cr": 17}])
+    assert result["total_cr"] == 17.0 <= bench.deadly_total_cr
     assert result["may_be_deadly"] is True
     assert "on its own" in result["why"]
 
@@ -84,3 +92,54 @@ def test_unparseable_cr_counts_as_zero_rather_than_raising():
     bench = benchmark(party(5, 5))
     result = weigh(bench, [{"name": "mystery", "cr": "big"}])
     assert result["total_cr"] == 0
+
+
+# -- SRD lookup ---------------------------------------------------------------------------
+
+
+def test_the_srd_table_loaded():
+    from gary.encounters import MONSTERS
+
+    assert len(MONSTERS) > 300
+
+
+@pytest.mark.parametrize(
+    "written,name,cr",
+    [
+        ("goblin warrior", "Goblin Warrior", 0.25),
+        ("Goblin Warrior", "Goblin Warrior", 0.25),
+        ("the Balor", "Balor", 19.0),
+        ("ANCIENT RED DRAGON", "Ancient Red Dragon", 24.0),
+        ("owlbear", "Owlbear", 3.0),
+    ],
+)
+def test_lookup_forgives_case_and_articles(written, name, cr):
+    from gary.encounters import lookup
+
+    found = lookup(written)
+    assert found["name"] == name and found["cr"] == cr
+
+
+def test_high_cr_monsters_are_present():
+    """A tight parse window silently dropped exactly these: the longest statblocks are
+    the high-CR ones, which is what a difficulty benchmark most needs."""
+    from gary.encounters import lookup
+
+    assert lookup("Tarrasque")["cr"] == 30.0
+    assert lookup("Adult Red Dragon")["cr"] == 17.0
+
+
+def test_the_srd_cr_wins_over_the_models_claim():
+    """CR is exactly what a model recalls confidently and wrongly, and 5.2.1 revised many."""
+    bench = benchmark(party(3, 3, 3))
+    result = weigh(bench, [{"name": "goblin warrior", "cr": 1}])
+    assert result["total_cr"] == 0.25
+    assert result["corrected"] == ["Goblin Warrior is CR 0.25, not 1"]
+
+
+def test_a_homebrew_monster_falls_back_to_the_given_cr():
+    """Not everything is SRD. Use what the model said, and say that you did."""
+    bench = benchmark(party(3, 3, 3))
+    result = weigh(bench, [{"name": "gelatinous blob", "cr": 2}])
+    assert result["total_cr"] == 2.0
+    assert result["not_in_srd"] == ["gelatinous blob"]
