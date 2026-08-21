@@ -32,6 +32,31 @@ def normalize_actor(name: str) -> str:
     return "".join(ch for ch in name.lower() if ch.isalnum())
 
 
+def _fold(text: str) -> str:
+    """Fold a skill/save/attack key for comparison, as normalize_actor does for names."""
+    return "".join(ch for ch in text.lower() if ch.isalnum())
+
+
+def _answers_the_request(check: "PendingCheck", roll: AvraeRoll) -> bool:
+    """Is this roll the roll the check asked for?
+
+    Correlation identifies WHO rolled; this asks WHAT they rolled. Without it, any roll by
+    a correlated player resolves whatever check is open: a Perception 22 settles a pending
+    Stealth DC, and resolver.resolve then reports it to the model as ``key: "stealth",
+    roll_total: 22`` under an instruction not to reverse the result. The transport is
+    trustworthy, so the claim it carries has to be true.
+
+    Only checked where the parser actually extracted the fields. An embed whose title did
+    not parse yields kind=None and key=None, and is correlated on identity alone as
+    before -- see ARCHITECTURE.md §14.
+    """
+    if roll.kind is not None and roll.kind is not check.kind:
+        return False
+    if roll.key and check.key and _fold(roll.key) != _fold(check.key):
+        return False
+    return True
+
+
 @dataclass(frozen=True)
 class Cancellation:
     check: PendingCheck
@@ -175,6 +200,7 @@ class PendingCheckRegistry:
                 if c.channel_id == channel_id and not c.is_expired(now)
             ]
 
+        live = [c for c in live if _answers_the_request(c, roll)]
         if not live:
             return None
 

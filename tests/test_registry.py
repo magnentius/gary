@@ -120,3 +120,41 @@ def test_restore_after_restart(registry, clock):
     assert not fresh.has_open(CHANNEL)
     fresh.restore([check])
     assert fresh.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17)) is not None
+
+
+# -- correlation identifies who rolled; these check WHAT they rolled ---------------------
+
+
+def test_a_different_skill_does_not_resolve_the_check(registry):
+    """Gary asked for Stealth; the player rolled Perception.
+
+    Before this check the roll correlated on actor name alone and resolved the Stealth
+    DC, and resolver.resolve then reported it to the model as the stealth total.
+    """
+    open_for(registry, ALICE, "Kethra", key="stealth")
+    wrong = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Perception")
+    assert registry.match(channel_id=CHANNEL, roll=wrong) is None
+
+    right = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Stealth")
+    assert registry.match(channel_id=CHANNEL, roll=right) is not None
+
+
+def test_a_different_kind_does_not_resolve_the_check(registry):
+    open_for(registry, ALICE, "Kethra", key="stealth")
+    attack = AvraeRoll(actor="Kethra", total=21, kind=CheckKind.ATTACK, key="Longsword")
+    assert registry.match(channel_id=CHANNEL, roll=attack) is None
+
+
+def test_identity_alone_is_not_enough(registry):
+    """Even the strongest correlation signal cannot vouch for the wrong roll."""
+    check, _ = open_for(registry, ALICE, "Kethra", key="stealth")
+    wrong = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Perception")
+    assert registry.match(channel_id=CHANNEL, roll=wrong, interaction_user_id=ALICE) is None
+    assert registry.match(channel_id=CHANNEL, roll=wrong, referenced_user_id=ALICE) is None
+
+
+def test_key_comparison_ignores_formatting(registry):
+    """Avrae titles 'Sleight Of Hand'; the canonical key is 'sleight_of_hand'."""
+    open_for(registry, ALICE, "Kethra", key="sleight_of_hand")
+    roll = AvraeRoll(actor="Kethra", total=17, kind=CheckKind.CHECK, key="Sleight Of Hand")
+    assert registry.match(channel_id=CHANNEL, roll=roll) is not None
