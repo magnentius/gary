@@ -9,9 +9,10 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Status
 
-The **deterministic core and all three adapters** are implemented. The Avrae parser is
-built against fixtures derived from Avrae's own source, not yet confirmed against a live
-bot, and the MCP binding has never been run — see [Before it can run](#before-it-can-run).
+The **deterministic core and all three adapters** are implemented, and the Avrae parser is
+now confirmed against a live bot — most fixtures are real captures rather than
+derivations. The MCP binding has never been run — see
+[Before it can run](#before-it-can-run).
 
 ```
 src/gary/
@@ -45,7 +46,7 @@ a live Avrae:
 
 ```bash
 python -m venv .venv && .venv/bin/pip install -e '.[discord,llm,dev]'
-.venv/bin/python -m pytest -q          # 369 passed, 1 xfailed
+.venv/bin/python -m pytest -q          # 383 passed
 ```
 
 `discord.py` and `google-genai` are needed only by `adapters/`; the core imports neither,
@@ -57,8 +58,13 @@ package is never importable by name, and `python -m gary.…` fails with `No mod
 `pythonpath = ["src"]` already does for pytest. Both `scripts/` entry points insert `src`
 on `sys.path` themselves, so only the `-m` invocations need it.
 
-The one `xfail` is intentional: it fails until the Avrae fixtures are confirmed against a
-live bot, so the last gap cannot be quietly forgotten.
+The fixtures are live captures now. Five capture rounds against a real Avrae confirmed the
+harder derivations — struck-through dice under advantage, To Hit rather than Damage on an
+attack, the first roll winning under `-rr`, and the initiative tracker's whole format —
+and corrected several things the derivation had wrong. Three fixtures remain derived:
+`check_success` (its reply attribution has never been observed), `error_no_character`, and
+`unreadable_embed`, which cannot be captured because it is by definition a format Avrae
+does not produce.
 
 ## The three properties worth knowing
 
@@ -100,9 +106,10 @@ before it ever ran.
 1. **Enable the Message Content privileged intent** in the Discord Developer Portal.
    Without it, `message.embeds` arrives empty and the parser sees nothing — it fails
    silently, which is why this is first.
-2. **Capture live Avrae fixtures.** Patterns in `parser/avrae.py` are derived from
-   Avrae's source at `avrae@cb75be2` and from running `d20` locally — not guesses, but
-   not yet checked against what Discord delivers over the wire:
+2. **Capture more Avrae fixtures** (largely done). Patterns in `parser/avrae.py` started
+   derived from Avrae's source at `avrae@cb75be2` and from `d20` run locally, and are now
+   backed by live captures. Re-run this after any Avrae update, or to close the three
+   fixtures still derived:
    ```bash
    pip install -e '.[discord]'
    export DISCORD_TOKEN=...

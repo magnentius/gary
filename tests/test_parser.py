@@ -120,20 +120,6 @@ def test_every_fixture_records_its_provenance():
         ), f"{path.name}: unrecognised provenance {provenance[:40]!r}"
 
 
-@pytest.mark.xfail(
-    reason="ARCHITECTURE.md §14.1: fixtures are derived from Avrae's source, which is "
-           "strong but not the same as observing what Discord actually delivers. Run "
-           "scripts/capture_avrae_fixtures.py against a live Avrae, diff the captures "
-           "against these, then delete this test.",
-    strict=True,
-)
-def test_fixtures_are_captured_from_a_live_avrae():
-    uncaptured = [
-        p.name for p in FIXTURES if "CAPTURED" not in load(p).get("_provenance", "")
-    ]
-    assert not uncaptured, f"not yet live-captured: {uncaptured}"
-
-
 def test_monster_status_word_counts_as_dying():
     """Avrae hides monster HP, writing a status word where the numbers would be.
 
