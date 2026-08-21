@@ -385,3 +385,18 @@ def test_set_player_character_updates_validation(director):
         key="stealth", dc=15, on_success="ok", on_failure="no",
     )
     assert rejected[0].kind == "system_note"
+
+
+def test_resolution_emits_a_record_alongside_the_narration(director):
+    """Narration and record are emitted together so they cannot diverge."""
+    from gary.fsm import RecordOutcome
+
+    open_check(director, dc=15)
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL, parsed=roll_msg(actor="Kethra", total=19)
+    )
+    records = [e for e in effects if isinstance(e, RecordOutcome)]
+    assert len(records) == 1
+    assert records[0].outcome.dc == 15
+    assert records[0].outcome.total == 19
+    assert records[0].outcome.succeeded is True

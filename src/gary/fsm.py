@@ -68,6 +68,19 @@ class PromptModel(Effect):
 
 
 @dataclass(frozen=True)
+class RecordOutcome(Effect):
+    """Journal a resolved check. History, not state.
+
+    The DC-before-the-dice guarantee is the point of the whole design, and without a
+    record there is no evidence afterwards that a given call was made that way. Emitted
+    beside the PromptModel so the narration and the record cannot diverge.
+    """
+
+    channel_id: int
+    outcome: CheckOutcome
+
+
+@dataclass(frozen=True)
 class LogDrop(Effect):
     """An Avrae message we deliberately ignored. Tracked: a rising rate of UNKNOWN is
     the leading indicator that Avrae changed its embed format (ARCHITECTURE.md §10)."""
@@ -343,6 +356,7 @@ class Director:
         self.registry.consume(check.check_id)
         outcome: CheckOutcome = resolve(check, parsed.roll)
         return [
+            RecordOutcome(channel_id=channel_id, outcome=outcome),
             PromptModel(
                 channel_id=channel_id,
                 kind="check_outcome",

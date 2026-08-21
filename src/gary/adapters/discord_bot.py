@@ -113,7 +113,10 @@ class GaryClient(discord.Client):
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
         self.runner = EffectRunner(
-            self.sender, narrator or EchoNarrator(), max_depth=settings.max_effect_depth
+            self.sender,
+            narrator or EchoNarrator(),
+            max_depth=settings.max_effect_depth,
+            store=store,
         )
         self._sweeper: Optional[asyncio.Task] = None
 

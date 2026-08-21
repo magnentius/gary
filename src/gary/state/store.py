@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from ..models import (
     AppliedMutation,
+    CheckOutcome,
     Mutation,
     MutationKind,
     StateDiff,
@@ -122,10 +123,47 @@ class CampaignStore:
             self._replay(entry)
         self._since_snapshot = len(self._journal) - replay_from
 
+    def record_check_outcome(self, outcome: "CheckOutcome") -> None:
+        """Journal a resolved check.
+
+        Not a mutation: resolving a check changes no campaign state by itself. It is
+        recorded because it is the one thing the whole design exists to make trustworthy
+        -- a DC fixed before the dice and compared by arithmetic -- and without this
+        there is no evidence afterwards that it happened that way. §2.1 offers MCP for
+        "auditing what the model did"; this is what makes the outcomes auditable.
+        """
+        with self._lock:
+            self._append_journal(
+                {
+                    "entry_id": new_id(self._clock()),
+                    "at": self._clock(),
+                    "kind": "check_outcome",
+                    "target": outcome.actor,
+                    "payload": {
+                        "check_id": outcome.check_id,
+                        "kind": outcome.kind.value,
+                        "key": outcome.key,
+                        "dc": outcome.dc,
+                        "total": outcome.total,
+                        "natural": outcome.natural,
+                        "margin": outcome.margin,
+                        "succeeded": outcome.succeeded,
+                        "consequence": outcome.consequence,
+                    },
+                    "inverse": None,
+                    "reason": f"{outcome.actor} {outcome.kind.value} {outcome.key}",
+                }
+            )
+
     def _replay(self, entry: Dict[str, Any]) -> None:
         kind = entry["kind"]
         if kind == "encounter_begin":
             self._state["encounter"] = entry["payload"]
+            return
+        if kind == "check_outcome":
+            # History, not state. Replaying it must change nothing -- the campaign is
+            # whatever the consequences made it, and those are journalled separately as
+            # their own mutations.
             return
         if kind == "encounter_end":
             self._state["encounter"] = None

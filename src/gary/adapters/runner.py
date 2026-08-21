@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
-from ..fsm import AskPlayer, Effect, LogDrop, PromptModel, SendMessage
+from ..fsm import AskPlayer, Effect, LogDrop, PromptModel, RecordOutcome, SendMessage
 from ..ports import Narrator, NarrationResult
 
 log = logging.getLogger("gary.runner")
@@ -39,6 +39,7 @@ class RunnerStats:
     sent: int = 0
     narrated: int = 0
     narrator_failures: int = 0
+    outcomes_recorded: int = 0
     depth_exceeded: int = 0
     drops_by_status: Dict[str, int] = field(default_factory=dict)
 
@@ -53,11 +54,13 @@ class EffectRunner:
         narrator: Narrator,
         max_depth: int = 4,
         stall_message: str = STALL_MESSAGE,
+        store=None,
     ) -> None:
         self._sender = sender
         self._narrator = narrator
         self._max_depth = max_depth
         self._stall = stall_message
+        self._store = store
         self.stats = RunnerStats()
 
     async def run(self, effects: Sequence[Effect], depth: int = 0) -> None:
@@ -79,6 +82,14 @@ class EffectRunner:
         if isinstance(effect, (SendMessage, AskPlayer)):
             await self._sender.send(effect.channel_id, effect.text)
             self.stats.sent += 1
+            return
+
+        if isinstance(effect, RecordOutcome):
+            if self._store is not None:
+                self._store.record_check_outcome(effect.outcome)
+            else:
+                log.warning("no store wired; check outcome not journalled")
+            self.stats.outcomes_recorded += 1
             return
 
         if isinstance(effect, LogDrop):

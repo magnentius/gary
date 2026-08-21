@@ -299,3 +299,44 @@ def test_player_character_is_persisted_and_undoable(store):
 
     store.undo_last()
     assert store.state()["players"] == {"111": "Kethra"}
+
+
+def test_check_outcomes_are_journalled_but_change_no_state(store):
+    """The DC-before-the-dice guarantee needs evidence it held, after the fact."""
+    from gary.models import CheckKind, CheckOutcome
+
+    before = store.state()
+    store.record_check_outcome(
+        CheckOutcome(
+            check_id="c1", actor="Caspian Varr", kind=CheckKind.CHECK,
+            key="sleight_of_hand", total=19, dc=15, margin=4, succeeded=True,
+            consequence="The latch releases.", natural=20,
+        )
+    )
+    assert store.state() == before  # history, not state
+
+    entry = store.journal()[-1]
+    assert entry["kind"] == "check_outcome"
+    assert entry["target"] == "Caspian Varr"
+    assert entry["payload"]["dc"] == 15
+    assert entry["payload"]["total"] == 19
+    assert entry["payload"]["natural"] == 20
+    assert entry["payload"]["succeeded"] is True
+
+
+def test_replaying_a_check_outcome_is_a_no_op(backend_factory, clock):
+    """Recovery is snapshot + replay; an outcome entry must not resurrect anything."""
+    from gary.models import CheckKind, CheckOutcome
+
+    first = CampaignStore(backend=backend_factory(), clock=clock)
+    first.apply([gold("Kethra", 50)], reason="found coin")
+    first.record_check_outcome(
+        CheckOutcome(check_id="c1", actor="Kethra", kind=CheckKind.CHECK, key="stealth",
+                     total=8, dc=15, margin=-7, succeeded=False, consequence="Seen.",
+                     natural=8)
+    )
+    expected = first.state()
+
+    reopened = CampaignStore(backend=backend_factory(), clock=clock)
+    assert reopened.state() == expected
+    assert reopened.journal()[-1]["kind"] == "check_outcome"
