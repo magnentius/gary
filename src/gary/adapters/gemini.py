@@ -83,6 +83,7 @@ class GeminiNarrator:
         temperature: Optional[float] = None,
         max_tool_iterations: int = MAX_TOOL_ITERATIONS,
         max_retries: int = 2,
+        timeout_seconds: float = 90.0,
         max_context_chars: int = 160_000,
         summarize: bool = True,
     ) -> None:
@@ -96,6 +97,7 @@ class GeminiNarrator:
         self._temperature = temperature
         self._max_iterations = max_tool_iterations
         self._max_retries = max_retries
+        self._timeout = timeout_seconds
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
@@ -366,10 +368,17 @@ class GeminiNarrator:
         )
 
     async def _with_retries(self, make_call) -> Any:
+        """Bounded retries, and — §1 — a bound on each attempt.
+
+        Without the timeout a hung request stalls the turn indefinitely: no exception, so
+        no retry, no log, and no stall message at the table. Observed 2026-08-21 against a
+        contended model. asyncio.TimeoutError is already classed transient, so a hung
+        attempt now becomes a retry and, if they all go, the runner's stall message.
+        """
         last: Optional[Exception] = None
         for attempt in range(self._max_retries + 1):
             try:
-                return await make_call()
+                return await asyncio.wait_for(make_call(), timeout=self._timeout)
             except Exception as exc:  # noqa: BLE001
                 last = exc
                 if not _is_transient(exc) or attempt == self._max_retries:

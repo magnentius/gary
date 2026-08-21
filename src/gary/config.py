@@ -85,6 +85,9 @@ class Settings:
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.7-flash"
     gemini_summary_model: str = "gemini-3.5-flash-lite"
+    # §1 requires a timeout on every model call. Without one a hung request
+    # blocks the turn forever: no log, no retry, and nothing at the table.
+    gemini_timeout_seconds: float = 90.0
     history_window: int = 30
 
     check_ttl_seconds: float = 180.0
@@ -128,6 +131,7 @@ class Settings:
             gemini_api_key=e.get("GEMINI_API_KEY", ""),
             gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.7-flash"),
             gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
+            gemini_timeout_seconds=float(e.get("GARY_GEMINI_TIMEOUT", 90.0)),
             history_window=int(e.get("GARY_HISTORY_WINDOW", 30)),
             check_ttl_seconds=float(e.get("GARY_CHECK_TTL", 180.0)),
             sweep_interval_seconds=float(e.get("GARY_SWEEP_INTERVAL", 15.0)),
