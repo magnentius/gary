@@ -26,6 +26,7 @@ GIVE_ITEMS = "give_items"
 TAKE_ITEMS = "take_items"
 RECORD_NOTE = "record_note"
 SET_SCENE = "set_scene"
+UPSERT_NPC = "upsert_npc"
 
 
 def _s(**kw) -> types.Schema:
@@ -146,6 +147,28 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=UPSERT_NPC,
+        description=(
+            "Create or update an NPC the party has actually met or heard named. Use this "
+            "the moment you give someone a name — a named character who exists only in "
+            "your prose is forgotten, and you will contradict yourself about them later. "
+            "Omit a field to leave it unchanged; disposition runs -5 hostile to +5 devoted."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "npc_id": _s(
+                    type=_STRING,
+                    description="Stable short id, lowercase, e.g. 'garik_harlen'. Reuse it to update.",
+                ),
+                "name": _s(type=_STRING, description="Display name, e.g. 'Garik Harlen'."),
+                "disposition": _s(type=_INTEGER, description="-5 hostile to +5 devoted."),
+                "note": _s(type=_STRING, description="Appended to what is already known."),
+            },
+            required=["npc_id"],
         ),
     ),
     types.FunctionDeclaration(

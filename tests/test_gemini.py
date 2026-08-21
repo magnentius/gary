@@ -593,3 +593,24 @@ async def test_no_fallback_on_a_non_transient_failure(rig):
 
     assert result.text == ""                       # surfaced, not papered over
     assert [c["model"] for c in n.client.calls] == [DEFAULT_MODEL]
+
+
+@pytest.mark.asyncio
+async def test_upsert_npc_records_a_named_character(rig):
+    """The model named a half-orc barkeep and had no way to store him: his only home was
+    a free-text note, and disposition had no path at all during play."""
+    director, store, history = rig
+    n = narrator(
+        rig,
+        call_response(T.UPSERT_NPC, {
+            "npc_id": "garik_harlen", "name": "Garik Harlen",
+            "disposition": 1, "note": "Notched ear. Watches the door.",
+        }),
+        text_response("He sets the pint down."),
+    )
+    await player(n, "I ask the barkeep his name")
+
+    npc = store.state()["npcs"]["garik_harlen"]
+    assert npc["name"] == "Garik Harlen"
+    assert npc["disposition"] == 1
+    assert "Notched ear. Watches the door." in npc["notes"]

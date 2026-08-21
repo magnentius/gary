@@ -310,6 +310,22 @@ class GeminiNarrator:
             return {"ok": True, "world_minutes": state["world_minutes"],
                     "active_effects": [e["name"] for e in state.get("effects", [])]}
 
+        if name == T.UPSERT_NPC:
+            payload: Dict[str, Any] = {}
+            if args.get("name"):
+                payload["name"] = str(args["name"])
+            if args.get("disposition") is not None:
+                payload["disposition"] = int(args["disposition"])
+            if args.get("note"):
+                existing = (store.state().get("npcs", {}).get(str(args["npc_id"])) or {}).get(
+                    "notes", []
+                )
+                payload["notes"] = list(existing) + [str(args["note"])]
+            return _diff_result(store.apply(
+                [Mutation(MutationKind.NPC_RELATION, str(args["npc_id"]), payload)],
+                reason=f"npc {args.get('name') or args['npc_id']}",
+            ))
+
         if name == T.ADJUST_GOLD:
             return _diff_result(store.apply(
                 [Mutation(MutationKind.GOLD, str(args["actor"]), {"delta": int(args["delta"])})],

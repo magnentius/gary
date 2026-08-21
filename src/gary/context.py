@@ -54,8 +54,12 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
       Bad:  "You push open the door and the smell of wet wool hits you."
   Do not put the time of day in it — the clock above is authoritative. Do not restate NPC
   attitudes or quest status; those are recorded separately and would drift.
-- When you establish something that should matter later — a name, a promise, a debt, a
-  clue, something hidden — call record_note against the subject it concerns.
+- The moment you give someone a name, call upsert_npc. A named character who lives only
+  in your prose is forgotten, and you will contradict yourself about them in three
+  sessions. Set disposition when their attitude is clear.
+- When you establish something else that should matter later — a promise, a debt, a clue,
+  something hidden, an object someone is guarding — call record_note against the subject
+  it concerns.
 - When meaningful time passes outside combat, call advance_time.
 Record while you are narrating. Do NOT issue these alongside open_check: once you ask for
 a roll, the turn ends and anything else in it is discarded.
