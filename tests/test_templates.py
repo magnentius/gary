@@ -127,3 +127,11 @@ def test_coin_amounts_must_be_signed():
                 "-1gp -", "+1.5gp"):
         with pytest.raises(TemplateError):
             render_coin_command(bad)
+
+
+def test_death_saves_can_be_rendered():
+    """save_death.json was captured live, so Avrae takes `!save death` — but the token
+    map held only the six abilities, so a character at 0 HP could not roll the save that
+    decides whether they live."""
+    assert render_command(CheckKind.SAVE, "death") == "!save death"
+    assert render_command(CheckKind.SAVE, "Death") == "!save death"

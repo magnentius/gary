@@ -596,3 +596,50 @@ def test_without_a_roster_nothing_acts_unprompted(director):
     """Everything would look like a monster, including the players."""
     effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
     assert not [e for e in effects if isinstance(e, PromptModel)]
+
+
+def test_a_downed_character_is_prompted_for_a_death_save(director):
+    """At 0 HP a character rolls a death save on their turn — the one roll nobody should
+    have to remember to ask for, and the one that decides whether they live."""
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    parsed = ParsedAvraeMessage(
+        status=ParseStatus.INITIATIVE,
+        combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15, is_current_turn=True),),
+        round_number=3,
+    )
+    prompts = [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
+               if isinstance(e, PromptModel)]
+    assert len(prompts) == 1
+    assert prompts[0].kind == "death_save"
+    assert prompts[0].payload["actor"] == "Kethra"
+
+
+def test_a_standing_character_is_still_left_alone(director):
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    parsed = ParsedAvraeMessage(
+        status=ParseStatus.INITIATIVE,
+        combatants=(CombatantView(name="Kethra", hp_current=9, hp_max=15, is_current_turn=True),),
+        round_number=3,
+    )
+    assert not [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
+                if isinstance(e, PromptModel)]
+
+
+def test_a_death_save_is_prompted_once_per_round(director):
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    def tracker(round_number):
+        return ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15, is_current_turn=True),),
+            round_number=round_number,
+        )
+    first = director.on_avrae_message(channel_id=CHANNEL, parsed=tracker(3))
+    again = director.on_avrae_message(channel_id=CHANNEL, parsed=tracker(3))
+    assert [e for e in first if isinstance(e, PromptModel)]
+    assert not [e for e in again if isinstance(e, PromptModel)]

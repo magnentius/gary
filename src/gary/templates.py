@@ -50,6 +50,10 @@ AVRAE_SAVE_TOKEN: Mapping[str, str] = {
     "intelligence": "intelligence",
     "wisdom": "wisdom",
     "charisma": "charisma",
+    # Not an ability save, but Avrae takes it the same way -- `!save death`, confirmed by
+    # the save_death fixture captured live. Without it a character at 0 HP cannot roll the
+    # save that decides whether they live, which is the one roll that must not be improvised.
+    "death": "death",
 }
 
 TEMPLATES: Mapping[CheckKind, str] = {

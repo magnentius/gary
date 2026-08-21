@@ -233,14 +233,14 @@ class GeminiNarrator:
             )
             return types.Content(role="user", parts=[types.Part.from_text(text=text)])
 
-        if kind == "monster_turn":
+        if kind in ("monster_turn", "death_save"):
             # Never a deferred answer. A pending open_check is a *player's* roll, and
             # handing it a monster's turn as its function_response would answer it with
             # something that is not a roll at all.
             return types.Content(
                 role="user",
                 parts=[types.Part.from_text(
-                    text="RULES ENGINE: " + json.dumps({"event": "monster_turn", **payload})
+                    text="RULES ENGINE: " + json.dumps({"event": kind, **payload})
                 )],
             )
 

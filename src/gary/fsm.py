@@ -257,18 +257,40 @@ class Director:
         — on a hit, on an HP change — and each edit would otherwise start another turn.
         """
         current = next((c for c in parsed.combatants if c.is_current_turn), None)
-        if current is None or current.is_dying:
-            return []
-        if normalize_actor(current.name) in self._known_actors:
-            return []  # a player's turn; Avrae already pinged them
-        if not self._known_actors:
-            return []  # no roster, so everything looks like a monster
+        if current is None or not self._known_actors:
+            return []  # no tracker, or no roster — everything would look like a monster
 
+        is_player = normalize_actor(current.name) in self._known_actors
         token = (current.name, parsed.round_number)
         if self._acted_this_turn.get(channel_id) == token:
             return []
-        self._acted_this_turn[channel_id] = token
 
+        if is_player:
+            if not current.is_dying:
+                return []  # their turn; Avrae already pinged them
+            # A character at 0 HP rolls a death save on their turn, and it is the one
+            # roll nobody should have to remember to ask for.
+            self._acted_this_turn[channel_id] = token
+            return [
+                PromptModel(
+                    channel_id=channel_id,
+                    kind="death_save",
+                    payload={
+                        "actor": current.name,
+                        "round": parsed.round_number,
+                        "instruction": (
+                            "This character is at 0 HP and it is their turn. Call "
+                            "open_check with kind=save and key=death. Narrate the moment "
+                            "briefly; do not decide whether they live."
+                        ),
+                    },
+                )
+            ]
+
+        if current.is_dying:
+            return []  # a downed monster does not act
+
+        self._acted_this_turn[channel_id] = token
         return [
             PromptModel(
                 channel_id=channel_id,
