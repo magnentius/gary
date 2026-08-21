@@ -1,0 +1,42 @@
+{
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:30:15.001142+00:00",
+  "_description": "An in-game refusal rendered as an EMBED, titled 'Cannot cast spell!'. \u00a76 said errors are plain text; that holds for command errors but NOT for these. The text never contains 'error', so it matched no hint and fell through to UNKNOWN -- which would have asked the player what they rolled when nothing was rolled.",
+  "message": {
+    "id": "1540156041340395593",
+    "content": "",
+    "embeds": [
+      {
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "author": {
+          "proxy_icon_url": "https://images-ext-1.discordapp.net/external/3Mnty_4YTm7ytizd_ukuXSw5-RPRjcyE2QoL_yxKqD8/%3Fsize%3D1024/https/cdn.discordapp.com/avatars/296434921730211840/341c4e27edc5b3b31a2136c3ae7556ad.png",
+          "name": "John K",
+          "icon_url": "https://cdn.discordapp.com/avatars/296434921730211840/341c4e27edc5b3b31a2136c3ae7556ad.png?size=1024"
+        },
+        "fields": [
+          {
+            "value": "No spell slots.",
+            "name": "Spell Slots",
+            "inline": true
+          }
+        ],
+        "flags": 0,
+        "color": 15266193,
+        "type": "rich",
+        "description": "You don't have enough level 1 slots left! Use `-l <level>` to cast at a different level, `!g lr` to take a long rest, or `-i` to ignore spell slots!",
+        "title": "Cannot cast spell!"
+      }
+    ]
+  },
+  "expect": {
+    "status": "irrelevant"
+  }
+}

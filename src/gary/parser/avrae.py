@@ -124,6 +124,12 @@ _IRRELEVANT_HINTS = (
     "awaiting combatants",
     "no combatants",
     "roll for initiative",
+    # Confirmed live 2026-08-20. "Selection timed out" is the tail of an AVRAE_PROMPT the
+    # player never answered. "Cannot cast" is an in-game refusal rendered as an EMBED --
+    # ARCHITECTURE.md §6 says errors are plain text, which is true of command errors but
+    # not of these. Neither carries a roll, so neither may reach the player as a question.
+    "selection timed out",
+    "cannot cast",
 )
 
 
