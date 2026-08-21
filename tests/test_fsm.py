@@ -421,3 +421,36 @@ def test_a_sheet_mirrors_without_consuming_a_pending_check(director):
     assert isinstance(effects[0], MirrorSheet)
     assert effects[0].level == 3
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL   # still pending
+
+
+def test_combat_boundaries_drive_the_handoff(director):
+    """§3.1's handoff fires on Avrae's own boundaries — it had no trigger at all until
+    2026-08-21, so the clock never froze and the invariant was documented, not enforced."""
+    from gary.fsm import BeginEncounter, EndEncounter
+
+    begun = director.on_avrae_message(
+        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_BEGIN)
+    )
+    assert [type(e) for e in begun] == [BeginEncounter]
+
+    # The tracker reports the round; the handoff needs it to convert rounds to minutes.
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(status=ParseStatus.INITIATIVE, round_number=4),
+    )
+    ended = director.on_avrae_message(
+        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_END)
+    )
+    assert isinstance(ended[0], EndEncounter)
+    assert ended[0].rounds == 4
+
+
+def test_combat_boundaries_are_not_gated_on_awaiting_roll(director):
+    """A fight starts when Avrae says so, whether or not a check is pending."""
+    from gary.fsm import BeginEncounter
+
+    assert director.state(CHANNEL) is ChannelState.IDLE
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_BEGIN)
+    )
+    assert isinstance(effects[0], BeginEncounter)

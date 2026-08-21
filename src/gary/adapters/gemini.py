@@ -38,7 +38,7 @@ from ..context import (
     render_live_state,
     render_memory,
 )
-from ..encounters import benchmark, weigh
+from ..encounters import benchmark, lookup, weigh
 from ..fsm import Director, SendMessage
 from ..templates import REST_MINUTES, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
@@ -305,6 +305,32 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.START_COMBAT:
+                names = [str(m) for m in (args.get("monsters") or []) if str(m).strip()]
+                unknown = [m for m in names if lookup(m) is None]
+                adds = "\n".join(
+                    f"`!init madd {(lookup(m) or {}).get('name', m)}`" for m in names
+                )
+                effects.append(SendMessage(
+                    channel_id,
+                    "**Roll for initiative.**\n"
+                    "`!init begin`\n"
+                    "Everyone joins with `!init join`."
+                    + (f"\nThen add the opposition:\n{adds}" if adds else ""),
+                ))
+                responses.append(types.Part.from_function_response(
+                    name=name,
+                    response={
+                        "ok": True,
+                        "monsters": names,
+                        "not_in_srd": unknown,
+                        "note": "Initiative is Avrae's from here: it owns turn order, hit "
+                                "points and durations, and the world clock is frozen until "
+                                "!init end. Describe what happens; do not recalculate it.",
+                    },
+                ))
+                continue
 
             if name == T.REQUEST_REST:
                 kind = str(args.get("kind", "")).strip().lower()

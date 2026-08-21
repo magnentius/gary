@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, List, Optional, Set
+from typing import Callable, Dict, List, Optional, Set
 
 from .models import CancelReason, CheckKind, CheckOutcome, PendingCheck
 from .parser.avrae import ParsedAvraeMessage, ParseStatus
@@ -65,6 +65,25 @@ class PromptModel(Effect):
     channel_id: int
     kind: str  # "player_action" | "check_outcome" | "check_expired" | "system_note"
     payload: dict
+
+
+@dataclass(frozen=True)
+class BeginEncounter(Effect):
+    """`!init begin` seen. Freeze the wall clock and hand effects to Avrae (§3.1)."""
+
+    channel_id: int
+
+
+@dataclass(frozen=True)
+class EndEncounter(Effect):
+    """`!init end` seen. Restart the clock and reconcile effects (§3.1).
+
+    ``rounds`` is unknown from the end message alone, so the store advances by whatever
+    the tracker last reported. Avrae wins where the two disagree (§3).
+    """
+
+    channel_id: int
+    rounds: int = 0
 
 
 @dataclass(frozen=True)
@@ -141,6 +160,7 @@ class Director:
         # discord user id -> Avrae character name (§6.2). The model is otherwise told
         # only a display name, and names an actor Avrae has never heard of.
         self.players = dict(players or {})
+        self._last_round: Dict[int, int] = {}
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -303,6 +323,19 @@ class Director:
         self, *, channel_id: int, parsed: ParsedAvraeMessage
     ) -> List[Effect]:
         """The gate. Only AWAITING_ROLL consumes Avrae output."""
+        # Combat boundaries drive §3.1 and must not be gated on AWAITING_ROLL: a fight
+        # starts when Avrae says so, whether or not anyone has a check pending.
+        if parsed.status is ParseStatus.COMBAT_BEGIN:
+            return [BeginEncounter(channel_id)]
+        if parsed.status is ParseStatus.COMBAT_END:
+            return [EndEncounter(channel_id, rounds=self._last_round.get(channel_id, 0))]
+
+        if parsed.status is ParseStatus.INITIATIVE:
+            # The tracker header carries the round number; remember it so the handoff can
+            # convert rounds to wall-clock minutes when combat ends.
+            if parsed.round_number is not None:
+                self._last_round[channel_id] = parsed.round_number
+
         if parsed.status is ParseStatus.SHEET and parsed.sheet is not None:
             # Before the gate, like INITIATIVE: a sheet is state, not a roll, and a
             # player checking their sheet mid-check must not consume the pending one.

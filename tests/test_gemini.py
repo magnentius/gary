@@ -727,3 +727,25 @@ async def test_the_second_turn_sees_the_first(rig):
     second_call = str(n.client.calls[1]["contents"])
     assert "I ask about crates" in second_call
     assert "Toby nods." in second_call
+
+
+@pytest.mark.asyncio
+async def test_start_combat_posts_the_initiative_commands(rig):
+    """Vane drew a cutlass and the model rendered !attack straight away: there was no
+    tool for starting a fight, so Avrae never tracked turn order and the enemies could
+    never act."""
+    n = narrator(
+        rig,
+        call_response(T.START_COMBAT, {"monsters": ["guard", "guard"]}),
+        text_response("Steel clears leather."),
+    )
+    result = await player(n, "I draw my longsword and attack")
+
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert "`!init begin`" in posted
+    assert "`!init join`" in posted
+    assert posted.count("!init madd Guard") == 2      # SRD name, duplicates listed
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is True
+    assert "frozen" in fr.response["note"]

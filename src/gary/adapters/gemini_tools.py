@@ -31,6 +31,7 @@ UPSERT_NPC = "upsert_npc"
 REQUEST_PAYMENT = "request_payment"
 REQUEST_REST = "request_rest"
 WEIGH_ENCOUNTER = "weigh_encounter"
+START_COMBAT = "start_combat"
 
 
 def _s(**kw) -> types.Schema:
@@ -142,6 +143,27 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=START_COMBAT,
+        description=(
+            "Begin initiative. Call this the moment a fight starts — before anyone swings "
+            "— and never render an attack outside initiative: Avrae tracks turn order, "
+            "hit points and durations only once combat has begun, so a fight started "
+            "without it has no rounds and the enemies never act. Posts the commands the "
+            "table runs. Weigh the line-up with weigh_encounter first."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "monsters": _s(
+                    type=types.Type.ARRAY,
+                    description="Creatures to add, duplicates listed separately. SRD names are looked up.",
+                    items=_s(type=_STRING),
+                ),
+            },
+            required=["monsters"],
         ),
     ),
     types.FunctionDeclaration(

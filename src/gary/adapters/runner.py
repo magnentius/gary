@@ -22,7 +22,9 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from ..fsm import (
     AskPlayer,
+    BeginEncounter,
     Effect,
+    EndEncounter,
     LogDrop,
     MirrorSheet,
     PromptModel,
@@ -91,6 +93,23 @@ class EffectRunner:
         if isinstance(effect, (SendMessage, AskPlayer)):
             await self._sender.send(effect.channel_id, effect.text)
             self.stats.sent += 1
+            return
+
+        if isinstance(effect, BeginEncounter):
+            # §3.1: the wall clock stops and Avrae owns durations from here.
+            if self._store is not None and not self._store.encounter_active:
+                self._store.begin_encounter()
+                log.info("encounter begun in %d; world clock frozen", effect.channel_id)
+            return
+
+        if isinstance(effect, EndEncounter):
+            if self._store is not None and self._store.encounter_active:
+                # Effects Avrae no longer shows are dropped; Avrae wins (§3).
+                result = self._store.end_encounter(effect.rounds, surviving_effect_ids=[])
+                log.info(
+                    "encounter ended in %d after %d round(s); clock advanced to %s",
+                    effect.channel_id, effect.rounds, result.get("world_minutes"),
+                )
             return
 
         if isinstance(effect, MirrorSheet):

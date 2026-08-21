@@ -36,6 +36,8 @@ class ParseStatus(str, Enum):
     ROLL = "roll"
     INITIATIVE = "initiative"
     SHEET = "sheet"  # !sheet output: the character sheet, mirrored read-only (§3)
+    COMBAT_BEGIN = "combat_begin"  # !init begin — §3.1 handoff: the clock freezes
+    COMBAT_END = "combat_end"  # !init end — the clock restarts and effects reconcile
     IRRELEVANT = "irrelevant"  # confidently not something we care about (!help, sheets)
     AVRAE_PROMPT = "avrae_prompt"  # Avrae is asking the player something -- a roll may still come
     PROMPT_ABANDONED = "prompt_abandoned"  # that question lapsed; no roll is coming
@@ -94,6 +96,8 @@ class ParsedAvraeMessage:
     interaction_user_id: Optional[int] = None
     referenced_user_id: Optional[int] = None
     sheet: Optional["SheetView"] = None
+    # Round number from the tracker header, so §3.1 can convert rounds to minutes.
+    round_number: Optional[int] = None
     reason: str = ""
 
 
@@ -125,9 +129,19 @@ _HP_BARE = re.compile(r"^(\d+)\s*HP", re.IGNORECASE)
 # `!sheet`, captured live 2026-08-21: no title, the character in embed.author.name, and a
 # description whose first line is "Human Fighter 1". "**Proficiency Bonus**" is the marker
 # -- it appears on every sheet and nowhere else.
+# §3.1's handoff fires on Avrae's own combat boundaries, so Gary has to see them.
+# Confirmed live 2026-08-21: `!init begin` posts "Everyone roll for initiative!" and an
+# empty tracker reading "```Awaiting combatants...```"; `!init end` posts "Combat ended."
+# after a yes/no confirmation.
+_ROUND = re.compile(r"\(round\s*(\d+)\)", re.IGNORECASE)
+_COMBAT_BEGIN = re.compile(r"everyone roll for initiative|awaiting combatants", re.IGNORECASE)
+_COMBAT_END = re.compile(r"^combat ended|-----COMBAT ENDED-----", re.IGNORECASE)
+
 _SHEET_MARKER = re.compile(r"\*\*Proficiency Bonus\*\*", re.IGNORECASE)
 _SHEET_LEVEL = re.compile(r"\b(\d{1,2})\b")
-_INIT_HEADER = re.compile(r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*\d+\)\s*$", re.IGNORECASE)
+_INIT_HEADER = re.compile(
+    r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*(?P<round>\d+)\)\s*$", re.IGNORECASE
+)
 
 # Avrae's disambiguation selector. Confirmed live 2026-08-20: an embed titled "Multiple
 # Matches Found" whose description asks "Which one were you looking for? (Type the number
@@ -271,9 +285,11 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
     # combat state is never mistaken for a roll.
     combatants = parse_initiative(content)
     if combatants is not None:
+        round_match = _ROUND.search(content)
         return ParsedAvraeMessage(
             status=ParseStatus.INITIATIVE,
             combatants=tuple(combatants),
+            round_number=int(round_match.group(1)) if round_match else None,
             interaction_user_id=interaction_user_id,
             referenced_user_id=referenced_user_id,
         )
@@ -284,6 +300,22 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
         # this, an error arriving while a check is pending reads as an unparseable roll
         # and Gary asks the player what they rolled -- when nothing was rolled at all.
         lowered_content = content.lower()
+        # Ahead of the irrelevant hints, which would otherwise swallow these: they were
+        # classified as harmless initiative chatter before §3.1 had any trigger.
+        if _COMBAT_END.search(content):
+            return ParsedAvraeMessage(
+                status=ParseStatus.COMBAT_END,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="!init end observed",
+            )
+        if _COMBAT_BEGIN.search(content):
+            return ParsedAvraeMessage(
+                status=ParseStatus.COMBAT_BEGIN,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="!init begin observed",
+            )
         if _TURN_ANNOUNCEMENT.match(content):
             return ParsedAvraeMessage(
                 status=ParseStatus.IRRELEVANT,

@@ -144,6 +144,8 @@ The round/minute mismatch that made v1 incoherent is resolved by an explicit two
 
 Between those two events, `advance_time` is rejected with an error. This is the single most important invariant in the system.
 
+**Implemented 2026-08-21.** `begin_encounter` and `end_encounter` existed and were tested from the start, and nothing outside `store.py` called either — so the invariant was documented and unenforced: the clock never froze and no effect was ever snapshotted. Gary now watches for Avrae's own boundaries. `!init begin` posts "Everyone roll for initiative!" and an empty tracker; `!init end` posts "Combat ended." Both were classified IRRELEVANT when first captured, precisely because the handoff had no trigger and they read as chatter. The round number comes from the tracker header (`Current initiative: 11 (round 4)`), which is what converts rounds to wall-clock minutes at the end.
+
 ---
 
 ## 4. The gameplay loop
