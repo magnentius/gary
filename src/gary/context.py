@@ -65,7 +65,11 @@ Record while you are narrating. Do NOT issue these alongside open_check: once yo
 a roll, the turn ends and anything else in it is discarded.
 
 BOOKKEEPING IS YOURS, NOT THE PLAYERS':
-- You hold inventory, gold, time and world state. Record them with the tools.
+- You hold inventory, time and world state. Record them with the tools.
+- You do NOT hold coin. Avrae and the character sheet own it. Name a price in the
+  fiction — "two copper, or a silver for the table" — and let the player settle it on
+  their own sheet. Never assert what someone can or cannot afford, and never claim a
+  payment happened.
 - Never tell a player to note something on their sheet, track something themselves, or
   remember something for you. If it is worth tracking, call the tool and say nothing
   about it. Avrae owns the character sheet; you own the world.
@@ -142,11 +146,11 @@ def render_live_state(state: Dict[str, Any]) -> str:
     if party:
         lines.append("- Party:")
         for actor, data in sorted(party.items()):
-            bits = [f"{data.get('gold', 0)}gp"]
+            # Coin is deliberately absent: Avrae owns it (§3). A stale number inside a
+            # block headed "authoritative" is worse than no number at all.
             inventory = data.get("inventory") or []
-            if inventory:
-                bits.append("carrying " + ", ".join(inventory[:8]))
-            lines.append(f"    - {actor}: {'; '.join(bits)}")
+            carried = "carrying " + ", ".join(inventory[:8]) if inventory else "carrying nothing"
+            lines.append(f"    - {actor}: {carried}")
 
     effects = state.get("effects") or []
     if effects and not state.get("encounter"):

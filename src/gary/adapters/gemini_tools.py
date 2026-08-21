@@ -21,7 +21,8 @@ from google.genai import types
 
 OPEN_CHECK = "open_check"
 ADVANCE_TIME = "advance_time"
-ADJUST_GOLD = "adjust_gold"
+# ADJUST_GOLD removed 2026-08-21: Avrae owns coin now (§3). Kept out of the tool
+# surface entirely rather than left as a no-op, so the model cannot believe it paid.
 GIVE_ITEMS = "give_items"
 TAKE_ITEMS = "take_items"
 RECORD_NOTE = "record_note"
@@ -88,19 +89,6 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=ADJUST_GOLD,
-        description="Add or remove gold. Negative to spend. Large amounts need DM approval.",
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "actor": _s(type=_STRING),
-                "delta": _s(type=_INTEGER, description="Positive to grant, negative to spend."),
-                "reason": _s(type=_STRING),
-            },
-            required=["actor", "delta", "reason"],
         ),
     ),
     types.FunctionDeclaration(

@@ -283,16 +283,17 @@ async def test_state_tool_result_is_fed_back_and_the_turn_continues(rig):
     director, store, _ = rig
     n = narrator(
         rig,
-        call_response(T.ADJUST_GOLD, {"actor": "Kethra", "delta": 50, "reason": "sold a dagger"}),
-        text_response("The merchant counts out fifty gold."),
+        call_response(T.GIVE_ITEMS, {"actor": "Kethra", "items": ["a brass key"],
+                                     "reason": "found in the drawer"}),
+        text_response("The key is cold in your palm."),
     )
-    result = await player(n, "I sell the dagger")
+    result = await player(n, "I search the drawer")
 
-    assert result.text == "The merchant counts out fifty gold."
-    assert store.state()["party"]["Kethra"]["gold"] == 50
+    assert result.text == "The key is cold in your palm."
+    assert store.state()["party"]["Kethra"]["inventory"] == ["a brass key"]
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.name == T.ADJUST_GOLD
+    assert fr.name == T.GIVE_ITEMS
     assert fr.response["ok"] is True
 
 
@@ -301,14 +302,16 @@ async def test_rejected_mutation_is_reported_so_the_model_narrates_the_truth(rig
     director, store, _ = rig
     n = narrator(
         rig,
-        call_response(T.ADJUST_GOLD, {"actor": "Kethra", "delta": 5000, "reason": "a wish"}),
+        call_response(T.GIVE_ITEMS, {"actor": "Kethra",
+                                     "items": [f"trinket {i}" for i in range(50)],
+                                     "reason": "a wish"}),
         text_response("Nothing appears."),
     )
     await player(n)
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
-    assert "DM approval" in fr.response["rejected"][0]
+    assert fr.response["rejected"]
     assert "Kethra" not in store.state()["party"]
 
 

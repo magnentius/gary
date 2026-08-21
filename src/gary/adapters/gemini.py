@@ -326,12 +326,6 @@ class GeminiNarrator:
                 reason=f"npc {args.get('name') or args['npc_id']}",
             ))
 
-        if name == T.ADJUST_GOLD:
-            return _diff_result(store.apply(
-                [Mutation(MutationKind.GOLD, str(args["actor"]), {"delta": int(args["delta"])})],
-                reason=str(args.get("reason", "")),
-            ))
-
         if name == T.GIVE_ITEMS:
             return _diff_result(store.apply(
                 [Mutation(MutationKind.ITEM_ADD, str(args["actor"]),

@@ -67,12 +67,13 @@ def test_live_state_marks_itself_authoritative():
 def test_live_state_renders_the_clock_and_party():
     state = empty_state()
     state["world_minutes"] = t = 8 * 60 + 30
-    state["party"] = {"Kethra": {"gold": 42, "inventory": ["rope", "torch"]}}
+    state["party"] = {"Kethra": {"inventory": ["rope", "torch"]}}
     state["scene"] = {"location": "The Drowned Rat", "summary": "Waiting on a contact."}
 
     rendered = render_live_state(state)
     assert "Day 1, 08:30" in rendered
-    assert "Kethra: 42gp" in rendered
+    assert "Kethra: carrying rope, torch" in rendered
+    assert "gp" not in rendered  # Avrae owns coin (§3); a stale number here would mislead
     assert "rope" in rendered
     assert "The Drowned Rat" in rendered
     assert t  # silence linters
@@ -204,3 +205,11 @@ def test_persona_specifies_scene_summaries_as_standing_state():
     assert "present tense" in text.lower()
     # and must not invite a second clock alongside world_minutes (§3.1)
     assert "time of day" in text.lower()
+
+
+def test_persona_disclaims_coin():
+    """§3 moved coin to Avrae. A model that thinks it can charge people will assert
+    payments that never happened and balances it cannot see."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "You do NOT hold coin" in text
+    assert "never claim a payment happened" in text.lower() or "payment happened" in text

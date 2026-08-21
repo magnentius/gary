@@ -127,7 +127,8 @@ The most common failure mode in a system like this is two components confidently
 | Success/failure of any check | **Gary** | Deterministic comparison. Never the LLM. |
 | World date/time | **State server** | Minute granularity. |
 | Effects, conditions, resources **outside initiative** | **State server** | Wall-clock based. |
-| Inventory, gold, quest state, NPC relationships | **State server** | |
+| Inventory, quest state, NPC relationships | **State server** | |
+| Coin | **D&D Beyond → Avrae** | Moved here 2026-08-21. The state server held an integer count of *gold*, which cannot express "two copper", and the sheet carries a gold value Avrae can also write — a shared-write fact in all but name, diverging silently. Gary now names prices in the fiction and never records payment. `adjust_gold` was removed from the model's tools rather than left as a no-op, so it cannot believe it has charged anyone. |
 | Narrative prose, NPC voice, scene framing | **Gemini** | |
 
 ### 3.1 The initiative handoff
