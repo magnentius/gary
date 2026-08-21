@@ -33,6 +33,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from google.genai import types
 
 from ..context import (
+    render_document,
     DM_SYSTEM_INSTRUCTION,
     attribute,
     render_live_state,
@@ -232,6 +233,17 @@ class GeminiNarrator:
                 payload.get("text", ""),
             )
             return types.Content(role="user", parts=[types.Part.from_text(text=text)])
+
+        if kind == "import_document":
+            return types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=render_document(
+                    str(payload.get("filename", "document")),
+                    str(payload.get("chunk", "")),
+                    int(payload.get("part", 1)),
+                    int(payload.get("total", 1)),
+                ))],
+            )
 
         if kind in ("monster_turn", "death_save"):
             # Never a deferred answer. A pending open_check is a *player's* roll, and

@@ -26,7 +26,8 @@ from typing import Any, Dict, List, Optional
 import discord
 
 from ..config import Settings
-from ..fsm import Director
+from ..context import chunk_document
+from ..fsm import Director, PromptModel
 from ..models import CancelReason, Mutation, MutationKind
 from ..parser.avrae import ParseStatus, parse_embed
 from ..ports import EchoNarrator, Narrator
@@ -250,6 +251,108 @@ class GaryClient(discord.Client):
     #: notes, which surface only when their subject comes up.
     MAX_SETTING_CHARS = 600
 
+    #: An imported setting file is read whole into memory and then into prompts. These
+    #: bound what one `?dm import` can cost before it starts, not after.
+    MAX_IMPORT_BYTES = 200_000
+    IMPORT_CHUNK_CHARS = 6000
+    MAX_IMPORT_CHUNKS = 12
+    IMPORT_SUFFIXES = (".md", ".markdown", ".txt")
+
+    async def _import_document(self, message: "discord.Message", channel_id: int) -> None:
+        """`?dm import` with a Markdown attachment — fan a setting file into the stores.
+
+        The file is somebody else's prose read while the model holds state-mutating tools,
+        so it travels as data (`render_document`) rather than as a turn of play. Everything
+        that can be refused is refused before a single token is spent.
+        """
+        prefix = self.settings.command_prefix
+        attachments = list(getattr(message, "attachments", None) or [])
+        if not attachments:
+            await self.sender.send(
+                channel_id,
+                f"`{prefix}import` needs a file attached — a `.md` or `.txt` export from a "
+                "setting generator, or anything you have written yourself. I read it and "
+                "file what it describes: people as NPCs, hooks as quests, places and "
+                "factions as notes.\n"
+                f"Set the one-line premise separately with `{prefix}setting` — that is what "
+                "rides on every turn; this is the detail behind it.",
+            )
+            return
+
+        attachment = attachments[0]
+        filename = str(getattr(attachment, "filename", "document"))
+        if not filename.lower().endswith(self.IMPORT_SUFFIXES):
+            await self.sender.send(
+                channel_id,
+                f"I can only read {', '.join(self.IMPORT_SUFFIXES)} — `{filename}` is "
+                "something else. Export as Markdown or plain text.",
+            )
+            return
+        size = int(getattr(attachment, "size", 0) or 0)
+        if size > self.MAX_IMPORT_BYTES:
+            await self.sender.send(
+                channel_id,
+                f"`{filename}` is {size // 1000}KB and the limit is "
+                f"{self.MAX_IMPORT_BYTES // 1000}KB. Split it and import the parts.",
+            )
+            return
+
+        try:
+            raw = await attachment.read()
+        except Exception as exc:  # discord.HTTPException and friends
+            LOG.warning("import: could not read attachment %s: %s", filename, exc)
+            await self.sender.send(channel_id, f"Couldn't download `{filename}` — {exc}")
+            return
+
+        # Decode defensively: a generator's export may carry smart quotes in some other
+        # encoding, and a mangled character is a better outcome than a dead import.
+        text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
+        chunks = chunk_document(text, self.IMPORT_CHUNK_CHARS)
+        if not chunks:
+            await self.sender.send(channel_id, f"`{filename}` is empty.")
+            return
+        if len(chunks) > self.MAX_IMPORT_CHUNKS:
+            await self.sender.send(
+                channel_id,
+                f"`{filename}` comes to {len(chunks)} parts and I import at most "
+                f"{self.MAX_IMPORT_CHUNKS} at a time — each one is a model call. Import "
+                "the most important sections first.",
+            )
+            return
+
+        if isinstance(getattr(self.runner, "_narrator", None), EchoNarrator):
+            await self.sender.send(
+                channel_id,
+                "No model is attached, so there is nothing that can read a document — set "
+                "`GEMINI_API_KEY` and restart. Everything else still works.",
+            )
+            return
+
+        total = len(chunks)
+        await self.sender.send(
+            channel_id,
+            f"Reading `{filename}` — {total} part{'s' if total > 1 else ''}. "
+            "I'll file people, places, factions and hooks as I go.",
+        )
+        for index, chunk in enumerate(chunks, start=1):
+            await self.runner.run([
+                PromptModel(
+                    channel_id=channel_id,
+                    kind="import_document",
+                    payload={
+                        "filename": filename,
+                        "chunk": chunk,
+                        "part": index,
+                        "total": total,
+                    },
+                )
+            ])
+        await self.sender.send(
+            channel_id,
+            f"Done with `{filename}`. `{prefix}state` shows what stuck — anything it "
+            "missed you can add by telling me in the channel.",
+        )
+
     async def on_message(self, message: "discord.Message") -> None:
         # `!sheet` carries no interaction metadata — it is a prefix command — so the sheet
         # embed that follows cannot say who asked for it. Remember the asker, and claim
@@ -449,6 +552,10 @@ class GaryClient(discord.Client):
                 reason=f"setting by {message.author.display_name}",
             )
             await self.sender.send(channel_id, f"Setting noted.\n> {raw}")
+            return
+
+        if command == "import":
+            await self._import_document(message, channel_id)
             return
 
         if command == "scene":

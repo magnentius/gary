@@ -519,3 +519,121 @@ def test_a_sheet_registers_whoever_asked_for_it():
     now[0] += GaryClient.SHEET_CLAIM_SECONDS + 1
     run(claim(7, "Kethra"))
     assert 222 not in director.players
+
+
+# -- ?dm import --------------------------------------------------------------------------
+
+
+class _Attachment:
+    def __init__(self, filename="setting.md", body=b"# Leafmoor\n\nA drowned fen.", size=None):
+        self.filename = filename
+        self._body = body
+        self.size = len(body) if size is None else size
+
+    async def read(self):
+        return self._body
+
+
+class _ImportMsg:
+    def __init__(self, attachments=()):
+        self.attachments = list(attachments)
+
+
+class _Runner:
+    """Stands in for EffectRunner. `_narrator` is private on the real one, and a guard
+    that reads the wrong attribute name is a guard that never fires."""
+
+    def __init__(self, narrator):
+        self._narrator = narrator
+        self.effects = []
+
+    async def run(self, effects):
+        self.effects.extend(effects)
+
+
+def _import_client(narrator, sent):
+    from gary.adapters.discord_bot import GaryClient
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Settings:
+        command_prefix = "?dm "
+
+    class _Client:
+        settings = _Settings()
+        sender = _Sender()
+        runner = _Runner(narrator)
+        MAX_IMPORT_BYTES = GaryClient.MAX_IMPORT_BYTES
+        IMPORT_CHUNK_CHARS = GaryClient.IMPORT_CHUNK_CHARS
+        MAX_IMPORT_CHUNKS = GaryClient.MAX_IMPORT_CHUNKS
+        IMPORT_SUFFIXES = GaryClient.IMPORT_SUFFIXES
+
+    client = _Client()
+    return client, GaryClient._import_document.__get__(client, _Client)
+
+
+class _Narrator:
+    async def narrate(self, *a, **k):  # pragma: no cover - never reached
+        raise AssertionError("import must not narrate through this stub")
+
+
+def test_import_refuses_before_spending_anything():
+    """Every refusal has to land before the file is read into prompts. An import that
+    validates halfway has already cost model calls for the half it accepted."""
+    import asyncio
+
+    cases = [
+        (_ImportMsg(), "needs a file attached"),
+        (_ImportMsg([_Attachment(filename="setting.pdf")]), "only read"),
+        (_ImportMsg([_Attachment(size=999_999)]), "limit is"),
+        (_ImportMsg([_Attachment(body=b"   ")]), "is empty"),
+    ]
+    for message, expected in cases:
+        sent = []
+        client, do_import = _import_client(_Narrator(), sent)
+        asyncio.get_event_loop().run_until_complete(do_import(message, 7))
+        assert expected in " ".join(sent), (expected, sent)
+        assert client.runner.effects == []
+
+
+def test_import_says_so_when_no_model_is_attached():
+    """Regression: this guard read `runner.narrator`, but EffectRunner stores `_narrator`.
+    getattr returned None, the isinstance was never true, and an import under EchoNarrator
+    ran every chunk through a narrator that cannot call a tool -- reporting success while
+    filing nothing."""
+    import asyncio
+
+    from gary.ports import EchoNarrator
+
+    sent = []
+    client, do_import = _import_client(EchoNarrator(), sent)
+    asyncio.get_event_loop().run_until_complete(
+        do_import(_ImportMsg([_Attachment()]), 7)
+    )
+    assert "No model is attached" in " ".join(sent)
+    assert client.runner.effects == []
+
+
+def test_import_fans_a_document_into_one_prompt_per_part():
+    """Parts are numbered because the model is told it is reading part n of m -- a
+    document that arrives unlabelled gets summarised as if it were the whole world."""
+    import asyncio
+
+    body = ("# Leafmoor\n\n" + "The fen drowns the road.\n" * 600).encode()
+    sent = []
+    client, do_import = _import_client(_Narrator(), sent)
+    asyncio.get_event_loop().run_until_complete(
+        do_import(_ImportMsg([_Attachment(filename="leaf-node.md", body=body)]), 7)
+    )
+
+    effects = client.runner.effects
+    assert len(effects) > 1
+    assert {e.kind for e in effects} == {"import_document"}
+    assert [e.payload["part"] for e in effects] == list(range(1, len(effects) + 1))
+    assert all(e.payload["total"] == len(effects) for e in effects)
+    assert all(e.payload["filename"] == "leaf-node.md" for e in effects)
+    assert all(e.channel_id == 7 for e in effects)
+    # Nothing is dropped between chunks.
+    assert "".join(e.payload["chunk"] for e in effects).count("drowns") == 600

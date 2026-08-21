@@ -153,7 +153,11 @@ before it ever ran.
    matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
    anything went wrong. Leave it unset and validation is skipped, as before.
    In the channel: `?dm setting <premise>` once per campaign, then `?dm scene <location> |
-   <situation>` and `?dm time 18:30` to author an opening, `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; wipes everything but the journal, so re-run `?dm playing` afterwards).
+   <situation>` and `?dm time 18:30` to author an opening. `?dm import` with a `.md` or
+   `.txt` attachment reads a whole setting document — a generator's export, or your own
+   notes — and files its people as NPCs and its places, factions and lore as notes, which
+   surface when a player names them. It needs a model attached, and refuses oversize or
+   non-text files before spending anything. Also `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; wipes everything but the journal, so re-run `?dm playing` afterwards).
    Set a scene and a time before the first turn. On a fresh campaign layer 2 of the
    context (`ARCHITECTURE.md` §8) is empty, so the model invents the world from one
    sentence of player input — and an under-constrained model is exactly when §14 (8),

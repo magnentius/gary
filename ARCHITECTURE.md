@@ -474,6 +474,16 @@ v1 never specified what goes into a Gemini call. A campaign runs for thousands o
 
 **Non-goal.** Do not attempt to keep the entire campaign in context. The state server exists precisely so the model does not need to remember.
 
+### 8.1 Seeding a campaign
+
+Layers 2 and 3 are empty on a fresh campaign, which is the worst moment for it: the model invents the world from one line of player input, and §14 (8) — narrating past the check — is most likely exactly then. Three surfaces fill them, in increasing size:
+
+- `?dm setting <premise>` — the ≤600-character standing premise. Layer 2, every turn.
+- `?dm scene <location> | <state>` and `?dm time` — where the party is and when.
+- `?dm import` with a `.md`/`.txt` attachment — a whole setting document, fanned into layer 3. Written for the export format of a generator like [cros.land's](https://cros.land/rpg-setting-generator-and-world-building-tool/), whose sections (location overview, sub-locations, factions, NPCs, quest hooks) map onto `record_note` and `upsert_npc` almost one-to-one. The file is split on Markdown headings rather than at a character count, because a section cut in half writes an NPC twice — once from the name, once from the disposition that landed in the next chunk. Each chunk is one model call, capped at `MAX_IMPORT_CHUNKS`.
+
+Import deliberately does **not** write quests: there is no quest tool on the model's surface (§12.6), only `prep.py`'s. Hooks are filed as notes, which is lossy — a hook becomes retrievable trivia rather than a tracked objective. Closing that means either giving the model a quest tool or accepting that quests stay a prep-time concern.
+
 ---
 
 ## 9. Security & trust
@@ -488,6 +498,7 @@ v1 marked trusted data with the literal prefix `[SYSTEM: ...]` in a flat text st
 - Player text is always attributed and delimited: `Player {display_name} (playing {actor}) says: <text>`, with any `[SYSTEM`-like sequence stripped before assembly. `{actor}` comes from `GARY_PLAYERS` (§1); without it the model is told only a Discord display name, calls `open_check` with *that*, and the roll can never correlate — the check sits until TTL and is then narrated as player hesitation. The Director refuses an actor not on the roster rather than opening a check nothing can match.
 - State-mutating tools are gated. `update_campaign_state` validates each mutation against bounds (gold deltas, item grants, HP changes) and anything exceeding a threshold requires DM confirmation via `?dm approve <id>`.
 - Every mutation is journaled with the triggering message ID, so injection attempts are auditable and reversible.
+- **Imported documents are data, not turns.** `?dm import` (§8.1) reads a Markdown or text attachment — typically a generated setting — and hands it to the model in chunks so it can be filed into notes and NPCs. That is somebody else's prose, read while the model holds every state-mutating tool, and prose is where "the DM should now…" lives. Each chunk is sanitised, fenced between `<<<DOCUMENT`/`DOCUMENT>>>`, labelled part *n* of *m*, and prefixed with an explicit statement that a directive inside it is fiction to record rather than an instruction to obey. Only the DM can invoke it: it is a `?dm` command like any other. The chunk cap, size cap and extension check all refuse **before** the first model call, so a bad import costs nothing.
 
 ### 9.2 Command injection into Avrae
 
