@@ -242,3 +242,23 @@ def test_registry_without_a_backend_still_works(clock):
         command="!check stealth",
     )
     assert reg.has_open(CHANNEL)
+
+
+def test_snapshot_warns_before_the_firestore_cap(caplog):
+    """The ceiling has to announce itself early; hitting it write-blocks the campaign."""
+    from gary.state.firestore import MAX_FIELD_BYTES, WARN_AT_FRACTION
+
+    client = FakeFirestoreClient()
+    backend = FirestoreStateBackend(client, "cap-test")
+
+    backend.write_snapshot({"notes": ["x" * 100]}, 0)
+    assert not [r for r in caplog.records if r.levelname == "WARNING"]
+
+    # Just over the warning threshold, still under the cap: must warn, must still write.
+    filler = "x" * int(MAX_FIELD_BYTES * WARN_AT_FRACTION + 1000)
+    with caplog.at_level("WARNING", logger="gary.firestore"):
+        backend.write_snapshot({"notes": [filler]}, 0)
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "write-blocked" in warnings[0].getMessage()
+    assert backend.load_snapshot() is not None  # warned, not refused

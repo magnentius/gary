@@ -13,14 +13,14 @@ Delete the instance, recreate it, and the campaign is intact.
     registry = PendingCheckRegistry(clock=time.time,
                                     backend=FirestoreCheckBackend(db, "my-campaign"))
 
-⚠️ **UNVERIFIED.** This module has not been run against Firestore, real or emulated. The
-protocol conformance and the JSON round-trip are covered by ``tests/test_firestore.py``
-against a fake client, which tests *this* code but says nothing about Firestore's actual
-semantics. Verify before trusting a campaign to it:
+**Verified against the emulator, 2026-08-20** (`google-cloud-firestore` 2.28.1). The
+shared backend suite in ``tests/test_backend.py`` passes against real Firestore semantics,
+not only the fake client -- journal ordering with sequences written out of order, the
+missing-``seq`` refusal, snapshot overwrite, and loading a campaign that does not exist.
+To re-run it, start the emulator and substitute a real client for ``FakeFirestoreClient``:
 
-    gcloud emulators firestore start --host-port=localhost:8080
+    gcloud emulators firestore start --host-port=localhost:8080   # needs a JDK
     export FIRESTORE_EMULATOR_HOST=localhost:8080
-    python -m pytest tests/test_firestore.py --firestore-emulator
 
 Data model
 ----------
@@ -51,9 +51,18 @@ approaches, move ``notes`` into its own subcollection; nothing outside this file
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..models import PendingCheck
+
+log = logging.getLogger("gary.firestore")
+
+# Measured against the emulator 2026-08-20: a write of ~1100 KiB is refused with
+# 'InvalidArgument: 400 The value of property "state_json" is longer than 1048487 bytes'.
+# The cap is on the field value, not the document, so this is the number that matters.
+MAX_FIELD_BYTES = 1048487
+WARN_AT_FRACTION = 0.7
 
 SNAPSHOT_FIELD = "state_json"
 OFFSET_FIELD = "journal_offset"
@@ -87,11 +96,33 @@ class FirestoreStateBackend:
     def write_snapshot(self, state: Dict[str, Any], journal_offset: int) -> None:
         # A single set() is atomic at the document level, which is the same guarantee
         # temp-then-rename gives on local disk.
+        payload = json.dumps(state, sort_keys=True)
+        self._warn_if_near_cap(payload)
         self._doc.set(
-            {
-                SNAPSHOT_FIELD: json.dumps(state, sort_keys=True),
-                OFFSET_FIELD: int(journal_offset),
-            }
+            {SNAPSHOT_FIELD: payload, OFFSET_FIELD: int(journal_offset)}
+        )
+
+    @staticmethod
+    def _warn_if_near_cap(payload: str) -> None:
+        """Announce the ceiling before it is hit, because hitting it is unrecoverable in
+        the moment.
+
+        Nothing catches the InvalidArgument that Firestore raises past the cap, so it
+        surfaces mid-turn as an opaque Google error -- and ``CampaignStore.snapshot``
+        raises before resetting its counter, so every later mutation raises too and the
+        campaign is write-blocked until someone shrinks the state by hand. A warning
+        several sessions ahead is the difference between a scheduled migration and a
+        session ending on a stack trace.
+        """
+        size = len(payload.encode("utf-8"))
+        if size < int(MAX_FIELD_BYTES * WARN_AT_FRACTION):
+            return
+        log.warning(
+            "campaign snapshot is %d bytes, %.0f%% of Firestore's %d-byte field cap. "
+            "Past the cap every mutation fails and the campaign is write-blocked. "
+            "'notes' is the growing field (~85%% of state by then); move it to a "
+            "subcollection or prune it. See ARCHITECTURE.md §7.4.",
+            size, 100 * size / MAX_FIELD_BYTES, MAX_FIELD_BYTES,
         )
 
     # -- journal -----------------------------------------------------------------------
