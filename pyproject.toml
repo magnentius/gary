@@ -11,7 +11,7 @@ dependencies = []
 # or an API key. Adapters are additive.
 discord = ["discord.py>=2.4"]
 llm = ["google-genai>=1.0"]
-mcp = ["mcp>=1.2"]   # requires Python >=3.10
+mcp = ["mcp>=2.0"]   # requires Python >=3.10; 2.0 renamed FastMCP -> MCPServer
 gcp = ["google-cloud-firestore>=2.16"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "d20>=1.1"]  # d20 reproduces Avrae's roll strings
 

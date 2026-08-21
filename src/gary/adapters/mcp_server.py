@@ -43,7 +43,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
 
 from ..prep import CampaignPrep, ReadOnly
 from ..state.backend import FileStateBackend
@@ -53,7 +53,7 @@ from ..state.store import CampaignStore
 
 log = logging.getLogger("gary.mcp")
 
-mcp = FastMCP("gary")
+mcp = MCPServer("gary")
 
 _prep: CampaignPrep
 

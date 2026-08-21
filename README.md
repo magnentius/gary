@@ -11,7 +11,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 The **deterministic core and all three adapters** are implemented, and the Avrae parser is
 now confirmed against a live bot — most fixtures are real captures rather than
-derivations. The MCP binding has never been run — see
+derivations. The MCP binding now imports and serves — see
 [Before it can run](#before-it-can-run).
 
 ```
@@ -137,16 +137,21 @@ before it ever ran.
    PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
-5. **Verify the MCP binding** if you want Claude Desktop access. `adapters/mcp_server.py`
-   has never been imported: the MCP SDK needs Python 3.10+ and this repo's environment is
-   3.9. Everything with behaviour worth trusting is in `prep.py` and `state/lock.py`,
-   which are fully tested; what is unverified is decorator shapes and transport wiring.
+5. **Point Claude Desktop at the MCP server** (verified 2026-08-20). It imports, registers
+   7 tools and 5 resources, executes them against a real campaign, and degrades to
+   read-only under §7.6's lock with a JSON explanation rather than a stack trace.
+   **It needs its own interpreter:** the SDK requires Python 3.10+ and this repo's `.venv`
+   is 3.9, so point `command` at a 3.12 venv with `mcp>=2.0` installed, not at `.venv`.
    ```json
    {"mcpServers": {"gary": {
-     "command": "/path/to/.venv/bin/python",
+     "command": "/path/to/py312-venv/bin/python",
      "args": ["-m", "gary.adapters.mcp_server"],
-     "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign"}}}}
+     "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign",
+             "PYTHONPATH": "/path/to/gary/src"}}}}
    ```
+   SDK 2.0 renamed `FastMCP` to `MCPServer` and moved it to `mcp.server.mcpserver`; the
+   decorator shapes are unchanged. Pinning `mcp>=1.2` would install an SDK whose import
+   path no longer exists, so `pyproject.toml` now requires `mcp>=2.0`.
 6. **Add the model.** Set `GEMINI_API_KEY` and Gary switches from `EchoNarrator` to
    `GeminiNarrator` automatically. Defaults are `gemini-3.7-flash` for narration
    (verified 2026-08-18) and `gemini-3.5-flash-lite` for summarisation (verified
