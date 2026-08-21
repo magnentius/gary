@@ -454,3 +454,55 @@ def test_combat_boundaries_are_not_gated_on_awaiting_roll(director):
         channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_BEGIN)
     )
     assert isinstance(effects[0], BeginEncounter)
+
+
+def _fighting(director, active):
+    director._encounter_active = lambda: active
+    return director
+
+
+def test_an_attack_outside_initiative_is_refused(director):
+    """The persona says to call start_combat before anyone swings. Twice in live play it
+    went straight to !attack instead, so the swing resolved against nothing and the target
+    never acted. Advisory did not hold."""
+    _fighting(director, False)
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
+        key="Longsword", dc=13, on_success="hit", on_failure="miss",
+    )
+    assert len(effects) == 1
+    assert effects[0].kind == "system_note"
+    assert "start_combat" in effects[0].payload["instruction"]
+    assert director.state(CHANNEL) is ChannelState.IDLE      # nothing opened
+    assert not any(isinstance(e, SendMessage) for e in effects)
+
+
+def test_an_attack_during_initiative_is_allowed(director):
+    _fighting(director, True)
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
+        key="Longsword", dc=13, on_success="hit", on_failure="miss",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+def test_checks_and_saves_are_unaffected_outside_combat(director):
+    """Only attacks need initiative. A stealth check in an empty corridor does not."""
+    _fighting(director, False)
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
+        key="stealth", dc=13, on_success="ok", on_failure="no",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)
+
+
+def test_an_unconfigured_director_still_permits_attacks(director):
+    """None means unknown, and unknown permits — behaviour is unchanged where no store
+    is wired, which is most of the test suite."""
+    assert director._encounter_active is None
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
+        key="Longsword", dc=13, on_success="hit", on_failure="miss",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)

@@ -529,6 +529,7 @@ def build_client(
         game_channels=set(settings.game_channels),
         freeform_channels=set(settings.freeform_channels),
         players=dict(settings.players),
+        encounter_active=lambda: store.encounter_active,
     )
 
     if narrator is None:

@@ -144,6 +144,8 @@ The round/minute mismatch that made v1 incoherent is resolved by an explicit two
 
 Between those two events, `advance_time` is rejected with an error. This is the single most important invariant in the system.
 
+**Attacks are refused outside initiative.** The persona says to call `start_combat` before anyone swings; in live play the model went straight to an attack twice, so the swing resolved against nothing and the target never acted. `open_check` with `kind=attack` now returns a `system_note` when no encounter is running, the same self-correcting path a bad skill key or an unknown actor takes. Guidance the model can ignore has failed at this repeatedly; structure it cannot has not.
+
 **Implemented 2026-08-21.** `begin_encounter` and `end_encounter` existed and were tested from the start, and nothing outside `store.py` called either — so the invariant was documented and unenforced: the clock never froze and no effect was ever snapshotted. Gary now watches for Avrae's own boundaries. `!init begin` posts "Everyone roll for initiative!" and an empty tracker; `!init end` posts "Combat ended." Both were classified IRRELEVANT when first captured, precisely because the handoff had no trigger and they read as chatter. The round number comes from the tracker header (`Current initiative: 11 (round 4)`), which is what converts rounds to wall-clock minutes at the end.
 
 ---

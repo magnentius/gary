@@ -150,6 +150,7 @@ class Director:
         game_channels: Optional[Set[int]] = None,
         freeform_channels: Optional[Set[int]] = None,
         players: Optional[Dict[int, str]] = None,
+        encounter_active: Optional[Callable[[], bool]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -161,6 +162,9 @@ class Director:
         # only a display name, and names an actor Avrae has never heard of.
         self.players = dict(players or {})
         self._last_round: Dict[int, int] = {}
+        # Injected rather than imported: the core performs no I/O and holds no store.
+        # None means "unknown", which permits — an unconfigured Director behaves as before.
+        self._encounter_active = encounter_active
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -249,6 +253,33 @@ class Director:
         The DC and both consequences are persisted here, *before* the command is posted.
         After this point no model output can change them.
         """
+        if (
+            kind is CheckKind.ATTACK
+            and self._encounter_active is not None
+            and not self._encounter_active()
+        ):
+            # An attack outside initiative is incoherent: Avrae tracks turn order, hit
+            # points and durations only once combat has begun, so the swing resolves
+            # against nothing and the target never acts. The persona says to call
+            # start_combat first and the model does not, so refuse it here instead --
+            # advisory has not held, and this is recoverable in one turn.
+            return [
+                PromptModel(
+                    channel_id=channel_id,
+                    kind="system_note",
+                    payload={
+                        "error": (
+                            "No combat is running, so an attack cannot be resolved — "
+                            "Avrae is not tracking turn order, hit points or durations."
+                        ),
+                        "instruction": (
+                            "Call start_combat first, listing every creature in the fight. "
+                            "Once initiative is running, ask for the attack again."
+                        ),
+                    },
+                )
+            ]
+
         if self._known_actors and normalize_actor(actor) not in self._known_actors:
             # Opening this would create a check no roll can ever match: correlation is
             # name-based in practice (§14 (7)), so an actor Avrae does not know is a
