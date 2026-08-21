@@ -13,7 +13,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import FrozenSet, Optional
+from typing import Dict, FrozenSet, Mapping, Optional
 
 # Verified against the Discord App Directory. Kept overridable because hardcoding an ID
 # that turns out to be wrong is exactly how v1 of this design shipped a dead parser.
@@ -39,6 +39,33 @@ def _ids(raw: Optional[str]) -> FrozenSet[int]:
     return frozenset(out)
 
 
+def _players(raw: Optional[str]) -> "Mapping[int, str]":
+    """Parse ``GARY_PLAYERS`` -- ``<discord_user_id>=<Avrae character name>`` pairs.
+
+    Without this the model is only ever told a Discord display name, so ``open_check``
+    names an actor Avrae has never heard of and the roll silently fails to correlate
+    (ARCHITECTURE.md §6.2). Semicolon-separated, because character names contain commas
+    far more often than semicolons.
+    """
+    if not raw:
+        return {}
+    out: Dict[int, str] = {}
+    for part in raw.split(";"):
+        part = part.strip()
+        if not part:
+            continue
+        user_id, sep, actor = part.partition("=")
+        if not sep or not actor.strip():
+            raise ConfigError(
+                f"GARY_PLAYERS entry {part!r} is not '<user_id>=<character name>'"
+            )
+        try:
+            out[int(user_id.strip())] = actor.strip()
+        except ValueError:
+            raise ConfigError(f"not a Discord snowflake: {user_id.strip()!r}")
+    return out
+
+
 @dataclass(frozen=True)
 class Settings:
     discord_token: str
@@ -46,6 +73,9 @@ class Settings:
     freeform_channels: FrozenSet[int] = field(default_factory=frozenset)
     avrae_bot_id: int = DEFAULT_AVRAE_BOT_ID
     command_prefix: str = DEFAULT_COMMAND_PREFIX
+    # discord user id -> Avrae character name. Empty is allowed: actor
+    # validation is then skipped rather than rejecting everything.
+    players: Mapping[int, str] = field(default_factory=dict)
 
     campaign_root: Path = Path("./campaign")
     backend: str = "file"  # file | firestore
@@ -91,6 +121,7 @@ class Settings:
             freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
             avrae_bot_id=int(e.get("GARY_AVRAE_BOT_ID", DEFAULT_AVRAE_BOT_ID)),
             command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
+            players=_players(e.get("GARY_PLAYERS")),
             campaign_root=Path(e.get("GARY_CAMPAIGN_ROOT", "./campaign")),
             backend=e.get("GARY_BACKEND", "file"),
             firestore_campaign_id=e.get("GARY_FIRESTORE_CAMPAIGN_ID", "default"),

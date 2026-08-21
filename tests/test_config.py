@@ -104,3 +104,25 @@ def test_settings_are_immutable():
     s = settings()
     with pytest.raises(Exception):
         s.game_channels = frozenset({1})  # type: ignore[misc]
+
+
+def test_players_mapping_parses():
+    s = Settings.from_env({
+        "DISCORD_TOKEN": "t", "GARY_GAME_CHANNELS": "1",
+        "GARY_PLAYERS": "111=Caspian Varr; 222=Kethra Vane",
+    })
+    assert s.players == {111: "Caspian Varr", 222: "Kethra Vane"}
+
+
+def test_players_is_optional():
+    s = Settings.from_env({"DISCORD_TOKEN": "t", "GARY_GAME_CHANNELS": "1"})
+    assert s.players == {}
+
+
+def test_malformed_players_entry_fails_at_boot():
+    """Fail at boot, not three minutes into a check that cannot correlate."""
+    with pytest.raises(ConfigError):
+        Settings.from_env({
+            "DISCORD_TOKEN": "t", "GARY_GAME_CHANNELS": "1",
+            "GARY_PLAYERS": "Caspian Varr",
+        })

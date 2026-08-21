@@ -27,7 +27,7 @@ from typing import Callable, List, Optional, Set
 
 from .models import CancelReason, CheckKind, CheckOutcome, PendingCheck
 from .parser.avrae import ParsedAvraeMessage, ParseStatus
-from .registry import PendingCheckRegistry
+from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import outcome_for_model, resolve
 from .templates import TemplateError, normalize_key, render_command
 
@@ -102,6 +102,7 @@ class Director:
         clock: Callable[[], float],
         game_channels: Optional[Set[int]] = None,
         freeform_channels: Optional[Set[int]] = None,
+        players: Optional[Dict[int, str]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -109,6 +110,10 @@ class Director:
         self.freeform_channels = (
             freeform_channels if freeform_channels is not None else set()
         )
+        # discord user id -> Avrae character name (§6.2). The model is otherwise told
+        # only a display name, and names an actor Avrae has never heard of.
+        self.players = dict(players or {})
+        self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def state(self, channel_id: int) -> ChannelState:
         """Derived from the registry -- the single source of truth for 'are we waiting?'."""
@@ -151,6 +156,9 @@ class Director:
                 payload={
                     "speaker_display_name": display_name,
                     "speaker_user_id": user_id,
+                    # Rendered as "John K (playing Caspian Varr)" so open_check has a
+                    # name Avrae will echo back. None when unconfigured.
+                    "actor": self.players.get(user_id),
                     # Sanitised at the context-assembly boundary; carried structured here
                     # so it is never confusable with a system part (ARCHITECTURE.md §9.1).
                     "text": content,
@@ -184,6 +192,29 @@ class Director:
         The DC and both consequences are persisted here, *before* the command is posted.
         After this point no model output can change them.
         """
+        if self._known_actors and normalize_actor(actor) not in self._known_actors:
+            # Opening this would create a check no roll can ever match: correlation is
+            # name-based in practice (§14 (7)), so an actor Avrae does not know is a
+            # check that sits until TTL and is then narrated as player hesitation --
+            # a silent dead end. Refuse it the same way a bad skill key is refused.
+            known = ", ".join(sorted(self.players.values()))
+            return [
+                PromptModel(
+                    channel_id=channel_id,
+                    kind="system_note",
+                    payload={
+                        "error": (
+                            f"No character named {actor!r} is at this table. "
+                            f"Known characters: {known}."
+                        ),
+                        "instruction": (
+                            "Re-issue open_check with one of the known character names, "
+                            "exactly as written."
+                        ),
+                    },
+                )
+            ]
+
         try:
             canonical = normalize_key(kind, key)
             command = render_command(kind, key)

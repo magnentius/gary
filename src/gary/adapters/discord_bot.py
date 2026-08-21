@@ -330,6 +330,7 @@ def build_client(
         clock=clock,
         game_channels=set(settings.game_channels),
         freeform_channels=set(settings.freeform_channels),
+        players=dict(settings.players),
     )
 
     if narrator is None:

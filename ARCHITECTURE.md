@@ -470,7 +470,7 @@ v1 marked trusted data with the literal prefix `[SYSTEM: ...]` in a flat text st
 **Trust never derives from a string.** Concretely:
 
 - Roll results and state reach the model as **structured `function_response` parts**, never as prose in a user turn. The transport carries the trust, not the content.
-- Player text is always attributed and delimited: `Player {display_name} (character {actor}) says: <text>`, with any `[SYSTEM`-like sequence stripped before assembly.
+- Player text is always attributed and delimited: `Player {display_name} (playing {actor}) says: <text>`, with any `[SYSTEM`-like sequence stripped before assembly. `{actor}` comes from `GARY_PLAYERS` (§1); without it the model is told only a Discord display name, calls `open_check` with *that*, and the roll can never correlate — the check sits until TTL and is then narrated as player hesitation. The Director refuses an actor not on the roster rather than opening a check nothing can match.
 - State-mutating tools are gated. `update_campaign_state` validates each mutation against bounds (gold deltas, item grants, HP changes) and anything exceeding a threshold requires DM confirmation via `?dm approve <id>`.
 - Every mutation is journaled with the triggering message ID, so injection attempts are auditable and reversible.
 

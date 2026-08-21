@@ -139,8 +139,14 @@ before it ever ran.
    can be proven against a live Avrae before spending a token:
    ```bash
    export DISCORD_TOKEN=... GARY_GAME_CHANNELS=<channel id>
+   export GARY_PLAYERS='<discord user id>=<Avrae character name>'   # ';' between players
    PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
    ```
+   `GARY_PLAYERS` is what stops the model calling `open_check` with a Discord display
+   name. Avrae's embed says `Caspian Varr makes a Sleight Of Hand check!`, correlation is
+   name-based in practice (`ARCHITECTURE.md` §14 (7)), and a check opened for "John K"
+   matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
+   anything went wrong. Leave it unset and validation is skipped, as before.
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
 5. **Point Claude Desktop at the MCP server** (verified 2026-08-20). It imports, registers
    7 tools and 5 resources, executes them against a real campaign, and degrades to

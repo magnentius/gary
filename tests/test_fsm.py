@@ -311,3 +311,61 @@ def test_abandoned_selector_while_idle_says_nothing(director):
         parsed=ParsedAvraeMessage(status=ParseStatus.PROMPT_ABANDONED, reason="lapsed"),
     )
     assert all(isinstance(e, LogDrop) for e in effects)
+
+
+# -- the roster: who is playing which character ------------------------------------------
+
+
+def _cast(director):
+    """A Director that knows Alice plays Kethra."""
+    director.players = {ALICE: "Kethra"}
+    director._known_actors = {"kethra"}
+    return director
+
+
+def test_player_text_carries_the_character_name(director):
+    """Without this the model only ever sees a Discord display name, so open_check names
+    an actor Avrae has never heard of and the roll cannot correlate."""
+    _cast(director)
+    open_check(director)  # so the message is 'addressed'
+    effects = director.on_player_message(
+        channel_id=CHANNEL, user_id=ALICE, display_name="John K",
+        content="I pick the lock", mentions_bot=False,
+    )
+    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    assert prompts and prompts[0].payload["actor"] == "Kethra"
+
+
+def test_unknown_actor_is_refused_not_opened(director):
+    """Opening it would create a check no roll can match -- a silent dead end that TTL
+    later narrates as player hesitation."""
+    _cast(director)
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="John K", kind=CheckKind.CHECK,
+        key="stealth", dc=15, on_success="ok", on_failure="no",
+    )
+    assert len(effects) == 1
+    assert isinstance(effects[0], PromptModel)
+    assert effects[0].kind == "system_note"
+    assert "Kethra" in effects[0].payload["error"]
+    assert director.state(CHANNEL) is ChannelState.IDLE  # nothing was opened
+    assert not any(isinstance(e, SendMessage) for e in effects)
+
+
+def test_known_actor_still_opens(director):
+    _cast(director)
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
+        key="stealth", dc=15, on_success="ok", on_failure="no",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+def test_no_roster_configured_validates_nothing(director):
+    """An unconfigured table must keep working exactly as before."""
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Anyone At All", kind=CheckKind.CHECK,
+        key="stealth", dc=15, on_success="ok", on_failure="no",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)
