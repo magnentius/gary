@@ -51,6 +51,12 @@ python -m venv .venv && .venv/bin/pip install -e '.[discord,llm,dev]'
 `discord.py` and `google-genai` are needed only by `adapters/`; the core imports neither,
 and a test asserts it stays that way.
 
+The editable install needs Python 3.11+ and a pip new enough for PEP 660; without it the
+package is never importable by name, and `python -m gary.…` fails with `No module named
+'gary'`. `PYTHONPATH=src` works with no install at all — it is what `pyproject.toml`'s
+`pythonpath = ["src"]` already does for pytest. Both `scripts/` entry points insert `src`
+on `sys.path` themselves, so only the `-m` invocations need it.
+
 The one `xfail` is intentional: it fails until the Avrae fixtures are confirmed against a
 live bot, so the last gap cannot be quietly forgotten.
 
@@ -121,7 +127,7 @@ before it ever ran.
    can be proven against a live Avrae before spending a token:
    ```bash
    export DISCORD_TOKEN=... GARY_GAME_CHANNELS=<channel id>
-   .venv/bin/python -m gary.adapters.discord_bot
+   PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
    ```
    In the channel: `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
 5. **Verify the MCP binding** if you want Claude Desktop access. `adapters/mcp_server.py`
