@@ -1,13 +1,34 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "d20's MarkdownStringifier bolds a natural 20 and a natural 1. Verified by rolling locally until both appeared. The parser must read the face, never infer a crit from a high total.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:55:40.256428+00:00",
+  "_description": "d20's MarkdownStringifier bolds a natural 20: '1d20 (**20**) + 3 = `23`'. Confirmed live 2026-08-20. The parser must read the face, never infer a crit from a high total -- see test_high_total_alone_is_not_a_crit, where +15 reaches 25 off a 10.",
   "message": {
+    "id": "1540162438320758786",
     "content": "",
-    "embeds": [{
-      "title": "Kethra makes a Perception check!",
-      "description": "1d20 (**20**) + 5 = `25`",
-      "author": {"name": "Kethra"}
-    }]
+    "embeds": [
+      {
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "flags": 0,
+        "color": 1243052,
+        "type": "rich",
+        "description": "1d20 (**20**) + 3 = `23`",
+        "title": "Caspian Varr makes a Perception check!"
+      }
+    ]
   },
-  "expect": {"status": "roll", "actor": "Kethra", "total": 25, "natural": 20, "kind": "check"}
+  "expect": {
+    "status": "roll",
+    "actor": "Caspian Varr",
+    "total": 23,
+    "natural": 20,
+    "kind": "check"
+  }
 }
