@@ -194,3 +194,13 @@ def test_persona_keeps_bookkeeping_away_from_players():
     text = DM_SYSTEM_INSTRUCTION.lower()
     assert "never tell a player to note" in text
     assert "on their sheet" in text
+
+
+def test_persona_specifies_scene_summaries_as_standing_state():
+    """scene.summary is re-read every turn as layer 2, so a summary written as a moment
+    ("You push open the door") makes the model re-narrate the arrival forever."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "STANDING STATE" in text
+    assert "present tense" in text.lower()
+    # and must not invite a second clock alongside world_minutes (§3.1)
+    assert "time of day" in text.lower()

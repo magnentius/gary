@@ -292,8 +292,11 @@ class GaryClient(discord.Client):
             if not raw:
                 await self.sender.send(
                     channel_id,
-                    f"`{self.settings.command_prefix}scene <location> | <what is going on>`"
-                    " — the summary is optional.",
+                    f"`{self.settings.command_prefix}scene <location> | <standing state>`"
+                    " — the summary is optional, and is re-read every turn, so write what"
+                    " is *true while you are there*, not what happens on arrival.\n"
+                    "Good: `The Rusty Anchor | Half-empty common room, rain on the"
+                    " shutters. Barkeep watches the door.`",
                 )
                 return
             location, _, summary = raw.partition("|")
