@@ -178,6 +178,29 @@ def render_live_state(state: Dict[str, Any]) -> str:
             "- COMBAT ACTIVE: Avrae owns hit points, conditions, and durations. "
             "World time is frozen until initiative ends."
         )
+        combat = state.get("combat") or {}
+        fighters = combat.get("combatants") or []
+        if fighters:
+            round_number = combat.get("round")
+            lines.append(
+                "- Initiative"
+                + (f" (round {round_number})" if round_number is not None else "")
+                + " — target by these names:"
+            )
+            for c in fighters:
+                marks = []
+                if c.get("hp"):
+                    marks.append(str(c["hp"]))
+                if c.get("conditions"):
+                    marks.append(", ".join(str(x) for x in c["conditions"]))
+                if c.get("dying"):
+                    marks.append("DOWN")
+                turn = " <- their turn" if c.get("current_turn") else ""
+                lines.append(
+                    f"    - {c.get('name', '?')}"
+                    + (f" [{'; '.join(marks)}]" if marks else "")
+                    + turn
+                )
 
     # Everyone at the table, from `?dm playing`, union whoever has acquired anything.
     # Without the roster the model only learns a character exists when they speak: it

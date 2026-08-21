@@ -87,6 +87,21 @@ class EndEncounter(Effect):
 
 
 @dataclass(frozen=True)
+class MirrorCombat(Effect):
+    """Cache Avrae's initiative tracker. Read-only mirror of a fact Avrae owns (§3).
+
+    Without it the model knows only that combat is active: not who is in the fight, whose
+    turn it is, what anything is called in the tracker, or who is still standing. It
+    cannot take a monster's turn without those, and a fight where only the players act is
+    not a fight.
+    """
+
+    channel_id: int
+    combatants: tuple
+    round_number: Optional[int] = None
+
+
+@dataclass(frozen=True)
 class MirrorSheet(Effect):
     """Cache what `!sheet` reported. Read-only mirror of a fact Avrae owns (§3).
 
@@ -380,8 +395,15 @@ class Director:
             ]
 
         if parsed.status is ParseStatus.INITIATIVE:
-            # Mirrored read-only for narrative colour; never resolves a check.
-            return [LogDrop(channel_id, parsed.status.value, "initiative mirror")]
+            # Mirrored read-only; never resolves a check.
+            return [
+                MirrorCombat(
+                    channel_id=channel_id,
+                    combatants=parsed.combatants,
+                    round_number=parsed.round_number,
+                ),
+                LogDrop(channel_id, parsed.status.value, "initiative mirror"),
+            ]
 
         state = self.state(channel_id)
         if state is not ChannelState.AWAITING_ROLL:

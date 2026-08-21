@@ -348,3 +348,22 @@ def test_an_unregistered_actor_with_items_still_appears():
     state = empty_state()
     state["party"] = {"Dorn": {"inventory": ["a torch"]}}
     assert "Dorn: carrying a torch" in render_live_state(state)
+
+
+def test_combat_renders_the_tracker_with_names_to_target():
+    """enemy_attack needs the tracker name, and the model has no other way to learn it."""
+    state = empty_state()
+    state["encounter"] = {"encounter_id": "e1"}
+    state["combat"] = {
+        "round": 2,
+        "combatants": [
+            {"name": "GU1", "hp": "Healthy", "current_turn": True, "dying": False},
+            {"name": "Caspian Varr", "hp": "15/15", "current_turn": False, "dying": False},
+            {"name": "NO1", "hp": "Dead", "current_turn": False, "dying": True},
+        ],
+    }
+    rendered = render_live_state(state)
+    assert "round 2" in rendered
+    assert "GU1 [Healthy] <- their turn" in rendered
+    assert "Caspian Varr [15/15]" in rendered
+    assert "DOWN" in rendered

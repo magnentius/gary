@@ -59,11 +59,15 @@ def test_irrelevant_embed_while_awaiting_is_dropped(director):
 
 
 def test_initiative_embeds_never_resolve_a_check(director):
+    """A tracker mirrors combat state and never consumes a pending check."""
+    from gary.fsm import MirrorCombat
+
     open_check(director)
     effects = director.on_avrae_message(
         channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.INITIATIVE)
     )
-    assert all(isinstance(e, LogDrop) for e in effects)
+    assert all(isinstance(e, (LogDrop, MirrorCombat)) for e in effects)
+    assert not any(isinstance(e, (PromptModel, AskPlayer)) for e in effects)
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
 
@@ -506,3 +510,27 @@ def test_an_unconfigured_director_still_permits_attacks(director):
         key="Longsword", dc=13, on_success="hit", on_failure="miss",
     )
     assert any(isinstance(e, SendMessage) for e in effects)
+
+
+def test_the_tracker_is_mirrored_not_discarded(director):
+    """parse_initiative extracted every combatant and the FSM threw them away, so the
+    model knew only that combat was active -- not who was fighting, whose turn it was, or
+    what anything was called in the tracker. It cannot take a monster's turn without them."""
+    from gary.fsm import MirrorCombat
+    from gary.parser.avrae import CombatantView
+
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            round_number=2,
+            combatants=(
+                CombatantView(name="GU1", status="Healthy", is_current_turn=True),
+                CombatantView(name="Caspian Varr", hp_current=15, hp_max=15),
+            ),
+        ),
+    )
+    mirrors = [e for e in effects if isinstance(e, MirrorCombat)]
+    assert len(mirrors) == 1
+    assert mirrors[0].round_number == 2
+    assert [c.name for c in mirrors[0].combatants] == ["GU1", "Caspian Varr"]

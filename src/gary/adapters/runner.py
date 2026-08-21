@@ -26,6 +26,7 @@ from ..fsm import (
     Effect,
     EndEncounter,
     LogDrop,
+    MirrorCombat,
     MirrorSheet,
     PromptModel,
     RecordOutcome,
@@ -110,6 +111,11 @@ class EffectRunner:
                     "encounter ended in %d after %d round(s); clock advanced to %s",
                     effect.channel_id, effect.rounds, result.get("world_minutes"),
                 )
+            return
+
+        if isinstance(effect, MirrorCombat):
+            if self._store is not None:
+                self._store.mirror_combat(effect.combatants, effect.round_number)
             return
 
         if isinstance(effect, MirrorSheet):

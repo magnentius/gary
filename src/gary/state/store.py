@@ -150,6 +150,32 @@ class CampaignStore:
             self._state["players"] = players
         self.snapshot()
 
+    def mirror_combat(self, combatants: Sequence[Any], round_number: Optional[int]) -> None:
+        """Cache Avrae's tracker: who is in the fight, whose turn, and their state.
+
+        A mirror of Avrae's own view (§3), not journalled and not authoritative — it is
+        replaced wholesale every time a newer tracker goes past, and cleared when combat
+        ends. Held so the model can see the fight it is running.
+        """
+        with self._lock:
+            self._state["combat"] = {
+                "round": round_number,
+                "combatants": [
+                    {
+                        "name": c.name,
+                        "hp": (
+                            f"{c.hp_current}/{c.hp_max}"
+                            if c.hp_current is not None and c.hp_max is not None
+                            else (c.status or "")
+                        ),
+                        "current_turn": bool(c.is_current_turn),
+                        "dying": bool(c.is_dying),
+                        "conditions": list(c.conditions),
+                    }
+                    for c in combatants
+                ],
+            }
+
     def mirror_sheet(self, actor: str, descriptor: str, level: Optional[int]) -> None:
         """Cache what `!sheet` reported about a character.
 
@@ -213,6 +239,7 @@ class CampaignStore:
             return
         if kind == "encounter_end":
             self._state["encounter"] = None
+            self._state["combat"] = None
             self._state["effects"] = entry["payload"].get("effects", [])
             return
         self._apply_unchecked(
