@@ -186,3 +186,11 @@ def test_persona_asks_the_model_to_persist_what_it_establishes():
     assert "advance_time" in text
     # and must not invite tool calls in the same turn as open_check, which are discarded
     assert "alongside open_check" in text
+
+
+def test_persona_keeps_bookkeeping_away_from_players():
+    """It called give_items and then told the player to note the item on their sheet --
+    doing the right thing mechanically while narrating the opposite."""
+    text = DM_SYSTEM_INSTRUCTION.lower()
+    assert "never tell a player to note" in text
+    assert "on their sheet" in text
