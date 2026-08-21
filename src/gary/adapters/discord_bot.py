@@ -113,6 +113,7 @@ class GaryClient(discord.Client):
         self.lock = lock
         self.history_backend = history_backend
         self._reset_token: Optional[str] = None
+        self._sheet_asked_by: Dict[int, tuple] = {}
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
@@ -241,7 +242,22 @@ class GaryClient(discord.Client):
             return
         await self.on_message(message)
 
+    #: How long a `!sheet` request stays claimable, in seconds. Avrae answers in well
+    #: under a second; anything older is a different request.
+    SHEET_CLAIM_SECONDS = 30.0
+
     async def on_message(self, message: "discord.Message") -> None:
+        # `!sheet` carries no interaction metadata — it is a prefix command — so the sheet
+        # embed that follows cannot say who asked for it. Remember the asker, and claim
+        # the next sheet for them. This is what lets `!sheet` register a player outright:
+        # character name and level from the embed, Discord user from here.
+        if (message.content or "").strip().lower().startswith("!sheet"):
+            self._sheet_asked_by[message.channel.id] = (
+                message.author.id,
+                message.author.display_name,
+                self.clock(),
+            )
+
         route = route_message(
             author_id=message.author.id,
             author_is_bot=message.author.bot,
@@ -279,10 +295,42 @@ class GaryClient(discord.Client):
         parsed = parse_embed(message_to_dict(message))
         if parsed.status is ParseStatus.UNKNOWN:
             log.warning("unparsed avrae embed %s: %s", message.id, parsed.reason)
+        if parsed.status is ParseStatus.SHEET and parsed.sheet is not None:
+            await self._claim_sheet(message.channel.id, parsed.sheet.actor)
         effects = self.director.on_avrae_message(
             channel_id=message.channel.id, parsed=parsed
         )
         await self.runner.run(effects)
+
+    async def _claim_sheet(self, channel_id: int, actor: str) -> None:
+        """Register whoever just ran `!sheet` as playing the character it reported.
+
+        The embed names the character but not the person: `!sheet` is a prefix command and
+        carries no interaction metadata, so this is the only way to connect the two
+        without asking. It makes `!sheet` the whole of setup -- name, level, and who is
+        playing it -- from a command everyone runs anyway.
+
+        Claims lapse after SHEET_CLAIM_SECONDS. Two people running `!sheet` in the same
+        instant could be swapped; re-running fixes it, and `?dm playing` overrides.
+        """
+        claim = self._sheet_asked_by.pop(channel_id, None)
+        if claim is None:
+            return
+        user_id, display_name, asked_at = claim
+        if self.clock() - asked_at > self.SHEET_CLAIM_SECONDS:
+            return
+        if self.director.players.get(user_id) == actor:
+            return  # already registered; nothing to journal
+
+        self.store.apply(
+            [Mutation(MutationKind.PLAYER_CHARACTER, str(user_id), {"actor": actor})],
+            reason=f"{display_name} plays {actor} (from !sheet)",
+        )
+        self.director.set_player_character(user_id, actor)
+        log.info("registered %s as playing %s from !sheet", display_name, actor)
+        await self.sender.send(
+            channel_id, f"Noted — **{display_name}** is playing **{actor}**."
+        )
 
     def _addressed_directly(self, message: "discord.Message") -> bool:
         """Was Gary mentioned -- as the user, or as his own managed role?

@@ -142,8 +142,10 @@ before it ever ran.
    export GARY_PLAYERS='<discord user id>=<Avrae character name>'   # ';' between players
    PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
    ```
-   Easier: skip the env var and have each player run `?dm playing <character name>` in
-   the channel once. It persists to campaign state, survives restarts, and takes the
+   Easiest: have each player run `!sheet` once. Avrae's reply names the character and
+   its level, and Gary registers whoever asked for it — so one command everyone runs
+   anyway is the whole of setup. `?dm playing <character name>` is the explicit
+   override if a claim goes to the wrong person. It persists to campaign state, survives restarts, and takes the
    Discord user id from the message author so it cannot be misattributed.
    `GARY_PLAYERS` is what stops the model calling `open_check` with a Discord display
    name. Avrae's embed says `Caspian Varr makes a Sleight Of Hand check!`, correlation is

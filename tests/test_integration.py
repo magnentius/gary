@@ -468,3 +468,54 @@ def test_raw_edits_are_fetched_when_the_message_was_never_cached():
     raw = GaryClient.on_raw_message_edit.__get__(client, _Client)
     run(raw(_Payload(cached=None, fetched=player)))           # not Avrae: ignored
     assert seen == []
+
+
+def test_a_sheet_registers_whoever_asked_for_it():
+    """`!sheet` names the character but not the person -- it is a prefix command and
+    carries no interaction metadata. Remembering who asked is the only way to connect the
+    two without a separate registration step."""
+    import asyncio, time
+
+    from gary.adapters.discord_bot import GaryClient
+    from gary.fsm import Director
+    from gary.registry import PendingCheckRegistry
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    now = [1000.0]
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: now[0])
+    director = Director(registry=PendingCheckRegistry(clock=lambda: now[0]),
+                        clock=lambda: now[0], game_channels={7})
+    sent = []
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Client:
+        SHEET_CLAIM_SECONDS = GaryClient.SHEET_CLAIM_SECONDS
+        def __init__(self):
+            self.store, self.director, self.sender = store, director, _Sender()
+            self.clock = lambda: now[0]
+            self._sheet_asked_by = {}
+
+    client = _Client()
+    claim = GaryClient._claim_sheet.__get__(client, _Client)
+    run = asyncio.get_event_loop().run_until_complete
+
+    # nobody asked: nothing is claimed
+    run(claim(7, "Caspian Varr"))
+    assert director.players == {}
+
+    # John ran !sheet a moment ago
+    client._sheet_asked_by[7] = (111, "John K", now[0])
+    run(claim(7, "Caspian Varr"))
+    assert director.players == {111: "Caspian Varr"}
+    assert store.state()["players"] == {"111": "Caspian Varr"}
+    assert "John K" in sent[0] and "Caspian Varr" in sent[0]
+
+    # a stale request is not claimed by a later sheet
+    client._sheet_asked_by[7] = (222, "Someone", now[0])
+    now[0] += GaryClient.SHEET_CLAIM_SECONDS + 1
+    run(claim(7, "Kethra"))
+    assert 222 not in director.players
