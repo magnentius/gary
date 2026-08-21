@@ -152,7 +152,21 @@ def render_rest_command(kind: str) -> str:
         raise TemplateError(f"rest kind must be 'short' or 'long', not {kind!r}")
 
 
-def render_attack_command(weapon: str, target: str, advantage: bool = False) -> str:
+def _prone_modifier(target_is_prone: bool, ranged: bool) -> str:
+    """Advantage or disadvantage against a prone target, by range.
+
+    A creature at 0 HP is Prone, and attacks against it are made at advantage in melee and
+    disadvantage at range. Avrae applies neither — it holds the hit points and the
+    condition and joins them to nothing. Gary cannot see range, so the caller declares it.
+    """
+    if not target_is_prone:
+        return ""
+    return " dis" if ranged else " adv"
+
+
+def render_attack_command(
+    weapon: str, target: str, advantage: bool = False, ranged: bool = False
+) -> str:
     """`!attack "Longsword" -t NO1`, or raise.
 
     Separate from render_command because an in-combat attack is not a check. It resolves
@@ -168,11 +182,11 @@ def render_attack_command(weapon: str, target: str, advantage: bool = False) -> 
         raise TemplateError(
             f"unsafe target {target!r} — use the name from the initiative tracker, e.g. 'NO1'"
         )
-    return f'!attack "{weapon}" -t {target}' + (" adv" if advantage else "")
+    return f'!attack "{weapon}" -t {target}' + _prone_modifier(advantage, ranged)
 
 
 def render_enemy_attack_command(
-    attack: str, target: str, advantage: bool = False
+    attack: str, target: str, advantage: bool = False, ranged: bool = False
 ) -> str:
     """`!init attack "Spear" -t "Caspian Varr"`, or raise.
 
@@ -190,7 +204,7 @@ def render_enemy_attack_command(
         raise TemplateError(
             f"unsafe target {target!r} — use the name from the initiative tracker"
         )
-    return f'!init attack "{attack}" -t "{target}"' + (" adv" if advantage else "")
+    return f'!init attack "{attack}" -t "{target}"' + _prone_modifier(advantage, ranged)
 
 
 def render_coin_command(amount: str, command: str = "game coins") -> str:

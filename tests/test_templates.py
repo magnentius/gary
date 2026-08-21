@@ -135,3 +135,19 @@ def test_death_saves_can_be_rendered():
     decides whether they live."""
     assert render_command(CheckKind.SAVE, "death") == "!save death"
     assert render_command(CheckKind.SAVE, "Death") == "!save death"
+
+
+def test_prone_modifier_depends_on_range():
+    """A creature at 0 HP is Prone: melee attacks against it have advantage, ranged ones
+    disadvantage. Avrae applies neither and cannot see range, so the caller declares it."""
+    from gary.templates import render_attack_command, render_enemy_attack_command
+
+    assert render_enemy_attack_command("Spear", "Kethra", advantage=True).endswith(" adv")
+    assert render_enemy_attack_command(
+        "Longbow", "Kethra", advantage=True, ranged=True
+    ).endswith(" dis")
+    # Range is irrelevant against someone standing.
+    assert render_enemy_attack_command("Longbow", "Kethra", ranged=True) == (
+        '!init attack "Longbow" -t "Kethra"'
+    )
+    assert render_attack_command("Fire Bolt", "GU1", advantage=True, ranged=True).endswith(" dis")

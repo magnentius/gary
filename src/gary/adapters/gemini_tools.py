@@ -164,6 +164,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "attacker": _s(type=_STRING, description="Tracker name whose turn it is, e.g. 'GU2'."),
                 "attack": _s(type=_STRING, description="The creature's attack, e.g. 'Spear'."),
                 "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'Caspian Varr'."),
+                "ranged": _s(
+                    type=types.Type.BOOLEAN,
+                    description="True for a bow, thrown weapon or ranged spell. "
+                                "Nothing tracks positions, so only you know.",
+                ),
             },
             required=["attacker", "attack", "target"],
         ),
@@ -183,6 +188,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "actor": _s(type=_STRING, description="Who is attacking, as Avrae names them."),
                 "weapon": _s(type=_STRING, description="Weapon or attack name, e.g. 'Longsword'."),
                 "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'NO1'."),
+                "ranged": _s(
+                    type=types.Type.BOOLEAN,
+                    description="True for a bow, thrown weapon or ranged spell. "
+                                "Nothing tracks positions, so only you know.",
+                ),
             },
             required=["actor", "weapon", "target"],
         ),

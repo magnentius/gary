@@ -331,6 +331,7 @@ class GeminiNarrator:
                         str(args.get("attack", "")),
                         target,
                         advantage=self._director.is_down(channel_id, target),
+                        ranged=bool(args.get("ranged")),
                     )
                 except TemplateError as exc:
                     responses.append(types.Part.from_function_response(
@@ -373,9 +374,11 @@ class GeminiNarrator:
                     command = render_attack_command(
                         str(args.get("weapon", "")),
                         target,
-                        # Prone: melee attacks against a downed creature have advantage,
-                        # and Avrae will not add it for us.
+                        # Prone: melee attacks against a downed creature have advantage
+                        # and ranged ones disadvantage. Avrae adds neither, and cannot
+                        # see range — so the model declares it.
                         advantage=self._director.is_down(channel_id, target),
+                        ranged=bool(args.get("ranged")),
                     )
                 except TemplateError as exc:
                     responses.append(types.Part.from_function_response(

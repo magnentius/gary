@@ -367,3 +367,13 @@ def test_combat_renders_the_tracker_with_names_to_target():
     assert "GU1 [Healthy] <- their turn" in rendered
     assert "Caspian Varr [15/15]" in rendered
     assert "DOWN" in rendered
+
+
+def test_persona_states_that_nothing_tracks_position():
+    """Avrae has no map, no distances and no adjacency, and neither does Gary. The model
+    is the only record of where anyone is standing, which was true before and unstated --
+    so reach was unenforced and range unknowable."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "NOTHING TRACKS POSITION" in text
+    assert "scene summary" in text
+    assert "ranged" in text
