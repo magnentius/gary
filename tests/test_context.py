@@ -244,3 +244,15 @@ def test_persona_stays_a_small_fraction_of_the_budget():
         f"persona is {approx_tokens:.0f} tokens, over 5% of the {DEFAULT_TOKEN_BUDGET}-token "
         "budget on every single turn — trim it or raise the budget deliberately"
     )
+
+
+def test_record_note_has_observable_triggers():
+    """upsert_npc fires reliably because its trigger is observable — "the moment you give
+    someone a name". record_note said "something that should matter later", a judgement
+    call, and world facts went unrecorded: a harbour master's gossip and a cloaked figure
+    with a parcel both lived only in conversation history."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "put information in an NPC's mouth" in text
+    assert "nobody asked about" in text
+    for kind in ("clue", "foreshadow", "promise"):
+        assert f"kind={kind}" in text

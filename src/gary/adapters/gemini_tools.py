@@ -127,9 +127,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=RECORD_NOTE,
         description=(
-            "Remember something for later: an NPC's attitude, a clue, a promise, a lie "
-            "you told. These are retrieved into your context when the subject reappears, "
-            "so record anything you would be embarrassed to contradict in three sessions."
+            "Remember something for later: gossip an NPC volunteers, a rumour, a deadline, "
+            "a threat, a lie you told, a figure noticed across a room. Retrieved into your "
+            "context when the subject comes up again, so record anything you would be "
+            "embarrassed to contradict in three sessions. If you invented a detail nobody "
+            "asked for, you invented it for a reason — this is where the reason survives."
         ),
         parameters=_s(
             type=_OBJECT,
