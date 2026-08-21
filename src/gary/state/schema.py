@@ -41,8 +41,6 @@ MONTH_NAMES = (
 #: type when the screen says "4 Harvest Moon 1026".
 _MONTH_LOOKUP = {name.lower(): i + 1 for i, name in enumerate(MONTH_NAMES)}
 _MONTH_LOOKUP.update({name.lower().replace(" moon", ""): i + 1 for i, name in enumerate(MONTH_NAMES)})
-#: September is the one with two names in common use.
-_MONTH_LOOKUP.update({"corn moon": 9, "corn": 9})
 
 
 def default_epoch_date(today: Optional[date] = None) -> str:
