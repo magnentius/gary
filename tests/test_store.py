@@ -438,22 +438,27 @@ def test_parse_world_time_round_trips_the_formatter():
     from gary.state.schema import empty_state, format_world_time, parse_world_time
 
     st = empty_state("1026-08-21")
-    assert format_world_time(st) == "21 August 1026, 00:00"  # fresh campaigns open at midnight
+    assert format_world_time(st) == "21 Sturgeon Moon 1026, 00:00"  # fresh campaigns open at midnight
 
     st["world_minutes"] = parse_world_time("18:30", st)
-    assert format_world_time(st) == "21 August 1026, 18:30"
+    assert format_world_time(st) == "21 Sturgeon Moon 1026, 18:30"
 
     st["world_minutes"] = parse_world_time("day 2 06:00", st)
-    assert format_world_time(st) == "22 August 1026, 06:00"
+    assert format_world_time(st) == "22 Sturgeon Moon 1026, 06:00"
 
-    # An absolute date, which is the form a date on screen invites you to type back.
-    st["world_minutes"] = parse_world_time("1026-09-04 06:00", st)
-    assert format_world_time(st) == "4 September 1026, 06:00"
+    # The form the screen shows, typed straight back, and the same date in ISO.
+    st["world_minutes"] = parse_world_time("4 Harvest Moon 1026 06:00", st)
+    assert format_world_time(st) == "4 Harvest Moon 1026, 06:00"
+    assert parse_world_time("1026-09-04 06:00", st) == st["world_minutes"]
+    # Shortened, and September's other name -- both are what people actually type.
+    assert parse_world_time("4 harvest 1026 06:00", st) == st["world_minutes"]
+    assert parse_world_time("4 Corn Moon 1026 06:00", st) == st["world_minutes"]
 
     # a bare HH:MM means "today", where today comes from the current clock
     assert parse_world_time("07:00", st) == 14 * 1440 + 420
 
-    for bad in ("25:00", "18:60", "soon", "", "day 0 10:00", "1026-02-30 06:00"):
+    for bad in ("25:00", "18:60", "soon", "", "day 0 10:00", "1026-02-30 06:00",
+                "4 Banana Moon 1026 06:00"):
         with pytest.raises(ValueError):
             parse_world_time(bad, st)
 
@@ -470,11 +475,11 @@ def test_month_boundaries_and_leap_years_come_from_the_real_calendar():
 
     st = empty_state("1026-08-30")
     st["world_minutes"] = 2 * 1440          # 30 Aug + 2 days
-    assert format_world_time(st) == "1 September 1026, 00:00"
+    assert format_world_time(st) == "1 Harvest Moon 1026, 00:00"
 
     leap = empty_state("1024-02-28")        # 1024 is a leap year
     leap["world_minutes"] = 1440
-    assert format_world_time(leap) == "29 February 1024, 00:00"
+    assert format_world_time(leap) == "29 Snow Moon 1024, 00:00"
 
 
 def test_a_campaign_without_a_calendar_still_renders_its_clock():

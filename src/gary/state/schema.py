@@ -27,10 +27,22 @@ YEARS_BEHIND = 1000
 #: once, when the campaign is created, and then lives in the snapshot.
 DEFAULT_EPOCH_DATE = "1000-01-01"
 
+#: The full-moon names, in Gregorian month order. The calendar underneath is still the
+#: real one -- these only change what a month is called, so month lengths, leap years and
+#: seasons stay correct and free. They also carry the season in the name itself, which the
+#: bare Gregorian months do not: Snow Moon says February without anyone knowing it is.
 MONTH_NAMES = (
-    "January", "February", "March", "April", "May", "June",
-    "July", "August", "September", "October", "November", "December",
+    "Wolf Moon", "Snow Moon", "Worm Moon", "Pink Moon",
+    "Flower Moon", "Strawberry Moon", "Buck Moon", "Sturgeon Moon",
+    "Harvest Moon", "Hunter's Moon", "Beaver Moon", "Cold Moon",
 )
+
+#: Accepted on input as well as the full name, because "4 Harvest 1026" is what people
+#: type when the screen says "4 Harvest Moon 1026".
+_MONTH_LOOKUP = {name.lower(): i + 1 for i, name in enumerate(MONTH_NAMES)}
+_MONTH_LOOKUP.update({name.lower().replace(" moon", ""): i + 1 for i, name in enumerate(MONTH_NAMES)})
+#: September is the one with two names in common use.
+_MONTH_LOOKUP.update({"corn moon": 9, "corn": 9})
 
 
 def default_epoch_date(today: Optional[date] = None) -> str:
@@ -151,9 +163,9 @@ def _epoch(state: Dict[str, Any]) -> Optional[date]:
 
 
 def format_world_date(day: date) -> str:
-    """`21 August 1026`. Built by hand, not strftime: %Y is not portable below year 1000,
-    and zero-padding a year is exactly the kind of thing that renders as `0026` on one
-    platform and `26` on another."""
+    """`21 Sturgeon Moon 1026`. Built by hand, not strftime: the month names are not the
+    locale's, and %Y is not portable below year 1000 -- zero-padding a year is exactly the
+    kind of thing that renders as `0026` on one platform and `26` on another."""
     return f"{day.day} {MONTH_NAMES[day.month - 1]} {day.year}"
 
 
@@ -177,13 +189,25 @@ def parse_world_time(text: str, state: Dict[str, Any]) -> int:
     means computing the gap to it. A fresh campaign opens at midnight on its epoch date,
     which is almost never the intended hour for a first scene.
 
-    Three forms, because all three get typed: ``18:30`` (today, in world terms),
-    ``1026-08-25 06:00`` (an absolute date), and ``day 2 06:00`` (the original form, kept
+    Four forms, because all four get typed: ``18:30`` (today, in world terms),
+    ``4 Harvest Moon 1026 06:00`` (what the screen shows, typed back), ``1026-09-04
+    06:00`` (the same date, unambiguously), and ``day 2 06:00`` (the original form, kept
     working -- it is what every campaign written before the calendar used).
     """
     per_day = int(state.get("calendar", {}).get("minutes_per_day", 1440))
     raw = text.strip().lower()
     day = int(state.get("world_minutes", 0)) // per_day + 1
+
+    # "4 Harvest Moon 1026 06:00" -- the form the screen invites you to type back.
+    named = re.match(r"^(\d{1,2})\s+([a-z'\s]+?)\s+(\d{1,4})[\s,]+(\d{1,2}):(\d{2})$", raw)
+    if named and named.group(2).strip() in _MONTH_LOOKUP:
+        raw = "{}-{:02d}-{:02d} {}:{}".format(
+            named.group(3),
+            _MONTH_LOOKUP[named.group(2).strip()],
+            int(named.group(1)),
+            named.group(4),
+            named.group(5),
+        )
 
     dated = re.match(r"^(\d{1,4})-(\d{1,2})-(\d{1,2})[\s,]+(\d{1,2}):(\d{2})$", raw)
     if dated:
@@ -207,8 +231,8 @@ def parse_world_time(text: str, state: Dict[str, Any]) -> int:
     match = re.match(r"^(?:day\s+(\d{1,4})\s+)?(\d{1,2}):(\d{2})$", raw)
     if not match:
         raise ValueError(
-            "expected 'HH:MM', 'YYYY-MM-DD HH:MM' or 'day N HH:MM' — "
-            "e.g. '18:30', '1026-08-25 06:00' or 'day 2 06:00'"
+            "expected a time, a date or a day number — e.g. '18:30', "
+            "'4 Harvest Moon 1026 06:00', '1026-09-04 06:00' or 'day 2 06:00'"
         )
     if match.group(1):
         day = int(match.group(1))

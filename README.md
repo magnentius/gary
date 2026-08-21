@@ -153,7 +153,7 @@ before it ever ran.
    matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
    anything went wrong. Leave it unset and validation is skipped, as before.
    In the channel: `?dm setting <premise>` once per campaign, then `?dm scene <location> |
-   <situation>` and `?dm time 18:30` (or `?dm time 1026-09-04 06:00`) to author an opening. `?dm import` with a `.md` or
+   <situation>` and `?dm time 18:30` (or `?dm time 4 Harvest Moon 1026 06:00`) to author an opening. `?dm import` with a `.md` or
    `.txt` attachment reads a whole setting document — a generator's export, or your own
    notes — and files its people as NPCs and its places, factions and lore as notes, which
    surface when a player names them. It needs a model attached, and refuses oversize or
@@ -164,9 +164,10 @@ before it ever ran.
    narrating past the check, is most likely. A fresh campaign also opens at **midnight**
    on its epoch date, so without `?dm time` the model narrates an evening while the
    clock the same prompt calls authoritative says midnight. The campaign calendar is
-   the real one with a millennium taken off it — a campaign started on 21 August 2026
-   opens on 21 August 1026 — so month, season and day length all mean what they
-   normally mean, and neither you nor the model has to learn an invented calendar.
+   the real one with a millennium taken off it and the months under their full-moon
+   names — a campaign started on 21 August 2026 opens on **21 Sturgeon Moon 1026** — so
+   month lengths, leap years and seasons are all correct for free, and each month names
+   its own season rather than needing to be looked up.
 5. **Point Claude Desktop at the MCP server** (verified 2026-08-20). It imports, registers
    7 tools and 5 resources, executes them against a real campaign, and degrades to
    read-only under §7.6's lock with a JSON explanation rather than a stack trace.

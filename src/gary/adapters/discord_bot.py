@@ -497,7 +497,7 @@ class GaryClient(discord.Client):
                     channel_id,
                     f"It is {format_world_time(state)}. Set it with "
                     f"`{self.settings.command_prefix}time 18:30` for later today, or "
-                    f"`{self.settings.command_prefix}time 1026-09-04 06:00` for a date. "
+                    f"`{self.settings.command_prefix}time 4 Harvest Moon 1026 06:00` for a date. "
                     "The clock only moves forward.",
                 )
                 return
