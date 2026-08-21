@@ -726,3 +726,32 @@ def test_a_crit_on_someone_standing_is_just_a_crit(director):
         ),
     )
     assert not [e for e in effects if isinstance(e, SendMessage)]
+
+
+def test_forget_everything_drops_the_in_memory_roster(director):
+    """The roster, the combat mirror and the per-turn bookkeeping live here as well as in
+    the store, so clearing the store alone would leave a stale roster answering for
+    characters who no longer exist until the next restart."""
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),),
+            round_number=2,
+        ),
+    )
+    assert director.players and director.is_down(CHANNEL, "Kethra")
+
+    director.forget_everything()
+
+    assert director.players == {}
+    assert not director.is_down(CHANNEL, "Kethra")
+    # and an actor is no longer validated against a roster that is gone
+    effects = director.open_check(
+        channel_id=CHANNEL, user_id=ALICE, actor="Anyone", kind=CheckKind.CHECK,
+        key="stealth", dc=10, on_success="ok", on_failure="no",
+    )
+    assert any(isinstance(e, SendMessage) for e in effects)

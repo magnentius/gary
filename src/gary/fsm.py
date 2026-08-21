@@ -268,6 +268,19 @@ class Director:
             )
         return None
 
+    def forget_everything(self) -> None:
+        """Drop all derived state after a campaign reset.
+
+        The roster, the combat mirror and the per-turn bookkeeping live in memory here as
+        well as in the store, so clearing the store alone would leave a stale roster
+        answering for characters who no longer exist until the next restart.
+        """
+        self.players.clear()
+        self._known_actors.clear()
+        self._last_round.clear()
+        self._acted_this_turn.clear()
+        self._down.clear()
+
     def is_down(self, channel_id: int, name: str) -> bool:
         """Does the tracker show this combatant at 0 HP?
 

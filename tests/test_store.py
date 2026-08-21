@@ -342,9 +342,13 @@ def test_replaying_a_check_outcome_is_a_no_op(backend_factory, clock):
     assert reopened.journal()[-1]["kind"] == "check_outcome"
 
 
-def test_reset_clears_the_world_but_keeps_the_table(store):
-    """Reset is for the fiction. Who is playing whom is table setup, and losing it means
-    the next check silently fails to correlate."""
+def test_reset_clears_everything_including_the_roster(store):
+    """A reset that leaves something behind is a reset with an exception to remember.
+
+    An earlier version kept the roster, on the grounds that who is playing whom is table
+    setup rather than fiction. Forgetting `?dm playing` afterwards is loud -- the boot
+    warning, and open_check refusing an actor who is not at the table -- rather than
+    silent, so the exception was not worth its cost."""
     store.apply(
         [Mutation(MutationKind.PLAYER_CHARACTER, "111", {"actor": "Caspian Varr"})],
         reason="roster",
@@ -358,7 +362,7 @@ def test_reset_clears_the_world_but_keeps_the_table(store):
     store.reset_campaign()
 
     st = store.state()
-    assert st["players"] == {"111": "Caspian Varr"}  # the table survives
+    assert st["players"] == {}                       # the table goes too
     assert st["quests"] == {}
     assert st["party"] == {}
     assert st["world_minutes"] == 0

@@ -151,7 +151,7 @@ before it ever ran.
    matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
    anything went wrong. Leave it unset and validation is skipped, as before.
    In the channel: `?dm scene <location> | <situation>` and `?dm time 18:30` to author an
-   opening, `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; keeps the roster and the journal).
+   opening, `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; wipes everything but the journal, so re-run `?dm playing` afterwards).
    Set a scene and a time before the first turn. On a fresh campaign layer 2 of the
    context (`ARCHITECTURE.md` §8) is empty, so the model invents the world from one
    sentence of player input — and an under-constrained model is exactly when §14 (8),

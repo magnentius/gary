@@ -416,7 +416,7 @@ class GaryClient(discord.Client):
                     f"Currently: {len(state.get('notes') or [])} note(s), "
                     f"{len(state.get('quests') or {})} quest(s), "
                     f"{len(state.get('npcs') or {})} NPC(s).\n"
-                    f"Who is playing whom is kept.\n"
+                    "Everything goes, including who is playing whom.\n"
                     f"To confirm: `{self.settings.command_prefix}reset "
                     f"{self._reset_token}`"
                 )
@@ -437,9 +437,13 @@ class GaryClient(discord.Client):
                     self.history_backend.save_turns(cid, [])
                     self.history_backend.save_summary(cid, "")
             self.store.reset_campaign()
+            self.director.forget_everything()
             log.warning("campaign reset by %s in channel %d", message.author, channel_id)
             await self.sender.send(
-                channel_id, "Campaign reset. Day 1, 00:00. The table is still set."
+                channel_id,
+                "Campaign reset. Day 1, 00:00. Everyone run "
+                f"`{self.settings.command_prefix}playing <character name>` again before "
+                "the first roll.",
             )
             return
 
