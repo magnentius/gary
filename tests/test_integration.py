@@ -374,3 +374,36 @@ def test_bot_role_mention_counts_as_addressing_gary():
     assert addressed(_Msg(role_mentions=[_Role(bot_id=42)])) is True
     assert addressed(_Msg(role_mentions=[_Role(bot_id=999)])) is False
     assert addressed(_Msg()) is False
+
+
+def test_only_avrae_edits_are_reprocessed():
+    """Avrae EDITS the initiative tracker rather than reposting it, so the bot must watch
+    edits — but re-running every edit would make a player fixing a typo cost another model
+    call, and an edited roll embed would re-enter resolution."""
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    seen = []
+
+    class _Settings:
+        avrae_bot_id = 261302296103747584
+
+    class _Client:
+        settings = _Settings()
+
+        async def on_message(self, message):
+            seen.append(message)
+
+    client = _Client()
+    edit = GaryClient.on_message_edit.__get__(client, _Client)
+
+    class _Msg:
+        def __init__(self, author_id):
+            self.author = type("A", (), {"id": author_id})()
+
+    avrae, player = _Msg(261302296103747584), _Msg(999)
+    asyncio.get_event_loop().run_until_complete(edit(avrae, avrae))
+    asyncio.get_event_loop().run_until_complete(edit(player, player))
+
+    assert seen == [avrae]

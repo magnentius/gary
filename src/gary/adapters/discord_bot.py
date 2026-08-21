@@ -195,6 +195,27 @@ class GaryClient(discord.Client):
 
     # -- ingest ------------------------------------------------------------------------
 
+    async def on_message_edit(
+        self, before: "discord.Message", after: "discord.Message"
+    ) -> None:
+        """Avrae EDITS the initiative tracker rather than reposting it.
+
+        `!init next` fires no on_message at all, so a bot without this sees the tracker
+        once — when combat starts — and never again. Gary's mirror stayed empty for a
+        whole fight because of it, and the model could not tell whose turn it was.
+
+        scripts/capture_avrae_fixtures.py had this from the start and says so in a
+        comment; the bot never got the same handler, which is why every captured
+        initiative fixture carries `trigger: edit`.
+
+        Only Avrae's edits are forwarded. Re-running every edit would mean a player
+        fixing a typo costs another model call and another narration, and an edited roll
+        embed would re-enter the resolution path.
+        """
+        if after.author.id != self.settings.avrae_bot_id:
+            return
+        await self.on_message(after)
+
     async def on_message(self, message: "discord.Message") -> None:
         route = route_message(
             author_id=message.author.id,
