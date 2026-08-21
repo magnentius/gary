@@ -1,0 +1,12 @@
+{
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:19:27.520532+00:00",
+  "_description": "The initiative tracker before anyone joins, from `!init begin`. Same container as the populated tracker (content, not an embed) but with no combatant lines.",
+  "message": {
+    "id": "1540153325025235017",
+    "content": "```Awaiting combatants...```",
+    "embeds": []
+  },
+  "expect": {
+    "status": "irrelevant"
+  }
+}

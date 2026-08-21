@@ -258,3 +258,23 @@ def test_a_fresh_director_on_the_same_registry_agrees(director, registry, clock)
 
     effects = replacement.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))
     assert any(isinstance(e, PromptModel) for e in effects)
+
+
+def test_avrae_prompt_stays_silent_and_keeps_the_check_open(director):
+    """Avrae asked the player a question instead of rolling.
+
+    Captured live 2026-08-20: `!check notaskill` yields a "Multiple Matches Found"
+    selector. Answering it produces a real roll that correlates normally, so the check
+    must stay open -- and Gary must not speak, or the player is fielding two questions
+    from two bots at once.
+    """
+    open_check(director)
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.AVRAE_PROMPT, reason="avrae is awaiting player input"
+        ),
+    )
+    assert all(isinstance(e, LogDrop) for e in effects)
+    assert not any(isinstance(e, (AskPlayer, SendMessage)) for e in effects)
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL

@@ -246,6 +246,12 @@ class Director:
         if parsed.status is ParseStatus.IRRELEVANT:
             return [LogDrop(channel_id, parsed.status.value, parsed.reason)]
 
+        if parsed.status is ParseStatus.AVRAE_PROMPT:
+            # Avrae asked the player a question instead of rolling. Stay silent and leave
+            # the check open: answering the selector produces a real roll that correlates
+            # normally. Speaking here would put two bots' questions in front of one player.
+            return [LogDrop(channel_id, parsed.status.value, parsed.reason)]
+
         if parsed.status is ParseStatus.UNKNOWN:
             # We were expecting a roll and could not read this. Ask; do not assume.
             return [

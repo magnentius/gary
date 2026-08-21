@@ -1,0 +1,20 @@
+{
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:20:01.325156+00:00",
+  "_description": "Avrae's disambiguation selector, from `!check notaskill`. No roll happened and Avrae is waiting on the player to pick a number. Must NOT be UNKNOWN: that makes Gary ask 'what did you roll?' while Avrae is mid-question.",
+  "message": {
+    "id": "1540153467375591446",
+    "content": "",
+    "embeds": [
+      {
+        "flags": 0,
+        "color": 8657044,
+        "type": "rich",
+        "description": "Your input was: `notaskill`\nWhich one were you looking for? (Type the number or `c` to cancel)\n**[1]** - Initiative\n**[2]** - Intimidation\n**[3]** - Intelligence\n**[4]** - Sleight Of Hand\n**[5]** - Nature",
+        "title": "Multiple Matches Found"
+      }
+    ]
+  },
+  "expect": {
+    "status": "avrae_prompt"
+  }
+}

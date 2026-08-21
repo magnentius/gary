@@ -1,12 +1,12 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06). Exact help layout is not pinned to a source line; what matters is the classification, and a false negative here only costs an unnecessary question.",
-  "_description": "The v1 spam case: help output must never reach the model.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:19:53.113971+00:00",
+  "_description": "`!help` in a game channel. Avrae replies with PLAIN TEXT ('I have sent help to your PMs.') and no embed -- the derived fixture had guessed a help embed. Same classification either way, but the container was wrong, which is the same class of error as the initiative tracker in ARCHITECTURE.md \u00a70 row 8.",
   "message": {
-    "content": "",
-    "embeds": [{
-      "title": "Avrae Help",
-      "description": "Use `!help <command>` for more information on a command."
-    }]
+    "id": "1540153433112191046",
+    "content": "I have sent help to your PMs.",
+    "embeds": []
   },
-  "expect": {"status": "irrelevant"}
+  "expect": {
+    "status": "irrelevant"
+  }
 }

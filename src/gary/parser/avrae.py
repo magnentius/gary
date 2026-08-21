@@ -36,6 +36,7 @@ class ParseStatus(str, Enum):
     ROLL = "roll"
     INITIATIVE = "initiative"
     IRRELEVANT = "irrelevant"  # confidently not something we care about (!help, sheets)
+    AVRAE_PROMPT = "avrae_prompt"  # Avrae is asking the player something -- a roll may still come
     UNKNOWN = "unknown"  # looked like a roll but could not be read -- escalate
 
 
@@ -98,6 +99,15 @@ _HP = re.compile(r"(\d+)\s*/\s*(\d+)\s*HP", re.IGNORECASE)
 _HP_BARE = re.compile(r"^(\d+)\s*HP", re.IGNORECASE)
 _INIT_HEADER = re.compile(r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*\d+\)\s*$", re.IGNORECASE)
 
+# Avrae's disambiguation selector. Confirmed live 2026-08-20: an embed titled "Multiple
+# Matches Found" whose description asks "Which one were you looking for? (Type the number
+# or `c` to cancel)". No roll happened and Avrae is now waiting on the player, so treating
+# it as an unreadable roll makes Gary interrupt with "what did you roll?" while Avrae is
+# mid-question -- two bots interrogating one player.
+_AVRAE_PROMPT = re.compile(
+    r"multiple matches found|which one were you looking for|type the number", re.IGNORECASE
+)
+
 # Titles that are confidently not rolls. Anything not matched here and not parsed as a
 # roll becomes UNKNOWN rather than being silently dropped.
 _IRRELEVANT_HINTS = (
@@ -109,6 +119,11 @@ _IRRELEVANT_HINTS = (
     "character sheet",
     "settings",
     "no active character",
+    # Confirmed live 2026-08-20: initiative chatter that carries no roll. Without these
+    # an empty tracker makes Gary ask the table what they rolled.
+    "awaiting combatants",
+    "no combatants",
+    "roll for initiative",
 )
 
 
@@ -243,6 +258,14 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
             ),
             interaction_user_id=interaction_user_id,
             referenced_user_id=referenced_user_id,
+        )
+
+    if _AVRAE_PROMPT.search(text):
+        return ParsedAvraeMessage(
+            status=ParseStatus.AVRAE_PROMPT,
+            interaction_user_id=interaction_user_id,
+            referenced_user_id=referenced_user_id,
+            reason="avrae is awaiting player input",
         )
 
     if any(hint in lowered for hint in _IRRELEVANT_HINTS):

@@ -1,0 +1,12 @@
+{
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:19:38.988484+00:00",
+  "_description": "`!init list` against an empty combat. Plain text, carries no roll.",
+  "message": {
+    "id": "1540153373742080061",
+    "content": "There are no combatants.",
+    "embeds": []
+  },
+  "expect": {
+    "status": "irrelevant"
+  }
+}

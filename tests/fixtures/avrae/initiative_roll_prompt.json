@@ -1,0 +1,12 @@
+{
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:19:27.861248+00:00",
+  "_description": "Avrae's 'Everyone roll for initiative!' chatter after `!init begin`. Plain text, carries no roll.",
+  "message": {
+    "id": "1540153327185039502",
+    "content": "Everyone roll for initiative!\nIf you have a character set up with SheetManager: `!init join`\nIf it's a 5e monster: `!init madd <monster name>`\nOtherwise: `!init add <modifier> <name>`",
+    "embeds": []
+  },
+  "expect": {
+    "status": "irrelevant"
+  }
+}
