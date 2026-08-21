@@ -637,3 +637,113 @@ def test_import_fans_a_document_into_one_prompt_per_part():
     assert all(e.channel_id == 7 for e in effects)
     # Nothing is dropped between chunks.
     assert "".join(e.payload["chunk"] for e in effects).count("drowns") == 600
+
+
+# -- ?dm state and ?dm notes ---------------------------------------------------------------
+
+
+def _dm_client(state, sent):
+    """Runs the real ?dm dispatcher against a stub store.
+
+    These handlers had no test at all, and it showed: `?dm state` referenced a `prefix`
+    local that was never bound in the dispatcher, so every invocation raised NameError.
+    Exercising the dispatcher itself -- rather than the pieces it calls -- is what catches
+    that class of bug.
+    """
+    from gary.adapters.discord_bot import GaryClient
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Settings:
+        command_prefix = "?dm "
+
+    class _Store:
+        def state(self):
+            return state
+
+    class _Channel:
+        id = 7
+
+    class _Client:
+        settings = _Settings()
+        sender = _Sender()
+        store = _Store()
+
+    class _Msg:
+        channel = _Channel()
+
+        def __init__(self, content):
+            self.content = content
+
+    client = _Client()
+    return _Msg, GaryClient._on_dm_command.__get__(client, _Client)
+
+
+def _seeded_state():
+    return {
+        "world_minutes": 0,
+        "calendar": {"epoch_date": "1026-08-21", "minutes_per_day": 1440},
+        "setting": "", "scene": {"location": "", "summary": ""},
+        "party": {}, "players": {}, "effects": [], "quests": {}, "encounter": None,
+        "npcs": {"liriel": {"name": "Liriel", "disposition": 0, "notes": ["A scribe."]}},
+        "notes": [
+            {"note_id": "1", "kind": "general", "subject": "The Leaf-Mote", "body": "A hall."},
+            {"note_id": "2", "kind": "clue", "subject": "The Leaf-Mote", "body": "Nine tallies."},
+            {"note_id": "3", "kind": "general", "subject": "The Rootbound", "body": "Traditionalists."},
+        ],
+    }
+
+
+def test_dm_state_does_not_stay_silent_about_stored_memory():
+    """An import filed ten notes and four NPCs, and `?dm state` showed a clock and a
+    party -- because notes and NPCs are layer 3 and surface only on mention. Correct, and
+    indistinguishable on screen from having stored nothing at all."""
+    import asyncio
+
+    sent = []
+    Msg, dispatch = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
+
+    body = " ".join(sent)
+    assert "3 note(s)" in body and "1 NPC(s)" in body
+    assert "21 Sturgeon Moon 1026" in body      # layer 2 still rendered verbatim
+    assert "?dm notes" in body                   # and points somewhere that can show them
+
+
+def test_dm_state_stays_quiet_when_nothing_is_stored():
+    import asyncio
+
+    state = _seeded_state()
+    state["notes"], state["npcs"] = [], {}
+    sent = []
+    Msg, dispatch = _dm_client(state, sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
+    assert "Also stored" not in " ".join(sent)
+
+
+def test_dm_notes_lists_subjects_a_player_would_say():
+    """Subjects are the retrieval key (§8 layer 3), so listing them is also the honest
+    answer to 'what will Gary remember if I bring it up?'"""
+    import asyncio
+
+    sent = []
+    Msg, dispatch = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
+
+    body = " ".join(sent)
+    assert "- The Leaf-Mote (2)" in body      # count only where there is more than one
+    assert "- The Rootbound" in body and "The Rootbound (" not in body
+    assert "Liriel" in body
+
+
+def test_dm_notes_on_an_empty_campaign_says_so():
+    import asyncio
+
+    state = _seeded_state()
+    state["notes"], state["npcs"] = [], {}
+    sent = []
+    Msg, dispatch = _dm_client(state, sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
+    assert "Nothing filed yet" in " ".join(sent)

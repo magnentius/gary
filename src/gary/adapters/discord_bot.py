@@ -349,7 +349,7 @@ class GaryClient(discord.Client):
             ])
         await self.sender.send(
             channel_id,
-            f"Done with `{filename}`. `{prefix}state` shows what stuck — anything it "
+            f"Done with `{filename}`. `{prefix}notes` lists what stuck — anything it "
             "missed you can add by telling me in the channel.",
         )
 
@@ -488,6 +488,7 @@ class GaryClient(discord.Client):
         parts = body.split()
         command = parts[0].lower() if parts else "help"
         channel_id = message.channel.id
+        prefix = self.settings.command_prefix
 
         if command == "time":
             raw = body[len("time"):].strip()
@@ -695,8 +696,42 @@ class GaryClient(discord.Client):
         elif command == "state":
             from ..context import render_live_state
 
+            state = self.store.state()
+            # Layer 2 verbatim, because the point of this command is to show what the
+            # model is actually told. Notes and NPCs are layer 3 and surface only when
+            # their subject comes up (§8), so they are legitimately absent here -- but
+            # absent and *missing* look identical on screen, and after an import that
+            # filed ten notes this read as if nothing had been stored at all. The counts
+            # go outside the block: still not the model's view, and no longer a silence.
+            body = "```\n" + render_live_state(state) + "\n```"
+            notes, npcs = len(state.get("notes") or []), len(state.get("npcs") or {})
+            if notes or npcs:
+                body += (
+                    f"\nAlso stored: **{notes} note(s)**, **{npcs} NPC(s)** — these are "
+                    "retrieved when their subject is mentioned rather than shown every "
+                    f"turn, so they are not in the block above. `{prefix}notes` lists them."
+                )
+            await self.sender.send(channel_id, body)
+
+        elif command == "notes":
+            state = self.store.state()
+            lines = []
+            for subject in sorted({str(n.get("subject", "")) for n in state.get("notes") or []}):
+                count = sum(1 for n in state["notes"] if n.get("subject") == subject)
+                lines.append(f"- {subject} ({count})" if count > 1 else f"- {subject}")
+            people = sorted(
+                str(v.get("name") or k) for k, v in (state.get("npcs") or {}).items()
+            )
+            parts = []
+            if lines:
+                parts.append("**Notes**, by subject — say one to bring it into play:\n"
+                             + "\n".join(lines))
+            if people:
+                parts.append("**People**: " + ", ".join(people))
             await self.sender.send(
-                channel_id, "```\n" + render_live_state(self.store.state()) + "\n```"
+                channel_id,
+                "\n\n".join(parts) if parts
+                else f"Nothing filed yet. `{prefix}import` a setting file, or just tell me.",
             )
 
         elif command == "stats":
@@ -711,7 +746,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | import (attach .md) | playing <name> | undo | cancel | checks | state | stats | reset",
+                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | import (attach .md) | notes | playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 
