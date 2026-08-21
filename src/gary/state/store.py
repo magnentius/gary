@@ -351,6 +351,15 @@ class CampaignStore:
         with self._lock:
             undone = self._undone_ids()
             for entry in reversed(self._journal):
+                # A reset is a floor, not another entry to skip. Everything below it
+                # belongs to a campaign that no longer exists, and its inverses are
+                # written against a state that is gone: some raise (undoing an item grant
+                # from a party that no longer carries it), and the rest are worse, because
+                # they apply cleanly and quietly seed the fresh campaign with the dead
+                # one's setting, scene or NPCs. `inverse: None` alone does not stop this --
+                # that only makes the reset unreversible, and the loop skips right past it.
+                if entry["kind"] == "campaign_reset":
+                    return None
                 if entry["entry_id"] in undone or not entry.get("inverse"):
                     continue
                 inv = entry["inverse"]

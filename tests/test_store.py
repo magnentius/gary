@@ -448,3 +448,74 @@ def test_the_setting_is_journalled_and_undoable(store):
 
     store.undo_last()
     assert store.state()["setting"] == "A cold port city."
+
+
+def test_undo_stops_at_a_reset(store):
+    """`?dm reset` then `?dm undo` restored the wiped campaign's setting, silently.
+
+    undo_last walks the whole journal and skips entries with no inverse -- and
+    campaign_reset has none, so it was skipped rather than treated as a floor. The scan
+    then reached the dead campaign's mutations and applied their inverses into the fresh
+    one. Item inverses raise (the party carries nothing); setting, scene and NPC inverses
+    apply cleanly, which is the dangerous half: a brand-new campaign silently inherits the
+    old premise, and layer 2 of every prompt carries it from then on.
+    """
+    store.apply(
+        [Mutation(MutationKind.SETTING, "", {"text": "The drowned town of Leafmoor."})],
+        reason="setting",
+    )
+    store.apply(
+        [Mutation(MutationKind.SCENE, "", {"location": "The Gullet", "summary": "Fog."})],
+        reason="scene",
+    )
+    store.reset_campaign()
+
+    assert store.undo_last() is None
+    assert store.state().get("setting") == ""
+    assert store.state()["scene"] == {"location": "", "summary": ""}
+
+    # Still undoable above the floor: a reset ends the past, it does not disable undo.
+    store.apply(
+        [Mutation(MutationKind.SETTING, "", {"text": "A high desert empire."})],
+        reason="setting",
+    )
+    assert store.undo_last() is not None
+    assert store.state().get("setting") == ""
+
+
+def test_replay_across_a_reset_does_not_resurrect_state(backend_factory, clock):
+    """The snapshot's journal_offset means a reset is normally never replayed. Rebuilding
+    from seq 0 -- a lost or corrupt snapshot -- must reach the same state, or the campaign
+    silently depends on a cache file it is supposed to be able to lose."""
+
+    class _NoSnapshot:
+        """Forces the full replay path: everything else, straight through."""
+
+        def __init__(self, inner):
+            self._inner = inner
+
+        def load_snapshot(self):
+            return None
+
+        def __getattr__(self, name):
+            return getattr(self._inner, name)
+
+    backend = backend_factory()
+    store = CampaignStore(backend=backend, clock=clock)
+    store.apply(
+        [Mutation(MutationKind.SETTING, "", {"text": "The drowned town of Leafmoor."})],
+        reason="setting",
+    )
+    store.apply(
+        [Mutation(MutationKind.NPC_RELATION, "Mother Cray", {"disposition": "hostile"})],
+        reason="npc",
+    )
+    store.reset_campaign()
+    store.apply(
+        [Mutation(MutationKind.SETTING, "", {"text": "A high desert empire."})],
+        reason="setting",
+    )
+
+    rebuilt = CampaignStore(backend=_NoSnapshot(backend_factory()), clock=clock)
+    assert rebuilt.state().get("setting") == "A high desert empire."
+    assert rebuilt.state()["npcs"] == {}
