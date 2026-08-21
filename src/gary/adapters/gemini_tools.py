@@ -80,8 +80,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=ADVANCE_TIME,
         description=(
-            "Advance the world clock and expire finished effects. Use for rests, travel, "
-            "and waiting. Refused during combat: Avrae owns duration while initiative runs."
+            "Advance the world clock and expire finished effects. Short rest is 60, long "
+            "rest is 480 — both fixed by the rules, so use exactly those. Searching a room "
+            "is about 10, a conversation about 5, crossing a town about 30. Refused during "
+            "combat: Avrae owns duration while initiative runs."
         ),
         parameters=_s(
             type=_OBJECT,

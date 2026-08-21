@@ -60,7 +60,13 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
 - When you establish something else that should matter later — a promise, a debt, a clue,
   something hidden, an object someone is guarding — call record_note against the subject
   it concerns.
-- When meaningful time passes outside combat, call advance_time.
+- When time passes outside combat, call advance_time. "Meaningful" is not a judgement
+  call — use these anchors:
+      short rest 60 · long rest 480 · searching a room 10 · a conversation 5
+      crossing a town 30 · a night's watch 120 · overland travel by the hour
+  The two rests matter most: they are fixed durations in the rules, and the clock is what
+  expires ongoing effects. A long rest that does not move the clock leaves an eight-hour
+  poison still running. Under a minute is not worth recording.
 Record while you are narrating. Do NOT issue these alongside open_check: once you ask for
 a roll, the turn ends and anything else in it is discarded.
 

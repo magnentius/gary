@@ -130,7 +130,10 @@ def test_budget_trims_turns_before_memory():
         history=make_turns(30, size=400),
         notes=notes,
         summary="The party reached the city.",
-        token_budget=900,
+        # Comfortably above the fixed cost of layers 1-3, so this exercises the ordering
+        # of trimming rather than whether the persona happens to fit. At 900 the persona
+        # alone consumed the budget and memory was dropped for the wrong reason.
+        token_budget=3_000,
     )
     assert result.dropped_turns > 0
     assert not result.dropped_memory
@@ -213,3 +216,28 @@ def test_persona_disclaims_coin():
     text = DM_SYSTEM_INSTRUCTION
     assert "You do NOT hold coin" in text
     assert "never claim a payment happened" in text.lower() or "payment happened" in text
+
+
+def test_persona_anchors_the_two_rest_durations():
+    """advance_time never fired across two live scenes: "meaningful time" gave the model
+    nothing to calibrate against. The rests are fixed by the rules, and a long rest that
+    does not move the clock leaves an eight-hour effect still running."""
+    text = DM_SYSTEM_INSTRUCTION
+    assert "short rest 60" in text
+    assert "long rest 480" in text
+
+
+def test_persona_stays_a_small_fraction_of_the_budget():
+    """Layers 1-3 are rebuilt every call, so the persona is a fixed cost on every turn.
+
+    It doubled in a single day of tuning (1798 -> 3564 chars) and only announced itself by
+    breaking an unrelated budget test. §14 (5) asks for per-turn spend to be instrumented;
+    until it is, this is the tripwire.
+    """
+    from gary.context import CHARS_PER_TOKEN, DEFAULT_TOKEN_BUDGET
+
+    approx_tokens = len(DM_SYSTEM_INSTRUCTION) / CHARS_PER_TOKEN
+    assert approx_tokens < DEFAULT_TOKEN_BUDGET * 0.05, (
+        f"persona is {approx_tokens:.0f} tokens, over 5% of the {DEFAULT_TOKEN_BUDGET}-token "
+        "budget on every single turn — trim it or raise the budget deliberately"
+    )
