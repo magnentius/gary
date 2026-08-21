@@ -294,3 +294,29 @@ def test_standing_subjects_still_match_without_a_mention():
     """Party and location keep surfacing regardless of what was just said."""
     notes = [{"kind": "general", "subject": "Kethra", "body": "Owes a favour."}]
     assert "Owes a favour" in render_memory(notes, "", ["Kethra"], mentioned_in="")
+
+
+def test_npcs_surface_when_mentioned():
+    """upsert_npc wrote to `npcs` and nothing rendered it -- not layer 2, not layer 3 --
+    so a cast with names, dispositions and history was invisible to the model that
+    recorded it."""
+    npcs = {
+        "toby_cole": {"name": "Toby Cole", "disposition": 1, "notes": ["Tally clerk."]},
+        "maren_cole": {"name": "Maren Cole", "disposition": 0, "notes": ["Fishmonger."]},
+    }
+    out = render_memory([], "", subjects=[], mentioned_in="I look for Toby", npcs=npcs)
+    assert "Toby Cole (disposition +1): Tally clerk." in out
+    assert "Maren" not in out          # not mentioned this turn
+
+
+def test_a_subject_is_matched_by_its_distinctive_words():
+    """A note filed under "Toby Cole" has to answer to "Toby" -- that is what players say."""
+    notes = [{"kind": "clue", "subject": "Toby Cole", "body": "Saw the seal."}]
+    assert "Saw the seal" in render_memory(notes, "", [], mentioned_in="I find Toby")
+    assert "Saw the seal" in render_memory(notes, "", [], mentioned_in="Cole was right")
+
+
+def test_short_and_common_words_do_not_match():
+    """"the harbour master" must not fire on "the" or a three-letter common word."""
+    notes = [{"kind": "clue", "subject": "the old boy", "body": "Nope."}]
+    assert "Nope" not in render_memory(notes, "", [], mentioned_in="the boy ran off")

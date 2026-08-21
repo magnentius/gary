@@ -173,7 +173,11 @@ class GeminiNarrator:
             subjects.append(location)
 
         memory = render_memory(
-            state.get("notes") or [], summary, subjects, mentioned_in=recent_text
+            state.get("notes") or [],
+            summary,
+            subjects,
+            mentioned_in=recent_text,
+            npcs=state.get("npcs") or {},
         )
         if memory:
             blocks.append(memory)

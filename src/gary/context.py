@@ -187,16 +187,67 @@ def render_live_state(state: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+# Words too common to identify anything on their own.
+_SUBJECT_STOPWORDS = frozenset(
+    "the a an and of at in on to for with his her their its that this some my your".split()
+)
+
+
+def _subject_terms(subject: str) -> List[str]:
+    """The whole subject, plus each word distinctive enough to stand for it.
+
+    A note filed under "Toby Cole" has to answer to "Toby", because that is what a player
+    says. Requiring the full filed name meant retrieval worked only when someone happened
+    to use it — which they do not.
+
+    A word qualifies at four characters, or three if it was capitalised in the subject: a
+    short proper noun ("Vex") is distinctive, a short common word ("son", "boy") is not.
+    """
+    subject = subject.strip()
+    terms = [subject] if len(subject) >= 3 else []
+    for word in re.findall(r"[A-Za-z][A-Za-z']*", subject):
+        if word.lower() in _SUBJECT_STOPWORDS:
+            continue
+        if len(word) >= 4 or (len(word) >= 3 and word[0].isupper()):
+            terms.append(word)
+    return terms
+
+
 def _mentions(subject: str, text: str) -> bool:
     """Is this note's subject named in the text? Whole-word, case-insensitive.
 
     Substring matching would fire "Vane" inside "vanish"; word boundaries keep a note
     about a harbour master out of a sentence about weathervanes.
     """
-    subject = subject.strip()
-    if len(subject) < 3:  # too short to match safely
-        return False
-    return re.search(rf"\b{re.escape(subject)}\b", text, re.IGNORECASE) is not None
+    return any(
+        re.search(rf"\b{re.escape(term)}\b", text, re.IGNORECASE)
+        for term in _subject_terms(subject)
+    )
+
+
+def _render_people(npcs: Dict[str, Any], subjects: Sequence[str], mentioned_in: str) -> str:
+    """NPCs who have just come up, with what is known about them.
+
+    ``npcs`` was written by ``upsert_npc`` and rendered by nothing: neither layer 2 nor
+    layer 3 touched it, so a cast with names, dispositions and history was invisible to the
+    model that recorded it. Retrieved on mention rather than listed wholesale, because the
+    cast only grows and most of it is not in the room.
+    """
+    wanted = {s.lower() for s in subjects}
+    lines = []
+    for npc in npcs.values():
+        name = str(npc.get("name") or "").strip()
+        if not name:
+            continue
+        if name.lower() not in wanted and not (mentioned_in and _mentions(name, mentioned_in)):
+            continue
+        disposition = npc.get("disposition")
+        bits = f"{name}"
+        if isinstance(disposition, int):
+            bits += f" (disposition {disposition:+d})"
+        notes = "; ".join(str(n) for n in (npc.get("notes") or [])[-3:])
+        lines.append(f"- {bits}" + (f": {notes}" if notes else ""))
+    return "PEOPLE:\n" + "\n".join(lines) if lines else ""
 
 
 def render_memory(
@@ -204,6 +255,7 @@ def render_memory(
     summary: str,
     subjects: Sequence[str],
     mentioned_in: str = "",
+    npcs: Optional[Dict[str, Any]] = None,
 ) -> str:
     """Layer 3: rolling summary plus notes relevant to who and where we are.
 
@@ -230,6 +282,10 @@ def render_memory(
             if n.get("subject", "").lower() in wanted
             or (mentioned_in and _mentions(n.get("subject", ""), mentioned_in))
         ]
+    people = _render_people(npcs or {}, subjects, mentioned_in)
+    if people:
+        blocks.append(people)
+
     if relevant:
         rendered = "\n".join(
             f"- [{n.get('kind', 'note')}] {n.get('subject', '')}: {n.get('body', '')}"
