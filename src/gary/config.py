@@ -72,8 +72,9 @@ class Settings:
     game_channels: FrozenSet[int]
     freeform_channels: FrozenSet[int] = field(default_factory=frozenset)
     avrae_bot_id: int = DEFAULT_AVRAE_BOT_ID
-    # Classic Coins alias name, chosen at install time. Empty disables the
-    # payment prompt entirely and prices stay pure fiction.
+    # Coins Rewritten alias name, chosen at install time:
+    #   https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea
+    # Gary posts the command; without the alias installed it does nothing.
     coins_alias: str = "coins"
     command_prefix: str = DEFAULT_COMMAND_PREFIX
     # discord user id -> Avrae character name. Empty is allowed: actor

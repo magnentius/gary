@@ -103,6 +103,11 @@ before it ever ran.
 
 ## Before it can run
 
+0. **Install [Coins Rewritten](https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea) in Avrae** if you want money handled. Gary does not
+   hold coin — Avrae does (`ARCHITECTURE.md` §3) — so it posts `!coins -2cp` for the
+   player to run. Without the alias installed that command does nothing and the payment
+   silently never happens. `GARY_COINS_ALIAS` names it if you installed it as something
+   other than `coins`; set it empty to drop the prompt and leave prices as pure fiction.
 1. **Enable the Message Content privileged intent** in the Discord Developer Portal.
    Without it, `message.embeds` arrives empty and the parser sees nothing — it fails
    silently, which is why this is first.

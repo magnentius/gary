@@ -62,7 +62,8 @@ TEMPLATES: Mapping[CheckKind, str] = {
 # charset guard rather than an allowlist. Deliberately excludes the characters that make
 # Discord or Avrae interpret the string as something other than a name.
 _ATTACK_NAME = re.compile(r"^[A-Za-z0-9 '\-+]{1,40}$")
-# Classic Coins, confirmed live 2026-08-21: `!coins -2cp` spends and makes change from
+# Coins Rewritten (https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea),
+# confirmed live 2026-08-21: `!coins -2cp` spends and makes change from
 # larger denominations automatically. `1gp 5sp` is refused ("contained invalid coins"),
 # so one denomination per invocation -- a mixed price needs two prompts.
 _COIN_AMOUNT = re.compile(r"^-?\d{1,5}(?:cp|sp|ep|gp|pp)$")
@@ -109,7 +110,7 @@ def normalize_key(kind: CheckKind, key: str) -> str:
 
 
 def render_coin_command(amount: str, alias: str = "coins") -> str:
-    """Render a Classic Coins invocation, or raise.
+    """Render a Coins Rewritten invocation, or raise.
 
     Avrae owns coin (§3), so Gary never records a payment — it posts a command the player
     runs, the same Director pattern as a check. The alias refuses an overspend itself
