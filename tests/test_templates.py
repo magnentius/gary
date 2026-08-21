@@ -198,3 +198,18 @@ def test_effect_commands_carry_no_mechanical_arguments():
     ]:
         with pytest.raises(TemplateError):
             render_effect_command(target, effect, rounds)
+
+
+def test_removing_a_condition():
+    """A condition Avrae is tracking stays until removed, so one narrated as ending and
+    not removed is still on them mechanically."""
+    from gary.templates import render_remove_effect_command
+
+    assert render_remove_effect_command("GU1", "poisoned") == '!init re "GU1" "Poisoned"'
+    # Omitting the effect clears everything, per `!help init re`.
+    assert render_remove_effect_command("Caspian Varr") == '!init re "Caspian Varr"'
+    assert render_remove_effect_command("GU1", "") == '!init re "GU1"'
+
+    for target, effect in [("GU1", "Prone -ac +10"), ("GU1 -t X", "Prone"), ("", "Prone")]:
+        with pytest.raises(TemplateError):
+            render_remove_effect_command(target, effect)

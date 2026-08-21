@@ -40,7 +40,7 @@ from ..context import (
 )
 from ..encounters import benchmark, lookup, weigh
 from ..fsm import Director, SendMessage
-from ..templates import REST_MINUTES, condition, render_attack_command, render_effect_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
+from ..templates import REST_MINUTES, condition, render_attack_command, render_effect_command, render_remove_effect_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -316,6 +316,26 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.REMOVE_EFFECT:
+                try:
+                    command = render_remove_effect_command(
+                        str(args.get("target", "")), args.get("effect")
+                    )
+                except TemplateError as exc:
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": str(exc)}))
+                    continue
+                effects.append(SendMessage(channel_id, f"`{command}`"))
+                responses.append(types.Part.from_function_response(
+                    name=name,
+                    response={
+                        "ok": True,
+                        "posted": command,
+                        "note": "ALREADY POSTED to the channel — do not repeat it.",
+                    },
+                ))
+                continue
 
             if name == T.APPLY_EFFECT:
                 rounds = args.get("rounds")

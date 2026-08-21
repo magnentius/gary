@@ -274,6 +274,29 @@ def render_effect_command(
     return command
 
 
+def render_remove_effect_command(target: str, effect: Optional[str] = None) -> str:
+    """`!init re "GU1" "Poisoned"`, or raise.
+
+    Omitting the effect removes every effect on that combatant, per `!help init re`. That
+    is a blunt instrument -- it clears conditions the DM applied deliberately as readily
+    as the one that just ended -- so the caller has to mean it.
+    """
+    target = target.strip()
+    if not _COMBATANT_NAME.match(target):
+        raise TemplateError(f"unsafe target {target!r} — use the tracker name")
+    if effect is None or not effect.strip():
+        return f'!init re "{target}"'
+    effect = effect.strip()
+    if not _EFFECT_NAME.match(effect):
+        raise TemplateError(
+            f"unsafe effect name {effect!r} — a condition or a short label, no arguments"
+        )
+    known = condition(effect)
+    if known is not None:
+        effect = known["name"]
+    return f'!init re "{target}" "{effect}"'
+
+
 def render_coin_command(amount: str, command: str = "game coins") -> str:
     """Render an Avrae coinpurse invocation, or raise.
 

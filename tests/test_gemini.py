@@ -877,3 +877,15 @@ async def test_a_narrative_label_is_marked_as_having_no_mechanics(rig):
     result = await player(n, "I throw the bucket")
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert "no mechanical effect" in fr.response["rules"]
+
+
+@pytest.mark.asyncio
+async def test_remove_effect_posts_the_command(rig):
+    n = narrator(
+        rig,
+        call_response(T.REMOVE_EFFECT, {"target": "GU1", "effect": "poisoned"}),
+        text_response("The shaking stops."),
+    )
+    result = await player(n, "the poison runs its course")
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert '`!init re "GU1" "Poisoned"`' in posted

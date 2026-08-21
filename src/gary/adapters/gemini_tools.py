@@ -35,6 +35,7 @@ START_COMBAT = "start_combat"
 ATTACK = "attack"
 ENEMY_ATTACK = "enemy_attack"
 APPLY_EFFECT = "apply_effect"
+REMOVE_EFFECT = "remove_effect"
 
 
 def _s(**kw) -> types.Schema:
@@ -146,6 +147,25 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=REMOVE_EFFECT,
+        description=(
+            "Take a condition off a combatant — the poison wears off, the grapple is "
+            "broken, they stand up. A condition Avrae is tracking stays until removed, so "
+            "one you narrate ending and do not remove is still on them mechanically. "
+            "Name the effect; omitting it removes EVERY effect on that combatant, which "
+            "also clears anything the DM applied deliberately, so only do that when you "
+            "mean it."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "target": _s(type=_STRING, description="Tracker name, e.g. 'GU1'."),
+                "effect": _s(type=_STRING, description="The condition to remove. Omit to remove all."),
+            },
+            required=["target"],
         ),
     ),
     types.FunctionDeclaration(
