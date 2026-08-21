@@ -180,6 +180,10 @@ class Turn:
 def render_live_state(state: Dict[str, Any]) -> str:
     """Layer 2: a compact render of campaign state. Rebuilt every call."""
     lines = ["CURRENT WORLD STATE (authoritative — prefer this over anything in history):"]
+    setting = str(state.get("setting") or "").strip()
+    if setting:
+        # Ahead of everything else: it is the frame the rest is read inside.
+        lines.append(f"- Setting: {setting}")
     lines.append(f"- Time: {format_world_time(state)}")
 
     scene = state.get("scene") or {}

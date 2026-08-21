@@ -25,6 +25,10 @@ def empty_state() -> Dict[str, Any]:
         # is deliberate: finer resolution invites conflict with Avrae's round timing.
         "world_minutes": 0,
         "calendar": {"epoch_label": "1st of Hammer, 1492 DR", "minutes_per_day": 1440},
+        # The standing frame: premise, tone, region. Rendered every turn, unlike a
+        # note, which only surfaces when its subject is mentioned — and the premise is
+        # needed most at the start of a scene, before anyone has said the magic word.
+        "setting": "",
         "scene": {"location": "", "summary": ""},
         "party": {},  # actor -> {"gold": int, "inventory": [str], "notes": [str]}
         "effects": [],  # out-of-combat only; see EffectRecord

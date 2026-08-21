@@ -435,3 +435,16 @@ def test_mirroring_a_sheet_is_not_journalled(store):
     before = len(store.journal())
     store.mirror_sheet("Kethra", "Elf Wizard 4", 4)
     assert len(store.journal()) == before
+
+
+def test_the_setting_is_journalled_and_undoable(store):
+    store.apply([Mutation(MutationKind.SETTING, "", {"text": "A cold port city."})],
+                reason="setting")
+    assert store.state()["setting"] == "A cold port city."
+
+    store.apply([Mutation(MutationKind.SETTING, "", {"text": "A warm desert city."})],
+                reason="setting")
+    assert store.state()["setting"] == "A warm desert city."
+
+    store.undo_last()
+    assert store.state()["setting"] == "A cold port city."

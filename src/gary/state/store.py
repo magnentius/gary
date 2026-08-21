@@ -668,6 +668,17 @@ def _h_player_character(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    before = store._state.get("setting", "")
+    store._state["setting"] = str(m.payload.get("text", ""))
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.SETTING, "", {"text": before}),
+        before=before,
+        after=store._state["setting"],
+    )
+
+
 def _h_scene(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = dict(store._state.get("scene", {}))
     store._state["scene"] = {**before, **m.payload}
@@ -690,5 +701,6 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.NPC_RELATION: _h_npc,
     MutationKind.NOTE: _h_note,
     MutationKind.SCENE: _h_scene,
+    MutationKind.SETTING: _h_setting,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
 }

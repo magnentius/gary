@@ -377,3 +377,17 @@ def test_persona_states_that_nothing_tracks_position():
     assert "NOTHING TRACKS POSITION" in text
     assert "scene summary" in text
     assert "ranged" in text
+
+
+def test_the_setting_frames_everything_else():
+    """A note only surfaces when its subject is mentioned, and the premise is needed most
+    at the start of a scene, before anyone has said the magic word. The setting is
+    rendered every turn, ahead of the rest."""
+    state = empty_state()
+    state["setting"] = "Low-magic port city. The watch is bought and everyone knows it."
+    rendered = render_live_state(state).splitlines()
+    assert rendered[1].startswith("- Setting: Low-magic port city")
+
+
+def test_no_setting_renders_nothing():
+    assert "Setting:" not in render_live_state(empty_state())

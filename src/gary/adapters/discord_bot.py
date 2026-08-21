@@ -246,6 +246,10 @@ class GaryClient(discord.Client):
     #: under a second; anything older is a different request.
     SHEET_CLAIM_SECONDS = 30.0
 
+    #: The setting rides on every turn, so it is capped. Detail belongs in
+    #: notes, which surface only when their subject comes up.
+    MAX_SETTING_CHARS = 600
+
     async def on_message(self, message: "discord.Message") -> None:
         # `!sheet` carries no interaction metadata — it is a prefix command — so the sheet
         # embed that follows cannot say who asked for it. Remember the asker, and claim
@@ -419,6 +423,34 @@ class GaryClient(discord.Client):
             )
             return
 
+        if command == "setting":
+            raw = body[len("setting"):].strip()
+            if not raw:
+                current = self.store.state().get("setting") or ""
+                await self.sender.send(
+                    channel_id,
+                    (f"Setting: {current}" if current else "No setting yet.")
+                    + f"\nSet it with `{self.settings.command_prefix}setting <premise, "
+                    "tone, region>` — it is shown to the DM on every single turn, so keep "
+                    "it to the standing facts of the world, not what is happening now.",
+                )
+                return
+            if len(raw) > self.MAX_SETTING_CHARS:
+                await self.sender.send(
+                    channel_id,
+                    f"That is {len(raw)} characters and the limit is "
+                    f"{self.MAX_SETTING_CHARS} — it rides on every turn, so it has to stay "
+                    "short. Put the detail in notes, which surface when their subject "
+                    "comes up.",
+                )
+                return
+            self.store.apply(
+                [Mutation(MutationKind.SETTING, "", {"text": raw})],
+                reason=f"setting by {message.author.display_name}",
+            )
+            await self.sender.send(channel_id, f"Setting noted.\n> {raw}")
+            return
+
         if command == "scene":
             raw = body[len("scene"):].strip()
             if not raw:
@@ -572,7 +604,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: scene <location> | time <HH:MM> | playing <name> | undo | cancel | checks | state | stats | reset",
+                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 

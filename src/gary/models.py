@@ -184,6 +184,7 @@ class MutationKind(str, Enum):
     SCENE = "scene"
     TIME = "time"
     PLAYER_CHARACTER = "player_character"
+    SETTING = "setting"
 
 
 @dataclass(frozen=True)
