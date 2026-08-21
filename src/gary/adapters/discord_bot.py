@@ -216,6 +216,31 @@ class GaryClient(discord.Client):
             return
         await self.on_message(after)
 
+    async def on_raw_message_edit(self, payload) -> None:
+        """Edits to messages the bot never saw posted.
+
+        ``on_message_edit`` only fires for messages in discord.py's own cache — those seen
+        since this process connected. The initiative tracker is pinned and long-lived, so
+        after any restart mid-combat it is not cached, and every `!init next` edits it
+        silently. That is not an edge case here: Gary was restarted repeatedly during one
+        fight and the combat mirror stayed empty the whole time.
+
+        Fetching costs an API call per edit, which is a handful per turn.
+        """
+        if payload.cached_message is not None:
+            return  # on_message_edit already handled it
+        channel = self.get_channel(payload.channel_id)
+        if channel is None:
+            return
+        try:
+            message = await channel.fetch_message(payload.message_id)
+        except discord.HTTPException:
+            log.warning("could not fetch edited message %s", payload.message_id)
+            return
+        if message.author.id != self.settings.avrae_bot_id:
+            return
+        await self.on_message(message)
+
     async def on_message(self, message: "discord.Message") -> None:
         route = route_message(
             author_id=message.author.id,

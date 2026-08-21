@@ -407,3 +407,64 @@ def test_only_avrae_edits_are_reprocessed():
     asyncio.get_event_loop().run_until_complete(edit(player, player))
 
     assert seen == [avrae]
+
+
+def test_raw_edits_are_fetched_when_the_message_was_never_cached():
+    """on_message_edit only fires for messages discord.py has cached — those seen since
+    this process connected. The initiative tracker is pinned and long-lived, so after a
+    restart mid-combat every `!init next` edits it silently."""
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    seen = []
+    AVRAE = 261302296103747584
+
+    class _Msg:
+        def __init__(self, author_id):
+            self.author = type("A", (), {"id": author_id})()
+
+    class _Channel:
+        def __init__(self, message):
+            self._message = message
+
+        async def fetch_message(self, _id):
+            return self._message
+
+    class _Payload:
+        def __init__(self, cached, fetched):
+            self.cached_message = cached
+            self.channel_id = 1
+            self.message_id = 2
+            self._fetched = fetched
+
+    class _Client:
+        settings = type("S", (), {"avrae_bot_id": AVRAE})()
+
+        def __init__(self, fetched):
+            self._fetched = fetched
+
+        def get_channel(self, _id):
+            return _Channel(self._fetched)
+
+        async def on_message(self, message):
+            seen.append(message)
+
+    run = asyncio.get_event_loop().run_until_complete
+
+    tracker = _Msg(AVRAE)
+    client = _Client(tracker)
+    raw = GaryClient.on_raw_message_edit.__get__(client, _Client)
+
+    run(raw(_Payload(cached=None, fetched=tracker)))          # uncached Avrae edit: fetched
+    assert seen == [tracker]
+
+    run(raw(_Payload(cached=tracker, fetched=tracker)))       # cached: on_message_edit has it
+    assert seen == [tracker]
+
+    seen.clear()
+    player = _Msg(999)
+    client = _Client(player)
+    raw = GaryClient.on_raw_message_edit.__get__(client, _Client)
+    run(raw(_Payload(cached=None, fetched=player)))           # not Avrae: ignored
+    assert seen == []
