@@ -123,12 +123,17 @@ before it ever ran.
    fixtures (the class that hid the initiative tracker), and commands you have not run
    yet. Captures land in `tests/fixtures/avrae/captured/`, which the test glob ignores —
    move them up a level once you have filled in each `expect`.
-3. **Verify the Firestore backend** if you want the disposable-VM setup. `state/firestore.py`
-   has never run against Firestore, real or emulated — the fake-client tests cover this
-   repo's serialisation and ordering, not Google's semantics:
+3. **Firestore is verified against the emulator** (2026-08-20) if you want the
+   disposable-VM setup. The shared backend suite passes against real Firestore semantics,
+   not just the fake client. To re-run it:
    ```bash
-   gcloud emulators firestore start --host-port=localhost:8080
+   gcloud emulators firestore start --host-port=localhost:8080   # needs a JDK
    ```
+   Then point the suite's Firestore client at it instead of `FakeFirestoreClient`.
+   **Know the ceiling before committing a long campaign to it:** the whole state lives in
+   one document field, Firestore caps that at 1048487 bytes, and once you cross it every
+   mutation raises and the campaign is write-blocked until the state is shrunk by hand.
+   See `ARCHITECTURE.md` §7.4.
 4. **Run it with no model attached.** `EchoNarrator` reports outcomes in plain text, so
    the entire Discord path — intents, routing, parsing, correlation, resolution, sending —
    can be proven against a live Avrae before spending a token:
