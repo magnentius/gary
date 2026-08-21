@@ -34,7 +34,8 @@ from ..registry import PendingCheckRegistry
 from ..state.backend import FileCheckBackend, FileStateBackend
 from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
-from ..state.store import CampaignStore
+from ..state.schema import format_world_time, parse_world_time
+from ..state.store import CampaignStore, StateError
 from .routing import Route, route_message
 from .runner import EffectRunner
 from .sender import ChannelSender
@@ -287,6 +288,43 @@ class GaryClient(discord.Client):
         command = parts[0].lower() if parts else "help"
         channel_id = message.channel.id
 
+        if command == "time":
+            raw = body[len("time"):].strip()
+            state = self.store.state()
+            if not raw:
+                await self.sender.send(
+                    channel_id,
+                    f"It is {format_world_time(state)}. Set it with "
+                    f"`{self.settings.command_prefix}time 18:30` or "
+                    f"`{self.settings.command_prefix}time day 2 06:00`.",
+                )
+                return
+            try:
+                target = parse_world_time(raw, state)
+            except ValueError as exc:
+                await self.sender.send(channel_id, f"Can't read that time — {exc}")
+                return
+
+            delta = target - int(state.get("world_minutes", 0))
+            if delta < 0:
+                # Effects expire on the way past their minute and do not un-expire, so
+                # rewinding would leave state that no longer matches the clock.
+                await self.sender.send(
+                    channel_id,
+                    f"That is in the past — it is {format_world_time(state)}. The clock "
+                    "only moves forward; give a later time or a later day.",
+                )
+                return
+            try:
+                self.store.advance_time(delta, reason=f"clock set by {message.author.display_name}")
+            except StateError as exc:
+                await self.sender.send(channel_id, f"Can't move the clock: {exc}")
+                return
+            await self.sender.send(
+                channel_id, f"It is now {format_world_time(self.store.state())}."
+            )
+            return
+
         if command == "scene":
             raw = body[len("scene"):].strip()
             if not raw:
@@ -436,7 +474,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: scene <location> | playing <name> | undo | cancel | checks | state | stats | reset",
+                f"`{self.settings.command_prefix}`: scene <location> | time <HH:MM> | playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 

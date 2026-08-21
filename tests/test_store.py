@@ -392,3 +392,24 @@ def test_setting_a_location_clears_a_stale_summary(store):
         reason="scene",
     )
     assert store.state()["scene"] == {"location": "Dock 9", "summary": ""}
+
+
+def test_parse_world_time_round_trips_the_formatter():
+    """?dm time computes a forward delta, because the clock can only be advanced."""
+    from gary.state.schema import empty_state, format_world_time, parse_world_time
+
+    st = empty_state()
+    assert format_world_time(st) == "Day 1, 00:00"      # a fresh campaign opens at midnight
+
+    st["world_minutes"] = parse_world_time("18:30", st)
+    assert format_world_time(st) == "Day 1, 18:30"
+
+    st["world_minutes"] = parse_world_time("day 2 06:00", st)
+    assert format_world_time(st) == "Day 2, 06:00"
+
+    # a bare HH:MM means "today", where today comes from the current clock
+    assert parse_world_time("07:00", st) == 1440 + 420
+
+    for bad in ("25:00", "18:60", "soon", "", "day 0 10:00"):
+        with pytest.raises(ValueError):
+            parse_world_time(bad, st)
