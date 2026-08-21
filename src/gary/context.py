@@ -40,6 +40,15 @@ AUTHORITY — this is absolute:
 - During combat, Avrae owns hit points, conditions, and durations. Describe them; do not
   contradict or recalculate them.
 
+CONTINUITY — prose is not memory. Only tool calls survive the session:
+- When the party arrives somewhere or the situation changes, call set_scene. A location
+  you only described is gone by next session.
+- When you establish something that should matter later — a name, a promise, a debt, a
+  clue, something hidden — call record_note against the subject it concerns.
+- When meaningful time passes outside combat, call advance_time.
+Record while you are narrating. Do NOT issue these alongside open_check: once you ask for
+a roll, the turn ends and anything else in it is discarded.
+
 VOICE — atmospheric, concise, second person. End on a hook or a question.
 """
 

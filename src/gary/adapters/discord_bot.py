@@ -266,10 +266,11 @@ class GaryClient(discord.Client):
                     "exactly as Avrae shows it.",
                 )
                 return
-            self.store.apply(
-                [Mutation(MutationKind.PLAYER_CHARACTER, str(message.author.id), {"actor": actor})],
-                reason=f"{message.author.display_name} plays {actor}",
-            )
+            if self.director.players.get(message.author.id) != actor:
+                self.store.apply(
+                    [Mutation(MutationKind.PLAYER_CHARACTER, str(message.author.id), {"actor": actor})],
+                    reason=f"{message.author.display_name} plays {actor}",
+                )
             self.director.set_player_character(message.author.id, actor)
             await self.sender.send(
                 channel_id, f"Noted — **{message.author.display_name}** is playing **{actor}**."

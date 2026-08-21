@@ -175,3 +175,14 @@ def test_notes_are_filtered_to_present_subjects():
     memory = result.system_instruction[-1]
     assert "Varo" in memory
     assert "Serrin" not in memory
+
+
+def test_persona_asks_the_model_to_persist_what_it_establishes():
+    """The first real scene narrated a strongbox and a room and recorded neither, so
+    none of it survived to the next session. The instruction never asked."""
+    text = DM_SYSTEM_INSTRUCTION.lower()
+    assert "set_scene" in text
+    assert "record_note" in text
+    assert "advance_time" in text
+    # and must not invite tool calls in the same turn as open_check, which are discarded
+    assert "alongside open_check" in text
