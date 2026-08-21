@@ -210,7 +210,18 @@ class GaryClient(discord.Client):
                 await self._on_player(message)
             elif route is Route.DM_COMMAND:
                 await self._on_dm_command(message)
-            # IGNORE_SELF / IGNORE_BOT / NOT_A_GAME_CHANNEL: nothing to do.
+            elif route is Route.NOT_A_GAME_CHANNEL and not message.author.bot:
+                # §6.3 calls an unregistered channel "silence, not an error", which is
+                # right in a busy server and indistinguishable from a broken bot when
+                # you are waiting in the channel you believe is configured.
+                log.info(
+                    "message %s is in channel %d, which is not in GARY_GAME_CHANNELS %s; "
+                    "ignored",
+                    message.id,
+                    message.channel.id,
+                    sorted(self.settings.game_channels),
+                )
+            # IGNORE_SELF / IGNORE_BOT: nothing to do, and nothing worth saying.
         except Exception:  # noqa: BLE001 - one bad message must not kill the bot
             log.exception("handling %s message %s failed", route.value, message.id)
 
