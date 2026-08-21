@@ -40,7 +40,7 @@ from ..context import (
 )
 from ..encounters import benchmark, lookup, weigh
 from ..fsm import Director, SendMessage
-from ..templates import REST_MINUTES, render_rest_command, TemplateError, render_coin_command
+from ..templates import REST_MINUTES, render_attack_command, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -306,6 +306,31 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
+            if name == T.ATTACK:
+                try:
+                    command = render_attack_command(
+                        str(args.get("weapon", "")), str(args.get("target", ""))
+                    )
+                except TemplateError as exc:
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": str(exc)}))
+                    continue
+                actor = str(args.get("actor", "")).strip() or "Someone"
+                effects.append(SendMessage(
+                    channel_id, f"**{actor}** — on your turn:\n`{command}`"
+                ))
+                responses.append(types.Part.from_function_response(
+                    name=name,
+                    response={
+                        "ok": True,
+                        "posted": command,
+                        "note": "Avrae rolls this against the target's AC and applies the "
+                                "damage itself. You are told nothing until it reports, and "
+                                "you must not decide whether it hit.",
+                    },
+                ))
+                continue
+
             if name == T.START_COMBAT:
                 names = [str(m) for m in (args.get("monsters") or []) if str(m).strip()]
                 unknown = [m for m in names if lookup(m) is None]
@@ -317,7 +342,8 @@ class GeminiNarrator:
                     "**Roll for initiative.**\n"
                     "`!init begin`\n"
                     "Everyone joins with `!init join`."
-                    + (f"\nThen add the opposition:\n{adds}" if adds else ""),
+                    + (f"\nThen add the opposition:\n{adds}" if adds else "")
+                    + "\nStart the first round with `!init next`.",
                 ))
                 responses.append(types.Part.from_function_response(
                     name=name,

@@ -124,6 +124,7 @@ The most common failure mode in a system like this is two components confidently
 | HP, conditions, effect durations **inside initiative** | **Avrae** | Round-based. Gary mirrors read-only. |
 | Combat turn order | **Avrae** | |
 | DC of any check | **Gary** (proposed by Gemini) | Persisted before the roll. §5. |
+| Attack rolls in combat | **Avrae** | Not a check, and deliberately not §5's protocol. An attack resolves against the target's AC and applies damage to hit points Avrae is already tracking, so Avrae rolls it, compares it and applies it. Gary renders `!attack "Longsword" -t NO1` and narrates what comes back; it commits no DC. `open_check(kind=attack)` was the wrong shape and is gone — asking the model for a DC on an attack was asking it to invent an AC that Avrae already knows. |
 | Success/failure of any check | **Gary** | Deterministic comparison. Never the LLM. |
 | World date/time | **State server** | Minute granularity. |
 | Effects, conditions, resources **outside initiative** | **State server** | Wall-clock based. |

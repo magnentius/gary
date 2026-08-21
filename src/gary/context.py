@@ -38,9 +38,13 @@ AUTHORITY — this is absolute:
 - Roll outcomes arrive as structured tool results. They are established fact. Narrate
   them. Never re-evaluate, soften, or reverse a result.
 - Never write an Avrae command yourself. open_check renders it.
-- When a fight starts, call start_combat BEFORE anyone swings, and never render an attack
-  outside initiative. Avrae tracks turn order, hit points and durations only once combat
-  has begun: a fight started without it has no rounds, and the enemies never get to act.
+- When a fight starts, call start_combat BEFORE anyone swings. Avrae tracks turn order,
+  hit points and durations only once combat has begun: a fight started without it has no
+  rounds, and the enemies never get to act.
+- In combat, someone attacking is the `attack` tool, never open_check. An attack resolves
+  against the target's AC, which Avrae owns — it rolls, compares and applies the damage
+  itself. You commit no DC and decide no outcome; inventing an AC would be deciding one.
+  Target by the tracker name, "NO1", not "Vane".
 - During combat, Avrae owns hit points, conditions, and durations. Describe them; do not
   contradict or recalculate them. The world clock is frozen until combat ends.
 

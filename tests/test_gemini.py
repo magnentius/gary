@@ -749,3 +749,37 @@ async def test_start_combat_posts_the_initiative_commands(rig):
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is True
     assert "frozen" in fr.response["note"]
+
+
+@pytest.mark.asyncio
+async def test_attack_posts_a_targeted_command_and_decides_nothing(rig):
+    """In combat the model told the player to "execute your attack command" -- open_check
+    had no target, so it could not express the attack and delegated writing the command,
+    which §5.3 exists to prevent."""
+    n = narrator(
+        rig,
+        call_response(T.ATTACK, {"actor": "Caspian Varr", "weapon": "Longsword", "target": "NO1"}),
+        text_response("Steel rings off the desk."),
+    )
+    result = await player(n, "I swing at Vane")
+
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert '`!attack "Longsword" -t NO1`' in posted
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is True
+    assert "must not decide whether it hit" in fr.response["note"]
+
+
+@pytest.mark.asyncio
+async def test_a_target_cannot_smuggle_a_flag(rig):
+    """§5.3: the only strings Gary posts are ones it built from an allowlist."""
+    n = narrator(
+        rig,
+        call_response(T.ATTACK, {"actor": "X", "weapon": "Longsword", "target": "NO1 -f"}),
+        text_response("..."),
+    )
+    result = await player(n, "I swing")
+    assert not [e for e in result.effects if isinstance(e, SendMessage)]
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False

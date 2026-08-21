@@ -62,6 +62,11 @@ TEMPLATES: Mapping[CheckKind, str] = {
 # charset guard rather than an allowlist. Deliberately excludes the characters that make
 # Discord or Avrae interpret the string as something other than a name.
 _ATTACK_NAME = re.compile(r"^[A-Za-z0-9 '\-+]{1,40}$")
+# Avrae's tracker names: "GU1", "NO1", "Caspian Varr", "Ana-Maria". Every separator must
+# be followed by an alphanumeric, so "NO1 -f" is refused -- otherwise a target could
+# smuggle a flag into the command, which is the whole reason §5.3 renders from an
+# allowlist rather than letting the model write commands.
+_COMBATANT_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9']{0,29}(?:[ -][A-Za-z0-9'][A-Za-z0-9']{0,29})*$")
 # Avrae's built-in coinpurse, per `!help game coinpurse` (2026-08-21):
 #
 #     !game coins <amount>
@@ -137,6 +142,25 @@ def render_rest_command(kind: str) -> str:
         return REST_COMMAND[kind.strip().lower()]
     except KeyError:
         raise TemplateError(f"rest kind must be 'short' or 'long', not {kind!r}")
+
+
+def render_attack_command(weapon: str, target: str) -> str:
+    """`!attack "Longsword" -t NO1`, or raise.
+
+    Separate from render_command because an in-combat attack is not a check. It resolves
+    against the target's AC, which Avrae owns (§3) -- Avrae rolls it, compares it and
+    applies the damage to hit points it is already tracking. Gary commits no DC and has
+    nothing to resolve; it renders the command and narrates what Avrae reports.
+    """
+    weapon = weapon.strip()
+    target = target.strip()
+    if not _ATTACK_NAME.match(weapon):
+        raise TemplateError(f"unsafe weapon name: {weapon!r}")
+    if not _COMBATANT_NAME.match(target):
+        raise TemplateError(
+            f"unsafe target {target!r} — use the name from the initiative tracker, e.g. 'NO1'"
+        )
+    return f'!attack "{weapon}" -t {target}'
 
 
 def render_coin_command(amount: str, command: str = "game coins") -> str:

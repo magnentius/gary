@@ -32,6 +32,7 @@ REQUEST_PAYMENT = "request_payment"
 REQUEST_REST = "request_rest"
 WEIGH_ENCOUNTER = "weigh_encounter"
 START_COMBAT = "start_combat"
+ATTACK = "attack"
 
 
 def _s(**kw) -> types.Schema:
@@ -58,7 +59,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             type=_OBJECT,
             properties={
                 "actor": _s(type=_STRING, description="Character name exactly as it appears in Avrae."),
-                "kind": _s(type=_STRING, enum=["check", "save", "attack"]),
+                "kind": _s(type=_STRING, enum=["check", "save"]),
                 "key": _s(
                     type=_STRING,
                     description=(
@@ -143,6 +144,25 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ATTACK,
+        description=(
+            "Someone attacks in combat. This is NOT a check: Avrae owns the target's AC "
+            "and hit points, so it rolls, compares and applies damage itself — you commit "
+            "no DC and decide no outcome. Posts the command for the player to run on "
+            "their turn; you are told nothing until Avrae reports. Target by the name in "
+            "the initiative tracker ('NO1', 'GU1'), not the character's fictional name."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING, description="Who is attacking, as Avrae names them."),
+                "weapon": _s(type=_STRING, description="Weapon or attack name, e.g. 'Longsword'."),
+                "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'NO1'."),
+            },
+            required=["actor", "weapon", "target"],
         ),
     ),
     types.FunctionDeclaration(
