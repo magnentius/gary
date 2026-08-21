@@ -711,7 +711,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | playing <name> | undo | cancel | checks | state | stats | reset",
+                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | import (attach .md) | playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 
