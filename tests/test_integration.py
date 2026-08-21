@@ -103,7 +103,9 @@ async def test_full_turn_from_declaration_to_narrated_outcome(rig, clock):
     )
 
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-    assert '`!check "sleight of hand"`' in transport.sent[-1][1]
+    # Posted ahead of the narration it belongs to, not after it.
+    assert any('`!check "sleight of hand"`' in t for _, t in transport.sent)
+    assert transport.sent[0][1].startswith("**Kethra**")
 
     # 2. Avrae answers, from a real fixture payload. Total 20 vs DC 15.
     parsed = parse_embed(fixture_message("check_success.json"))

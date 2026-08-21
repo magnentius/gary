@@ -147,9 +147,11 @@ async def test_narration_effects_are_performed():
     )
     await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
 
+    # The command goes first: it is a stage direction for the prose that follows, not a
+    # footnote to it. See the runner's comment for the rest that made this obvious.
     assert [t for _, t in sender.sent] == [
-        "You crouch by the lock.",
         "**Kethra** — run `!check stealth`",
+        "You crouch by the lock.",
     ]
 
 
@@ -213,3 +215,27 @@ async def test_echo_narrator_reports_outcomes_without_a_model():
     text = sender.sent[0][1]
     assert "SUCCESS" in text and "17" in text and "15" in text
     assert "The tumblers give." in text
+
+
+@pytest.mark.asyncio
+async def test_non_message_effects_keep_their_place():
+    """Only channel posts are hoisted. A PromptModel among the effects spawns a nested
+    turn, and running it early would put that turn's narration before this one's."""
+    sender = FakeSender()
+    narrator = ScriptedNarrator(
+        NarrationResult(
+            text="Nothing happens.",
+            effects=[
+                SendMessage(CHANNEL, "**Kethra** — run `!check stealth`"),
+                PromptModel(CHANNEL, "system_note", {"error": "bad key"}),
+            ],
+        ),
+        NarrationResult(text="(the DM reconsiders)"),
+    )
+    await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
+
+    assert [t for _, t in sender.sent] == [
+        "**Kethra** — run `!check stealth`",   # hoisted
+        "Nothing happens.",                    # this turn's prose
+        "(the DM reconsiders)",                # the nested turn, still last
+    ]

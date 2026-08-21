@@ -123,6 +123,19 @@ class EffectRunner:
 
         self.stats.narrated += 1
 
+        # A command the player must run is a stage direction: it goes before the prose it
+        # belongs to. Observed 2026-08-21 — the model narrated a whole night's rest and
+        # the following morning, and only then said "Everyone run: !game longrest".
+        #
+        # Only SendMessage is hoisted. The rest keep their place, because effects may
+        # include a PromptModel (an open_check rejection returns one) and running that
+        # early would emit a nested turn's narration ahead of this one's.
+        posts = [e for e in result.effects if isinstance(e, SendMessage)]
+        rest = [e for e in result.effects if not isinstance(e, SendMessage)]
+        for post in posts:
+            await self._sender.send(post.channel_id, post.text)
+            self.stats.sent += 1
+
         text = (result.text or "").strip()
         if text:
             await self._sender.send(effect.channel_id, text)
@@ -132,5 +145,5 @@ class EffectRunner:
             log.warning("narrator returned nothing for kind=%s", effect.kind)
             await self._sender.send(effect.channel_id, self._stall)
 
-        if result.effects:
-            await self.run(result.effects, depth + 1)
+        if rest:
+            await self.run(rest, depth + 1)
