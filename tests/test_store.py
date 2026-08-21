@@ -340,3 +340,39 @@ def test_replaying_a_check_outcome_is_a_no_op(backend_factory, clock):
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
     assert reopened.state() == expected
     assert reopened.journal()[-1]["kind"] == "check_outcome"
+
+
+def test_reset_clears_the_world_but_keeps_the_table(store):
+    """Reset is for the fiction. Who is playing whom is table setup, and losing it means
+    the next check silently fails to correlate."""
+    store.apply(
+        [Mutation(MutationKind.PLAYER_CHARACTER, "111", {"actor": "Caspian Varr"})],
+        reason="roster",
+    )
+    store.apply([gold("Caspian Varr", 250)], reason="loot")
+    store.apply(
+        [Mutation(MutationKind.QUEST, "q1", {"title": "Find the caravan"})], reason="quest"
+    )
+    assert store.state()["quests"]
+
+    store.reset_campaign()
+
+    st = store.state()
+    assert st["players"] == {"111": "Caspian Varr"}  # the table survives
+    assert st["quests"] == {}
+    assert st["party"] == {}
+    assert st["world_minutes"] == 0
+
+
+def test_reset_preserves_the_journal(backend_factory, clock):
+    """The campaign is gone; the record that it existed is not."""
+    first = CampaignStore(backend=backend_factory(), clock=clock)
+    first.apply([gold("Kethra", 10)], reason="before the reset")
+    first.reset_campaign()
+
+    kinds = [e["kind"] for e in first.journal()]
+    assert "gold" in kinds  # history of the old campaign survives
+    assert kinds[-1] == "campaign_reset"
+
+    reopened = CampaignStore(backend=backend_factory(), clock=clock)
+    assert reopened.state()["party"] == {}  # and replay honours the reset

@@ -150,7 +150,7 @@ before it ever ran.
    name-based in practice (`ARCHITECTURE.md` §14 (7)), and a check opened for "John K"
    matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
    anything went wrong. Leave it unset and validation is skipped, as before.
-   In the channel: `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`.
+   In the channel: `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; keeps the roster and the journal).
 5. **Point Claude Desktop at the MCP server** (verified 2026-08-20). It imports, registers
    7 tools and 5 resources, executes them against a real campaign, and degrades to
    read-only under §7.6's lock with a JSON explanation rather than a stack trace.

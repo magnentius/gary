@@ -98,6 +98,7 @@ class GaryClient(discord.Client):
         narrator: Optional[Narrator] = None,
         clock=time.time,
         lock: Optional[CampaignLock] = None,
+        history_backend=None,
     ) -> None:
         intents = discord.Intents.default()
         intents.message_content = True  # PRIVILEGED — also enable in the Developer Portal
@@ -109,6 +110,8 @@ class GaryClient(discord.Client):
         self.store = store
         self.clock = clock
         self.lock = lock
+        self.history_backend = history_backend
+        self._reset_token: Optional[str] = None
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
@@ -284,6 +287,46 @@ class GaryClient(discord.Client):
         command = parts[0].lower() if parts else "help"
         channel_id = message.channel.id
 
+        if command == "reset":
+            token = parts[1] if len(parts) > 1 else ""
+            if not token:
+                self._reset_token = f"{int(self.clock()) % 10000:04d}"
+                state = self.store.state()
+                await self.sender.send(
+                    channel_id,
+                    "**This deletes the campaign.** World state, quests, NPCs, notes, "
+                    "inventories and conversation memory all go. The journal is kept, so "
+                    "the record of what happened survives, but the campaign does not. "
+                    f"Currently: {len(state.get('notes') or [])} note(s), "
+                    f"{len(state.get('quests') or {})} quest(s), "
+                    f"{len(state.get('npcs') or {})} NPC(s).\n"
+                    f"Who is playing whom is kept.\n"
+                    f"To confirm: `{self.settings.command_prefix}reset "
+                    f"{self._reset_token}`"
+                )
+                return
+            if token != self._reset_token:
+                await self.sender.send(
+                    channel_id,
+                    f"That code is not current. Run `{self.settings.command_prefix}reset` "
+                    "again to get a fresh one.",
+                )
+                return
+
+            self._reset_token = None
+            for check in list(self.director.registry.open_checks()):
+                self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
+            if self.history_backend is not None:
+                for cid in self.settings.game_channels:
+                    self.history_backend.save_turns(cid, [])
+                    self.history_backend.save_summary(cid, "")
+            self.store.reset_campaign()
+            log.warning("campaign reset by %s in channel %d", message.author, channel_id)
+            await self.sender.send(
+                channel_id, "Campaign reset. Day 1, 00:00. The table is still set."
+            )
+            return
+
         if command == "playing":
             actor = body[len("playing"):].strip()
             if not actor:
@@ -361,7 +404,7 @@ class GaryClient(discord.Client):
         else:
             await self.sender.send(
                 channel_id,
-                f"`{self.settings.command_prefix}`: playing <name> | undo | cancel | checks | state | stats",
+                f"`{self.settings.command_prefix}`: playing <name> | undo | cancel | checks | state | stats | reset",
             )
 
 
@@ -421,7 +464,10 @@ def build_client(
     if narrator is None:
         narrator = build_narrator(settings, director, store, history_backend)
 
-    return GaryClient(settings, director, store, narrator=narrator, clock=clock, lock=lock)
+    return GaryClient(
+        settings, director, store, narrator=narrator, clock=clock, lock=lock,
+        history_backend=history_backend,
+    )
 
 
 def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:

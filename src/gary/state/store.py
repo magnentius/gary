@@ -123,6 +123,33 @@ class CampaignStore:
             self._replay(entry)
         self._since_snapshot = len(self._journal) - replay_from
 
+    def reset_campaign(self) -> None:
+        """Wipe the world back to Day 1, keeping who is playing whom.
+
+        The journal is NOT truncated. A reset is appended as its own entry and replays as
+        "state becomes empty", so the history of what happened before it survives and
+        remains auditable -- the campaign is gone, the record that it existed is not.
+
+        ``players`` is carried across deliberately. It is table setup, not fiction, and
+        losing it means the next check silently fails to correlate (§14 (7)).
+        """
+        with self._lock:
+            players = dict(self._state.get("players") or {})
+            self._append_journal(
+                {
+                    "entry_id": new_id(self._clock()),
+                    "at": self._clock(),
+                    "kind": "campaign_reset",
+                    "target": "",
+                    "payload": {"players": players},
+                    "inverse": None,
+                    "reason": "campaign reset",
+                }
+            )
+            self._state = empty_state()
+            self._state["players"] = players
+        self.snapshot()
+
     def record_check_outcome(self, outcome: "CheckOutcome") -> None:
         """Journal a resolved check.
 
@@ -159,6 +186,11 @@ class CampaignStore:
         kind = entry["kind"]
         if kind == "encounter_begin":
             self._state["encounter"] = entry["payload"]
+            return
+        if kind == "campaign_reset":
+            preserved = entry.get("payload", {}).get("players", {})
+            self._state = empty_state()
+            self._state["players"] = dict(preserved)
             return
         if kind == "check_outcome":
             # History, not state. Replaying it must change nothing -- the campaign is
