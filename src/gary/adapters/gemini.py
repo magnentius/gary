@@ -40,7 +40,7 @@ from ..context import (
 )
 from ..encounters import benchmark, lookup, weigh
 from ..fsm import Director, SendMessage
-from ..templates import REST_MINUTES, render_attack_command, render_effect_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
+from ..templates import REST_MINUTES, condition, render_attack_command, render_effect_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -330,11 +330,18 @@ class GeminiNarrator:
                         name=name, response={"ok": False, "error": str(exc)}))
                     continue
                 effects.append(SendMessage(channel_id, f"`{command}`"))
+                known = condition(str(args.get("effect", "")))
                 responses.append(types.Part.from_function_response(
                     name=name,
                     response={
                         "ok": True,
                         "posted": command,
+                        # The rules verbatim, because Avrae tracks the condition and never
+                        # its consequences: knowing what Restrained actually does is the
+                        # difference between narrating it and adjudicating it.
+                        "rules": known["rules"] if known else
+                                 "Not an SRD condition — a narrative label with no "
+                                 "mechanical effect. Avrae will display it and nothing more.",
                         "note": "ALREADY POSTED to the channel — do not repeat it. Avrae "
                                 "tracks the condition once someone runs it; until then it "
                                 "does not exist mechanically.",

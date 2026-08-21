@@ -15,8 +15,10 @@ also rolls, but stays hostage to whatever skills Avrae adds later.
 
 from __future__ import annotations
 
+import json
 import re
-from typing import Mapping
+from pathlib import Path
+from typing import Mapping, Optional
 
 from .models import CheckKind
 
@@ -152,16 +154,21 @@ def render_rest_command(kind: str) -> str:
         raise TemplateError(f"rest kind must be 'short' or 'long', not {kind!r}")
 
 
-def _prone_modifier(target_is_prone: bool, ranged: bool) -> str:
-    """Advantage or disadvantage against a prone target, by range.
+def _prone_modifier(target_is_down: bool, ranged: bool) -> str:
+    """The modifier for attacking a creature at 0 HP. Advantage, at any range.
 
-    A creature at 0 HP is Prone, and attacks against it are made at advantage in melee and
-    disadvantage at range. Avrae applies neither — it holds the hit points and the
-    condition and joins them to nothing. Gary cannot see range, so the caller declares it.
+    A creature at 0 HP has the Unconscious condition, not merely Prone, and the SRD
+    separates them: Prone gives "Advantage if the attacker is within 5 feet of you.
+    Otherwise, that attack roll has Disadvantage", while Unconscious says flatly "Attack
+    rolls against you have Advantage".
+
+    An earlier version rendered disadvantage for a ranged attack on a downed target,
+    reasoning from Prone alone. That was wrong, and reading the extracted glossary is
+    what caught it. ``ranged`` is kept because it is genuinely needed for a target who is
+    Prone but conscious — which Gary cannot currently tell apart.
     """
-    if not target_is_prone:
-        return ""
-    return " dis" if ranged else " adv"
+    del ranged  # Unconscious does not qualify on range
+    return " adv" if target_is_down else ""
 
 
 def render_attack_command(
@@ -212,11 +219,26 @@ def render_enemy_attack_command(
 # `-immune`, `adv` -- so NONE of it is rendered here. A model that can pass those under a
 # condition name can grant itself armour class, hit points and attacks, which is precisely
 # what §5.3 renders from an allowlist to prevent. Name and duration only.
-CONDITIONS = (
-    "blinded", "charmed", "deafened", "exhaustion", "frightened", "grappled",
-    "incapacitated", "invisible", "paralyzed", "petrified", "poisoned", "prone",
-    "restrained", "stunned", "unconscious",
-)
+_CONDITIONS_PATH = Path(__file__).with_name("data") / "conditions.json"
+
+
+def _load_conditions() -> Mapping[str, Mapping[str, str]]:
+    try:
+        return json.loads(_CONDITIONS_PATH.read_text())["conditions"]
+    except (OSError, ValueError, KeyError):  # pragma: no cover - data is shipped
+        return {}
+
+
+#: SRD 5.2.1 conditions, folded name -> {name, rules}. Extracted from the glossary by
+#: scripts/extract_srd_conditions.py. The rules text matters as much as the names: Avrae
+#: tracks a condition once told and never infers its consequences, so the model needs to
+#: know that Prone means advantage within 5 feet and disadvantage beyond.
+CONDITIONS: Mapping[str, Mapping[str, str]] = _load_conditions()
+
+
+def condition(name: str) -> Optional[Mapping[str, str]]:
+    """Look up an SRD condition by name, forgiving case."""
+    return CONDITIONS.get(name.strip().lower())
 _EFFECT_NAME = re.compile(r"^[A-Za-z][A-Za-z0-9 '-]{0,29}$")
 
 
@@ -239,6 +261,11 @@ def render_effect_command(
         )
     # Both quoted: a multi-word target read bare would split, making "Caspian Varr"
     # a target of "Caspian" with an effect called "Varr".
+    # Canonical capitalisation when it is a real condition, so the tracker reads "Prone"
+    # rather than whatever case the model used.
+    known = condition(effect)
+    if known is not None:
+        effect = known["name"]
     command = f'!init effect "{target}" "{effect}"'
     if rounds is not None:
         if not isinstance(rounds, int) or not 1 <= rounds <= 100:

@@ -847,3 +847,33 @@ async def test_an_attack_on_a_downed_target_gets_advantage(rig):
     result = await player(n, "go on then")
     posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
     assert '`!init attack "Spear" -t "Kethra" adv`' in posted
+
+
+@pytest.mark.asyncio
+async def test_applying_a_condition_returns_its_rules(rig):
+    """Avrae tracks a condition and never its consequences, so the model is handed the
+    SRD text at the moment it matters."""
+    n = narrator(
+        rig,
+        call_response(T.APPLY_EFFECT, {"target": "GU1", "effect": "restrained", "rounds": 2}),
+        text_response("The net closes."),
+    )
+    result = await player(n, "I throw the net")
+
+    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
+    assert '`!init effect "GU1" "Restrained" -dur 2`' in posted   # canonicalised
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert "Restrained condition" in fr.response["rules"]
+
+
+@pytest.mark.asyncio
+async def test_a_narrative_label_is_marked_as_having_no_mechanics(rig):
+    n = narrator(
+        rig,
+        call_response(T.APPLY_EFFECT, {"target": "GU1", "effect": "Soaked to the skin"}),
+        text_response("Water streams off him."),
+    )
+    result = await player(n, "I throw the bucket")
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert "no mechanical effect" in fr.response["rules"]
