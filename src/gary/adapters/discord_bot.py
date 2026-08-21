@@ -221,13 +221,29 @@ class GaryClient(discord.Client):
         await self.runner.run(effects)
 
     async def _on_player(self, message: "discord.Message") -> None:
+        mentions_bot = self.user in message.mentions
         effects = self.director.on_player_message(
             channel_id=message.channel.id,
             user_id=message.author.id,
             display_name=message.author.display_name,
             content=message.content,
-            mentions_bot=self.user in message.mentions,
+            mentions_bot=mentions_bot,
         )
+        if not effects:
+            # §4.2 keeps Gary quiet unless addressed, so five players chatting do not
+            # cost five model calls. Silent by design -- but indistinguishable from a
+            # broken bot when you are expecting an answer, so say why.
+            log.info(
+                "player message %s not addressed to Gary (mentions_bot=%s, freeform=%s, "
+                "open check=%s); no model call",
+                message.id,
+                mentions_bot,
+                message.channel.id in self.settings.freeform_channels,
+                any(
+                    c.user_id == message.author.id
+                    for c in self.director.registry.open_checks(message.channel.id)
+                ),
+            )
         await self.runner.run(effects)
 
     # -- ?dm commands ------------------------------------------------------------------
