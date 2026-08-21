@@ -1,9 +1,14 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot.",
-  "_description": "Tracker with nobody down and no effects. Must still parse as initiative and must never resolve a pending check.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:47:54.233062+00:00",
+  "_description": "The live tracker mid-combat, after `!init next`. Confirms _COMBATANT against real output: the '# ' turn marker, the (AC 19) effects group, a trailing space after '<Healthy>', and numeric HP for the PC. Note Avrae hides MONSTER hp and writes a status word into that slot instead.",
   "message": {
-    "content": "```md\nCurrent initiative: 3 (round 1)\n===============================\n  21: Kethra <32/32 HP> (AC 14)\n# 14: Dorn <34/34 HP> (AC 16)\n```",
+    "id": "1540160346160111686",
+    "content": "```md\nCurrent initiative: 11 (round 1)\n================================\n# 11: GO1 <Healthy> \n   0: Caspian Varr <15/15 HP> (AC 19)```",
     "embeds": []
   },
-  "expect": {"status": "initiative", "combatants": 2, "dying": []}
+  "expect": {
+    "status": "initiative",
+    "combatants": 2,
+    "dying": []
+  }
 }

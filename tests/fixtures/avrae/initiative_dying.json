@@ -1,9 +1,16 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) Combat.get_summary and Combatant.get_summary. NOT AN EMBED -- the initiative tracker is a pinned plain message wrapping an ```md code block in message.content. A parser that only reads message.embeds never sees it at all.",
-  "_description": "Format is f\"{init:>2}: {name} {hp_str}{effects}\" where hp_str is \"<12/34 HP>\" and effects render as a parenthetical \"(AC 16, Prone)\". The leading \"# \" marks ONLY the combatant whose turn it is; everyone else is indented two spaces.",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:48:08.652928+00:00",
+  "_description": "The same tracker after `!init hp GO1 set 0`. GO1 reads '<Dead>' -- no number and no condition -- so is_dying could not see it from hp_current or conditions, and a dead monster mirrored as alive. CombatantView.status now carries the word.",
   "message": {
-    "content": "```md\nCurrent initiative: 12 (round 3)\n================================\n# 18: Dorn <28/34 HP> (AC 16, Prone)\n  12: Kethra <0/32 HP> (AC 14)\n   7: Goblin Boss <5/21 HP> (Poisoned)\n```",
+    "id": "1540160346160111686",
+    "content": "```md\nCurrent initiative: 11 (round 1)\n================================\n# 11: GO1 <Dead> \n   0: Caspian Varr <15/15 HP> (AC 19)```",
     "embeds": []
   },
-  "expect": {"status": "initiative", "combatants": 3, "dying": ["Kethra"]}
+  "expect": {
+    "status": "initiative",
+    "combatants": 2,
+    "dying": [
+      "GO1"
+    ]
+  }
 }

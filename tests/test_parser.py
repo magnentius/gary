@@ -132,3 +132,20 @@ def test_fixtures_are_captured_from_a_live_avrae():
         p.name for p in FIXTURES if "CAPTURED" not in load(p).get("_provenance", "")
     ]
     assert not uncaptured, f"not yet live-captured: {uncaptured}"
+
+
+def test_monster_status_word_counts_as_dying():
+    """Avrae hides monster HP, writing a status word where the numbers would be.
+
+    Captured live 2026-08-20: "# 11: GO1 <Dead>". There is no 0 and no condition, so
+    is_dying saw nothing and a dead monster mirrored as alive -- Gary would narrate it
+    still swinging.
+    """
+    parsed = parse_embed(load(FIXTURE_DIR / "initiative_dying.json")["message"])
+    dead = [c for c in parsed.combatants if c.name == "GO1"]
+    assert dead and dead[0].is_dying
+    assert dead[0].status == "Dead"
+    assert dead[0].hp_current is None  # no numeric HP to read
+
+    healthy = parse_embed(load(FIXTURE_DIR / "initiative_healthy.json")["message"])
+    assert not any(c.is_dying for c in healthy.combatants)

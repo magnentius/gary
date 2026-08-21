@@ -1,14 +1,37 @@
 {
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) source, not captured from a live bot. Formats traced to cogs5e/utils/checkutils.py, cogs5e/initiative/combat.py, and d20 MarkdownStringifier (verified by running d20 locally).",
-  "_description": "Player passed -dc. checkutils prepends '**DC N**' to the description and sets a Success!/Failure! footer. Gary must read the ROLL total, not the DC, and must ignore Avrae's verdict -- the authoritative DC is the one Gary committed before the dice (§5).",
+  "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:18:43.693279+00:00",
+  "_description": "Player passed -dc. checkutils prepends '**DC 15**' to the description and sets a 'Failure!' footer. Gary must read the ROLL (10), never the DC (15), and must ignore Avrae's verdict entirely -- the authoritative DC is the one Gary committed before the dice (ARCHITECTURE.md §5). Confirmed live: total=10, not 15.",
   "message": {
+    "id": "1540153141746606123",
     "content": "",
-    "embeds": [{
-      "title": "Kethra makes an Athletics check!",
-      "description": "**DC 15**\n1d20 (12) + 6 = `18`",
-      "author": {"name": "Kethra"},
-      "footer": {"text": "Success!"}
-    }]
+    "embeds": [
+      {
+        "footer": {
+          "text": "Failure!"
+        },
+        "thumbnail": {
+          "width": 150,
+          "url": "https://www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg?width=150&height=150&fit=crop&quality=95&auto=webp",
+          "proxy_url": "https://images-ext-1.discordapp.net/external/fNbHu9xL_zNh2Ekjjg4epumNkySN5OQI9ALUznAwiOY/%3Fwidth%3D150%26height%3D150%26fit%3Dcrop%26quality%3D95%26auto%3Dwebp/https/www.dndbeyond.com/avatars/57458/183/1581111423-167653180.jpeg",
+          "placeholder_version": 1,
+          "placeholder": "UBgKDwKZ9Yl+d4l0iESXiJeHlvgnCI0A",
+          "height": 150,
+          "flags": 0,
+          "content_type": "image/png"
+        },
+        "flags": 0,
+        "color": 16216166,
+        "type": "rich",
+        "description": "**DC 15**\n1d20 (6) + 4 = `10`",
+        "title": "Caspian Varr makes an Athletics check!"
+      }
+    ]
   },
-  "expect": {"status": "roll", "actor": "Kethra", "total": 18, "natural": 12, "kind": "check"}
+  "expect": {
+    "status": "roll",
+    "actor": "Caspian Varr",
+    "total": 10,
+    "natural": 6,
+    "kind": "check"
+  }
 }

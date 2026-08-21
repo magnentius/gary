@@ -50,6 +50,7 @@ class CombatantView:
     hp_max: Optional[int] = None
     conditions: tuple = ()
     is_current_turn: bool = False
+    status: str = ""  # Avrae's word when it hides numeric HP: Healthy/Injured/Dead
 
     @property
     def is_dying(self) -> bool:
@@ -59,6 +60,11 @@ class CombatantView:
         Gary mirrors this for narrative colour only; Avrae remains authoritative (§3).
         """
         if self.hp_current == 0:
+            return True
+        # Monsters have no numeric HP in the tracker -- Avrae writes a status word into
+        # that slot instead ("GO1 <Dead>", confirmed live 2026-08-20). Without this, a
+        # dead monster mirrors as alive and Gary narrates it still fighting.
+        if self.status.strip().lower() in ("dead", "dying", "unconscious"):
             return True
         return any("dying" in c.lower() or "unconscious" in c.lower() for c in self.conditions)
 
@@ -116,6 +122,12 @@ _PROMPT_ABANDONED = re.compile(r"selection timed out|selection .{0,20}cancelled"
 # 2026-08-20 from `!init hp GO1 set 0`. Avrae owns combat state (§3); these never resolve
 # a check.
 _COMBATANT_STATUS = re.compile(r"^\S+:\s*<[^>]+>\s*$")
+# `!init next` announces the turn separately from the tracker:
+#   "**Initiative 11 (round 1)**: GO1 (<@1234>)" followed by a ```md block holding only
+# the current combatant, with no initiative number. Classified irrelevant rather than
+# INITIATIVE because the real tracker is edited in the same moment and carries strictly
+# more -- every combatant, HP, and the turn marker. Confirmed live 2026-08-20.
+_TURN_ANNOUNCEMENT = re.compile(r"^\*\*Initiative\s+-?\d+\s*\(round\s*\d+\)\*\*:", re.IGNORECASE)
 
 # Titles that are confidently not rolls. Anything not matched here and not parsed as a
 # roll becomes UNKNOWN rather than being silently dropped.
@@ -145,6 +157,10 @@ _IRRELEVANT_HINTS = (
     # another character's outcome, which §3 gives to Avrae and §5 gives to the resolver.
     "added to combat",
     "already in combat",
+    # The `!init end` confirmation flow, confirmed live 2026-08-20.
+    "are you sure you want to end combat",
+    "ok, ending",
+    "combat ended",
 )
 
 
@@ -245,6 +261,13 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
         # this, an error arriving while a check is pending reads as an unparseable roll
         # and Gary asks the player what they rolled -- when nothing was rolled at all.
         lowered_content = content.lower()
+        if _TURN_ANNOUNCEMENT.match(content):
+            return ParsedAvraeMessage(
+                status=ParseStatus.IRRELEVANT,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="turn announcement; the tracker edit carries more",
+            )
         if _COMBATANT_STATUS.match(content):
             return ParsedAvraeMessage(
                 status=ParseStatus.IRRELEVANT,
@@ -371,6 +394,7 @@ def parse_initiative(content: str) -> Optional[List[CombatantView]]:
         out.append(
             CombatantView(
                 name=match.group("name").strip(),
+                status="" if (current is not None or maximum is not None) else hp_text.strip(),
                 hp_current=current,
                 hp_max=maximum,
                 conditions=conditions,
