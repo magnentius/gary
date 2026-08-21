@@ -178,6 +178,8 @@ class Director:
         self.players = dict(players or {})
         self._last_round: Dict[int, int] = {}
         self._acted_this_turn: Dict[int, tuple] = {}
+        # Folded names the tracker last showed as down, per channel.
+        self._down: Dict[int, Set[str]] = {}
         # Injected rather than imported: the core performs no I/O and holds no store.
         # None means "unknown", which permits — an unconfigured Director behaves as before.
         self._encounter_active = encounter_active
@@ -242,6 +244,29 @@ class Director:
                 },
             )
         ]
+
+    def attack_refusal(self, channel_id: int, actor: str) -> Optional[str]:
+        """Why this combatant may not attack, or None.
+
+        Avrae does not referee. It tracks hit points and rolls dice, and has no concept
+        that being at 0 HP stops you acting -- `!attack` will happily roll for a character
+        who is unconscious, which is how a downed fighter swung a longsword for two rounds.
+        Adjudication is the DM's job, and the DM is Gary, so this is the only place it can
+        be caught.
+        """
+        # None means unknown, and unknown permits — an unconfigured Director behaves as
+        # before, which is most of the test suite.
+        if self._encounter_active is not None and not self._encounter_active():
+            return (
+                "No combat is running, so an attack cannot be resolved — Avrae is not "
+                "tracking turn order, hit points or durations."
+            )
+        if normalize_actor(actor) in self._down.get(channel_id, set()):
+            return (
+                f"{actor} is at 0 HP and unconscious, and cannot act. They roll a death "
+                "save on their turn instead."
+            )
+        return None
 
     def _monster_turn(
         self, channel_id: int, parsed: ParsedAvraeMessage
@@ -470,6 +495,9 @@ class Director:
                 ),
                 LogDrop(channel_id, parsed.status.value, "initiative mirror"),
             ]
+            self._down[channel_id] = {
+                normalize_actor(c.name) for c in parsed.combatants if c.is_dying
+            }
             effects.extend(self._monster_turn(channel_id, parsed))
             return effects
 

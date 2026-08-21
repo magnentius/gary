@@ -318,6 +318,13 @@ class GeminiNarrator:
             args = dict(call.args or {})
 
             if name == T.ENEMY_ATTACK:
+                refusal = self._director.attack_refusal(
+                    channel_id, str(args.get("attacker", ""))
+                )
+                if refusal:
+                    responses.append(types.Part.from_function_response(
+                        name=name, response={"ok": False, "error": refusal}))
+                    continue
                 try:
                     command = render_enemy_attack_command(
                         str(args.get("attack", "")), str(args.get("target", ""))
@@ -344,6 +351,20 @@ class GeminiNarrator:
                 continue
 
             if name == T.ATTACK:
+                refusal = self._director.attack_refusal(
+                    channel_id, str(args.get("actor", ""))
+                )
+                if refusal:
+                    responses.append(types.Part.from_function_response(
+                        name=name,
+                        response={
+                            "ok": False,
+                            "error": refusal,
+                            "instruction": "Do not post an attack for them. Narrate what "
+                                           "is happening to them instead.",
+                        },
+                    ))
+                    continue
                 try:
                     command = render_attack_command(
                         str(args.get("weapon", "")), str(args.get("target", ""))

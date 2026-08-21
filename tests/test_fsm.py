@@ -643,3 +643,33 @@ def test_a_death_save_is_prompted_once_per_round(director):
     again = director.on_avrae_message(channel_id=CHANNEL, parsed=tracker(3))
     assert [e for e in first if isinstance(e, PromptModel)]
     assert not [e for e in again if isinstance(e, PromptModel)]
+
+
+def test_a_downed_combatant_may_not_attack(director):
+    """Avrae does not referee: it tracks hit points and rolls dice, and has no concept
+    that 0 HP stops you acting. A downed fighter swung a longsword for two rounds because
+    nothing in the stack adjudicates -- which is the DM's job, and the DM is Gary."""
+    from gary.parser.avrae import CombatantView
+
+    director._encounter_active = lambda: True
+    director.set_player_character(ALICE, "Kethra")
+    director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.INITIATIVE,
+            combatants=(
+                CombatantView(name="Kethra", hp_current=0, hp_max=15),
+                CombatantView(name="GU1", status="Bloodied", is_current_turn=True),
+            ),
+            round_number=5,
+        ),
+    )
+
+    assert "0 HP" in director.attack_refusal(CHANNEL, "Kethra")
+    assert "death save" in director.attack_refusal(CHANNEL, "Kethra")
+    assert director.attack_refusal(CHANNEL, "GU1") is None      # bloodied is not down
+
+
+def test_attack_refusal_permits_when_nothing_is_known(director):
+    """Unknown permits, as everywhere else."""
+    assert director.attack_refusal(CHANNEL, "Anyone") is None

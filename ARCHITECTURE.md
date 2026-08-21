@@ -117,6 +117,8 @@ So the server sits *beside* Gary rather than inside it, over the same backend. C
 
 The most common failure mode in a system like this is two components confidently holding different values for the same fact. Authority is assigned exhaustively and there are no shared-write facts.
 
+**Avrae owns facts, not adjudication.** It tracks hit points, rolls dice and keeps turn order, and it does not referee: `!attack` will roll happily for a character at 0 HP, because nothing in Avrae models unconsciousness preventing action. Observed 2026-08-21 — a downed fighter attacked for two rounds while the tracker showed him at 0/15. Whether an action is legal is the DM's job, and the DM is Gary, so anything of that kind must be enforced here or it is enforced nowhere.
+
 | Fact | Owner | Notes |
 |------|-------|-------|
 | Character sheet, stats, proficiencies, **level and XP** | **D&D Beyond → Avrae** | Gary reads, never writes. Levels are the input to encounter difficulty and Gary has no other way to learn them, so `!sheet` output is parsed and **mirrored** into `party[actor]` as `sheet` and `level` — Avrae's own first line verbatim ("Human Fighter 1"), kept raw rather than split, because multiclass renders inside it. The mirror is not journalled: there is nothing to undo, and replaying a stale one is worse than having none. Milestone levelling therefore needs no bookkeeping in Gary — level up on D&D Beyond, `!update`, then `!sheet`, and the mirror refreshes itself. |
