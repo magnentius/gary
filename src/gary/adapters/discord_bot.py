@@ -130,6 +130,18 @@ class GaryClient(discord.Client):
             self.settings.avrae_bot_id,
             len(list(self.director.registry.open_checks())),
         )
+        if self.settings.players:
+            log.info(
+                "roster: %s",
+                "; ".join(f"{uid} -> {actor}" for uid, actor in sorted(self.settings.players.items())),
+            )
+        else:
+            log.warning(
+                "GARY_PLAYERS is not set. The model is told only Discord display names, so "
+                "open_check will name an actor Avrae does not know and the roll will not "
+                "correlate -- the check lapses on TTL and is narrated as hesitation."
+            )
+
         if not self.intents.message_content:
             log.error(
                 "MESSAGE CONTENT INTENT IS OFF. Embeds will arrive empty and no roll "
