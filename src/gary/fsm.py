@@ -177,6 +177,7 @@ class Director:
         # only a display name, and names an actor Avrae has never heard of.
         self.players = dict(players or {})
         self._last_round: Dict[int, int] = {}
+        self._acted_this_turn: Dict[int, tuple] = {}
         # Injected rather than imported: the core performs no I/O and holds no store.
         # None means "unknown", which permits — an unconfigured Director behaves as before.
         self._encounter_active = encounter_active
@@ -238,6 +239,49 @@ class Director:
                     # Sanitised at the context-assembly boundary; carried structured here
                     # so it is never confusable with a system part (ARCHITECTURE.md §9.1).
                     "text": content,
+                },
+            )
+        ]
+
+    def _monster_turn(
+        self, channel_id: int, parsed: ParsedAvraeMessage
+    ) -> List[Effect]:
+        """Take a monster's turn unprompted when initiative reaches one.
+
+        §4.2 otherwise keeps Gary silent unless addressed, and that is right for
+        conversation — but a monster's turn is a system event, not someone speaking, and
+        making the DM ask "what does the guard do?" every round is the loop failing to
+        run itself.
+
+        Deduplicated on (combatant, round): Avrae edits the tracker several times a turn
+        — on a hit, on an HP change — and each edit would otherwise start another turn.
+        """
+        current = next((c for c in parsed.combatants if c.is_current_turn), None)
+        if current is None or current.is_dying:
+            return []
+        if normalize_actor(current.name) in self._known_actors:
+            return []  # a player's turn; Avrae already pinged them
+        if not self._known_actors:
+            return []  # no roster, so everything looks like a monster
+
+        token = (current.name, parsed.round_number)
+        if self._acted_this_turn.get(channel_id) == token:
+            return []
+        self._acted_this_turn[channel_id] = token
+
+        return [
+            PromptModel(
+                channel_id=channel_id,
+                kind="monster_turn",
+                payload={
+                    "combatant": current.name,
+                    "round": parsed.round_number,
+                    "status": current.status or "",
+                    "instruction": (
+                        "It is this creature's turn. Narrate what it does and call "
+                        "enemy_attack for it, targeting by tracker name. Do not take "
+                        "anyone else's turn."
+                    ),
                 },
             )
         ]
@@ -396,7 +440,7 @@ class Director:
 
         if parsed.status is ParseStatus.INITIATIVE:
             # Mirrored read-only; never resolves a check.
-            return [
+            effects: List[Effect] = [
                 MirrorCombat(
                     channel_id=channel_id,
                     combatants=parsed.combatants,
@@ -404,6 +448,8 @@ class Director:
                 ),
                 LogDrop(channel_id, parsed.status.value, "initiative mirror"),
             ]
+            effects.extend(self._monster_turn(channel_id, parsed))
+            return effects
 
         state = self.state(channel_id)
         if state is not ChannelState.AWAITING_ROLL:

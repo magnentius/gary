@@ -534,3 +534,65 @@ def test_the_tracker_is_mirrored_not_discarded(director):
     assert len(mirrors) == 1
     assert mirrors[0].round_number == 2
     assert [c.name for c in mirrors[0].combatants] == ["GU1", "Caspian Varr"]
+
+
+def _tracker(current, *others, round_number=1):
+    from gary.parser.avrae import CombatantView
+
+    fighters = [CombatantView(name=current, status="Healthy", is_current_turn=True)]
+    fighters += [CombatantView(name=n, hp_current=15, hp_max=15) for n in others]
+    return ParsedAvraeMessage(
+        status=ParseStatus.INITIATIVE, combatants=tuple(fighters), round_number=round_number
+    )
+
+
+def test_a_monsters_turn_is_taken_unprompted(director):
+    """Otherwise the DM has to notice it is the guard's turn and ask, every round."""
+    director.set_player_character(ALICE, "Kethra")
+    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
+
+    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    assert len(prompts) == 1
+    assert prompts[0].kind == "monster_turn"
+    assert prompts[0].payload["combatant"] == "GU1"
+
+
+def test_a_players_turn_is_left_alone(director):
+    """Avrae already pings them, and Gary must not play someone's character."""
+    director.set_player_character(ALICE, "Kethra")
+    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("Kethra", "GU1"))
+    assert not [e for e in effects if isinstance(e, PromptModel)]
+
+
+def test_a_monster_acts_once_per_turn_not_per_tracker_edit(director):
+    """Avrae edits the tracker several times a turn -- on a hit, on an HP change."""
+    director.set_player_character(ALICE, "Kethra")
+    first = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
+    again = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
+    assert [e for e in first if isinstance(e, PromptModel)]
+    assert not [e for e in again if isinstance(e, PromptModel)]
+
+    # ...but the next round is a new turn.
+    later = director.on_avrae_message(
+        channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra", round_number=2)
+    )
+    assert [e for e in later if isinstance(e, PromptModel)]
+
+
+def test_a_downed_monster_does_not_act(director):
+    from gary.parser.avrae import CombatantView
+
+    director.set_player_character(ALICE, "Kethra")
+    parsed = ParsedAvraeMessage(
+        status=ParseStatus.INITIATIVE,
+        combatants=(CombatantView(name="GU1", status="Dead", is_current_turn=True),),
+        round_number=1,
+    )
+    assert not [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
+                if isinstance(e, PromptModel)]
+
+
+def test_without_a_roster_nothing_acts_unprompted(director):
+    """Everything would look like a monster, including the players."""
+    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
+    assert not [e for e in effects if isinstance(e, PromptModel)]
