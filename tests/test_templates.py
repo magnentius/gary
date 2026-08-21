@@ -104,3 +104,17 @@ def test_attack_names_are_not_double_quoted():
     assert render_command(CheckKind.ATTACK, "Two Handed Sword") == '!attack "Two Handed Sword"'
     assert render_command(CheckKind.ATTACK, "Fire Bolt") == '!attack "Fire Bolt"'
     assert '""' not in render_command(CheckKind.ATTACK, "Fire Bolt")
+
+
+def test_coin_amounts_are_single_denomination():
+    """Confirmed live 2026-08-21: `!coins -2cp` spends and makes change; `1gp 5sp` is
+    refused by the alias itself as "invalid coins"."""
+    from gary.templates import render_coin_command
+
+    assert render_coin_command("-2cp") == "!coins -2cp"
+    assert render_coin_command(" -15 sp ") == "!coins -15sp"
+    assert render_coin_command("3gp", alias="purse") == "!purse 3gp"
+
+    for bad in ("1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp"):
+        with pytest.raises(TemplateError):
+            render_coin_command(bad)

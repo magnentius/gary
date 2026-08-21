@@ -28,6 +28,7 @@ TAKE_ITEMS = "take_items"
 RECORD_NOTE = "record_note"
 SET_SCENE = "set_scene"
 UPSERT_NPC = "upsert_npc"
+REQUEST_PAYMENT = "request_payment"
 
 
 def _s(**kw) -> types.Schema:
@@ -135,6 +136,25 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=REQUEST_PAYMENT,
+        description=(
+            "Ask a player to pay or receive coin. You do not hold coin and cannot move it "
+            "— this posts a command the player runs on their own sheet, and their purse "
+            "refuses an overspend by itself. Negative to spend. ONE denomination per call: "
+            "'-2cp', '3gp', '-15sp'. For a mixed price like a gold and five silver, call "
+            "twice. Never state what someone can afford; you cannot see their purse."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING, description="Character name as it appears in Avrae."),
+                "amount": _s(type=_STRING, description="Signed single denomination, e.g. '-2cp'."),
+                "reason": _s(type=_STRING, description="What it is for, shown at the table."),
+            },
+            required=["actor", "amount"],
         ),
     ),
     types.FunctionDeclaration(

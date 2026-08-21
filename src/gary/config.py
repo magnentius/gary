@@ -72,6 +72,9 @@ class Settings:
     game_channels: FrozenSet[int]
     freeform_channels: FrozenSet[int] = field(default_factory=frozenset)
     avrae_bot_id: int = DEFAULT_AVRAE_BOT_ID
+    # Classic Coins alias name, chosen at install time. Empty disables the
+    # payment prompt entirely and prices stay pure fiction.
+    coins_alias: str = "coins"
     command_prefix: str = DEFAULT_COMMAND_PREFIX
     # discord user id -> Avrae character name. Empty is allowed: actor
     # validation is then skipped rather than rejecting everything.
@@ -126,6 +129,7 @@ class Settings:
             game_channels=_ids(e.get("GARY_GAME_CHANNELS")),
             freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
             avrae_bot_id=int(e.get("GARY_AVRAE_BOT_ID", DEFAULT_AVRAE_BOT_ID)),
+            coins_alias=e.get("GARY_COINS_ALIAS", "coins"),
             command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
             players=_players(e.get("GARY_PLAYERS")),
             campaign_root=Path(e.get("GARY_CAMPAIGN_ROOT", "./campaign")),

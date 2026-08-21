@@ -62,6 +62,10 @@ TEMPLATES: Mapping[CheckKind, str] = {
 # charset guard rather than an allowlist. Deliberately excludes the characters that make
 # Discord or Avrae interpret the string as something other than a name.
 _ATTACK_NAME = re.compile(r"^[A-Za-z0-9 '\-+]{1,40}$")
+# Classic Coins, confirmed live 2026-08-21: `!coins -2cp` spends and makes change from
+# larger denominations automatically. `1gp 5sp` is refused ("contained invalid coins"),
+# so one denomination per invocation -- a mixed price needs two prompts.
+_COIN_AMOUNT = re.compile(r"^-?\d{1,5}(?:cp|sp|ep|gp|pp)$")
 
 
 class TemplateError(ValueError):
@@ -102,6 +106,24 @@ def normalize_key(kind: CheckKind, key: str) -> str:
         raise TemplateError(f"unknown save: {key!r}")
 
     raise TemplateError(f"unsupported kind: {kind!r}")
+
+
+def render_coin_command(amount: str, alias: str = "coins") -> str:
+    """Render a Classic Coins invocation, or raise.
+
+    Avrae owns coin (§3), so Gary never records a payment — it posts a command the player
+    runs, the same Director pattern as a check. The alias refuses an overspend itself
+    ("can't afford that much"), which is why Gary does not need to know the balance.
+    """
+    raw = amount.strip().replace(" ", "")
+    if not _COIN_AMOUNT.match(raw):
+        raise TemplateError(
+            f"coin amount {amount!r} must be a single denomination like '-2cp' or '3gp'; "
+            "the alias refuses mixed amounts such as '1gp 5sp'"
+        )
+    if not alias.isalnum():
+        raise TemplateError(f"unsafe coin alias: {alias!r}")
+    return f"!{alias} {raw}"
 
 
 def render_command(kind: CheckKind, key: str) -> str:

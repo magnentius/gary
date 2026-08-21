@@ -38,7 +38,8 @@ from ..context import (
     render_live_state,
     render_memory,
 )
-from ..fsm import Director
+from ..fsm import Director, SendMessage
+from ..templates import TemplateError, render_coin_command
 from ..models import CheckKind, Mutation, MutationKind
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -85,6 +86,7 @@ class GeminiNarrator:
         max_retries: int = 2,
         timeout_seconds: float = 90.0,
         fallback_model: str = "",
+        coins_alias: str = "coins",
         max_context_chars: int = 160_000,
         summarize: bool = True,
     ) -> None:
@@ -100,6 +102,7 @@ class GeminiNarrator:
         self._max_retries = max_retries
         self._timeout = timeout_seconds
         self._fallback_model = fallback_model
+        self._coins_alias = coins_alias
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
@@ -251,6 +254,41 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.REQUEST_PAYMENT:
+                try:
+                    command = render_coin_command(
+                        str(args.get("amount", "")), self._coins_alias
+                    )
+                except TemplateError as exc:
+                    responses.append(
+                        types.Part.from_function_response(
+                            name=name, response={"ok": False, "error": str(exc)}
+                        )
+                    )
+                    continue
+                actor = str(args.get("actor", "")).strip() or "Someone"
+                reason = str(args.get("reason", "")).strip()
+                effects.append(
+                    SendMessage(
+                        channel_id,
+                        f"**{actor}**"
+                        + (f" — {reason}" if reason else "")
+                        + f"\n`{command}`",
+                    )
+                )
+                responses.append(
+                    types.Part.from_function_response(
+                        name=name,
+                        response={
+                            "ok": True,
+                            "posted": command,
+                            "note": "The player runs this. You will not be told the result "
+                                    "and must not assume it succeeded.",
+                        },
+                    )
+                )
+                continue
 
             if name == T.OPEN_CHECK:
                 effects.extend(self._open_check(channel_id, args))

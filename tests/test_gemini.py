@@ -617,3 +617,43 @@ async def test_upsert_npc_records_a_named_character(rig):
     assert npc["name"] == "Garik Harlen"
     assert npc["disposition"] == 1
     assert "Notched ear. Watches the door." in npc["notes"]
+
+
+@pytest.mark.asyncio
+async def test_request_payment_posts_a_command_and_claims_nothing(rig):
+    """Avrae owns coin (§3), so Gary posts a command and is never told the result. The
+    alias refuses an overspend itself, which is why Gary need not know the balance."""
+    n = narrator(
+        rig,
+        call_response(T.REQUEST_PAYMENT, {
+            "actor": "Caspian Varr", "amount": "-2cp", "reason": "a pint of Old Scupper",
+        }),
+        text_response("Garik slides the pint across."),
+    )
+    result = await player(n, "I buy a pint")
+
+    assert "slides the pint" in result.text
+    posted = [e for e in result.effects if isinstance(e, SendMessage)]
+    assert len(posted) == 1
+    assert "`!coins -2cp`" in posted[0].text
+    assert "Caspian Varr" in posted[0].text
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is True
+    assert "must not assume it succeeded" in fr.response["note"]
+
+
+@pytest.mark.asyncio
+async def test_mixed_denominations_are_refused_back_to_the_model(rig):
+    """The alias rejects '1gp 5sp'; the model is told so it can call twice instead."""
+    n = narrator(
+        rig,
+        call_response(T.REQUEST_PAYMENT, {"actor": "Caspian Varr", "amount": "1gp 5sp"}),
+        text_response("..."),
+    )
+    result = await player(n, "I pay him")
+
+    assert not [e for e in result.effects if isinstance(e, SendMessage)]
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False
+    assert "single denomination" in fr.response["error"]
