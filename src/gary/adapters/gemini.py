@@ -71,6 +71,21 @@ SUMMARY_PROMPT = (
 )
 
 
+def _recent_text(payload: Dict[str, Any], contents: Sequence[Any], turns: int = 4) -> str:
+    """Text to match notes against: what the player just said, plus the last few turns.
+
+    A few turns rather than one, so "him" and "there" still reach the note that named the
+    subject a beat earlier.
+    """
+    parts = [str(payload.get("text", "") or "")]
+    for content in list(contents)[-turns:]:
+        for part in getattr(content, "parts", None) or []:
+            text = getattr(part, "text", None)
+            if text:
+                parts.append(str(text))
+    return "\n".join(parts)
+
+
 class GeminiNarrator:
     def __init__(
         self,
@@ -119,7 +134,11 @@ class GeminiNarrator:
         contents.append(self._incoming(kind, payload, kept))
         self._enforce_char_budget(contents)
 
-        system_instruction = self._system_instruction(summary)
+        # What was just said, plus the recent exchange, so a note surfaces when its
+        # subject comes up rather than only when it is a party member or the location.
+        system_instruction = self._system_instruction(
+            summary, recent_text=_recent_text(payload, contents)
+        )
 
         try:
             texts, contents, effects = await self._run_turn(
@@ -143,7 +162,7 @@ class GeminiNarrator:
 
     # -- context (§8) ------------------------------------------------------------------
 
-    def _system_instruction(self, summary: str) -> List[str]:
+    def _system_instruction(self, summary: str, recent_text: str = "") -> List[str]:
         """Layers 1-3. Rebuilt every call; layer 4 is the contents list."""
         state = self._store.state()
         blocks = [DM_SYSTEM_INSTRUCTION, render_live_state(state)]
@@ -153,7 +172,9 @@ class GeminiNarrator:
         if location:
             subjects.append(location)
 
-        memory = render_memory(state.get("notes") or [], summary, subjects)
+        memory = render_memory(
+            state.get("notes") or [], summary, subjects, mentioned_in=recent_text
+        )
         if memory:
             blocks.append(memory)
         return blocks

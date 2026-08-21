@@ -453,7 +453,7 @@ v1 never specified what goes into a Gemini call. A campaign runs for thousands o
 
 1. **System instruction** (static) — persona, ruleset, the authority rules from §3, and the standing directive that roll outcomes handed to it are established fact.
 2. **Live state** (rebuilt per call) — a compact render of `rpg://campaign/state`: date/time, location, party HP/conditions, active effects, current quest. Rebuilt from the state server every turn, never carried forward from history. **This is what makes the state server the source of truth in practice and not just on the diagram.**
-3. **Retrieved memory** — notes from `record_note` relevant to the current scene and present NPCs, plus a rolling summary of everything older than the recent window.
+3. **Retrieved memory** — notes from `record_note` relevant to the current scene and to whoever is being talked about, plus a rolling summary of everything older than the recent window. A note is retrieved when its subject is a party member, is the current location, **or is named in what was just said** (whole-word, over the incoming message and the last few turns). That last clause was missing until 2026-08-21, and its absence quietly broke the feature: matching only party and location meant a note filed under "the harbour master" could never surface, since he is neither. Notes were being written correctly and read back never — and `record_note`'s own description promises the model they are "retrieved into your context when the subject reappears".
 4. **Recent turns** — the last `N` turns verbatim (default `N = 30`).
 
 **Budget.** Cap total input at a configured ceiling (default 40k tokens). Layers 1 and 2 are never trimmed. Layer 4 is trimmed first, then layer 3.

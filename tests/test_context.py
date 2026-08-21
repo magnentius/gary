@@ -8,6 +8,7 @@ from gary.context import (
     assemble,
     attribute,
     render_live_state,
+    render_memory,
     sanitize_player_text,
 )
 from gary.state.schema import empty_state
@@ -265,3 +266,31 @@ def test_npc_trigger_covers_offscreen_names():
     text = DM_SYSTEM_INSTRUCTION
     assert "only spoken about" in text
     assert "Offscreen names need this MORE" in text
+
+
+def test_notes_surface_when_their_subject_is_mentioned():
+    """The tool promises the model that notes are "retrieved when the subject reappears".
+    Matching only party members and the location made that untrue: a note about the
+    harbour master could never surface, because he is neither."""
+    notes = [
+        {"kind": "clue", "subject": "the harbour master", "body": "Turned away two cogs."},
+        {"kind": "clue", "subject": "Toby Cole", "body": "Works the customs slip."},
+        {"kind": "npc", "subject": "Garik Harlen", "body": "Barkeep at the Anchor."},
+    ]
+    out = render_memory(notes, "", subjects=[], mentioned_in="I go find Toby Cole")
+    assert "Works the customs slip" in out
+    assert "Turned away two cogs" not in out      # not mentioned this turn
+    assert "Barkeep at the Anchor" not in out
+
+
+def test_note_matching_respects_word_boundaries():
+    """Substring matching would fire "Vane" inside "vanish"."""
+    notes = [{"kind": "npc", "subject": "Vane", "body": "The harbour master."}]
+    assert "harbour master" not in render_memory(notes, "", [], mentioned_in="it vanished")
+    assert "harbour master" in render_memory(notes, "", [], mentioned_in="I ask about Vane")
+
+
+def test_standing_subjects_still_match_without_a_mention():
+    """Party and location keep surfacing regardless of what was just said."""
+    notes = [{"kind": "general", "subject": "Kethra", "body": "Owes a favour."}]
+    assert "Owes a favour" in render_memory(notes, "", ["Kethra"], mentioned_in="")

@@ -187,16 +187,49 @@ def render_live_state(state: Dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-def render_memory(notes: Sequence[Dict[str, Any]], summary: str, subjects: Sequence[str]) -> str:
-    """Layer 3: rolling summary plus notes relevant to who and where we are."""
+def _mentions(subject: str, text: str) -> bool:
+    """Is this note's subject named in the text? Whole-word, case-insensitive.
+
+    Substring matching would fire "Vane" inside "vanish"; word boundaries keep a note
+    about a harbour master out of a sentence about weathervanes.
+    """
+    subject = subject.strip()
+    if len(subject) < 3:  # too short to match safely
+        return False
+    return re.search(rf"\b{re.escape(subject)}\b", text, re.IGNORECASE) is not None
+
+
+def render_memory(
+    notes: Sequence[Dict[str, Any]],
+    summary: str,
+    subjects: Sequence[str],
+    mentioned_in: str = "",
+) -> str:
+    """Layer 3: rolling summary plus notes relevant to who and where we are.
+
+    ``subjects`` is the standing context — party members and the current location.
+    ``mentioned_in`` is what was just said, and it is what makes the tool's promise to the
+    model true: "retrieved into your context when the subject reappears". Matching only on
+    ``subjects`` meant a note about the harbour master could never surface, because he is
+    neither a party member nor a place, so notes were written and never read back.
+    """
     blocks: List[str] = []
     if summary:
         blocks.append("STORY SO FAR:\n" + summary)
 
     wanted = {s.lower() for s in subjects}
-    relevant = [
-        n for n in notes if not wanted or (n.get("subject", "").lower() in wanted)
-    ]
+    if not wanted and not mentioned_in:
+        # No signal at all — an empty campaign, or a call with nothing to match on. Show
+        # everything rather than nothing; this is the original behaviour and only applies
+        # when there is genuinely nothing to filter by.
+        relevant = list(notes)
+    else:
+        relevant = [
+            n
+            for n in notes
+            if n.get("subject", "").lower() in wanted
+            or (mentioned_in and _mentions(n.get("subject", ""), mentioned_in))
+        ]
     if relevant:
         rendered = "\n".join(
             f"- [{n.get('kind', 'note')}] {n.get('subject', '')}: {n.get('body', '')}"
