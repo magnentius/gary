@@ -644,8 +644,9 @@ async def test_request_payment_posts_a_command_and_claims_nothing(rig):
 
 
 @pytest.mark.asyncio
-async def test_mixed_denominations_are_refused_back_to_the_model(rig):
-    """The alias rejects '1gp 5sp'; the model is told so it can call twice instead."""
+async def test_unsigned_amount_is_refused_back_to_the_model(rig):
+    """The alias requires a sign. Posting an unsigned amount would look like it worked
+    and move nothing, so the model is told rather than the command going out."""
     n = narrator(
         rig,
         call_response(T.REQUEST_PAYMENT, {"actor": "Caspian Varr", "amount": "1gp 5sp"}),
@@ -656,4 +657,4 @@ async def test_mixed_denominations_are_refused_back_to_the_model(rig):
     assert not [e for e in result.effects if isinstance(e, SendMessage)]
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
-    assert "single denomination" in fr.response["error"]
+    assert "sign is required" in fr.response["error"]

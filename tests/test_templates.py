@@ -106,15 +106,18 @@ def test_attack_names_are_not_double_quoted():
     assert '""' not in render_command(CheckKind.ATTACK, "Fire Bolt")
 
 
-def test_coin_amounts_are_single_denomination():
-    """Confirmed live 2026-08-21: `!coins -2cp` spends and makes change; `1gp 5sp` is
-    refused by the alias itself as "invalid coins"."""
+def test_coin_amounts_must_be_signed():
+    """Documented syntax is "+/- # [cp/sp/ep/gp/pp]". The sign is required and a bare
+    number means gold; spacing is irrelevant. An unsigned amount is what "1gp 5sp"
+    actually tripped over — first misread here as a ban on mixed denominations."""
     from gary.templates import render_coin_command
 
     assert render_coin_command("-2cp") == "!coins -2cp"
-    assert render_coin_command(" -15 sp ") == "!coins -15sp"
-    assert render_coin_command("3gp", alias="purse") == "!purse 3gp"
+    assert render_coin_command("+5gp") == "!coins +5gp"
+    assert render_coin_command("- 5 gp") == "!coins -5gp"
+    assert render_coin_command("-2") == "!coins -2"          # bare number is gold
+    assert render_coin_command("+3gp", alias="purse") == "!purse +3gp"
 
-    for bad in ("1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp"):
+    for bad in ("2cp", "1gp 5sp", "2 chickens", "-2cp; !init end", "", "cp"):
         with pytest.raises(TemplateError):
             render_coin_command(bad)

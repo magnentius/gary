@@ -62,11 +62,17 @@ TEMPLATES: Mapping[CheckKind, str] = {
 # charset guard rather than an allowlist. Deliberately excludes the characters that make
 # Discord or Avrae interpret the string as something other than a name.
 _ATTACK_NAME = re.compile(r"^[A-Za-z0-9 '\-+]{1,40}$")
-# Coins Rewritten (https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea),
-# confirmed live 2026-08-21: `!coins -2cp` spends and makes change from
-# larger denominations automatically. `1gp 5sp` is refused ("contained invalid coins"),
-# so one denomination per invocation -- a mixed price needs two prompts.
-_COIN_AMOUNT = re.compile(r"^-?\d{1,5}(?:cp|sp|ep|gp|pp)$")
+# Coins Rewritten (https://avrae.io/dashboard/workshop/62cf8c7ee461f451040c49ea).
+# Documented syntax: "+/- # [cp/sp/ep/gp/pp]", denomination optional (defaults to gp),
+# and spacing is irrelevant -- "+5gp" == "+ 5 gp".
+#
+# The SIGN is not optional, which is what "1gp 5sp" tripped over when it was refused as
+# "contained invalid coins" on 2026-08-21. That was first read here as a ban on mixed
+# denominations; it was a missing sign. Whether "-1gp -5sp" is accepted is untested, so
+# one term per invocation until someone runs it.
+#
+# Confirmed live: `!coins -2cp` spends, and breaks a larger coin for change automatically.
+_COIN_AMOUNT = re.compile(r"^[+-]\d{1,5}(?:cp|sp|ep|gp|pp)?$")
 
 
 class TemplateError(ValueError):
@@ -119,8 +125,8 @@ def render_coin_command(amount: str, alias: str = "coins") -> str:
     raw = amount.strip().replace(" ", "")
     if not _COIN_AMOUNT.match(raw):
         raise TemplateError(
-            f"coin amount {amount!r} must be a single denomination like '-2cp' or '3gp'; "
-            "the alias refuses mixed amounts such as '1gp 5sp'"
+            f"coin amount {amount!r} must be a signed single term like '-2cp', '+5gp' or "
+            "'-2' (bare numbers are gold). The sign is required; the denomination is not."
         )
     if not alias.isalnum():
         raise TemplateError(f"unsafe coin alias: {alias!r}")
