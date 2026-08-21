@@ -246,6 +246,25 @@ class Director:
         if parsed.status is ParseStatus.IRRELEVANT:
             return [LogDrop(channel_id, parsed.status.value, parsed.reason)]
 
+        if parsed.status is ParseStatus.PROMPT_ABANDONED:
+            # The selector lapsed, so no roll is coming from that command. The check is
+            # still good -- its DC and consequences were fixed before any of this -- so
+            # re-post the command rather than making the table wait out the TTL. The
+            # message carries no user attribution, so every open check in the channel is
+            # re-prompted; in the single-check case that is exactly the right one.
+            effects: List[Effect] = [
+                LogDrop(channel_id, parsed.status.value, parsed.reason)
+            ]
+            for pending in self.registry.open_checks(channel_id):
+                effects.append(
+                    SendMessage(
+                        channel_id,
+                        f"That selection lapsed. **{pending.actor}** — run this:\n"
+                        f"`{pending.command}`",
+                    )
+                )
+            return effects
+
         if parsed.status is ParseStatus.AVRAE_PROMPT:
             # Avrae asked the player a question instead of rolling. Stay silent and leave
             # the check open: answering the selector produces a real roll that correlates

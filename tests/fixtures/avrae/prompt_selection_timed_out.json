@@ -1,12 +1,12 @@
 {
   "_provenance": "CAPTURED from live Avrae at 2026-08-21T00:29:42.756414+00:00",
-  "_description": "The tail of an unanswered AVRAE_PROMPT: the player never picked a number, so Avrae gives up. Plain text. No roll happened, so it must not reach the player as a question.",
+  "_description": "The tail of an unanswered AVRAE_PROMPT: the player never picked a number, so Avrae gives up. Plain text, and terminal -- no roll is coming from that command, so the Director re-posts the check's command rather than letting it lapse on TTL.",
   "message": {
     "id": "1540155905960845444",
     "content": "Selection timed out or was cancelled.",
     "embeds": []
   },
   "expect": {
-    "status": "irrelevant"
+    "status": "prompt_abandoned"
   }
 }

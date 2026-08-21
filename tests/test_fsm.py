@@ -278,3 +278,36 @@ def test_avrae_prompt_stays_silent_and_keeps_the_check_open(director):
     assert all(isinstance(e, LogDrop) for e in effects)
     assert not any(isinstance(e, (AskPlayer, SendMessage)) for e in effects)
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+def test_abandoned_selector_reposts_the_command(director):
+    """The player never answered Avrae's selector, so no roll is coming.
+
+    Captured live 2026-08-20: "Selection timed out or was cancelled." The check itself is
+    still good -- its DC and consequences were fixed before the dice -- so the command is
+    re-posted rather than left to lapse on TTL.
+    """
+    open_check(director)
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(
+            status=ParseStatus.PROMPT_ABANDONED, reason="selector lapsed without an answer"
+        ),
+    )
+
+    sends = [e for e in effects if isinstance(e, SendMessage)]
+    assert len(sends) == 1
+    assert "Kethra" in sends[0].text
+    assert "!check" in sends[0].text or "sleight" in sends[0].text.lower()
+    assert not any(isinstance(e, AskPlayer) for e in effects)
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+def test_abandoned_selector_while_idle_says_nothing(director):
+    """No open check means nothing to re-prompt; the gate drops it like any other."""
+    assert director.state(CHANNEL) is ChannelState.IDLE
+    effects = director.on_avrae_message(
+        channel_id=CHANNEL,
+        parsed=ParsedAvraeMessage(status=ParseStatus.PROMPT_ABANDONED, reason="lapsed"),
+    )
+    assert all(isinstance(e, LogDrop) for e in effects)

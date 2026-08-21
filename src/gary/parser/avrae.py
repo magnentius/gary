@@ -37,6 +37,7 @@ class ParseStatus(str, Enum):
     INITIATIVE = "initiative"
     IRRELEVANT = "irrelevant"  # confidently not something we care about (!help, sheets)
     AVRAE_PROMPT = "avrae_prompt"  # Avrae is asking the player something -- a roll may still come
+    PROMPT_ABANDONED = "prompt_abandoned"  # that question lapsed; no roll is coming
     UNKNOWN = "unknown"  # looked like a roll but could not be read -- escalate
 
 
@@ -107,6 +108,10 @@ _INIT_HEADER = re.compile(r"^(?P<name>.+?):\s*-?\d+\s*\(round\s*\d+\)\s*$", re.I
 _AVRAE_PROMPT = re.compile(
     r"multiple matches found|which one were you looking for|type the number", re.IGNORECASE
 )
+# The tail of a selector nobody answered. Distinct from AVRAE_PROMPT because it is
+# terminal: no roll is coming from that command, so the Director can re-prompt instead of
+# leaving the check to lapse on TTL. Confirmed live 2026-08-20.
+_PROMPT_ABANDONED = re.compile(r"selection timed out|selection .{0,20}cancelled", re.IGNORECASE)
 
 # Titles that are confidently not rolls. Anything not matched here and not parsed as a
 # roll becomes UNKNOWN rather than being silently dropped.
@@ -128,7 +133,6 @@ _IRRELEVANT_HINTS = (
     # player never answered. "Cannot cast" is an in-game refusal rendered as an EMBED --
     # ARCHITECTURE.md §6 says errors are plain text, which is true of command errors but
     # not of these. Neither carries a roll, so neither may reach the player as a question.
-    "selection timed out",
     "cannot cast",
 )
 
@@ -230,6 +234,13 @@ def parse_embed(message: Dict[str, Any]) -> ParsedAvraeMessage:
         # this, an error arriving while a check is pending reads as an unparseable roll
         # and Gary asks the player what they rolled -- when nothing was rolled at all.
         lowered_content = content.lower()
+        if _PROMPT_ABANDONED.search(content):
+            return ParsedAvraeMessage(
+                status=ParseStatus.PROMPT_ABANDONED,
+                interaction_user_id=interaction_user_id,
+                referenced_user_id=referenced_user_id,
+                reason="selector lapsed without an answer",
+            )
         if not content or any(hint in lowered_content for hint in _IRRELEVANT_HINTS):
             return ParsedAvraeMessage(
                 status=ParseStatus.IRRELEVANT,
