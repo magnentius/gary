@@ -103,7 +103,7 @@ async def test_full_turn_from_declaration_to_narrated_outcome(rig, clock):
     )
 
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-    assert "`!check sleightOfHand`" in transport.sent[-1][1]
+    assert '`!check "sleight of hand"`' in transport.sent[-1][1]
 
     # 2. Avrae answers, from a real fixture payload. Total 20 vs DC 15.
     parsed = parse_embed(fixture_message("check_success.json"))

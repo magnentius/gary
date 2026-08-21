@@ -11,13 +11,13 @@ from gary.templates import TemplateError, normalize_key, render_command
 @pytest.mark.parametrize(
     "written,expected",
     [
-        ("sleight of hand", "!check sleightOfHand"),
-        ("Sleight of Hand", "!check sleightOfHand"),
-        ("sleight-of-hand", "!check sleightOfHand"),
-        ("SLEIGHT_OF_HAND", "!check sleightOfHand"),
+        ("sleight of hand", '!check "sleight of hand"'),
+        ("Sleight of Hand", '!check "sleight of hand"'),
+        ("sleight-of-hand", '!check "sleight of hand"'),
+        ("SLEIGHT_OF_HAND", '!check "sleight of hand"'),
         ("stealth", "!check stealth"),
         ("  perception  ", "!check perception"),
-        ("animal handling", "!check animalHandling"),
+        ("animal handling", '!check "animal handling"'),
     ],
 )
 def test_skill_variants_normalize(written, expected):
@@ -89,3 +89,18 @@ def test_rendered_commands_are_single_line_and_pingless():
     for save in AVRAE_SAVE_TOKEN:
         cmd = render_command(CheckKind.SAVE, save)
         assert "\n" not in cmd and "@" not in cmd and cmd.startswith("!")
+
+
+def test_multi_word_skills_are_quoted():
+    """Confirmed live 2026-08-21: Avrae fuzzy-matches its own camelCase keys and can
+    answer `!check sleightOfHand` with a "Multiple Matches Found" selector instead of
+    rolling. The quoted display name is an exact match and beats every candidate."""
+    assert render_command(CheckKind.CHECK, "sleight of hand") == '!check "sleight of hand"'
+    assert render_command(CheckKind.CHECK, "animal handling") == '!check "animal handling"'
+
+
+def test_attack_names_are_not_double_quoted():
+    """The attack template already quotes; quoting again yields !attack ""Fire Bolt""."""
+    assert render_command(CheckKind.ATTACK, "Two Handed Sword") == '!attack "Two Handed Sword"'
+    assert render_command(CheckKind.ATTACK, "Fire Bolt") == '!attack "Fire Bolt"'
+    assert '""' not in render_command(CheckKind.ATTACK, "Fire Bolt")

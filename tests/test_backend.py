@@ -131,7 +131,7 @@ def make_check(check_id="01ABC", user_id=ALICE, dc=15) -> PendingCheck:
         on_success="The tumblers give.",
         on_failure="The pick snaps.",
         stakes="the guard next door",
-        command="!check sleightOfHand",
+        command='!check "sleight of hand"',
         created_at=1000.0,
         expires_at=1180.0,
     )

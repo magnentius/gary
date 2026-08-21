@@ -5,9 +5,12 @@ and Gary renders the command from this table. A hallucinated ``!init end``, a me
 injected into a skill name, or a malformed alias cannot reach the channel, because the
 only strings ever posted are built here from an allowlist.
 
-UNVERIFIED (ARCHITECTURE.md §14.1): the exact token Avrae expects for multi-word skills is
-inferred from Avrae's internal camelCase skill keys and has not been confirmed against a
-live bot. ``AVRAE_SKILL_TOKEN`` is the single place to correct it once fixtures exist.
+Multi-word skill tokens were confirmed against a live Avrae on 2026-08-21, and the
+inference was wrong. Avrae's internal camelCase keys (``sleightOfHand``) are not what its
+command parser wants: it fuzzy-matches them and can answer with a "Multiple Matches Found"
+selector instead of rolling. The display name works, quoted -- ``!check "sleight of hand"``
+-- because an exact match beats every fuzzy candidate. A bare prefix (``!check sleight``)
+also rolls, but stays hostage to whatever skills Avrae adds later.
 """
 
 from __future__ import annotations
@@ -20,7 +23,7 @@ from .models import CheckKind
 # Canonical snake_case key -> the token Avrae's fuzzy skill matcher expects.
 AVRAE_SKILL_TOKEN: Mapping[str, str] = {
     "acrobatics": "acrobatics",
-    "animal_handling": "animalHandling",
+    "animal_handling": "animal handling",
     "arcana": "arcana",
     "athletics": "athletics",
     "deception": "deception",
@@ -34,7 +37,7 @@ AVRAE_SKILL_TOKEN: Mapping[str, str] = {
     "performance": "performance",
     "persuasion": "persuasion",
     "religion": "religion",
-    "sleight_of_hand": "sleightOfHand",
+    "sleight_of_hand": "sleight of hand",
     "stealth": "stealth",
     "survival": "survival",
     "initiative": "initiative",
@@ -112,10 +115,17 @@ def render_command(kind: CheckKind, key: str) -> str:
     else:
         token = canonical
 
+    # A token with a space must be quoted or Avrae reads only the first word. Confirmed
+    # live: `!check "sleight of hand"` rolls; `!check sleightOfHand` opens a selector.
+    # ATTACK is excluded because its template already quotes -- attack names are
+    # open-ended and were always multi-word ("Fire Bolt").
+    if " " in token and kind is not CheckKind.ATTACK:
+        token = f'"{token}"'
+
     command = TEMPLATES[kind].format(token=token)
 
     # Belt and braces: nothing rendered here may span lines or ping anyone, whatever a
     # future template edit does.
-    if "\n" in command or "@" in command:
+    if "\n" in command or "@" in command or command.count('"') % 2 or '""' in command:
         raise TemplateError(f"rendered unsafe command: {command!r}")
     return command

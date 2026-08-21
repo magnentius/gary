@@ -92,7 +92,7 @@ def test_open_check_posts_a_rendered_command(director):
     effects = open_check(director)
     sends = [e for e in effects if isinstance(e, SendMessage)]
     assert len(sends) == 1
-    assert "`!check sleightOfHand`" in sends[0].text
+    assert '`!check "sleight of hand"`' in sends[0].text
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
 

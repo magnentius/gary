@@ -24,7 +24,7 @@ def make_check(dc: int = 15) -> PendingCheck:
         on_success="The tumblers give.",
         on_failure="The pick snaps.",
         stakes="the guard next door",
-        command="!check sleightOfHand",
+        command='!check "sleight of hand"',
         created_at=0.0,
         expires_at=180.0,
     )

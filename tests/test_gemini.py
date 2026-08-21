@@ -183,7 +183,7 @@ async def test_open_check_routes_through_the_director(rig):
     result = await player(n)
 
     assert result.text == "You crouch by the lock."
-    assert any(isinstance(e, SendMessage) and "!check sleightOfHand" in e.text
+    assert any(isinstance(e, SendMessage) and '!check "sleight of hand"' in e.text
                for e in result.effects)
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
