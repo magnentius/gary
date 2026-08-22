@@ -1,6 +1,6 @@
 # Gary
 
-<img src="gary.jpg" alt="Gary" width="600">
+<img src="images/gary.jpg" alt="Gary" width="600">
 
 An AI Game Master for D&D 2024 over Discord. Gemini writes the narrative, Avrae rolls the
 dice and enforces the maths, and a local state server owns the persistent world.

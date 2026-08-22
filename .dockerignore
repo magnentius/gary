@@ -17,6 +17,7 @@ tests/
 scripts/
 docs/
 *.pdf
+images/
 *.jpg
 *.png
 ARCHITECTURE.md
