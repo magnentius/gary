@@ -70,17 +70,18 @@ campaign.
 
 ```bash
 cp .env.example .env          # fill in DISCORD_TOKEN and GARY_GAME_CHANNELS
-mkdir -p campaign
 docker compose up -d
 docker compose logs -f
 ```
 
-That pulls `ghcr.io/magnentius/gary:latest` and bind-mounts `./campaign` into the
-container. Or without compose:
+That pulls `ghcr.io/magnentius/gary:latest` and bind-mounts
+`~/.local/share/gary/campaign` into the container, creating it if needed. Set
+`GARY_HOST_CAMPAIGN` in `.env` to keep campaigns somewhere else, or several side by
+side. Or without compose:
 
 ```bash
 docker run -d --name gary --restart unless-stopped \
-  --env-file .env -v "$PWD/campaign:/campaign" \
+  --env-file .env -v ~/.local/share/gary/campaign:/campaign \
   ghcr.io/magnentius/gary:latest
 ```
 
@@ -93,6 +94,10 @@ secret manager (`ARCHITECTURE.md` §9.3).
 under `/campaign` in the image. Without the mount a restart loses it, and there is no
 undo. The alternative is `GARY_BACKEND=firestore`, which keeps nothing on the machine
 at all.
+
+**It lives outside the repo on purpose.** `rm -rf gary && git clone …` is an ordinary
+thing to do to a checkout, and the campaign is the one thing here that exists nowhere
+else.
 
 **Run one.** Gary is a single always-on process holding a Discord Gateway connection.
 Don't scale the service: the single-writer lock is per-machine, so two containers on one
@@ -134,8 +139,11 @@ PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
 
 Setting `GEMINI_API_KEY` is the entire switch from `EchoNarrator` to `GeminiNarrator`.
 
-Campaign state lands in `./campaign` by default (`GARY_CAMPAIGN_ROOT`). It is a journal
-plus snapshots, so it survives restarts and can be inspected by hand.
+Campaign state lands in `~/.local/share/gary/campaign` by default, or wherever
+`GARY_CAMPAIGN_ROOT` points (`$XDG_DATA_HOME` is honoured). It is a journal plus
+snapshots, so it survives restarts and can be inspected by hand — and it sits outside
+the repo, so deleting a checkout cannot delete a campaign. If Gary finds an old
+`./campaign` from before that default moved, it says so at boot and leaves it alone.
 
 ### Optional, but worth knowing early
 
@@ -436,7 +444,7 @@ Reset truncates the journal in place, so take a copy first if there is any chanc
 want the old campaign back:
 
 ```bash
-cp -r campaign campaign.backup-$(date +%F)
+cp -r ~/.local/share/gary/campaign ~/gary-backup-$(date +%F)
 ```
 
 ### 2. Ask for it
@@ -558,7 +566,7 @@ required.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `GARY_CAMPAIGN_ROOT` | `./campaign` | Journal, snapshots, pending checks, history. |
+| `GARY_CAMPAIGN_ROOT` | `~/.local/share/gary/campaign` | Journal, snapshots, pending checks, history. Honours `$XDG_DATA_HOME`. Outside the repo so a `git clone` cannot destroy it; `/campaign` inside the image. |
 | `GARY_BACKEND` | `file` | `file` or `firestore`. |
 | `GARY_FIRESTORE_CAMPAIGN_ID` | `default` | Which campaign document. |
 

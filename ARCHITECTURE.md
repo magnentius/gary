@@ -615,6 +615,10 @@ Always-on is not the same as precious. Nothing that matters lives on the instanc
 - **The Director holds no per-channel state** (§4.1). It is derived from the registry, so a fresh process serves any channel identically the moment it connects. There is nothing to hand over.
 - **Configuration comes from Secret Manager and the store**, not from files edited in place on the instance.
 
+**The campaign lives outside the checkout.** `GARY_CAMPAIGN_ROOT` defaults to `$XDG_DATA_HOME/gary/campaign`, falling back to `~/.local/share/gary/campaign`. It used to default to `./campaign`, which put the journal, the snapshots and every channel's history — the one thing in this project that exists nowhere else and that §7.3 cannot undo — inside a git checkout. `rm -rf gary && git clone …` is an ordinary thing to do to a repo, and a shell glob (`cp -r */ backup/`) that copies "the project" would take everything but the campaign. Neither is a mistake worth being able to make.
+
+The move is detected rather than performed: a campaign found at the old path is reported at boot and left untouched, because starting fresh where a campaign already exists is indistinguishable from a new install, and migrating somebody's journal unasked is not a thing a boot sequence should do.
+
 The local-disk backend remains the default and is a perfectly good choice for one table — but then the VM is a pet, and the persistent disk needs the nightly snapshot + journal sync to Cloud Storage that the Firestore setup makes redundant.
 
 ### 11.2 The container
@@ -628,7 +632,7 @@ That last one is why the image is smoke-tested rather than merely built. `pip in
 **Three constraints the image does not relax:**
 
 - **It is a long-running process, not a request handler.** The Gateway bullet above is load-bearing, so anything that scales to zero or recycles between turns is out. Cloud Run works only with `min-instances=1` and CPU always allocated, which costs more than the e2-micro that is currently free.
-- **State is on the volume or in Firestore, never in the container.** The file backend writes the journal, snapshots, `history/` and `pending_checks.json` under `GARY_CAMPAIGN_ROOT`, which the image sets to `/campaign`. A restart without a mount loses the campaign, and §7.3 has no undo. `docker-compose.yml` bind-mounts `./campaign` for that reason; §11.1's Firestore setup is the alternative.
+- **State is on the volume or in Firestore, never in the container.** The file backend writes the journal, snapshots, `history/` and `pending_checks.json` under `GARY_CAMPAIGN_ROOT`, which the image sets to `/campaign` — a fixed path, because a container has no home directory worth writing to. A restart without a mount loses the campaign, and §7.3 has no undo. `docker-compose.yml` bind-mounts the host default for that reason; §11.1's Firestore setup is the alternative.
 - **Do not scale the service.** §7.6's lock is `flock` and therefore per-machine, and it is taken against `GARY_CAMPAIGN_ROOT` on the local filesystem *regardless of backend*. Two containers on one Firestore campaign each take their own lock trivially and both write, which is exactly what §7.6 exists to prevent. A VM made that mistake feel like work; `replicas: 2` does not. Making the lock mean anything across hosts needs a lease on a Firestore document, and that has not been built.
 
 ### 11.3 If the always-on process ever needs to shrink

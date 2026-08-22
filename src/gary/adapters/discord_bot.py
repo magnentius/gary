@@ -966,6 +966,15 @@ def build_client(
     # that finds it held runs read-only rather than interleaving writes into a journal we
     # are appending to. Failing to acquire is a warning, not a refusal -- a stale lock
     # must never stop a game from starting.
+    stranded = settings.stranded_campaign()
+    if stranded is not None:
+        log.warning(
+            "found a campaign at %s, but this one is at %s. The default moved out of the "
+            "working directory so a `git clone` cannot destroy it. If %s is the campaign "
+            "you want, move it or set GARY_CAMPAIGN_ROOT -- nothing here will touch it.",
+            stranded, settings.campaign_root, stranded,
+        )
+
     lock = CampaignLock(lock_path(settings.campaign_root), owner="gary")
     if not lock.acquire():
         log.warning(

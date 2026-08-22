@@ -15,9 +15,13 @@ services:
 
     # The campaign lives on the host, not in the container. Without this a restart
     # loses the journal, the snapshots and every channel's history, and §7.3 has no
-    # undo for that. GARY_CAMPAIGN_ROOT is /campaign in the image.
+    # undo for that. GARY_CAMPAIGN_ROOT is /campaign inside the image.
+    #
+    # Outside the repo on purpose: `rm -rf gary && git clone ...` is an ordinary thing
+    # to do to a checkout, and it must not be able to take the campaign with it.
+    # Override with GARY_HOST_CAMPAIGN in .env to keep several campaigns side by side.
     volumes:
-      - ./campaign:/campaign
+      - ${GARY_HOST_CAMPAIGN:-~/.local/share/gary/campaign}:/campaign
 
     # Gary holds a Discord Gateway WebSocket and must simply stay up; there is no
     # request to fail. This is the container equivalent of §11's `Restart=always`.

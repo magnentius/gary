@@ -22,6 +22,26 @@ DEFAULT_AVRAE_BOT_ID = 261302296103747584
 # Avrae owns "!". A collision would make Gary answer commands meant for the dice bot.
 DEFAULT_COMMAND_PREFIX = "?dm "
 
+#: Where a campaign lives when nothing says otherwise.
+#:
+#: Deliberately outside the working directory. The campaign is the journal, the snapshot
+#: and every channel's history -- the one thing in this project that exists nowhere else
+#: and that §7.3 cannot undo. Defaulting it to ``./campaign`` put it inside a git
+#: checkout, where `rm -rf gary && git clone ...` is an ordinary thing to do to a repo
+#: and would take a year of play with it.
+#:
+#: ``XDG_DATA_HOME`` is honoured where it is set; the fallback is its specified default.
+#: This is the same path inside the container and out, except that the image overrides it
+#: to ``/campaign`` so the bind mount has somewhere obvious to land.
+def default_campaign_root() -> Path:
+    base = os.environ.get("XDG_DATA_HOME") or (Path.home() / ".local" / "share")
+    return Path(base) / "gary" / "campaign"
+
+
+#: A campaign left where the old default used to put it. Checked at boot so an upgrade
+#: cannot look like the campaign having vanished -- see `Settings.stranded_campaign`.
+LEGACY_CAMPAIGN_ROOT = Path("./campaign")
+
 
 class ConfigError(RuntimeError):
     """Configuration is missing or unusable. Always fatal at boot, never at runtime."""
@@ -80,7 +100,7 @@ class Settings:
     # validation is then skipped rather than rejecting everything.
     players: Mapping[int, str] = field(default_factory=dict)
 
-    campaign_root: Path = Path("./campaign")
+    campaign_root: Path = field(default_factory=default_campaign_root)
     backend: str = "file"  # file | firestore
     firestore_campaign_id: str = "default"
 
@@ -121,6 +141,25 @@ class Settings:
                 f"freeform channels are not game channels: {sorted(stray)}"
             )
 
+    def stranded_campaign(self) -> Optional[Path]:
+        """A campaign sitting where the old default used to put it, and now unread.
+
+        The default moved out of the working directory, and the failure that move can
+        cause is worse than the one it fixes: Gary starts, finds nothing at the new path,
+        and opens an empty campaign. That is indistinguishable from a fresh install, so
+        nobody would think to look. Detected rather than migrated -- moving somebody's
+        journal without being asked is not a thing a boot sequence should do.
+        """
+        legacy = LEGACY_CAMPAIGN_ROOT.resolve()
+        if not (legacy / "journal.ndjson").exists():
+            return None
+        try:
+            if legacy == self.campaign_root.resolve():
+                return None  # it *is* the configured root; nothing stranded
+        except OSError:  # pragma: no cover - unresolvable path
+            pass
+        return legacy
+
     @classmethod
     def from_env(cls, env=None) -> "Settings":
         e = os.environ if env is None else env
@@ -132,7 +171,8 @@ class Settings:
             coins_command=e.get("GARY_COINS_COMMAND", "game coins"),
             command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
             players=_players(e.get("GARY_PLAYERS")),
-            campaign_root=Path(e.get("GARY_CAMPAIGN_ROOT", "./campaign")),
+            campaign_root=Path(e["GARY_CAMPAIGN_ROOT"]) if e.get("GARY_CAMPAIGN_ROOT")
+            else default_campaign_root(),
             backend=e.get("GARY_BACKEND", "file"),
             firestore_campaign_id=e.get("GARY_FIRESTORE_CAMPAIGN_ID", "default"),
             gemini_api_key=e.get("GEMINI_API_KEY", ""),

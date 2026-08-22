@@ -6,7 +6,8 @@
 # to nobody, so a host that suspends between player turns breaks Mode B outright.
 #
 #   docker build -t gary .
-#   docker run --env-file .env -v "$PWD/campaign:/campaign" ghcr.io/magnentius/gary
+#   docker run --env-file .env -v ~/.local/share/gary/campaign:/campaign \
+#              ghcr.io/magnentius/gary
 #
 # The image pins the interpreter, which is the point: every deployment bug this project
 # has actually had was the host's Python not being what anyone thought it was.
@@ -40,8 +41,11 @@ RUN useradd --create-home --uid 10001 gary \
     && chown -R gary:gary /campaign
 USER gary
 
-# The file backend's default. Mount a volume here or set GARY_BACKEND=firestore; a
-# container restart with neither loses the journal, and §7.3 has no undo for that.
+# Inside the image the campaign is always /campaign, overriding the host default of
+# ~/.local/share/gary/campaign -- a container has no home directory worth writing to,
+# and a fixed path gives the bind mount somewhere obvious to land. Mount a volume here
+# or set GARY_BACKEND=firestore; a restart with neither loses the journal, and §7.3 has
+# no undo for that.
 ENV GARY_CAMPAIGN_ROOT=/campaign \
     PYTHONUNBUFFERED=1
 VOLUME ["/campaign"]

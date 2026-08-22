@@ -2,6 +2,8 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+# Campaigns default to ~/.local/share/gary/campaign now. This stays so an older
+# checkout, or an explicit GARY_CAMPAIGN_ROOT=./campaign, cannot commit a journal.
 campaign/
 *.egg-info/
 .env
