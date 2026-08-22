@@ -30,7 +30,14 @@ from pathlib import Path
 SIZES = ("Tiny", "Small", "Medium", "Large", "Huge", "Gargantuan")
 
 _CR = re.compile(r"^CR\s+(\d+(?:/\d+)?)\s*\(XP", re.IGNORECASE)
-_SIZE_LINE = re.compile(rf"^({'|'.join(SIZES)})\s+([^,]+),", re.IGNORECASE)
+# Some statblocks offer a choice of size -- "Medium or Small Humanoid, Neutral" -- and
+# the alternative has to be consumed here or it lands in the type. It did: 36 of 327
+# creatures were typed "or Small Humanoid", and they were disproportionately the
+# humanoids, which is exactly the group anything keyed on creature type cares about.
+_SIZE_LINE = re.compile(
+    rf"^({'|'.join(SIZES)})(?:\s+or\s+(?:{'|'.join(SIZES)}))?\s+([^,]+),",
+    re.IGNORECASE,
+)
 
 LICENCE = (
     "Monster names and challenge ratings from the System Reference Document 5.2.1, "

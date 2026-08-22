@@ -185,13 +185,13 @@
    "cr": 12.0,
    "name": "Archmage",
    "size": "Medium",
-   "type": "or Small Humanoid (Wizard)"
+   "type": "Humanoid (Wizard)"
   },
   "Assassin": {
    "cr": 8.0,
    "name": "Assassin",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Awakened Shrub": {
    "cr": 0.0,
@@ -239,13 +239,13 @@
    "cr": 0.125,
    "name": "Bandit",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Bandit Captain": {
    "cr": 2.0,
    "name": "Bandit Captain",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Barbed Devil": {
    "cr": 5.0,
@@ -281,7 +281,7 @@
    "cr": 2.0,
    "name": "Berserker",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Black Bear": {
    "cr": 0.5,
@@ -431,7 +431,7 @@
    "cr": 0.0,
    "name": "Commoner",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Constrictor Snake": {
    "cr": 0.25,
@@ -467,13 +467,13 @@
    "cr": 0.125,
    "name": "Cultist",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Cultist Fanatic": {
    "cr": 2.0,
    "name": "Cultist Fanatic",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Darkmantle": {
    "cr": 0.5,
@@ -545,7 +545,7 @@
    "cr": 2.0,
    "name": "Druid",
    "size": "Medium",
-   "type": "or Small Humanoid (Druid)"
+   "type": "Humanoid (Druid)"
   },
   "Dryad": {
    "cr": 1.0,
@@ -863,7 +863,7 @@
    "cr": 5.0,
    "name": "Gladiator",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Gnoll Warrior": {
    "cr": 0.5,
@@ -941,13 +941,13 @@
    "cr": 0.125,
    "name": "Guard",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Guard Captain": {
    "cr": 4.0,
    "name": "Guard Captain",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Guardian Naga": {
    "cr": 10.0,
@@ -1097,7 +1097,7 @@
    "cr": 3.0,
    "name": "Knight",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Kobold Warrior": {
    "cr": 0.125,
@@ -1145,7 +1145,7 @@
    "cr": 6.0,
    "name": "Mage",
    "size": "Medium",
-   "type": "or Small Humanoid (Wizard)"
+   "type": "Humanoid (Wizard)"
   },
   "Magma Mephit": {
    "cr": 0.5,
@@ -1229,13 +1229,13 @@
    "cr": 3.0,
    "name": "Mummy",
    "size": "Medium",
-   "type": "or Small Undead"
+   "type": "Undead"
   },
   "Mummy Lord": {
    "cr": 15.0,
    "name": "Mummy Lord",
    "size": "Medium",
-   "type": "or Small Undead (Cleric)"
+   "type": "Undead (Cleric)"
   },
   "Nalfeshnee": {
    "cr": 13.0,
@@ -1259,7 +1259,7 @@
    "cr": 0.125,
    "name": "Noble",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Ochre Jelly": {
    "cr": 2.0,
@@ -1337,13 +1337,13 @@
    "cr": 1.0,
    "name": "Pirate",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Pirate Captain": {
    "cr": 6.0,
    "name": "Pirate Captain",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Pit Fiend": {
    "cr": 20.0,
@@ -1379,13 +1379,13 @@
    "cr": 2.0,
    "name": "Priest",
    "size": "Medium",
-   "type": "or Small Humanoid (Cleric)"
+   "type": "Humanoid (Cleric)"
   },
   "Priest Acolyte": {
    "cr": 0.25,
    "name": "Priest Acolyte",
    "size": "Medium",
-   "type": "or Small Humanoid (Cleric)"
+   "type": "Humanoid (Cleric)"
   },
   "Pseudodragon": {
    "cr": 0.25,
@@ -1511,7 +1511,7 @@
    "cr": 0.5,
    "name": "Scout",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Sea Hag": {
    "cr": 2.0,
@@ -1607,7 +1607,7 @@
    "cr": 1.0,
    "name": "Spy",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Steam Mephit": {
    "cr": 0.25,
@@ -1703,13 +1703,13 @@
    "cr": 0.5,
    "name": "Tough",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Tough Boss": {
    "cr": 4.0,
    "name": "Tough Boss",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Treant": {
    "cr": 9.0,
@@ -1751,19 +1751,19 @@
    "cr": 13.0,
    "name": "Vampire",
    "size": "Medium",
-   "type": "or Small Undead"
+   "type": "Undead"
   },
   "Vampire Familiar": {
    "cr": 3.0,
    "name": "Vampire Familiar",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Vampire Spawn": {
    "cr": 5.0,
    "name": "Vampire Spawn",
    "size": "Medium",
-   "type": "or Small Undead"
+   "type": "Undead"
   },
   "Venomous Snake": {
    "cr": 0.125,
@@ -1805,13 +1805,13 @@
    "cr": 0.125,
    "name": "Warrior Infantry",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Warrior Veteran": {
    "cr": 3.0,
    "name": "Warrior Veteran",
    "size": "Medium",
-   "type": "or Small Humanoid"
+   "type": "Humanoid"
   },
   "Water Elemental": {
    "cr": 5.0,
@@ -1829,31 +1829,31 @@
    "cr": 5.0,
    "name": "Werebear",
    "size": "Medium",
-   "type": "or Small Monstrosity (Lycanthrope)"
+   "type": "Monstrosity (Lycanthrope)"
   },
   "Wereboar": {
    "cr": 4.0,
    "name": "Wereboar",
    "size": "Medium",
-   "type": "or Small Monstrosity (Lycanthrope)"
+   "type": "Monstrosity (Lycanthrope)"
   },
   "Wererat": {
    "cr": 2.0,
    "name": "Wererat",
    "size": "Medium",
-   "type": "or Small Monstrosity (Lycanthrope)"
+   "type": "Monstrosity (Lycanthrope)"
   },
   "Weretiger": {
    "cr": 4.0,
    "name": "Weretiger",
    "size": "Medium",
-   "type": "or Small Monstrosity (Lycanthrope)"
+   "type": "Monstrosity (Lycanthrope)"
   },
   "Werewolf": {
    "cr": 3.0,
    "name": "Werewolf",
    "size": "Medium",
-   "type": "or Small Monstrosity (Lycanthrope)"
+   "type": "Monstrosity (Lycanthrope)"
   },
   "Wight": {
    "cr": 3.0,
@@ -1889,7 +1889,7 @@
    "cr": 5.0,
    "name": "Wraith",
    "size": "Medium",
-   "type": "or Small Undead"
+   "type": "Undead"
   },
   "Wyvern": {
    "cr": 6.0,
