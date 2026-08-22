@@ -11,7 +11,9 @@ services:
     image: ghcr.io/magnentius/gary:latest
     # build: .
     container_name: gary
-    env_file: .env
+    # Outside the checkout, for the same reason the campaign is: deleting a clone must
+    # not take your token with it. $XDG_CONFIG_HOME is honoured where it is set.
+    env_file: ${XDG_CONFIG_HOME:-~/.config}/gary/env
 
     # The campaign lives on the host, not in the container. Without this a restart
     # loses the journal, the snapshots and every channel's history, and §7.3 has no
@@ -19,9 +21,14 @@ services:
     #
     # Outside the repo on purpose: `rm -rf gary && git clone ...` is an ordinary thing
     # to do to a checkout, and it must not be able to take the campaign with it.
-    # Override with GARY_HOST_CAMPAIGN in .env to keep several campaigns side by side.
+    #
+    # A fixed path rather than ${GARY_HOST_CAMPAIGN}, deliberately: `env_file` does not
+    # feed compose's own interpolation -- only the project-directory .env or an explicit
+    # --env-file does -- so once the env file moved out of the repo, a variable here
+    # would have silently fallen back to this default and mounted the wrong campaign
+    # with no error. To run a second campaign, use a docker-compose.override.yml.
     volumes:
-      - ${GARY_HOST_CAMPAIGN:-~/.local/share/gary/campaign}:/campaign
+      - ~/.local/share/gary/campaign:/campaign
 
     # Gary holds a Discord Gateway WebSocket and must simply stay up; there is no
     # request to fail. This is the container equivalent of §11's `Restart=always`.

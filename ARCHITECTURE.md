@@ -562,9 +562,10 @@ All configuration is environment variables, read once at boot by `Settings.from_
 
 **Deployed, they live in GCP Secret Manager**, fetched via the VM's attached service account and injected into the process — or into the container (§11.2), which never talks to Secret Manager itself and only ever sees environment variables. That is the boundary: the host resolves secrets, the image consumes them.
 
-**Locally, a gitignored `.env` is acceptable**, and is what `docker-compose.yml` reads. An earlier version of this section said "not in `.env`" without qualification, which was a rule nobody could follow — running the thing on a laptop needs the token somewhere, and the alternative in practice is a shell history entry, which is worse. The conditions:
+**Locally, an env file outside the checkout is acceptable**, and `$XDG_CONFIG_HOME/gary/env` — falling back to `~/.config/gary/env` — is what `docker-compose.yml` reads. An earlier version of this section said "not in `.env`" without qualification, which was a rule nobody could follow: running the thing on a laptop needs the token somewhere, and the alternative in practice is a shell history entry, which is worse. The conditions:
 
-- `.env` is in **both** `.gitignore` and `.dockerignore`, so it can neither be committed nor reach a build context. `.env.example` carries the keys with no values.
+- **Outside the repo**, for the reason §11.1 gives about the campaign: `rm -rf gary && git clone …` is an ordinary thing to do to a checkout and must take neither the campaign nor the token. `.env` remains in `.gitignore` and `.dockerignore` so an older layout still cannot commit or build one in, and `.env.example` carries the keys with no values.
+- `chmod 600`, since it is a bearer token in a plain file.
 - It is for a developer's own bot in their own server. A `.env` holding the credentials of a table that other people play at is a deployed secret in a text file, and belongs in Secret Manager.
 - It is plaintext on disk with no expiry, so it is the weakest link by construction. Treat any laptop loss as exposure.
 

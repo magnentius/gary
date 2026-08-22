@@ -69,35 +69,40 @@ and the SRD data, so the only thing you supply is config and somewhere to keep t
 campaign.
 
 ```bash
-cp .env.example .env          # fill in DISCORD_TOKEN and GARY_GAME_CHANNELS
+mkdir -p ~/.config/gary && chmod 700 ~/.config/gary
+cp .env.example ~/.config/gary/env && chmod 600 ~/.config/gary/env
+$EDITOR ~/.config/gary/env    # fill in DISCORD_TOKEN and GARY_GAME_CHANNELS
+
 docker compose up -d
 docker compose logs -f
 ```
 
-That pulls `ghcr.io/magnentius/gary:latest` and bind-mounts
-`~/.local/share/gary/campaign` into the container, creating it if needed. Set
-`GARY_HOST_CAMPAIGN` in `.env` to keep campaigns somewhere else, or several side by
-side. Or without compose:
+That pulls `ghcr.io/magnentius/gary:latest`, reads your config from
+`~/.config/gary/env`, and bind-mounts `~/.local/share/gary/campaign` into the container.
+For a second campaign, add a `docker-compose.override.yml` with a different volume line.
+Or without compose:
 
 ```bash
 docker run -d --name gary --restart unless-stopped \
-  --env-file .env -v ~/.local/share/gary/campaign:/campaign \
+  --env-file ~/.config/gary/env \
+  -v ~/.local/share/gary/campaign:/campaign \
   ghcr.io/magnentius/gary:latest
 ```
 
-**`.env` holds your bot token.** It is gitignored and excluded from the build context,
-so it cannot be committed or baked into an image — but it is plaintext on disk with no
-expiry. Fine for your own bot in your own server; a table other people play at wants a
-secret manager (`ARCHITECTURE.md` §9.3).
+**`~/.config/gary/env` holds your bot token**, outside the checkout so deleting a clone
+cannot take it with you — and outside the build context, so it cannot be baked into an
+image. It is still plaintext on disk with no expiry, so `chmod 600` it and treat a lost
+laptop as exposure. Fine for your own bot in your own server; a table other people play
+at wants a secret manager (`ARCHITECTURE.md` §9.3).
 
 **Mount the volume.** The campaign — journal, snapshots, every channel's history — lives
 under `/campaign` in the image. Without the mount a restart loses it, and there is no
 undo. The alternative is `GARY_BACKEND=firestore`, which keeps nothing on the machine
 at all.
 
-**It lives outside the repo on purpose.** `rm -rf gary && git clone …` is an ordinary
-thing to do to a checkout, and the campaign is the one thing here that exists nowhere
-else.
+**Both live outside the repo on purpose.** `rm -rf gary && git clone …` is an ordinary
+thing to do to a checkout — and it must take neither the campaign, which exists nowhere
+else, nor the token.
 
 **Run one.** Gary is a single always-on process holding a Discord Gateway connection.
 Don't scale the service: the single-writer lock is per-machine, so two containers on one
@@ -120,6 +125,14 @@ unset and Gary uses `EchoNarrator`, which reports outcomes in flat text:
 export DISCORD_TOKEN='...'
 export GARY_GAME_CHANNELS='123456789012345678'      # ',' or ' ' between channels
 
+PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
+```
+
+If you already filled in `~/.config/gary/env` for the container, source it instead of
+retyping — `set -a` exports everything the file sets:
+
+```bash
+set -a; . ~/.config/gary/env; set +a
 PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
 ```
 
