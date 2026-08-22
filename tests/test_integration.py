@@ -404,8 +404,8 @@ def test_only_avrae_edits_are_reprocessed():
             self.author = type("A", (), {"id": author_id})()
 
     avrae, player = _Msg(261302296103747584), _Msg(999)
-    asyncio.get_event_loop().run_until_complete(edit(avrae, avrae))
-    asyncio.get_event_loop().run_until_complete(edit(player, player))
+    asyncio.run(edit(avrae, avrae))
+    asyncio.run(edit(player, player))
 
     assert seen == [avrae]
 
@@ -451,7 +451,7 @@ def test_raw_edits_are_fetched_when_the_message_was_never_cached():
         async def on_message(self, message):
             seen.append(message)
 
-    run = asyncio.get_event_loop().run_until_complete
+    run = asyncio.run
 
     tracker = _Msg(AVRAE)
     client = _Client(tracker)
@@ -502,7 +502,7 @@ def test_a_sheet_registers_whoever_asked_for_it():
 
     client = _Client()
     claim = GaryClient._claim_sheet.__get__(client, _Client)
-    run = asyncio.get_event_loop().run_until_complete
+    run = asyncio.run
 
     # nobody asked: nothing is claimed
     run(claim(7, "Caspian Varr"))
@@ -617,7 +617,7 @@ def test_import_refuses_before_spending_anything():
     for message, expected in cases:
         sent = []
         client, do_import = _import_client(_Narrator(), sent)
-        asyncio.get_event_loop().run_until_complete(do_import(message, 7))
+        asyncio.run(do_import(message, 7))
         assert expected in " ".join(sent), (expected, sent)
         assert client.runner.effects == []
 
@@ -633,7 +633,7 @@ def test_import_says_so_when_no_model_is_attached():
 
     sent = []
     client, do_import = _import_client(EchoNarrator(), sent)
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         do_import(_ImportMsg([_Attachment()]), 7)
     )
     assert "No model is attached" in " ".join(sent)
@@ -648,7 +648,7 @@ def test_import_fans_a_document_into_one_prompt_per_part():
     body = ("# Leafmoor\n\n" + "The fen drowns the road.\n" * 600).encode()
     sent = []
     client, do_import = _import_client(_Narrator(), sent)
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         do_import(_ImportMsg([_Attachment(filename="leaf-node.md", body=body)]), 7)
     )
 
@@ -748,7 +748,7 @@ def test_dm_state_does_not_stay_silent_about_stored_memory():
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
+    asyncio.run(dispatch(Msg("?dm state")))
 
     body = " ".join(sent)
     assert "3 note(s)" in body and "1 NPC(s)" in body
@@ -763,7 +763,7 @@ def test_dm_state_stays_quiet_when_nothing_is_stored():
     state["notes"], state["npcs"] = [], {}
     sent = []
     Msg, dispatch, _ = _dm_client(state, sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
+    asyncio.run(dispatch(Msg("?dm state")))
     assert "Also stored" not in " ".join(sent)
 
 
@@ -774,7 +774,7 @@ def test_dm_notes_lists_subjects_a_player_would_say():
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
+    asyncio.run(dispatch(Msg("?dm notes")))
 
     body = " ".join(sent)
     assert "- The Leaf-Mote (2)" in body      # count only where there is more than one
@@ -789,7 +789,7 @@ def test_dm_notes_on_an_empty_campaign_says_so():
     state["notes"], state["npcs"] = [], {}
     sent = []
     Msg, dispatch, _ = _dm_client(state, sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
+    asyncio.run(dispatch(Msg("?dm notes")))
     assert "Nothing filed yet" in " ".join(sent)
 
 
@@ -806,7 +806,7 @@ def test_import_proposes_a_premise_it_could_not_have_filed():
     client, do_import = _import_client(
         _Narrator(), sent, state={"setting": ""}, answer="The Fen Marches, drowned and feudal."
     )
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         do_import(_ImportMsg([_Attachment()]), 7)
     )
 
@@ -827,7 +827,7 @@ def test_import_leaves_an_established_premise_alone():
     client, do_import = _import_client(
         _Narrator(), sent, state={"setting": "The Fen Marches."}, answer="Something else."
     )
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         do_import(_ImportMsg([_Attachment()]), 7)
     )
     assert client.runner.asked == []
@@ -841,7 +841,7 @@ def test_bare_dm_scene_proposes_one_instead_of_printing_its_own_usage():
     Msg, dispatch, client = _dm_client(
         _seeded_state(), sent, narrator=object(), answer="The Rusty Anchor | Rain on the shutters."
     )
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+    asyncio.run(dispatch(Msg("?dm scene")))
 
     assert [e.kind for e in client.runner.asked] == ["propose_scene"]
     assert client._pending_proposals[(7, "scene")] == "The Rusty Anchor | Rain on the shutters."
@@ -860,7 +860,7 @@ def test_bare_dm_scene_falls_back_to_usage_with_no_model_attached():
 
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+    asyncio.run(dispatch(Msg("?dm scene")))
 
     assert client.runner.asked == []
     assert "?dm scene <location> | <standing state>" in " ".join(sent)
@@ -874,7 +874,7 @@ def test_accept_writes_the_held_line_and_spends_it():
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent)
     client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain on the shutters."
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+    asyncio.run(dispatch(Msg("?dm accept")))
 
     (mutations, reason), = client.store.applied
     assert mutations[0].kind is MutationKind.SCENE
@@ -897,7 +897,7 @@ def test_accept_can_take_one_kind_while_the_other_keeps_waiting():
     Msg, dispatch, client = _dm_client(_seeded_state(), sent)
     client._pending_proposals[(7, "setting")] = "The Fen Marches."
     client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain."
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept setting")))
+    asyncio.run(dispatch(Msg("?dm accept setting")))
 
     (mutations, _), = client.store.applied
     assert mutations[0].kind is MutationKind.SETTING
@@ -909,7 +909,7 @@ def test_accept_with_nothing_pending_says_where_proposals_come_from():
 
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+    asyncio.run(dispatch(Msg("?dm accept")))
 
     body = " ".join(sent)
     assert "Nothing to accept" in body
@@ -925,7 +925,7 @@ def test_writing_a_setting_by_hand_drops_the_suggestion_it_overrules():
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent)
     client._pending_proposals[(7, "setting")] = "The Fen Marches."
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         dispatch(Msg("?dm setting A dry upland barony."))
     )
     assert client._pending_proposals == {}
@@ -938,7 +938,7 @@ def test_a_proposal_the_model_fumbled_is_reported_not_stored():
 
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object(), answer="```\n```")
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+    asyncio.run(dispatch(Msg("?dm scene")))
 
     assert client._pending_proposals == {}
     assert client.store.applied == []
@@ -979,7 +979,7 @@ def test_an_unknown_dm_command_says_so_and_then_helps():
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm sitting")))
+    asyncio.run(dispatch(Msg("?dm sitting")))
 
     body = " ".join(sent)
     assert "I don't know `?dm sitting`" in body
@@ -991,7 +991,7 @@ def test_bare_dm_is_help():
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm")))
+    asyncio.run(dispatch(Msg("?dm")))
     assert "Opening a campaign" in " ".join(sent)
 
 
@@ -1005,7 +1005,7 @@ def test_asking_again_tells_the_model_what_it_already_offered():
     Msg, dispatch, client = _dm_client(
         _seeded_state(), sent, narrator=object(), answer="The Unsealed Vault | Scribes."
     )
-    run = asyncio.get_event_loop().run_until_complete
+    run = asyncio.run
 
     run(dispatch(Msg("?dm scene")))
     assert client.runner.asked[0].payload["already_offered"] == []
@@ -1025,7 +1025,7 @@ def test_the_list_of_rejects_is_bounded():
 
     sent = []
     Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object())
-    run = asyncio.get_event_loop().run_until_complete
+    run = asyncio.run
 
     cap = GaryClient.MAX_DECLINED_PROPOSALS
     for i in range(cap + 3):
@@ -1048,7 +1048,7 @@ def test_accepting_forgets_the_rejects_too():
     client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
     client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
 
-    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+    asyncio.run(dispatch(Msg("?dm accept")))
     assert client._pending_proposals == {}
     assert client._declined_proposals == {}
 
@@ -1061,7 +1061,7 @@ def test_writing_a_scene_by_hand_forgets_the_rejects_too():
     client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
     client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
 
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         dispatch(Msg("?dm scene The Eel-Runs | Fever-mist off the ditches."))
     )
     assert client._pending_proposals == {}

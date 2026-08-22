@@ -12,7 +12,12 @@ dependencies = []
 discord = ["discord.py>=2.4"]
 llm = ["google-genai>=1.0"]
 gcp = ["google-cloud-firestore>=2.16"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "d20>=1.1"]  # d20 reproduces Avrae's roll strings
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "d20>=1.1",   # reproduces Avrae's roll strings
+    "pypdf>=5.0", # scripts/extract_srd_*.py read the SRD PDF
+]
 
 [build-system]
 requires = ["setuptools>=68"]

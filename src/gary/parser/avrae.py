@@ -71,7 +71,7 @@ _NON_WORD = re.compile(r"\W+")
 
 
 def combatant_prefix(monster_name: str) -> str:
-    """The letters Avrae puts before the number when it adds a monster to the tracker.
+    r"""The letters Avrae puts before the number when it adds a monster to the tracker.
 
     ``Bandit`` becomes ``BA1``, ``Bandit Captain`` becomes ``BC1``. Transcribed from
     ``utils/functions.get_initials`` and ``cogs5e/initiative/cog.get_name`` at

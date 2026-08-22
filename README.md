@@ -32,7 +32,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 | **A Discord bot token** | With the **Message Content privileged intent enabled** in the Developer Portal. |
 | **Avrae in the same server** | Gary reads Avrae's embeds; it does not roll dice itself. |
 | **A channel id** | Right-click the channel → Copy Channel ID (needs Developer Mode on). |
-| **Python 3.11+** | For the editable install. 3.9 works via `PYTHONPATH=src` — see [Install](#1-install). |
+| **Python 3.11+** | `pyproject.toml` requires it. Developed on 3.12. |
 | **A Gemini API key** | Optional at first. Without one Gary runs on `EchoNarrator` and spends nothing. |
 
 > **Enable Message Content before anything else.** Without it `message.embeds` arrives
@@ -51,19 +51,15 @@ python -m venv .venv
 ```
 
 The editable install needs **Python 3.11+** and a pip new enough for PEP 660. On an older
-interpreter it fails and `python -m gary.…` reports `No module named 'gary'`. You do not
-need the install at all — `PYTHONPATH=src` does the same job, which is what
-`pyproject.toml`'s `pythonpath = ["src"]` already gives pytest:
+interpreter it fails and `python -m gary.…` reports `No module named 'gary'`. If you are
+stuck on one, `PYTHONPATH=src` does the same job without installing anything — it is what
+`pyproject.toml`'s `pythonpath = ["src"]` already gives pytest, and every command below
+is written that way so it works either way.
 
-```bash
-python -m venv .venv
-.venv/bin/pip install discord.py google-genai pytest pytest-asyncio d20
-PYTHONPATH=src .venv/bin/python -m pytest -q
-```
-
-Every command below uses the `PYTHONPATH=src` form, so it works either way. Both
-`scripts/` entry points insert `src` on `sys.path` themselves; only `-m` invocations need
-it.
+**Create the venv at its final path.** A virtualenv bakes its own absolute path into
+every console script's shebang, so moving or renaming the directory afterwards leaves
+`pip`, `pytest` and the rest reporting `bad interpreter`. `python -m pip` still works if
+that happens, but rebuilding is the fix — a venv is disposable.
 
 ---
 

@@ -261,7 +261,7 @@ def test_ask_returns_the_text_instead_of_posting_it():
             return NarrationResult(text="  The Fen Marches.  ")
 
     runner = EffectRunner(_Sender(), _Narrator())
-    answer = asyncio.get_event_loop().run_until_complete(
+    answer = asyncio.run(
         runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
     )
     assert answer == "The Fen Marches."
@@ -291,7 +291,7 @@ def test_ask_drops_effects_rather_than_deciding_while_asking():
             )
 
     runner = EffectRunner(_Sender(), _Narrator())
-    answer = asyncio.get_event_loop().run_until_complete(
+    answer = asyncio.run(
         runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
     )
     assert answer == "The Fen Marches."
@@ -318,7 +318,7 @@ def test_ask_answers_empty_when_the_model_fails_and_stays_silent():
             raise RuntimeError("503")
 
     runner = EffectRunner(_Sender(), _Narrator())
-    answer = asyncio.get_event_loop().run_until_complete(
+    answer = asyncio.run(
         runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
     )
     assert answer == ""
