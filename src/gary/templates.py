@@ -224,9 +224,18 @@ _CONDITIONS_PATH = Path(__file__).with_name("data") / "conditions.json"
 
 def _load_conditions() -> Mapping[str, Mapping[str, str]]:
     try:
-        return json.loads(_CONDITIONS_PATH.read_text())["conditions"]
-    except (OSError, ValueError, KeyError):  # pragma: no cover - data is shipped
-        return {}
+        loaded = json.loads(_CONDITIONS_PATH.read_text())["conditions"]
+    except (OSError, ValueError, KeyError) as exc:
+        # Loudly, at import. This used to return an empty dict, on the assumption that
+        # the data is always shipped -- and it was not: `pip install .` carried no
+        # data/*.json until `package-data` was declared, so a container ran with zero
+        # SRD conditions and said nothing. Empty is indistinguishable from "all homebrew",
+        # which is a legitimate answer, so nothing downstream could notice.
+        raise RuntimeError(
+            f"cannot load SRD conditions from {_CONDITIONS_PATH}: {exc}. The package data is "
+            "missing -- reinstall, or check [tool.setuptools.package-data]."
+        ) from exc
+    return loaded
 
 
 #: SRD 5.2.1 conditions, folded name -> {name, rules}. Extracted from the glossary by

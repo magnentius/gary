@@ -26,6 +26,13 @@ build-backend = "setuptools.build_meta"
 [tool.setuptools.packages.find]
 where = ["src"]
 
+# The SRD data is part of the package, not a development convenience. Without this a
+# non-editable install (which is what a container is) ships no data/*.json at all, and
+# both loaders below degrade to empty in silence: every creature reads as homebrew, the
+# encounter benchmark stops recognising anything, and morale never fires.
+[tool.setuptools.package-data]
+gary = ["data/*.json"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]

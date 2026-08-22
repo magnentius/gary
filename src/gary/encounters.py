@@ -46,10 +46,18 @@ def _fold(name: str) -> str:
 
 def _load_monsters() -> Dict[str, Dict[str, Any]]:
     try:
-        raw = json.loads(_MONSTERS_PATH.read_text())["monsters"]
-    except (OSError, ValueError, KeyError):  # pragma: no cover - data is shipped
-        return {}
-    return {_fold(m["name"]): m for m in raw.values()}
+        loaded = json.loads(_MONSTERS_PATH.read_text())["monsters"]
+    except (OSError, ValueError, KeyError) as exc:
+        # Loudly, at import. This used to return an empty dict, on the assumption that
+        # the data is always shipped -- and it was not: `pip install .` carried no
+        # data/*.json until `package-data` was declared, so a container ran with zero
+        # SRD monsters and said nothing. Empty is indistinguishable from "all homebrew",
+        # which is a legitimate answer, so nothing downstream could notice.
+        raise RuntimeError(
+            f"cannot load SRD monsters from {_MONSTERS_PATH}: {exc}. The package data is "
+            "missing -- reinstall, or check [tool.setuptools.package-data]."
+        ) from exc
+    return {_fold(m["name"]): m for m in loaded.values()}
 
 
 #: SRD 5.2.1 monsters, folded name -> record. Names and CRs only: Avrae owns statblocks
