@@ -586,13 +586,13 @@ Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot
 Two properties of the design fix this choice, and both are consequences of §1 rather than preferences:
 
 - **The Gateway connection must be continuous.** Gary's ingest path depends on observing *arbitrary channel messages* — specifically Avrae's embeds, which are addressed to nobody. Only a persistent Gateway WebSocket receives those. Any host that suspends or recycles the process between player turns breaks Mode B outright.
-- **The state server is a stdio subprocess holding local state.** It must outlive individual turns.
+- **The store must outlive individual turns.** It holds a check's DC between the model asking for a roll and the player making it, minutes later.
 
 The topology:
 
-- `e2-micro` on Compute Engine. GCP's Always Free tier covers it, but **only in `us-west1`, `us-central1`, or `us-east1`** — pin the region explicitly. 1 GB RAM is adequate for Gary plus the state server subprocess.
-- Gary launches the state server as a stdio subprocess and supervises it.
-- `systemd` unit with `Restart=always`.
+- `e2-micro` on Compute Engine. GCP's Always Free tier covers it, but **only in `us-west1`, `us-central1`, or `us-east1`** — pin the region explicitly. 1 GB RAM is ample.
+- The store runs **in-process** (§2.1). An earlier design had it as a supervised stdio subprocess, which went with the MCP binding on 2026-08-22; there is one process now.
+- `systemd` unit with `Restart=always`, or a container with `restart: unless-stopped` (§11.2).
 - Secrets from Secret Manager via the attached service account.
 
 ### 11.1 The VM is disposable
@@ -605,7 +605,21 @@ Always-on is not the same as precious. Nothing that matters lives on the instanc
 
 The local-disk backend remains the default and is a perfectly good choice for one table — but then the VM is a pet, and the persistent disk needs the nightly snapshot + journal sync to Cloud Storage that the Firestore setup makes redundant.
 
-### 11.2 If the always-on process ever needs to shrink
+### 11.2 The container
+
+`Dockerfile` builds a wheel and installs it into `python:3.12-slim` with the `discord` and `llm` adapters, running as uid 10001. `.github/workflows/docker.yml` tests on 3.12, builds, smoke-tests and publishes to `ghcr.io/<repo>` on `main` and on `v*` tags; a pull request builds and is smoke-tested but publishes nothing.
+
+Pinning the interpreter is most of the value. Every deployment problem this project has actually had was the host's Python not being what anyone thought it was — a venv whose shebangs pointed at a directory that had been renamed, an interpreter two minor versions below what `pyproject.toml` required, package data that a real install did not carry.
+
+That last one is why the image is smoke-tested rather than merely built. `pip install .` shipped no `data/*.json` until `[tool.setuptools.package-data]` was declared, and both loaders returned an empty dict on failure — so a container ran with zero SRD monsters and zero conditions, and said nothing. Empty is indistinguishable from "everything is homebrew", which is a legitimate answer, so the benchmark and morale (§5.4) went quiet rather than erroring. The loaders now raise at import, and CI asserts the built image can still look up a Bandit. A green test suite does not catch this, because the suite runs from source where the files are always present.
+
+**Three constraints the image does not relax:**
+
+- **It is a long-running process, not a request handler.** The Gateway bullet above is load-bearing, so anything that scales to zero or recycles between turns is out. Cloud Run works only with `min-instances=1` and CPU always allocated, which costs more than the e2-micro that is currently free.
+- **State is on the volume or in Firestore, never in the container.** The file backend writes the journal, snapshots, `history/` and `pending_checks.json` under `GARY_CAMPAIGN_ROOT`, which the image sets to `/campaign`. A restart without a mount loses the campaign, and §7.3 has no undo. `docker-compose.yml` bind-mounts `./campaign` for that reason; §11.1's Firestore setup is the alternative.
+- **Do not scale the service.** §7.6's lock is `flock` and therefore per-machine, and it is taken against `GARY_CAMPAIGN_ROOT` on the local filesystem *regardless of backend*. Two containers on one Firestore campaign each take their own lock trivially and both write, which is exactly what §7.6 exists to prevent. A VM made that mistake feel like work; `replicas: 2` does not. Making the lock mean anything across hosts needs a lease on a Firestore document, and that has not been built.
+
+### 11.3 If the always-on process ever needs to shrink
 
 Ingest cannot scale to zero: the Gateway is a session-bound WebSocket, and Gary depends on observing messages addressed to nobody. But **receiving requires that connection and sending does not** — posting narration is a plain REST call. That asymmetry allows a split: a minimal always-on publisher, with stateless workers behind Pub/Sub doing assembly, the Gemini call, and the reply.
 

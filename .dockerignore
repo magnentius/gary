@@ -1,0 +1,25 @@
+# The build only needs pyproject.toml, README.md and src/.
+.git
+.github
+.venv
+.venv.*
+.pytest_cache
+**/__pycache__
+*.pyc
+
+# Never bake a campaign, a token, or a lock into an image.
+campaign/
+.env
+*.env
+!.env.example
+
+tests/
+scripts/
+docs/
+*.pdf
+*.jpg
+*.png
+ARCHITECTURE.md
+Dockerfile
+docker-compose.yml
+.dockerignore

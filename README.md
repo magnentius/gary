@@ -13,6 +13,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
 - [What you need first](#what-you-need-first)
 - [1. Install](#1-install)
+  - [Run it in Docker](#run-it-in-docker)
 - [2. Start Gary](#2-start-gary)
 - [3. Make a world](#3-make-a-world)
 - [4. Import it](#4-import-it)
@@ -60,6 +61,40 @@ is written that way so it works either way.
 every console script's shebang, so moving or renaming the directory afterwards leaves
 `pip`, `pytest` and the rest reporting `bad interpreter`. `python -m pip` still works if
 that happens, but rebuilding is the fix — a venv is disposable.
+
+### Run it in Docker
+
+A published image saves the venv entirely. It pins Python 3.12 and carries the adapters
+and the SRD data, so the only thing you supply is config and somewhere to keep the
+campaign.
+
+```bash
+cp .env.example .env          # fill in DISCORD_TOKEN and GARY_GAME_CHANNELS
+mkdir -p campaign
+docker compose up -d
+docker compose logs -f
+```
+
+That pulls `ghcr.io/magnentius/gary:latest` and bind-mounts `./campaign` into the
+container. Or without compose:
+
+```bash
+docker run -d --name gary --restart unless-stopped \
+  --env-file .env -v "$PWD/campaign:/campaign" \
+  ghcr.io/magnentius/gary:latest
+```
+
+**Mount the volume.** The campaign — journal, snapshots, every channel's history — lives
+under `/campaign` in the image. Without the mount a restart loses it, and there is no
+undo. The alternative is `GARY_BACKEND=firestore`, which keeps nothing on the machine
+at all.
+
+**Run one.** Gary is a single always-on process holding a Discord Gateway connection.
+Don't scale the service: the single-writer lock is per-machine, so two containers on one
+campaign will both write to it.
+
+Images are built and published by `.github/workflows/docker.yml` on every push to `main`
+and on `v*` tags. To build locally instead, uncomment `build: .` in `docker-compose.yml`.
 
 ---
 

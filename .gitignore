@@ -6,3 +6,5 @@ campaign/
 *.egg-info/
 .env
 tests/fixtures/avrae/captured/
+build/
+dist/

@@ -1,0 +1,35 @@
+# Pull the published image and run it against a campaign directory on this machine.
+#
+#   cp .env.example .env    # then fill in the token and channel id
+#   docker compose up -d
+#   docker compose logs -f
+#
+# To run a local build instead of the published image, uncomment `build: .` below.
+
+services:
+  gary:
+    image: ghcr.io/magnentius/gary:latest
+    # build: .
+    container_name: gary
+    env_file: .env
+
+    # The campaign lives on the host, not in the container. Without this a restart
+    # loses the journal, the snapshots and every channel's history, and §7.3 has no
+    # undo for that. GARY_CAMPAIGN_ROOT is /campaign in the image.
+    volumes:
+      - ./campaign:/campaign
+
+    # Gary holds a Discord Gateway WebSocket and must simply stay up; there is no
+    # request to fail. This is the container equivalent of §11's `Restart=always`.
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+    # One writer per campaign (§7.6). The lock is flock and therefore per-machine, so
+    # it cannot stop a second Gary running on a different host against the same
+    # Firestore campaign -- do not scale this service.
+    deploy:
+      replicas: 1
+
+    logging:
+      driver: json-file
+      options: {max-size: "10m", max-file: "3"}
