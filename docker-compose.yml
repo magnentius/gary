@@ -24,6 +24,12 @@ services:
     restart: unless-stopped
     stop_grace_period: 30s
 
+    # tini as PID 1: reaps zombies, and forwards signals with normal semantics rather
+    # than PID 1's, where anything without an explicit handler is discarded. Gary now
+    # handles SIGTERM itself, so this is belt to that braces -- but it is what makes a
+    # missing handler slow rather than silently fatal.
+    init: true
+
     # One writer per campaign (§7.6). The lock is flock and therefore per-machine, so
     # it cannot stop a second Gary running on a different host against the same
     # Firestore campaign -- do not scale this service.

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import signal
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -205,6 +206,11 @@ class GaryClient(discord.Client):
             )
 
     async def close(self) -> None:
+        # Reachable twice now -- once from the signal handler, once as `async with`
+        # unwinds -- and the closing snapshot is not something to write twice.
+        if getattr(self, "_closing", False):
+            return await super().close()
+        self._closing = True
         if self._sweeper is not None:
             self._sweeper.cancel()
         # Fold the journal into a snapshot so the next boot replays less.
@@ -1046,13 +1052,40 @@ def build_narrator(settings: Settings, director, store, history_backend) -> Narr
     )
 
 
+async def serve(client: "GaryClient", token: str) -> None:  # pragma: no cover
+    """Run until told to stop, then shut down through `close`.
+
+    `Client.run` catches KeyboardInterrupt and nothing else. That is fine at a terminal
+    and wrong in a container: `docker stop` sends SIGTERM, and **a process running as PID
+    1 discards any signal it has no handler for** -- the kernel does not apply default
+    dispositions there. So SIGTERM did nothing, Docker waited out its grace period, and
+    the process was SIGKILLed. Stopping took 30 seconds and `close` never ran, so the
+    closing snapshot was skipped and the lock file was left behind reading `pid=1`.
+    """
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        try:
+            loop.add_signal_handler(
+                sig, lambda s=sig: asyncio.create_task(_stop(client, s))
+            )
+        except NotImplementedError:  # no signal handlers on this platform
+            log.warning("cannot install a %s handler here", sig)
+    async with client:
+        await client.start(token)
+
+
+async def _stop(client: "GaryClient", sig: int) -> None:  # pragma: no cover
+    log.info("%s received; closing cleanly", signal.Signals(sig).name)
+    await client.close()
+
+
 def main() -> None:  # pragma: no cover - operator entry point
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     )
     settings = Settings.from_env()
     client = build_client(settings)
-    client.run(settings.discord_token, log_handler=None)
+    asyncio.run(serve(client, settings.discord_token))
 
 
 if __name__ == "__main__":  # pragma: no cover
