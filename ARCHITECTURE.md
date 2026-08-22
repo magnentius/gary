@@ -558,7 +558,19 @@ Gary only ever posts commands rendered from its own template table (§5.3). Mode
 
 ### 9.3 Secrets
 
-Discord token and Gemini API key live in **GCP Secret Manager**, fetched at boot via the VM's attached service account. Not in `.env`, not in the image, not in the repo. Rotate on any suspicion of exposure; a leaked bot token lets anyone speak as Gary in the server.
+All configuration is environment variables, read once at boot by `Settings.from_env` and validated there (§1). There is no config file to leak, and the two that matter are `DISCORD_TOKEN` and `GEMINI_API_KEY`.
+
+**Deployed, they live in GCP Secret Manager**, fetched via the VM's attached service account and injected into the process — or into the container (§11.2), which never talks to Secret Manager itself and only ever sees environment variables. That is the boundary: the host resolves secrets, the image consumes them.
+
+**Locally, a gitignored `.env` is acceptable**, and is what `docker-compose.yml` reads. An earlier version of this section said "not in `.env`" without qualification, which was a rule nobody could follow — running the thing on a laptop needs the token somewhere, and the alternative in practice is a shell history entry, which is worse. The conditions:
+
+- `.env` is in **both** `.gitignore` and `.dockerignore`, so it can neither be committed nor reach a build context. `.env.example` carries the keys with no values.
+- It is for a developer's own bot in their own server. A `.env` holding the credentials of a table that other people play at is a deployed secret in a text file, and belongs in Secret Manager.
+- It is plaintext on disk with no expiry, so it is the weakest link by construction. Treat any laptop loss as exposure.
+
+**Never in the image.** A secret in a layer is published the moment the image is, and `docker history` will show it forever. The build stage copies only `pyproject.toml`, `README.md` and `src/`; nothing else is in the context.
+
+Rotate on any suspicion of exposure. A leaked bot token lets anyone speak as Gary in the server, and a leaked Gemini key is someone else's bill.
 
 ---
 

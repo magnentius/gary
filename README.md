@@ -84,6 +84,11 @@ docker run -d --name gary --restart unless-stopped \
   ghcr.io/magnentius/gary:latest
 ```
 
+**`.env` holds your bot token.** It is gitignored and excluded from the build context,
+so it cannot be committed or baked into an image — but it is plaintext on disk with no
+expiry. Fine for your own bot in your own server; a table other people play at wants a
+secret manager (`ARCHITECTURE.md` §9.3).
+
 **Mount the volume.** The campaign — journal, snapshots, every channel's history — lives
 under `/campaign` in the image. Without the mount a restart loses it, and there is no
 undo. The alternative is `GARY_BACKEND=firestore`, which keeps nothing on the machine
