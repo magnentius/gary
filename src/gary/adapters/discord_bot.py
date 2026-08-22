@@ -213,7 +213,7 @@ class GaryClient(discord.Client):
         except Exception:  # noqa: BLE001 - never block shutdown on this
             log.exception("final snapshot failed; journal replay will cover it")
         if self.lock is not None:
-            # Released last, so a prep client cannot take the campaign while we are still
+            # Released last, so nothing else can take the campaign while we are still
             # writing the closing snapshot.
             self.lock.release()
         await super().close()
@@ -956,16 +956,15 @@ def build_client(
         check_backend = FileCheckBackend(settings.campaign_root / "pending_checks.json")
         history_backend = FileHistoryBackend(settings.campaign_root / "history")
 
-    # Gary is the live writer, so it takes the campaign lock (§7.3). An MCP prep client
-    # that finds the lock held degrades to read-only rather than interleaving writes into
-    # a journal we are appending to. Failing to acquire is a warning, not a refusal:
-    # a stale lock must never stop a game from starting.
+    # Gary is the live writer, so it takes the campaign lock (§7.3): a second process
+    # that finds it held runs read-only rather than interleaving writes into a journal we
+    # are appending to. Failing to acquire is a warning, not a refusal -- a stale lock
+    # must never stop a game from starting.
     lock = CampaignLock(lock_path(settings.campaign_root), owner="gary")
     if not lock.acquire():
         log.warning(
-            "campaign lock held by %s. Another Gary or an MCP prep client may be "
-            "writing to this campaign. Continuing, but concurrent writes can corrupt "
-            "the journal.",
+            "campaign lock held by %s. Another Gary may be writing to this campaign. "
+            "Continuing, but concurrent writes can corrupt the journal.",
             lock.holder(),
         )
 

@@ -4,7 +4,7 @@ Every type here is frozen. The system's central invariant (ARCHITECTURE.md §5) 
 check's DC and consequences are fixed *before* the player rolls; immutability is how
 that is enforced at the type level rather than by convention.
 
-Nothing in this module imports Discord, Gemini, or MCP.
+Nothing in this module imports Discord or Gemini.
 """
 
 from __future__ import annotations

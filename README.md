@@ -21,7 +21,6 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 - [7. Start over](#7-start-over)
 - [`?dm` command reference](#dm-command-reference)
 - [Configuration reference](#configuration-reference)
-- [Between sessions: Claude Desktop](#between-sessions-claude-desktop)
 - [Design](#design)
 
 ---
@@ -519,32 +518,6 @@ than mysteries at the table.
 
 ---
 
-## Between sessions: Claude Desktop
-
-Open the campaign from Claude Desktop between sessions — audit what the model did, write
-NPCs, plant foreshadowing, undo a hallucinated magic sword. Why it sits beside Gary rather
-than inside it is `ARCHITECTURE.md` §2.1.
-
-**It needs its own interpreter.** The SDK requires Python 3.10+ and this repo's `.venv` is
-3.9, so point `command` at a 3.12 venv with `mcp>=2.0` installed:
-
-```json
-{"mcpServers": {"gary": {
-  "command": "/path/to/py312-venv/bin/python",
-  "args": ["-m", "gary.adapters.mcp_server"],
-  "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign",
-          "PYTHONPATH": "/path/to/gary/src"}}}}
-```
-
-**Run this while Gary is stopped.** One campaign takes one writer; a prep client that
-cannot get the lock degrades to read-only with a JSON explanation rather than a stack
-trace.
-
-It must be `mcp>=2.0`. SDK 2.0 moved `FastMCP` to `mcp.server.mcpserver` and renamed it
-`MCPServer`, so an older pin installs an SDK whose import path no longer exists.
-
----
-
 ## Design
 
 How Gary works, and why it is built this way, is [`ARCHITECTURE.md`](ARCHITECTURE.md).
@@ -562,7 +535,8 @@ The short version, with the sections that carry the argument:
 - **A proposal decides nothing.** `?dm scene` and the post-import premise run the model
   while it holds every state-mutating tool, so nothing they produce is written until you
   accept it. §8.1.1
-- **Gary is not an MCP client**; MCP sits beside it, over the same store. §2.1
+- **There is one writer.** The store is used in-process and guarded by a lock; why a
+  second client was built and then removed is §2.1
 - **Nothing important lives on the box.** State sits behind storage protocols with
   in-memory, file and Firestore implementations. §7.4, §11.1
 

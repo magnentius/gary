@@ -78,17 +78,8 @@ These are hard facts about the runtime environment. Everything downstream depend
                        ▼          ┌──────────────────────┐
               ┌──────────────┐    │  Campaign Store      │
               │  Gemini API  │    │  journal + snapshot  │
-              │   (cloud)    │    └──────────┬───────────┘
-              └──────────────┘               │ same backend,
-                                             │ guarded by a lock
-                                             ▼
-                                  ┌──────────────────────┐
-                                  │  MCP server          │
-                                  │  (between sessions)  │
-                                  └──────────┬───────────┘
-                                             │ stdio
-                                             ▼
-                                     Claude Desktop / IDE
+              │   (cloud)    │    │  one writer, locked  │
+              └──────────────┘    └──────────────────────┘
 ```
 
 **Components**
@@ -99,17 +90,22 @@ These are hard facts about the runtime environment. Everything downstream depend
 - **Campaign State Server** — persistent source of truth for world time, out-of-combat effects, inventory, quest state, NPC relationships, and house rules.
 - **Avrae** — independent official bot; resolves character sheets, dice, and in-combat mechanics.
 
-### 2.1 On the MCP boundary
+### 2.1 Why there is no second client
 
 **Gary is not an MCP client.** It uses `CampaignStore` in-process. A protocol, a subprocess, and a serialisation boundary between two objects in the same program buy nothing, and every turn would pay for them.
 
-MCP earns its place on the *other* side of the store, and for the one reason §2.1 has always given: the campaign should be reachable from another client — Claude Desktop, an IDE — for between-session prep. Auditing what the model did to the campaign, writing NPCs, planting foreshadowing, undoing a hallucinated magic sword. That is real value, and it is value Gary's own process cannot provide because the DM is not in Discord when they are planning.
+An MCP server on the *other* side of the store was built and then removed (2026-08-22). The argument for it was real: the campaign should be reachable from Claude Desktop for between-session prep — auditing what the model did, writing NPCs, planting foreshadowing, undoing a hallucinated magic sword — and Gary's own process cannot offer that, because the DM is not in Discord when they are planning.
 
-So the server sits *beside* Gary rather than inside it, over the same backend. Consequences:
+What sank it was the cost of the binding rather than the value of the capability:
 
-- The MCP surface (`prep.py`) is a **prep API, not the game loop**. It never opens checks or narrates.
-- Two processes now share one campaign, which §7.3 forbids. That is what the lock in §7.6 is for.
-- The MCP SDK never reaches the core. `prep.py` and `state/lock.py` hold the behaviour; `adapters/mcp_server.py` is a binding.
+- **It could not be tested.** The SDK needs Python 3.10+ and this repo runs on 3.9, so the binding had no coverage at all. Both defects it ever had were found by hand, and by hand was the only way they could be found.
+- **It needed a second interpreter**, which was a paragraph of setup before a DM could use it.
+- **It was not actually beside Gary.** §7.6's lock means the bot has to be stopped before a prep client can write — so it was an exclusive surface, not a parallel one, which is the opposite of the thing that justified a second process.
+- **`prep.py` had no other consumer**, so 234 lines of API and 232 of tests existed to serve one untestable binding.
+
+The capability is worth having and is not gone for good; the next attempt should be a CLI over `CampaignStore`, which runs on the interpreter the project already uses and can be tested like everything else. `prep.py` is recoverable from git history if it is wanted as a starting point.
+
+§7.6's lock stays regardless. It was written for this, but it earns its place on a single-process deployment too — nothing stops a second Gary being started against one campaign.
 
 ---
 
@@ -386,12 +382,12 @@ The capture script prints the exact Avrae commands to run, and carries `on_messa
 
 ### 7.1 Resources (read-only)
 
-- `rpg://campaign/state` — world date/time, party roster, active out-of-combat effects, quest milestones, current scene.
-- `rpg://campaign/journal?since=<ts>` — append-only event log.
-- `rpg://rules/house_rules` — homebrew, rest variants, setting modifications.
-- `rpg://rules/edition_notes` — 2024 ruleset deltas used to ground the model (§13).
+- **campaign state** — world date/time, party roster, active out-of-combat effects, quest milestones, current scene.
+- **campaign journal** — append-only event log, readable from a given offset.
+- **house rules** — homebrew, rest variants, setting modifications.
+- **edition notes** — 2024 ruleset deltas used to ground the model (§13).
 
-`rpg://rules/avrae_syntax` from v1 is **removed**. Command rendering moved into Gary (§5.3), where it can be validated.
+The `avrae_syntax` resource from v1 is **removed**. Command rendering moved into Gary (§5.3), where it can be validated. These were `rpg://` URIs while an MCP server existed; with the binding gone (§2.1) they are plain reads on `CampaignStore`.
 
 ### 7.2 Tools
 
@@ -416,7 +412,7 @@ record_note(kind, subject, body) -> NoteId
 
 The v1 "JSON database" had no locking, no atomic write, no backup, no schema version, and no undo. For LLM-driven mutations, undo is not optional.
 
-- **Journal + snapshot.** Every mutation appends to the journal, durably. **Resolved checks are journalled too**, as `check_outcome` entries carrying the DC, the total, the natural, the margin and the consequence. They are not mutations and replay as no-ops — the campaign is whatever the consequences made it, and those are journalled separately. They exist as evidence: a DC fixed before the dice is the guarantee this whole design is built on, and without a record there is nothing to show afterwards that a given call was made that way. §2.1 offers MCP for auditing what the model did; this is what makes outcomes auditable. A full snapshot is written every N mutations. Recovery = latest snapshot + journal replay from the snapshot's recorded offset.
+- **Journal + snapshot.** Every mutation appends to the journal, durably. **Resolved checks are journalled too**, as `check_outcome` entries carrying the DC, the total, the natural, the margin and the consequence. They are not mutations and replay as no-ops — the campaign is whatever the consequences made it, and those are journalled separately. They exist as evidence: a DC fixed before the dice is the guarantee this whole design is built on, and without a record there is nothing to show afterwards that a given call was made that way. Auditing what the model did to a campaign rests entirely on this record. A full snapshot is written every N mutations. Recovery = latest snapshot + journal replay from the snapshot's recorded offset.
 - **Monotonic `seq` on every entry.** Assigned by the store, not the backend. A batched `update_campaign_state` writes several entries in the same millisecond, so timestamps cannot order them; a document-based backend addresses entries by `seq` and **must refuse an entry without one** rather than invent it. Guessing silently overwrites history and fails invisibly until someone replays.
 - **Atomic snapshot writes.** Temp-then-rename with an fsync of the file *and* its directory. A torn snapshot is unrecoverable.
 - **The campaign calendar is the real one, a millennium back.** `world_minutes` counts from `calendar.epoch_date`, which is set once when the campaign is created — today's date minus 1000 years — and never moves again. Borrowing the Gregorian calendar rather than inventing one is worth more than it looks: month lengths, leap years and seasons come for free and are correct, and everyone at the table already knows what late summer implies about weather, daylight and what is in the fields. The months are renamed for their full moons (Wolf, Snow, Worm, Pink, Flower, Strawberry, Buck, Sturgeon, Harvest, Hunter's, Beaver, Cold), which costs nothing underneath — only the rendering changes — and buys a name that carries its own season: `4 Harvest Moon 1026` dates the scene and places it in autumn in the same breath. All four input forms parse, including the rendered one typed straight back. The model is told the date is a real one so it uses that. The epoch is **journalled**, not merely snapshotted, because §7.3 claims the snapshot is only an optimisation — an epoch that lived only there would make that false, and a lost snapshot would shift every date in the campaign by the gap to `DEFAULT_EPOCH_DATE`. It is also **irreversible**: nothing offers to change it, so an inverse would only ever be reached by `?dm undo` running out of real mutations, silently rewinding every date and reporting success. `epoch_label` — a fixed Forgotten Realms string — preceded this and was read by nothing at all.
@@ -465,7 +461,7 @@ The correct path is **v5**, not v1's v2. This endpoint is **undocumented, unsupp
 
 ### 7.6 The campaign lock
 
-§7.3 specifies a single writer, and that was true by construction until the MCP server existed. A prep client is a second process on the same campaign, so the invariant now needs enforcing rather than assuming.
+§7.3 specifies a single writer, and that is true by construction only while there is exactly one process. Nothing prevents a second Gary being started against the same campaign — a stale unit that never died, a restart racing its own shutdown, two shells in one directory — so the invariant is enforced rather than assumed.
 
 The writer takes an advisory exclusive lock (`flock`) on `.gary.lock` in the campaign root. Gary takes it at boot; a prep client that cannot take it **runs read-only and says so**, in the overview banner and in every refused write. Non-blocking on purpose: a prep client that waited would hang silently for the length of a session, while one that is refused can offer reads immediately and explain why.
 
@@ -480,7 +476,7 @@ v1 never specified what goes into a Gemini call. A campaign runs for thousands o
 **Every call is assembled from four layers, in order:**
 
 1. **System instruction** (static) — persona, ruleset, the authority rules from §3, and the standing directive that roll outcomes handed to it are established fact.
-2. **Live state** (rebuilt per call) — a compact render of `rpg://campaign/state`: the setting, date/time, location, the party roster and what they carry, active effects, current quest. The **setting** leads it — the campaign's standing premise, tone and region, from `?dm setting`. It is here rather than in a note because a note only surfaces when its subject is mentioned, and the premise is needed most at the start of a scene, before anyone has said the magic word. Capped at 600 characters, since it rides on every turn; detail belongs in notes, which are retrieved when they are relevant. The roster is the union of `?dm playing` registrations and anyone holding items, so a character is visible from the moment they join rather than the moment they first speak — otherwise Gary cannot address a quiet player or know how many are at the table. Rebuilt from the state server every turn, never carried forward from history. **This is what makes the state server the source of truth in practice and not just on the diagram.**
+2. **Live state** (rebuilt per call) — a compact render of campaign state (§7.1): the setting, date/time, location, the party roster and what they carry, active effects, current quest. The **setting** leads it — the campaign's standing premise, tone and region, from `?dm setting`. It is here rather than in a note because a note only surfaces when its subject is mentioned, and the premise is needed most at the start of a scene, before anyone has said the magic word. Capped at 600 characters, since it rides on every turn; detail belongs in notes, which are retrieved when they are relevant. The roster is the union of `?dm playing` registrations and anyone holding items, so a character is visible from the moment they join rather than the moment they first speak — otherwise Gary cannot address a quiet player or know how many are at the table. Rebuilt from the state server every turn, never carried forward from history. **This is what makes the state server the source of truth in practice and not just on the diagram.**
 3. **Retrieved memory** — NPCs from `upsert_npc` and notes from `record_note` relevant to the current scene and to whoever is being talked about, plus a rolling summary of everything older than the recent window. A note is retrieved when its subject is a party member, is the current location, **or is named in what was just said** (whole-word, over the incoming message and the last few turns). That last clause was missing until 2026-08-21, and its absence quietly broke the feature: matching only party and location meant a note filed under "the harbour master" could never surface, since he is neither. Notes were being written correctly and read back never — and `record_note`'s own description promises the model they are "retrieved into your context when the subject reappears". `npcs` was worse: written by `upsert_npc` and rendered by **nothing**, in either layer, so a cast with names, dispositions and history was invisible to the model that recorded it. Both are now retrieved on mention, matching the whole subject or any distinctive word in it — a note filed under "Toby Cole" answers to "Toby", because that is what a player says.
 4. **Recent turns** — the last `N` turns verbatim (default `N = 30`).
 
@@ -509,7 +505,7 @@ Three properties hold this apart from narration:
 - **The reply is parsed, not trusted.** It is asked for as one bare line and read back by `parse_proposal`, which strips the lead-ins, fences, labels and quote marks a model reaches for anyway. Anything written here is read aloud to the model on every subsequent turn, so a stray "Here you go:" in that field is a permanent one. An unparseable reply is reported and stored nowhere.
 - **Asking again means "not that one".** Running the proposal through history is what grounds a scene in recent play, and it is also why the second ask returned the first suggestion reworded — the model read its own answer and paraphrased it. Observed live 2026-08-22: `?dm scene` twice gave the same vault under two descriptions. So the rejected lines are named back in the prompt with an explicit demand for a different place or a different angle, capped at `MAX_DECLINED_PROPOSALS` because each one rides in the call. History is deliberately left alone: a scene that ignores the last few turns is a worse failure than one too like the last suggestion. The rejects are dropped the moment a line is settled, by accepting or by writing one by hand — past that point they would push the *next* thread off perfectly good ground.
 
-Import deliberately does **not** write quests: there is no quest tool on the model's surface (§12.6), only `prep.py`'s. Hooks are filed as notes, which is lossy — a hook becomes retrievable trivia rather than a tracked objective. Closing that means either giving the model a quest tool or accepting that quests stay a prep-time concern.
+Import deliberately does **not** write quests: there is no quest tool on the model's surface (§12.6). Hooks are filed as notes, which is lossy — a hook becomes retrievable trivia rather than a tracked objective. Closing that means either giving the model a quest tool or accepting that quests stay a prep-time concern.
 
 ---
 
@@ -592,7 +588,7 @@ That is an architecture change, not a deployment-target change, and it is out of
 
 ### 12.1 Stack
 
-Python: `discord.py`, `mcp` (official SDK), `google-genai`. Chosen over TypeScript for the numeric/rules work and for `d20`-family library availability, not for any Discord-side advantage.
+Python: `discord.py`, `google-genai`. Chosen over TypeScript for the numeric/rules work and for `d20`-family library availability, not for any Discord-side advantage.
 
 ### 12.2 The adapter boundary
 
@@ -657,7 +653,7 @@ Rejections are reported back rather than swallowed, so the model narrates what a
 
 ### 12.7 Source map
 
-The deterministic core and all three adapters are implemented; the parser is confirmed against a live bot (§14 (1)). Each file below carries the section that specifies it, because the specification is the thing that should be edited first.
+The deterministic core and both adapters — Discord and Gemini — are implemented; the parser is confirmed against a live bot (§14 (1)). Each file below carries the section that specifies it, because the specification is the thing that should be edited first.
 
 ```
 src/gary/
@@ -673,7 +669,6 @@ src/gary/
   state/firestore.py  managed backend, disposable VM           §7.4, §11.1
   state/history.py conversation history + rolling summary      §8
   state/lock.py    single-writer enforcement                   §7.6
-  prep.py          between-session campaign prep API           §2.1
   ports.py         Narrator / transport seams + EchoNarrator   §12.2
   config.py        boot-time settings, fail-fast validation    §1
   adapters/
@@ -683,14 +678,13 @@ src/gary/
     discord_bot.py discord.py glue, ?dm commands, sweep loop   §1, §6.3
     gemini.py      Narrator: context, tool loop, retries       §5, §8, §12.4
     gemini_tools.py  function declarations                     §12.6
-    mcp_server.py  MCP binding over prep.py                    §2.1
 ```
 
 The core imports no third-party library (§12.2) and a test asserts it stays that way, so the whole rules engine is testable with no Discord server, no API key and no live Avrae.
 
 ## 13. Multi-system portability
 
-**D&D 5e (2024).** Ruleset selection is stated in the system instruction (Weapon Masteries, revised Surprise, new Exhaustion), grounded by `rpg://rules/edition_notes` holding the 2024 deltas — a system prompt alone will not reliably suppress 2014 training data. On the Avrae side, set the server default with `!servsettings` and confirm sheets with `!csettings`.
+**D&D 5e (2024).** Ruleset selection is stated in the system instruction (Weapon Masteries, revised Surprise, new Exhaustion), grounded by the edition notes (§7.1) holding the 2024 deltas — a system prompt alone will not reliably suppress 2014 training data. On the Avrae side, set the server default with `!servsettings` and confirm sheets with `!csettings`.
 
 **Other systems.** Portability lives in three places: the edition notes resource, the `AVRAE_TEMPLATES` table (§5.3), and the parser fixture set (§6.1). Everything else — the FSM, registry, resolver, context contract — is system-agnostic. A non-d20 system would need a different mechanical backend than Avrae, at which point only the Director pattern itself carries over.
 
@@ -699,7 +693,7 @@ The core imports no third-party library (§12.2) and a test asserts it stays tha
 ## 14. Open risks
 
 1. **Avrae formats are captured, not derived — largely closed.** Patterns in §6 were traced to Avrae's source at `avrae@cb75be2` and to `d20` run locally, then confirmed against a live bot over five capture rounds (2026-08-20). The derivations held where it mattered: struck-through dice under advantage and disadvantage, To Hit rather than Damage on an attack, the first roll winning under `-rr`, the `**DC N**` prefix not being mistaken for the total, and the whole initiative tracker format including the `# ` turn marker. Live capture also corrected what derivation could not reach — in-game refusals arrive as embeds rather than plain text, `!help` replies in plain text rather than an embed, and monsters carry a status word where their HP would be, which had `is_dying` reporting a dead monster as alive. The strict `xfail` that tracked this gap has been deleted, as its own reason string instructed. Three fixtures stay derived: `check_success` (its reply attribution has never been observed live — see (7)), `error_no_character`, and `unreadable_embed`, which is by definition a format Avrae does not produce and so can never be captured. Re-run `scripts/verify_avrae_fixtures.py` after any Avrae update; Avrae version drift remains the live risk.
-   **The MCP binding is verified** as of 2026-08-20, under Python 3.12 with `mcp` 2.0: it imports, registers 7 tools and 5 resources, executes them end to end against a real campaign, and degrades to read-only under §7.6's lock returning a JSON explanation rather than a stack trace. Doing so found two things static reading could not. SDK 2.0 had renamed `FastMCP` to `MCPServer` and moved it out of `mcp.server.fastmcp`, so the import failed outright against the pinned `mcp>=1.2`. And the `upsert_npc` tool defaulted `disposition` to 0 where `prep` reads "not None" as "set it", so adding a note to a devoted ally silently reset them to neutral. It still cannot be exercised from the repo's own 3.9 `.venv`, so it has no coverage in the test suite; the contract it depends on is pinned in `test_prep.py` instead.
+   **The MCP binding was removed** on 2026-08-22 (§2.1). It had been verified by hand on 2026-08-20 under Python 3.12, and that exercise found two defects static reading had missed — an import path the SDK had renamed, and `upsert_npc` defaulting `disposition` to 0 where `prep` read "not None" as "set it", silently resetting a devoted ally to neutral. That it took a manual run to find either is the point: the SDK needs Python 3.10+ and this repo runs on 3.9, so the binding never had a test and never could have one here. Between-session prep remains worth building; §2.1 says why the next attempt should be a CLI.
    Avrae's multi-word skill tokens **were** in this category and are now corrected: the camelCase keys from Avrae's source (`sleightOfHand`) are internal, not what the command parser wants — it fuzzy-matches them and can answer with a selector instead of rolling. `!check "sleight of hand"` is exact and rolls, confirmed live 2026-08-21. This is the last §14.1 inference to be settled by live contact.
    Gemini model ids **were** in this category and are now checked: `gemini-3.7-flash` (verified 2026-08-18) and `gemini-3.5-flash-lite` (verified 2026-08-09), both checked against the model list and pinned by a test. Ids still move — recheck rather than assume.
 2. **Avrae could add slash commands, or go slash-only.** Today it is prefix-only (§1), so the Director pattern is on solid ground and the risk is entirely prospective. If Avrae ever went slash-only the pattern breaks, because a slash command cannot be copy-pasted and executed. Contingency: post an Avrae *alias* the player invokes, or fall back to Gary's own dice with sheet data pulled from D&D Beyond. The same change would, as a side effect, make §6.2 tier 1 reachable for the first time.

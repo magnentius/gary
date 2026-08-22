@@ -1,14 +1,13 @@
 """Single-writer enforcement (ARCHITECTURE.md §7.3).
 
-§7.3 specifies exactly one writer, and until now that was true by construction: one
-process, one store. Adding an MCP server breaks that assumption on purpose — the whole
-point is a second process reaching the same campaign from Claude Desktop while you plan
-next week's session.
+§7.3 specifies exactly one writer, and that is true by construction only while there is
+exactly one process. Nothing stops a second Gary being started against the same campaign
+— a stale unit that never died, a restart racing its own shutdown, or two shells in the
+same directory.
 
-If Gary is live at the table and someone opens the campaign in another client, two
-processes interleave writes to one journal. This makes that impossible rather than
-unlikely: the writer holds an advisory exclusive lock, and anyone who cannot take it runs
-read-only and says so.
+Two processes interleaving writes into one journal is the failure this prevents rather
+than merely discourages: the writer holds an advisory exclusive lock, and anyone who
+cannot take it runs read-only and says so.
 
 **Scope.** ``flock`` is per-machine. It protects the file backend, which is the setup
 that can actually suffer this. It does **not** coordinate across machines, so it offers no
@@ -38,9 +37,9 @@ except ImportError:  # pragma: no cover - Windows
 class CampaignLock:
     """Advisory exclusive lock over a campaign directory.
 
-    Deliberately non-blocking. A prep client that waits for the lock would hang silently
-    for the length of a game session; one that is told it cannot write can offer read-only
-    access immediately and explain why.
+    Deliberately non-blocking. A second process that waits for the lock would hang
+    silently for the length of a game session; one that is told it cannot write can say
+    so immediately and explain why.
     """
 
     def __init__(self, path: Path, owner: str = "gary") -> None:

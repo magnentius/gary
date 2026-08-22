@@ -224,8 +224,8 @@ class CampaignStore:
         Not a mutation: resolving a check changes no campaign state by itself. It is
         recorded because it is the one thing the whole design exists to make trustworthy
         -- a DC fixed before the dice and compared by arithmetic -- and without this
-        there is no evidence afterwards that it happened that way. §2.1 offers MCP for
-        "auditing what the model did"; this is what makes the outcomes auditable.
+        there is no evidence afterwards that it happened that way. Auditing what the
+        model did to a campaign rests entirely on this record.
         """
         with self._lock:
             self._append_journal(
