@@ -368,6 +368,18 @@ async def on_message(message: discord.Message) -> None:
 
 HP and conditions are **mirrored read-only** for narrative color. Gary never writes them back to Avrae (§3).
 
+### 6.5 Re-capturing fixtures
+
+Avrae version drift is the live risk in §14 (1), so the fixtures are re-runnable rather than a one-time act of archaeology:
+
+```bash
+export DISCORD_TOKEN=...
+PYTHONPATH=src .venv/bin/python scripts/capture_avrae_fixtures.py --channel <id> --minutes 10
+PYTHONPATH=src .venv/bin/python scripts/verify_avrae_fixtures.py    # non-zero on any gap
+```
+
+The capture script prints the exact Avrae commands to run, and carries `on_message_edit` from the start — which is why every captured initiative fixture is marked `trigger: edit`. The verifier flags three separate things: captures the parser cannot read, containers that disagree with the derived fixtures (the class of bug that hid the initiative tracker), and commands that have not been run at all. Captures land in `tests/fixtures/avrae/captured/`, which the test glob ignores; move one up a level once its `expect` is filled in.
+
 ---
 
 ## 7. Campaign State Server
@@ -430,7 +442,7 @@ Durability sits behind two narrow protocols — `StateBackend` (snapshot + journ
 
 One test suite runs against all three backends. That is what keeps a second implementation from quietly diverging — and it is how the Firestore ordering defect above was found.
 
-The Firestore module is **verified against the emulator** as of 2026-08-20 (`gcloud emulators firestore start`, `google-cloud-firestore` 2.28.1). The shared backend suite passes against it — 39 tests, the same ones the fake client runs — including journal ordering with sequences written out of order, the missing-`seq` refusal, snapshot overwrite, and reading a campaign that does not exist yet. Every method it duck-types exists on the real client with compatible signatures.
+The Firestore module is **verified against the emulator** as of 2026-08-20 (`gcloud emulators firestore start --host-port=localhost:8080`, which needs a JDK; `google-cloud-firestore` 2.28.1). The shared backend suite passes against it — 39 tests, the same ones the fake client runs — including journal ordering with sequences written out of order, the missing-`seq` refusal, snapshot overwrite, and reading a campaign that does not exist yet. Every method it duck-types exists on the real client with compatible signatures.
 
 **The 1 MiB document ceiling is a hard limit on campaign length.** `write_snapshot` puts the whole state into one `state_json` field of one document. Measured against the emulator: ~900 KiB writes fine, ~1100 KiB is rejected with `InvalidArgument: 400 The value of property "state_json" is longer than 1048487 bytes`. Campaign state grows monotonically — notes accumulate, NPC note lists append — so a long campaign reaches it.
 
@@ -641,6 +653,39 @@ Defaults are `gemini-3.7-flash` for narration (verified 2026-08-18) and `gemini-
 The model therefore sees narrow tools — `open_check`, `advance_time`, `adjust_gold`, `give_items`, `take_items`, `record_note`, `set_scene` — each mapping to store mutations internally. Each carries its own bounds, description, and failure message. The store API is unchanged.
 
 Rejections are reported back rather than swallowed, so the model narrates what actually happened. A refused 5000gp grant returns `ok: false` with the reason, and the model describes nothing appearing.
+
+### 12.7 Source map
+
+The deterministic core and all three adapters are implemented; the parser is confirmed against a live bot (§14 (1)). Each file below carries the section that specifies it, because the specification is the thing that should be edited first.
+
+```
+src/gary/
+  models.py        frozen domain types
+  templates.py     Avrae command rendering from an allowlist   §5.3
+  registry.py      pending-check registry + correlation        §5
+  resolver.py      DC comparison — deliberately boring         §5.2
+  fsm.py           the Director: Mode A/B state machine        §4
+  context.py       prompt assembly + injection defence         §8, §9.1
+  parser/avrae.py  Avrae output parsing, fail-loud             §6
+  state/store.py   journal + snapshot + undo + bounds          §7.3
+  state/backend.py storage protocols: in-memory, file          §7.4
+  state/firestore.py  managed backend, disposable VM           §7.4, §11.1
+  state/history.py conversation history + rolling summary      §8
+  state/lock.py    single-writer enforcement                   §7.6
+  prep.py          between-session campaign prep API           §2.1
+  ports.py         Narrator / transport seams + EchoNarrator   §12.2
+  config.py        boot-time settings, fail-fast validation    §1
+  adapters/
+    routing.py     pure ingest decision                        §6.3
+    sender.py      2000-char splitting + per-channel pacing    §10
+    runner.py      performs Effects; bounds model recursion    §4, §12.2
+    discord_bot.py discord.py glue, ?dm commands, sweep loop   §1, §6.3
+    gemini.py      Narrator: context, tool loop, retries       §5, §8, §12.4
+    gemini_tools.py  function declarations                     §12.6
+    mcp_server.py  MCP binding over prep.py                    §2.1
+```
+
+The core imports no third-party library (§12.2) and a test asserts it stays that way, so the whole rules engine is testable with no Discord server, no API key and no live Avrae.
 
 ## 13. Multi-system portability
 

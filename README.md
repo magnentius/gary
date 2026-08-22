@@ -5,200 +5,561 @@
 An AI Game Master for D&D 2024 over Discord. Gemini writes the narrative, Avrae rolls the
 dice and enforces the maths, and a local state server owns the persistent world.
 
-Design: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
-## Status
+---
 
-The **deterministic core and all three adapters** are implemented, and the Avrae parser is
-now confirmed against a live bot — most fixtures are real captures rather than
-derivations. The MCP binding now imports and serves — see
-[Before it can run](#before-it-can-run).
+## Contents
 
-```
-src/gary/
-  models.py        frozen domain types
-  templates.py     Avrae command rendering from an allowlist   §5.3
-  registry.py      pending-check registry + correlation        §5
-  resolver.py      DC comparison — deliberately boring         §5.2
-  fsm.py           the Director: Mode A/B state machine        §4
-  context.py       prompt assembly + injection defence         §8, §9.1
-  parser/avrae.py  Avrae output parsing, fail-loud             §6
-  state/store.py   journal + snapshot + undo + bounds          §7.3
-  state/backend.py storage protocols: in-memory, file          §7.4
-  state/firestore.py  managed backend, disposable VM           §7.4, §11.1
-  state/history.py conversation history + rolling summary       §8
-  state/lock.py    single-writer enforcement                     §7.6
-  prep.py          between-session campaign prep API             §2.1
-  ports.py         Narrator / transport seams + EchoNarrator
-  config.py        boot-time settings, fail-fast validation     §1
-  adapters/
-    routing.py     pure ingest decision                         §6.3
-    sender.py      2000-char splitting + per-channel pacing     §10
-    runner.py      performs Effects; bounds model recursion     §4
-    discord_bot.py discord.py glue, ?dm commands, sweep loop    §1, §6.3
-    gemini.py      Narrator: context, tool loop, retries        §5, §8, §12.4
-    gemini_tools.py  function declarations                      §12.6
-    mcp_server.py  MCP binding over prep.py (unverified)         §2.1
-```
+- [What you need first](#what-you-need-first)
+- [1. Install](#1-install)
+- [2. Start Gary](#2-start-gary)
+- [3. Make a world](#3-make-a-world)
+- [4. Import it](#4-import-it)
+- [5. Open the campaign](#5-open-the-campaign)
+- [6. Sit down and play](#6-sit-down-and-play)
+- [7. Start over](#7-start-over)
+- [`?dm` command reference](#dm-command-reference)
+- [Configuration reference](#configuration-reference)
+- [Between sessions: Claude Desktop](#between-sessions-claude-desktop)
+- [Design](#design)
 
-The core has **no third-party dependencies**, so it runs without Discord, an API key, or
-a live Avrae:
+---
+
+## What you need first
+
+| | |
+|---|---|
+| **A Discord bot token** | With the **Message Content privileged intent enabled** in the Developer Portal. |
+| **Avrae in the same server** | Gary reads Avrae's embeds; it does not roll dice itself. |
+| **A channel id** | Right-click the channel → Copy Channel ID (needs Developer Mode on). |
+| **Python 3.11+** | For the editable install. 3.9 works via `PYTHONPATH=src` — see [Install](#1-install). |
+| **A Gemini API key** | Optional at first. Without one Gary runs on `EchoNarrator` and spends nothing. |
+
+> **Enable Message Content before anything else.** Without it `message.embeds` arrives
+> empty, the parser sees nothing, and Gary fails *silently* — no error, no narration, no
+> clue why. It is the single most common reason a correct setup does nothing at all.
+
+---
+
+## 1. Install
 
 ```bash
-python -m venv .venv && .venv/bin/pip install -e '.[discord,llm,dev]'
-.venv/bin/python -m pytest -q          # 383 passed
+git clone <this repo> && cd gary
+python -m venv .venv
+.venv/bin/pip install -e '.[discord,llm,dev]'
+.venv/bin/python -m pytest -q          # 576 passed
 ```
 
-`discord.py` and `google-genai` are needed only by `adapters/`; the core imports neither,
-and a test asserts it stays that way.
+The editable install needs **Python 3.11+** and a pip new enough for PEP 660. On an older
+interpreter it fails and `python -m gary.…` reports `No module named 'gary'`. You do not
+need the install at all — `PYTHONPATH=src` does the same job, which is what
+`pyproject.toml`'s `pythonpath = ["src"]` already gives pytest:
 
-The editable install needs Python 3.11+ and a pip new enough for PEP 660; without it the
-package is never importable by name, and `python -m gary.…` fails with `No module named
-'gary'`. `PYTHONPATH=src` works with no install at all — it is what `pyproject.toml`'s
-`pythonpath = ["src"]` already does for pytest. Both `scripts/` entry points insert `src`
-on `sys.path` themselves, so only the `-m` invocations need it.
+```bash
+python -m venv .venv
+.venv/bin/pip install discord.py google-genai pytest pytest-asyncio d20
+PYTHONPATH=src .venv/bin/python -m pytest -q
+```
 
-The fixtures are live captures now. Five capture rounds against a real Avrae confirmed the
-harder derivations — struck-through dice under advantage, To Hit rather than Damage on an
-attack, the first roll winning under `-rr`, and the initiative tracker's whole format —
-and corrected several things the derivation had wrong. Three fixtures remain derived:
-`check_success` (its reply attribution has never been observed), `error_no_character`, and
-`unreadable_embed`, which cannot be captured because it is by definition a format Avrae
-does not produce.
+Every command below uses the `PYTHONPATH=src` form, so it works either way. Both
+`scripts/` entry points insert `src` on `sys.path` themselves; only `-m` invocations need
+it.
 
-## The three properties worth knowing
+---
 
-**Outcomes are not decided by the model.** `open_check` persists a DC and both
-consequences before the player is told to roll; `resolver.resolve` is arithmetic. An LLM
-asked after the fact whether 17 beat a DC it set earlier will rationalise, and context
-truncation loses the DC entirely. If `resolver.py` ever grows an LLM call, the design has
-regressed.
+## 2. Start Gary
 
-**Only `AWAITING_ROLL` consumes Avrae output.** In every other state an Avrae embed is
-logged and dropped. That single rule is what stops `!help`, sheet lookups, and other
-players' rolls from each costing a Gemini call.
+### The dry run (no model, no spend)
 
-**Trust rides on the transport, not on strings.** Roll results reach the model as
-structured tool results. Player text is sanitised and attributed. Nothing is trusted
-because it starts with `[SYSTEM:`.
+Prove the whole Discord path — intents, routing, parsing, correlation, resolution,
+sending — against a live Avrae before spending a single token. Leave `GEMINI_API_KEY`
+unset and Gary uses `EchoNarrator`, which reports outcomes in flat text:
 
-**A check is a deferred function call.** When the model calls `open_check`, that call is
-left unanswered; the roll outcome arrives minutes later as its `function_response`. The
-result therefore reaches the model over the tool transport rather than as prose, so its
-trust comes from the channel it travelled on — and the model cannot confuse a result with
-a player's claim about one. See `ARCHITECTURE.md` §12.4.
+```bash
+export DISCORD_TOKEN='...'
+export GARY_GAME_CHANNELS='123456789012345678'      # ',' or ' ' between channels
 
-**Gary is not an MCP client.** It uses the store in-process; a protocol boundary between
-two objects in one program buys nothing. MCP sits *beside* Gary so you can open the
-campaign from Claude Desktop between sessions — audit what the model did, write NPCs,
-plant foreshadowing. Two processes on one campaign would break the single-writer rule, so
-the writer holds a lock and a prep client that cannot take it runs read-only.
+PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
+```
 
-**Nothing important lives on the box.** Campaign state and pending checks sit behind
-storage protocols with in-memory, local-file, and Firestore implementations; the Director
-derives channel state from the registry rather than holding it. Point the backends at
-Firestore and the VM can be deleted and recreated mid-campaign. One test suite runs
-against all three backends, which is how a Firestore journal-ordering defect was caught
-before it ever ran.
+In the channel, have someone run `!sheet` and then roll something. If Gary answers with
+`[SUCCESS] Caspian Varr rolled 17 against DC 15.` the plumbing is sound and the only thing
+left is the model.
 
-## Before it can run
+### The real thing
 
-1. **Enable the Message Content privileged intent** in the Discord Developer Portal.
-   Without it, `message.embeds` arrives empty and the parser sees nothing — it fails
-   silently, which is why this is first.
-2. **Capture more Avrae fixtures** (largely done). Patterns in `parser/avrae.py` started
-   derived from Avrae's source at `avrae@cb75be2` and from `d20` run locally, and are now
-   backed by live captures. Re-run this after any Avrae update, or to close the three
-   fixtures still derived:
-   ```bash
-   pip install -e '.[discord]'
-   export DISCORD_TOKEN=...
-   python scripts/capture_avrae_fixtures.py --channel <id> --minutes 10
-   ```
-   The script prints the exact commands to run. Then:
-   ```bash
-   python scripts/verify_avrae_fixtures.py    # exits non-zero on any gap
-   ```
-   It flags captures the parser cannot read, containers that disagree with the derived
-   fixtures (the class that hid the initiative tracker), and commands you have not run
-   yet. Captures land in `tests/fixtures/avrae/captured/`, which the test glob ignores —
-   move them up a level once you have filled in each `expect`.
-3. **Firestore is verified against the emulator** (2026-08-20) if you want the
-   disposable-VM setup. The shared backend suite passes against real Firestore semantics,
-   not just the fake client. To re-run it:
-   ```bash
-   gcloud emulators firestore start --host-port=localhost:8080   # needs a JDK
-   ```
-   Then point the suite's Firestore client at it instead of `FakeFirestoreClient`.
-   **Know the ceiling before committing a long campaign to it:** the whole state lives in
-   one document field, Firestore caps that at 1048487 bytes, and once you cross it every
-   mutation raises and the campaign is write-blocked until the state is shrunk by hand.
-   See `ARCHITECTURE.md` §7.4.
-4. **Run it with no model attached.** `EchoNarrator` reports outcomes in plain text, so
-   the entire Discord path — intents, routing, parsing, correlation, resolution, sending —
-   can be proven against a live Avrae before spending a token:
-   ```bash
-   export DISCORD_TOKEN=... GARY_GAME_CHANNELS=<channel id>
-   export GARY_PLAYERS='<discord user id>=<Avrae character name>'   # ';' between players
-   PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
-   ```
-   Easiest: have each player run `!sheet` once. Avrae's reply names the character and
-   its level, and Gary registers whoever asked for it — so one command everyone runs
-   anyway is the whole of setup. `?dm playing <character name>` is the explicit
-   override if a claim goes to the wrong person. It persists to campaign state, survives restarts, and takes the
-   Discord user id from the message author so it cannot be misattributed.
-   `GARY_PLAYERS` is what stops the model calling `open_check` with a Discord display
-   name. Avrae's embed says `Caspian Varr makes a Sleight Of Hand check!`, correlation is
-   name-based in practice (`ARCHITECTURE.md` §14 (7)), and a check opened for "John K"
-   matches nothing — it waits out its TTL and is then narrated as hesitation, with no sign
-   anything went wrong. Leave it unset and validation is skipped, as before.
-   In the channel: `?dm setting <premise>` once per campaign, then `?dm scene <location> |
-   <situation>` and `?dm time 18:30` (or `?dm time 4 Harvest Moon 1026 06:00`) to author an opening. `?dm import` with a `.md` or
-   `.txt` attachment reads a whole setting document — a generator's export, or your own
-   notes — and files its people as NPCs and its places, factions and lore as notes, which
-   surface when a player names them. It needs a model attached, and refuses oversize or
-   non-text files before spending anything. Also `?dm notes` (what has been filed, by subject), `?dm playing <name>`, `?dm checks`, `?dm state`, `?dm stats`, `?dm undo`, `?dm cancel`, `?dm reset` (two-step; wipes the state, the roster, the journal **and the conversation history of every channel**, so re-run `?dm playing` afterwards). Reset destroys history and is not undoable — it is the one operation in the store that does.
-   Set a scene and a time before the first turn. On a fresh campaign layer 2 of the
-   context (`ARCHITECTURE.md` §8) is empty, so the model invents the world from one
-   sentence of player input — and an under-constrained model is exactly when §14 (8),
-   narrating past the check, is most likely. A fresh campaign also opens at **midnight**
-   on its epoch date, so without `?dm time` the model narrates an evening while the
-   clock the same prompt calls authoritative says midnight. The campaign calendar is
-   the real one with a millennium taken off it and the months under their full-moon
-   names — a campaign started on 21 August 2026 opens on **21 Sturgeon Moon 1026** — so
-   month lengths, leap years and seasons are all correct for free, and each month names
-   its own season rather than needing to be looked up.
-5. **Point Claude Desktop at the MCP server** (verified 2026-08-20). It imports, registers
-   7 tools and 5 resources, executes them against a real campaign, and degrades to
-   read-only under §7.6's lock with a JSON explanation rather than a stack trace.
-   **It needs its own interpreter:** the SDK requires Python 3.10+ and this repo's `.venv`
-   is 3.9, so point `command` at a 3.12 venv with `mcp>=2.0` installed, not at `.venv`.
-   ```json
-   {"mcpServers": {"gary": {
-     "command": "/path/to/py312-venv/bin/python",
-     "args": ["-m", "gary.adapters.mcp_server"],
-     "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign",
-             "PYTHONPATH": "/path/to/gary/src"}}}}
-   ```
-   SDK 2.0 renamed `FastMCP` to `MCPServer` and moved it to `mcp.server.mcpserver`; the
-   decorator shapes are unchanged. Pinning `mcp>=1.2` would install an SDK whose import
-   path no longer exists, so `pyproject.toml` now requires `mcp>=2.0`.
-6. **Add the model.** Set `GEMINI_API_KEY` and Gary switches from `EchoNarrator` to
-   `GeminiNarrator` automatically. Defaults are `gemini-3.7-flash` for narration
-   (verified 2026-08-18) and `gemini-3.5-flash-lite` for summarisation (verified
-   2026-08-09), both pinned by a test.
-   Model ids move — recheck rather than assume.
-   Two knobs exist because `gemini-3.7-flash` spent 2026-08-21 answering 503
-   "experiencing high demand": `GARY_GEMINI_TIMEOUT` (default 90s) bounds every
-   call, and `GARY_GEMINI_FALLBACK_MODEL` (default `gemini-3.6-flash`) is tried
-   once when the primary exhausts its retries on a transient failure. Set the
-   fallback to an empty string to disable it.
+```bash
+export DISCORD_TOKEN='...'
+export GARY_GAME_CHANNELS='123456789012345678'
+export GEMINI_API_KEY='...'
 
-## Verified facts
+PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
+```
 
-- Avrae application ID is `261302296103747584`.
-- D&D Beyond's character endpoint is `/character/v5/` — undocumented, unsupported,
-  public-characters-only. Treated as optional enrichment that may vanish.
-- Discord's HTTP Interactions Endpoint cannot receive arbitrary channel messages. Since
-  ingest depends on observing Avrae's embeds, Gary needs a persistent Gateway connection
-  on an always-on process. See `ARCHITECTURE.md` §11.
+Setting `GEMINI_API_KEY` is the entire switch from `EchoNarrator` to `GeminiNarrator`.
+
+Campaign state lands in `./campaign` by default (`GARY_CAMPAIGN_ROOT`). It is a journal
+plus snapshots, so it survives restarts and can be inspected by hand.
+
+### Optional, but worth knowing early
+
+```bash
+# Who plays whom. Without this the model can call for a check as "John K" — a name
+# Avrae never says — and the check silently waits out its TTL. ';' between players.
+export GARY_PLAYERS='111111111111111111=Caspian Varr;222222222222222222=Liriel'
+
+# Channels where Gary answers every message instead of only when @-mentioned.
+# Must be a subset of GARY_GAME_CHANNELS.
+export GARY_FREEFORM_CHANNELS='123456789012345678'
+```
+
+`GARY_PLAYERS` is usually unnecessary — see [step 6](#6-sit-down-and-play), where `!sheet`
+does the same job by itself — but it is the one that fails *invisibly* if it is wrong, so
+it is worth knowing about.
+
+---
+
+## 3. Make a world
+
+Gary reads a whole setting document and files it into memory. You can write one yourself,
+but the fastest path is a generator. Gary's import was written against
+[Kenji's Setting Generator](https://cros.land/rpg-setting-generator-and-world-building-tool/),
+whose sections — overview, sub-locations, factions, NPCs, quest hooks — land in Gary's
+notes and NPC roster almost one-to-one.
+
+1. Open the [Setting Generator](https://cros.land/rpg-setting-generator-and-world-building-tool/).
+   It is free, needs no account, and has no daily limit.
+2. Type a premise under **DESCRIBE YOUR SETTING** — *"A drowned fen county under a
+   dyke-lord whose sea walls are failing"* — or leave it blank for a surprise. Click
+   **Generate setting**. It takes about half a minute.
+3. **Fill in the other tabs.** This is the step that is easy to miss. A fresh setting has
+   only **OVERVIEW** and **NPCS** — **LOCATIONS**, **FACTIONS** and **QUEST HOOKS** each
+   start empty behind their own *"Generate factions for &lt;name&gt;"* button, and **the
+   export contains only what you have generated.** Skip this and you import a thin
+   document with no factions and nothing to pull the party anywhere.
+4. Scroll to the bottom of the setting, click **Export**, then **Copy as Markdown**.
+
+   Choose Markdown, not plain text. Gary splits an imported document **on Markdown
+   headings**, because a section cut in half writes an NPC twice — once from the name,
+   once from the disposition that landed in the next chunk. Markdown gives it `#`, `##`
+   and a `###` per NPC to cut on; plain text gives it nothing, so it falls back to a hard
+   split at 6000 characters. **Copy as HTML is not importable** — Gary accepts `.md`,
+   `.markdown` and `.txt` only.
+5. These buttons copy to the clipboard; they do not download a file. Paste into any editor
+   and save as **`siltgard.md`**.
+
+A single generated setting runs about 5KB — comfortably one chunk, so one model call.
+Filling every tab and nesting sub-locations grows it; the ceiling is 200KB and 12 chunks.
+
+---
+
+## 4. Import it
+
+Drag the `.md` file into your game channel with `?dm import` as the message:
+
+```
+?dm import
+      [siltgard.md attached]
+```
+
+```
+Reading `siltgard.md` — 1 part. I'll file people, places, factions and hooks as I go.
+Recorded Siltgard, the Eikthyrn Fens, Kjor the Dyke-Binder, Grimwulf…
+Done with `siltgard.md`. ?dm notes lists what stuck — anything it missed you can add
+by telling me in the channel.
+```
+
+People become NPCs; places, factions, lore and rumours become notes, filed under the
+subject a player would actually *say* — "the Alder-Keeping road", not "Chapter 2". They
+surface when someone names them, so they cost nothing on turns where they are irrelevant.
+
+`?dm notes` shows what stuck. Anything it missed you can add by just telling Gary in the
+channel.
+
+**Every refusal lands before the first model call**, so a bad import costs nothing: wrong
+extension, over 200KB, more than 12 chunks, an empty file, or no model attached.
+
+---
+
+## 5. Open the campaign
+
+Two lines make the difference between a model that knows where it is and one that invents
+a world from a player's first sentence. **Set both before the first turn.**
+
+### Let Gary write them
+
+When an import finishes on a campaign with no setting yet, Gary offers a premise — the one
+thing an import *cannot* file, because it is not a sentence in the document, it is what
+the document is about:
+
+```
+Suggested setting:
+> Siltgard, a drowned fen county under a dyke-lord whose sea walls are failing.
+  Salt, conscription and slow retreat; low magic, wet, feudal.
+`?dm accept` to take it, `?dm setting <premise>` to write your own.
+Nothing is written until you do.
+```
+
+`?dm scene` with **no arguments** does the same for a scene, at any point in the campaign,
+from where the story actually is:
+
+```
+?dm scene
+```
+```
+Suggested scene:
+> **The Eel-Runs, Siltgard** — Fever-mist off the ditches, tide sounding against the
+  timbered wall. Two dyke-wardens watching the road.
+`?dm accept` to take it, `?dm scene <location> | <standing state>` to write your own.
+```
+
+Then:
+
+```
+?dm accept
+```
+
+Both are suggestions and neither is written until you accept. `?dm accept setting` /
+`?dm accept scene` takes one when both are waiting; typing your own `?dm setting` or
+`?dm scene` discards the suggestion it overrules; ignoring it does nothing.
+
+### Or write them yourself
+
+```
+?dm setting Siltgard, a drowned fen county under a failing dyke. Low magic, wet, feudal.
+?dm scene The Eel-Runs | Fever-mist off the ditches. Two dyke-wardens watching the road.
+```
+
+**Setting** is ≤600 characters and rides on *every single turn*, so it holds only what
+stays true — premise, tone, region. Detail belongs in notes, which surface on mention.
+
+**Scene** is re-read every turn too, so its summary is *what is true while you are there*,
+not what happens when you walk in. "Rain on the shutters, barkeep watching the door" ages
+well across an hour of play; "the door bangs open" does not.
+
+### Set the clock
+
+A fresh campaign opens at **midnight** on its epoch date. Without this the model narrates
+an evening while the clock the same prompt calls authoritative says 00:00:
+
+```
+?dm time 18:30                       # later today
+?dm time 4 Harvest Moon 1026 06:00   # a date, typed back the way the screen shows it
+```
+
+The calendar is the real one with a millennium taken off and the months under their
+full-moon names — Wolf, Snow, Worm, Pink, Flower, Strawberry, Buck, Sturgeon, Harvest,
+Hunter's, Beaver, Cold. A campaign started on 21 August 2026 opens on **21 Sturgeon Moon
+1026**, so month lengths, leap years and seasons are all correct for free, and each month
+names its own season instead of needing to be looked up. **The clock only moves forward.**
+
+---
+
+## 6. Sit down and play
+
+### Register the players
+
+Have everyone run `!sheet` once. Avrae's reply names the character and its level, and Gary
+registers whoever asked for it — so one command everybody runs anyway is the whole of
+setup. It persists to campaign state and survives restarts.
+
+```
+!sheet
+```
+
+`?dm playing <character name>` is the explicit override if a claim lands on the wrong
+person. It takes the Discord user id from the message author, so it cannot be
+misattributed.
+
+Why this matters: Avrae's embed says `Caspian Varr makes a Sleight Of Hand check!`, and
+correlation is name-based in practice. A check opened for a Discord *display* name matches
+nothing — it waits out its TTL and is then narrated as hesitation, with no sign anything
+went wrong.
+
+### Talk to Gary
+
+Gary stays quiet unless addressed, so five players chatting do not cost five model calls.
+He answers when:
+
+- you **@-mention** him (either the user or his auto-created role — both work), **or**
+- the channel is in `GARY_FREEFORM_CHANNELS`, **or**
+- you have a **check open** — your next message is read as an answer to it.
+
+### A turn, end to end
+
+```
+@Gary  I want a look at what the wardens are guarding, without them seeing me.
+```
+
+Gary narrates, decides a check is needed, and posts the Avrae command for you to run:
+
+```
+Gary   The reeds are chest-high and the mist is with you, but the nearer warden keeps
+       turning back towards the road…
+       Caspian Varr: !check stealth
+```
+
+You run it. Avrae rolls. Gary reads the embed, compares against the DC **it persisted
+before you rolled**, and narrates the consequence it committed to in advance:
+
+```
+!check stealth
+Avrae  Caspian Varr makes a Stealth check! 1d20 (17) + 4 = 21
+Gary   You are past them before the tide sounds again…
+```
+
+If nobody rolls, the check expires after `GARY_CHECK_TTL` (default 180s) and is narrated
+as hesitation or the moment passing — never as a success. `?dm checks` shows what Gary is
+waiting on; `?dm cancel` drops your own.
+
+**In combat** Avrae owns initiative and durations, and the world clock stops. Gary mirrors
+the tracker rather than keeping its own.
+
+### When something goes wrong
+
+| Symptom | Try |
+|---|---|
+| Gary says nothing at all | Is the channel in `GARY_GAME_CHANNELS`? Did you @-mention him? Is Message Content enabled? |
+| Gary narrated but no dice | `?dm checks` — the check may already have expired |
+| A roll did nothing | The name Avrae printed is not one Gary knows. `?dm playing <name>` |
+| Gary invented the wrong world | `?dm state` — setting or scene is probably empty |
+| Gary forgot something you filed | `?dm notes` — check it is filed under the subject you actually say |
+| He wrote something you hate | `?dm undo` |
+
+---
+
+## 7. Start over
+
+`?dm reset` ends a campaign and begins an empty one in the same server. It is the only
+operation in Gary with **no undo** — it destroys the journal, so there is no record
+afterwards to recover from.
+
+### Try the smaller tool first
+
+| You want | Use |
+|---|---|
+| The last change reversed | `?dm undo` |
+| A different premise or scene | `?dm setting <premise>` / `?dm scene <location> \| <state>` — both overwrite in place |
+| A botched import gone | `?dm reset`. An import writes one journal entry per record, so `?dm undo` would take dozens of goes |
+| A genuinely new campaign | `?dm reset` |
+
+### What goes, and what does not
+
+| Wiped | Untouched |
+|---|---|
+| Setting, scene, world clock | **Your Avrae characters.** Sheets, HP and inventory are Avrae's; Gary never held them |
+| Party roster, inventories, active effects | Your environment variables and channel config |
+| Quests, NPCs, notes | The `campaign/` directory itself — the journal is truncated and a fresh snapshot written in place |
+| Every channel's conversation history and rolling summary | Any copy of `campaign/` you took first — see step 1 |
+| All pending checks, and any unaccepted suggestion | |
+
+It is not per-channel: one Gary process is one campaign, and reset ends all of it.
+
+### 1. Back it up
+
+Reset truncates the journal in place, so take a copy first if there is any chance you
+want the old campaign back:
+
+```bash
+cp -r campaign campaign.backup-$(date +%F)
+```
+
+### 2. Ask for it
+
+```
+?dm reset
+```
+
+Gary answers with what is about to be destroyed and a four-digit code:
+
+```
+**This deletes the campaign.** World state, quests, NPCs, notes, inventories and
+conversation memory all go — and so does the journal, so there is no record afterwards
+and no undo. Currently: 14 note(s), 2 quest(s), 9 NPC(s).
+Everything goes, including who is playing whom.
+To confirm: `?dm reset 4821`
+```
+
+### 3. Confirm it
+
+```
+?dm reset 4821
+```
+```
+Campaign reset. It is 21 Sturgeon Moon 1026, 00:00. Everyone run
+`?dm playing <character name>` again before the first roll.
+```
+
+A fresh code is issued every time you run bare `?dm reset`, and a stale one is refused
+with *"That code is not current."* Nothing is destroyed until the code comes back.
+
+### 4. Open the new campaign
+
+The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2026 opens on
+21 Sturgeon Moon 1026, 00:00 — so this is the same job as
+[step 5](#5-open-the-campaign), from the top:
+
+1. **Re-register the players.** Everyone runs `!sheet` again, or `?dm playing <name>`.
+   The roster went with everything else. *(If `GARY_PLAYERS` is set, restarting Gary
+   restores it instead — that is the one piece of setup an env var can hand back.)*
+2. **`?dm import`** the new setting document, and `?dm accept` the premise Gary proposes
+   from it.
+3. **`?dm scene`** and **`?dm time`** before the first turn, for the reasons in
+   [step 5](#5-open-the-campaign) — an empty setting and a midnight clock are exactly the
+   conditions under which the model invents a world of its own.
+
+---
+
+## `?dm` command reference
+
+`?dm help` prints this in the channel. So does `?dm` on its own, and any command Gary does
+not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not start with
+`!`, which is Avrae's.
+
+### Opening a campaign
+
+| Command | What it does |
+|---|---|
+| `?dm import` *(attach `.md`/`.txt`)* | Read a whole setting document; file people as NPCs, places/factions/lore as notes. Refuses before spending anything. Needs a model. |
+| `?dm setting` | Show the current premise. |
+| `?dm setting <premise>` | Set it. ≤600 chars, shown to the model every turn. |
+| `?dm scene` | **Suggest** a scene from the campaign so far. Nothing is written. |
+| `?dm scene <location> \| <standing state>` | Set it. The summary is re-read every turn. |
+| `?dm accept` | Take whatever Gary has suggested here. |
+| `?dm accept setting` / `?dm accept scene` | Take one when both are waiting. |
+| `?dm time` | Show the world clock. |
+| `?dm time 18:30` | Later today. |
+| `?dm time 4 Harvest Moon 1026 06:00` | A date. Also accepts `1026-09-04 06:00` and `day 2 06:00`. Forward only. |
+
+### At the table
+
+| Command | What it does |
+|---|---|
+| `?dm playing <character name>` | Claim a character, spelled exactly as Avrae spells it. Usually unnecessary — `!sheet` does it. |
+| `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
+| `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |
+| `?dm undo` | Reverse the last change to the world. |
+
+### Looking in
+
+| Command | What it does |
+|---|---|
+| `?dm state` | Clock, scene, party, and counts of what is stored. |
+| `?dm notes` | What has been filed, by subject, plus the people. These are the words that retrieve them. |
+| `?dm stats` | Messages sent, turns narrated, narrator failures, Avrae parse drops. A rising `unknown` drop rate is how an Avrae format change announces itself. |
+| `?dm help` | This reference. |
+
+### Starting over
+
+| Command | What it does |
+|---|---|
+| `?dm reset` | **Deletes the campaign** — state, quests, NPCs, notes, inventories, the roster, the journal, **and every channel's conversation history.** Two-step: it replies with a code you type back. No undo. See [Start over](#7-start-over). |
+
+---
+
+## Configuration reference
+
+Everything is environment variables; there is no config file. Only the first two are
+required.
+
+### Required
+
+| Variable | Notes |
+|---|---|
+| `DISCORD_TOKEN` | Bot token. Empty is a fatal config error. |
+| `GARY_GAME_CHANNELS` | Channel ids, separated by commas or spaces. Empty is fatal — Gary would join and ignore every message. |
+
+### Discord
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GARY_FREEFORM_CHANNELS` | *(none)* | Channels where Gary answers without being @-mentioned. Must be a subset of `GARY_GAME_CHANNELS`. |
+| `GARY_PLAYERS` | *(none)* | `<discord id>=<Avrae character>`, `;` between entries. Unset skips actor validation. |
+| `GARY_COMMAND_PREFIX` | `?dm ` | May not start with `!` — that collides with Avrae. |
+| `GARY_AVRAE_BOT_ID` | `261302296103747584` | Avrae's application id. |
+| `GARY_COINS_COMMAND` | `game coins` | Override only to use a workshop alias; the native command needs nothing installed. |
+
+### Storage
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GARY_CAMPAIGN_ROOT` | `./campaign` | Journal, snapshots, pending checks, history. |
+| `GARY_BACKEND` | `file` | `file` or `firestore`. |
+| `GARY_FIRESTORE_CAMPAIGN_ID` | `default` | Which campaign document. |
+
+### Model
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GEMINI_API_KEY` | *(none)* | Unset runs `EchoNarrator` — full Discord path, zero spend. |
+| `GARY_GEMINI_MODEL` | `gemini-3.7-flash` | Narration. Verified 2026-08-18; model ids move, recheck. |
+| `GARY_GEMINI_SUMMARY_MODEL` | `gemini-3.5-flash-lite` | Rolling summary. Verified 2026-08-09. |
+| `GARY_GEMINI_TIMEOUT` | `90.0` | Seconds. Bounds every call; without one a hung request blocks the turn forever. |
+| `GARY_GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash` | Tried once when the primary exhausts its retries. `gemini-3.7-flash` spent 2026-08-21 answering 503 "high demand". Empty string disables it. |
+| `GARY_HISTORY_WINDOW` | `30` | Turns kept verbatim; older ones fold into the rolling summary. |
+
+### Timing
+
+| Variable | Default | Notes |
+|---|---|---|
+| `GARY_CHECK_TTL` | `180.0` | Seconds a check stays rollable before it is narrated as hesitation. |
+| `GARY_SWEEP_INTERVAL` | `15.0` | How often expiries are swept. |
+| `GARY_SEND_INTERVAL` | `1.0` | Per-channel send pacing. |
+| `GARY_MAX_EFFECT_DEPTH` | `4` | Bounds model recursion. Exceeding it is logged loudly — it means the model is opening checks in a loop. |
+
+Settings are validated at boot and fail fast: a freeform channel that is not a game
+channel, a prefix starting with `!`, and an unknown backend are all startup errors rather
+than mysteries at the table.
+
+---
+
+## Between sessions: Claude Desktop
+
+Open the campaign from Claude Desktop between sessions — audit what the model did, write
+NPCs, plant foreshadowing, undo a hallucinated magic sword. Why it sits beside Gary rather
+than inside it is `ARCHITECTURE.md` §2.1.
+
+**It needs its own interpreter.** The SDK requires Python 3.10+ and this repo's `.venv` is
+3.9, so point `command` at a 3.12 venv with `mcp>=2.0` installed:
+
+```json
+{"mcpServers": {"gary": {
+  "command": "/path/to/py312-venv/bin/python",
+  "args": ["-m", "gary.adapters.mcp_server"],
+  "env": {"GARY_CAMPAIGN_ROOT": "/path/to/campaign",
+          "PYTHONPATH": "/path/to/gary/src"}}}}
+```
+
+**Run this while Gary is stopped.** One campaign takes one writer; a prep client that
+cannot get the lock degrades to read-only with a JSON explanation rather than a stack
+trace.
+
+It must be `mcp>=2.0`. SDK 2.0 moved `FastMCP` to `mcp.server.mcpserver` and renamed it
+`MCPServer`, so an older pin installs an SDK whose import path no longer exists.
+
+---
+
+## Design
+
+How Gary works, and why it is built this way, is [`ARCHITECTURE.md`](ARCHITECTURE.md).
+The short version, with the sections that carry the argument:
+
+- **Outcomes are not decided by the model.** A DC and both consequences are persisted
+  before anyone is told to roll; resolution is arithmetic. §5.1, §5.2
+- **A check is a deferred function call.** The model's `open_check` is left unanswered
+  until the roll arrives as its `function_response`, minutes later. §12.4
+- **Trust rides on the transport, not on strings.** Roll results arrive as structured
+  tool results; player text and imported documents are sanitised, fenced and labelled as
+  data. §9.1
+- **Only `AWAITING_ROLL` consumes Avrae output**, which is what stops `!help` and other
+  players' rolls from each costing a model call. §4, §6.3
+- **A proposal decides nothing.** `?dm scene` and the post-import premise run the model
+  while it holds every state-mutating tool, so nothing they produce is written until you
+  accept it. §8.1.1
+- **Gary is not an MCP client**; MCP sits beside it, over the same store. §2.1
+- **Nothing important lives on the box.** State sits behind storage protocols with
+  in-memory, file and Firestore implementations. §7.4, §11.1
+
+The source map is §12.7, re-capturing Avrae fixtures is §6.5, and the open risks —
+including the Firestore document ceiling and Avrae version drift — are §14.
