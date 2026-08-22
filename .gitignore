@@ -5,6 +5,7 @@ __pycache__/
 campaign/
 *.egg-info/
 .env
+.DS_Store
 tests/fixtures/avrae/captured/
 build/
 dist/
