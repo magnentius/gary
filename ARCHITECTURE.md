@@ -483,8 +483,18 @@ v1 never specified what goes into a Gemini call. A campaign runs for thousands o
 Layers 2 and 3 are empty on a fresh campaign, which is the worst moment for it: the model invents the world from one line of player input, and §14 (8) — narrating past the check — is most likely exactly then. Three surfaces fill them, in increasing size:
 
 - `?dm setting <premise>` — the ≤600-character standing premise. Layer 2, every turn.
-- `?dm scene <location> | <state>` and `?dm time` — where the party is and when.
+- `?dm scene <location> | <state>` and `?dm time` — where the party is and when. Bare `?dm scene` proposes one instead (§8.1.1).
 - `?dm import` with a `.md`/`.txt` attachment — a whole setting document, fanned into layer 3. Written for the export format of a generator like [cros.land's](https://cros.land/rpg-setting-generator-and-world-building-tool/), whose sections (location overview, sub-locations, factions, NPCs, quest hooks) map onto `record_note` and `upsert_npc` almost one-to-one. The file is split on Markdown headings rather than at a character count, because a section cut in half writes an NPC twice — once from the name, once from the disposition that landed in the next chunk. Each chunk is one model call, capped at `MAX_IMPORT_CHUNKS`.
+
+#### 8.1.1 Proposals
+
+The two layer-2 lines are also the two the DM is least equipped to write, and at the worst moment: `?dm setting` wants a premise for a world nobody has played in yet, and `?dm scene` wants a room. So both can be proposed instead of authored. An import that finishes on a campaign with no setting asks for one; `?dm scene` with no arguments asks for a scene, at any point in the campaign. The line comes back as `propose_setting` / `propose_scene` — ordinary turns in the channel's history, deliberately, because the material each one needs lives in the conversation and not in state: the imported document for a premise, the last few turns for a scene.
+
+Three properties hold this apart from narration:
+
+- **A proposal decides nothing.** The model has every state-mutating tool in hand on each call, so the prompt says outright that nothing is written until the DM accepts it and that no tool should be called. `EffectRunner.ask` is the belt to that braces: it returns the text and *drops* any effects, so a proposal cannot take its own suggestion while asking permission.
+- **The line is held, not posted.** `run` narrates and forgets; `ask` hands the text back, so it can be shown with an offer attached and stored under `(channel_id, kind)` until somebody types `?dm accept`. Accepting spends it. Writing the same field by hand discards it, so a stale suggestion cannot be reinstated by a later bare `?dm accept` typed for the other kind.
+- **The reply is parsed, not trusted.** It is asked for as one bare line and read back by `parse_proposal`, which strips the lead-ins, fences, labels and quote marks a model reaches for anyway. Anything written here is read aloud to the model on every subsequent turn, so a stray "Here you go:" in that field is a permanent one. An unparseable reply is reported and stored nowhere.
 
 Import deliberately does **not** write quests: there is no quest tool on the model's surface (§12.6), only `prep.py`'s. Hooks are filed as notes, which is lossy — a hook becomes retrievable trivia rather than a tracked objective. Closing that means either giving the model a quest tool or accepting that quests stay a prep-time concern.
 

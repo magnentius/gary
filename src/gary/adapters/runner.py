@@ -148,6 +148,38 @@ class EffectRunner:
 
         log.warning("no handler for effect %r", type(effect).__name__)
 
+    async def ask(self, effect: PromptModel) -> str:
+        """One model turn whose answer comes back here instead of going to the channel.
+
+        Narration is fire-and-forget by design: ``run`` posts what the model said and
+        returns nothing. That is exactly wrong for a proposal, where the text has to be
+        held, shown, and written only if the DM accepts it.
+
+        Effects are dropped rather than performed. A proposal decides nothing, so a
+        proposal that quietly mutated state while asking permission would be worse than
+        either half on its own -- and dropping is safe here because the only effect a
+        proposal could plausibly produce is one the prompt told it not to make.
+        """
+        try:
+            result: NarrationResult = await self._narrator.narrate(
+                channel_id=effect.channel_id,
+                kind=effect.kind,
+                payload=effect.payload,
+            )
+        except Exception:  # noqa: BLE001 - same contract as _narrate: never kill a turn
+            self.stats.narrator_failures += 1
+            log.exception("narrator failed for kind=%s", effect.kind)
+            return ""
+
+        self.stats.narrated += 1
+        if result.effects:
+            log.warning(
+                "dropping %d effect(s) from %s; a proposal decides nothing",
+                len(result.effects),
+                effect.kind,
+            )
+        return (result.text or "").strip()
+
     async def _narrate(self, effect: PromptModel, depth: int) -> None:
         try:
             result: NarrationResult = await self._narrator.narrate(

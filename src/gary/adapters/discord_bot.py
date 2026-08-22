@@ -21,12 +21,12 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import discord
 
 from ..config import Settings
-from ..context import chunk_document
+from ..context import chunk_document, parse_proposal
 from ..fsm import Director, PromptModel
 from ..models import CancelReason, Mutation, MutationKind
 from ..parser.avrae import ParseStatus, parse_embed
@@ -91,6 +91,39 @@ class DiscordTransport:
         await channel.send(text)
 
 
+#: Grouped by the moment you need them, because the commands that matter are not the
+#: ones used most often -- they are the four that open a campaign, and a DM meeting Gary
+#: for the first time has no way to tell those apart from the ones for mid-session repair.
+HELP = """**Gary — `{bare}` commands**
+
+__Opening a campaign__
+`{p}import` *(attach a `.md` or `.txt`)* — read a whole setting document and file its people as NPCs, its places, factions and lore as notes
+`{p}setting <premise>` — the standing premise, ≤600 chars. Shown to the DM every turn
+`{p}scene` — suggest a scene · `{p}scene <location> | <what is true while you are there>` — set one
+`{p}accept [setting|scene]` — take a suggestion Gary has offered
+`{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
+
+__At the table__
+`{p}playing <character name>` — claim a character (or just run `!sheet` once)
+`{p}checks` — what Gary is waiting to be rolled
+`{p}cancel` — drop your own pending check
+`{p}undo` — reverse the last change to the world
+
+__Looking in__
+`{p}state` — clock, scene, party, and what is stored
+`{p}notes` — what has been filed, by subject
+`{p}stats` — messages sent, turns narrated, parse failures
+`{p}help` — this list. So does `{bare}` on its own
+
+__Starting over__
+`{p}reset` — **deletes the campaign**, the journal and every channel's memory. Two-step, and the one thing here with no undo."""
+
+
+def render_help(prefix: str) -> str:
+    """`?dm help`, `?dm` on its own, and anything unrecognised all land here."""
+    return HELP.format(p=prefix, bare=prefix.strip())
+
+
 class GaryClient(discord.Client):
     def __init__(
         self,
@@ -114,6 +147,9 @@ class GaryClient(discord.Client):
         self.lock = lock
         self.history_backend = history_backend
         self._reset_token: Optional[str] = None
+        # (channel_id, "setting" | "scene") -> the line the model proposed. Held rather
+        # than written: a proposal the DM never saw is not a decision the DM made.
+        self._pending_proposals: Dict[Tuple[int, str], str] = {}
         self._sheet_asked_by: Dict[int, tuple] = {}
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
@@ -258,6 +294,80 @@ class GaryClient(discord.Client):
     MAX_IMPORT_CHUNKS = 12
     IMPORT_SUFFIXES = (".md", ".markdown", ".txt")
 
+    @property
+    def _has_model(self) -> bool:
+        """Whether there is a model behind the runner at all.
+
+        ``EffectRunner`` keeps its narrator private, and an earlier version of the import
+        guard read ``runner.narrator`` -- always None, so the guard never fired and an
+        import under ``EchoNarrator`` reported success while filing nothing. Read the
+        real name, in one place, so the next caller cannot repeat it.
+        """
+        return not isinstance(getattr(self.runner, "_narrator", None), EchoNarrator)
+
+    def _apply_setting(self, raw: str, who: str) -> str:
+        self.store.apply(
+            [Mutation(MutationKind.SETTING, "", {"text": raw})],
+            reason=f"setting by {who}",
+        )
+        return f"Setting noted.\n> {raw}"
+
+    def _apply_scene(self, raw: str, who: str) -> str:
+        location, _, summary = raw.partition("|")
+        # Both fields are set, always. Setting a location while leaving a summary that
+        # described somewhere else is worse than setting no summary at all.
+        self.store.apply(
+            [
+                Mutation(
+                    MutationKind.SCENE,
+                    "",
+                    {"location": location.strip(), "summary": summary.strip()},
+                )
+            ],
+            reason=f"scene set by {who}",
+        )
+        return f"Scene set: **{location.strip()}**" + (
+            f" — {summary.strip()}" if summary.strip() else ""
+        )
+
+    async def _propose(self, channel_id: int, kind: str) -> bool:
+        """Ask the model for a setting or a scene and hold it for the DM to accept.
+
+        Nothing is written here. The model has state-mutating tools in hand on every
+        call, so the one thing this must not do is take its own suggestion -- the line
+        goes into ``_pending_proposals`` and stays there until somebody types accept.
+        """
+        prefix = self.settings.command_prefix
+        line = parse_proposal(
+            await self.runner.ask(
+                PromptModel(channel_id=channel_id, kind=f"propose_{kind}", payload={})
+            )
+        )
+        if not line:
+            await self.sender.send(
+                channel_id,
+                f"I couldn't put a {kind} into words just now. Try again, or write one "
+                f"yourself with `{prefix}{kind} ...`.",
+            )
+            return False
+
+        self._pending_proposals[(channel_id, kind)] = line
+        if kind == "setting":
+            preview = f"> {line}"
+            own = f"`{prefix}setting <premise>` to write your own"
+        else:
+            location, _, summary = line.partition("|")
+            preview = f"> **{location.strip()}**" + (
+                f" — {summary.strip()}" if summary.strip() else ""
+            )
+            own = f"`{prefix}scene <location> | <standing state>` to write your own"
+        await self.sender.send(
+            channel_id,
+            f"Suggested {kind}:\n{preview}\n"
+            f"`{prefix}accept` to take it, {own}. Nothing is written until you do.",
+        )
+        return True
+
     async def _import_document(self, message: "discord.Message", channel_id: int) -> None:
         """`?dm import` with a Markdown attachment — fan a setting file into the stores.
 
@@ -320,7 +430,7 @@ class GaryClient(discord.Client):
             )
             return
 
-        if isinstance(getattr(self.runner, "_narrator", None), EchoNarrator):
+        if not self._has_model:
             await self.sender.send(
                 channel_id,
                 "No model is attached, so there is nothing that can read a document — set "
@@ -352,6 +462,12 @@ class GaryClient(discord.Client):
             f"Done with `{filename}`. `{prefix}notes` lists what stuck — anything it "
             "missed you can add by telling me in the channel.",
         )
+
+        # The premise is the one thing an import cannot file, because it is not in the
+        # document as a sentence -- it is what the whole document is about. The model has
+        # just read all of it and will not have it that fresh again, so ask now.
+        if not (self.store.state().get("setting") or "").strip():
+            await self._propose(channel_id, "setting")
 
     async def on_message(self, message: "discord.Message") -> None:
         # `!sheet` carries no interaction metadata — it is a prefix command — so the sheet
@@ -549,11 +665,10 @@ class GaryClient(discord.Client):
                     "comes up.",
                 )
                 return
-            self.store.apply(
-                [Mutation(MutationKind.SETTING, "", {"text": raw})],
-                reason=f"setting by {message.author.display_name}",
+            self._pending_proposals.pop((channel_id, "setting"), None)
+            await self.sender.send(
+                channel_id, self._apply_setting(raw, message.author.display_name)
             )
-            await self.sender.send(channel_id, f"Setting noted.\n> {raw}")
             return
 
         if command == "import":
@@ -563,6 +678,12 @@ class GaryClient(discord.Client):
         if command == "scene":
             raw = body[len("scene"):].strip()
             if not raw:
+                # Bare `?dm scene` used to print its own usage. Proposing one is the more
+                # useful answer to the same question and costs a single model call -- and
+                # the proposal names the manual form anyway, so the usage is not lost.
+                if self._has_model:
+                    await self._propose(channel_id, "scene")
+                    return
                 await self.sender.send(
                     channel_id,
                     f"`{self.settings.command_prefix}scene <location> | <standing state>`"
@@ -572,24 +693,43 @@ class GaryClient(discord.Client):
                     " shutters. Barkeep watches the door.`",
                 )
                 return
-            location, _, summary = raw.partition("|")
-            # Both fields are set, always. Setting a location while leaving a summary
-            # that described somewhere else is worse than setting no summary at all.
-            self.store.apply(
-                [
-                    Mutation(
-                        MutationKind.SCENE,
-                        "",
-                        {"location": location.strip(), "summary": summary.strip()},
-                    )
-                ],
-                reason=f"scene set by {message.author.display_name}",
-            )
+            self._pending_proposals.pop((channel_id, "scene"), None)
             await self.sender.send(
-                channel_id,
-                f"Scene set: **{location.strip()}**"
-                + (f" — {summary.strip()}" if summary.strip() else ""),
+                channel_id, self._apply_scene(raw, message.author.display_name)
             )
+            return
+
+        if command == "accept":
+            wanted = parts[1].lower() if len(parts) > 1 else ""
+            if wanted and wanted not in ("setting", "scene"):
+                await self.sender.send(
+                    channel_id,
+                    f"`{prefix}accept`, or `{prefix}accept setting` / "
+                    f"`{prefix}accept scene` to take just one of them.",
+                )
+                return
+            kinds = [wanted] if wanted else ["setting", "scene"]
+            taken = [
+                (kind, self._pending_proposals.pop((channel_id, kind)))
+                for kind in kinds
+                if (channel_id, kind) in self._pending_proposals
+            ]
+            if not taken:
+                await self.sender.send(
+                    channel_id,
+                    f"Nothing to accept — I haven't suggested "
+                    + (f"a {wanted}" if wanted else "anything")
+                    + f" here. `{prefix}import` a setting file, or `{prefix}scene` with "
+                    "no arguments, and I'll offer one.",
+                )
+                return
+            who = message.author.display_name
+            for kind, line in taken:
+                confirmation = (
+                    self._apply_setting(line, who) if kind == "setting"
+                    else self._apply_scene(line, who)
+                )
+                await self.sender.send(channel_id, confirmation)
             return
 
         if command == "reset":
@@ -619,6 +759,7 @@ class GaryClient(discord.Client):
                 return
 
             self._reset_token = None
+            self._pending_proposals.clear()
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
             if self.history_backend is not None:
@@ -743,10 +884,12 @@ class GaryClient(discord.Client):
                 f"drops={s.drops_by_status or '{}'}",
             )
 
+        elif command == "help":
+            await self.sender.send(channel_id, render_help(prefix))
+
         else:
             await self.sender.send(
-                channel_id,
-                f"`{self.settings.command_prefix}`: setting <premise> | scene <location> | time <HH:MM> | import (attach .md) | notes | playing <name> | undo | cancel | checks | state | stats | reset",
+                channel_id, f"I don't know `{prefix}{command}`.\n\n" + render_help(prefix)
             )
 
 

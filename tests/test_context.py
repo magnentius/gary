@@ -468,3 +468,63 @@ def test_chunk_document_ignores_an_empty_file():
 
     assert chunk_document("") == []
     assert chunk_document("   \n\n  ") == []
+
+
+# -- proposals ----------------------------------------------------------------------------
+
+
+def test_parse_proposal_takes_the_line_through_the_ways_a_model_dresses_it_up():
+    """Everything here goes into a field that is read back to the model on every turn.
+    A stray "Here you go:" or a code fence in that field is a permanent one."""
+    from gary.context import parse_proposal
+
+    cases = [
+        ("The Fen Marches, drowned and feudal.", "The Fen Marches, drowned and feudal."),
+        ("Here you go:\nThe Fen Marches.", "The Fen Marches."),
+        ("```\nThe Fen Marches.\n```", "The Fen Marches."),
+        ("SETTING: The Fen Marches.", "The Fen Marches."),
+        ("SETTING:\nThe Fen Marches.", "The Fen Marches."),
+        ("> The Fen Marches.", "The Fen Marches."),
+        ('"The Fen Marches."', "The Fen Marches."),
+        ("\n\n  The Fen Marches.  \n", "The Fen Marches."),
+        ("Scene: The Rusty Anchor | Rain.", "The Rusty Anchor | Rain."),
+    ]
+    for raw, expected in cases:
+        assert parse_proposal(raw) == expected, raw
+
+
+def test_parse_proposal_keeps_a_long_sentence_that_merely_ends_in_a_colon():
+    """The colon rule exists to drop lead-ins, which are short. A real premise that
+    happens to end in one is still the answer."""
+    from gary.context import parse_proposal
+
+    line = "The Fen Marches, a drowned county under a dyke-lord whose walls are failing:"
+    assert parse_proposal(line) == line
+
+
+def test_parse_proposal_gives_back_nothing_rather_than_junk():
+    from gary.context import parse_proposal
+
+    assert parse_proposal("") == ""
+    assert parse_proposal("```\n```") == ""
+    assert parse_proposal("Here you go:") == ""
+    assert parse_proposal(None) == ""
+
+
+def test_parse_proposal_truncates_to_what_the_field_accepts():
+    from gary.context import MAX_PROPOSAL_CHARS, parse_proposal
+
+    assert len(parse_proposal("x" * 5000)) == MAX_PROPOSAL_CHARS
+
+
+def test_render_proposal_tells_the_model_it_is_deciding_nothing():
+    """The model holds state-mutating tools on every call. A prompt that asks it to
+    imagine a setting without saying so is a prompt that gets the setting written."""
+    from gary.context import render_proposal
+
+    for kind in ("setting", "scene"):
+        rendered = render_proposal(kind)
+        assert "Call no tools." in rendered
+        assert "until the DM accepts it" in rendered
+    assert "<location> | " in render_proposal("scene")
+    assert "every single turn" in render_proposal("setting")

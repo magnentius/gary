@@ -34,6 +34,7 @@ from google.genai import types
 
 from ..context import (
     render_document,
+    render_proposal,
     DM_SYSTEM_INSTRUCTION,
     attribute,
     render_live_state,
@@ -243,6 +244,16 @@ class GeminiNarrator:
                     int(payload.get("part", 1)),
                     int(payload.get("total", 1)),
                 ))],
+            )
+
+        if kind in ("propose_setting", "propose_scene"):
+            # Deliberately an ordinary turn in this channel's history. Both things worth
+            # proposing are things the model can only get right from what it has just
+            # read -- the imported document for a premise, the last few turns for a
+            # scene -- and neither of those lives in state.
+            return types.Content(
+                role="user",
+                parts=[types.Part.from_text(text=render_proposal(kind.split("_", 1)[1]))],
             )
 
         if kind in ("monster_turn", "death_save"):

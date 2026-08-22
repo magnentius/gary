@@ -239,3 +239,88 @@ async def test_non_message_effects_keep_their_place():
         "Nothing happens.",                    # this turn's prose
         "(the DM reconsiders)",                # the nested turn, still last
     ]
+
+
+def test_ask_returns_the_text_instead_of_posting_it():
+    """A proposal is shown with an offer attached and written only if it is taken, so the
+    one thing `ask` must not do is what `run` does -- put it in the channel as narration."""
+    import asyncio
+
+    from gary.adapters.runner import EffectRunner
+    from gary.fsm import PromptModel
+    from gary.ports import NarrationResult
+
+    sent = []
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Narrator:
+        async def narrate(self, *, channel_id, kind, payload):
+            return NarrationResult(text="  The Fen Marches.  ")
+
+    runner = EffectRunner(_Sender(), _Narrator())
+    answer = asyncio.get_event_loop().run_until_complete(
+        runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
+    )
+    assert answer == "The Fen Marches."
+    assert sent == []
+    assert runner.stats.narrated == 1
+    assert runner.stats.sent == 0
+
+
+def test_ask_drops_effects_rather_than_deciding_while_asking():
+    import asyncio
+
+    from gary.adapters.runner import EffectRunner
+    from gary.fsm import PromptModel, SendMessage
+    from gary.ports import NarrationResult
+
+    sent = []
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Narrator:
+        async def narrate(self, *, channel_id, kind, payload):
+            return NarrationResult(
+                text="The Fen Marches.",
+                effects=[SendMessage(channel_id=7, text="!game coins +5")],
+            )
+
+    runner = EffectRunner(_Sender(), _Narrator())
+    answer = asyncio.get_event_loop().run_until_complete(
+        runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
+    )
+    assert answer == "The Fen Marches."
+    assert sent == []
+
+
+def test_ask_answers_empty_when_the_model_fails_and_stays_silent():
+    """`_narrate` posts a stall on failure because a silent channel reads as a dead bot.
+    `ask` must not: its caller has a better thing to say, and two messages would be one
+    apology too many."""
+    import asyncio
+
+    from gary.adapters.runner import EffectRunner
+    from gary.fsm import PromptModel
+
+    sent = []
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Narrator:
+        async def narrate(self, *, channel_id, kind, payload):
+            raise RuntimeError("503")
+
+    runner = EffectRunner(_Sender(), _Narrator())
+    answer = asyncio.get_event_loop().run_until_complete(
+        runner.ask(PromptModel(channel_id=7, kind="propose_setting", payload={}))
+    )
+    assert answer == ""
+    assert sent == []
+    assert runner.stats.narrator_failures == 1

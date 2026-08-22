@@ -10,6 +10,7 @@ does real correlation, and the resolver does real arithmetic.
 
 from __future__ import annotations
 
+import inspect
 import json
 from pathlib import Path
 
@@ -543,15 +544,21 @@ class _Runner:
     """Stands in for EffectRunner. `_narrator` is private on the real one, and a guard
     that reads the wrong attribute name is a guard that never fires."""
 
-    def __init__(self, narrator):
+    def __init__(self, narrator, answer=""):
         self._narrator = narrator
         self.effects = []
+        self.asked = []
+        self._answer = answer
 
     async def run(self, effects):
         self.effects.extend(effects)
 
+    async def ask(self, effect):
+        self.asked.append(effect)
+        return self._answer
 
-def _import_client(narrator, sent):
+
+def _import_client(narrator, sent, state=None, answer=""):
     from gary.adapters.discord_bot import GaryClient
 
     class _Sender:
@@ -561,10 +568,24 @@ def _import_client(narrator, sent):
     class _Settings:
         command_prefix = "?dm "
 
+    class _Store:
+        def __init__(self):
+            self.applied = []
+
+        def state(self):
+            return state if state is not None else {"setting": ""}
+
+        def apply(self, mutations, reason=""):
+            self.applied.append((mutations, reason))
+
     class _Client:
         settings = _Settings()
         sender = _Sender()
-        runner = _Runner(narrator)
+        runner = _Runner(narrator, answer)
+        store = _Store()
+        _pending_proposals = {}
+        _has_model = GaryClient._has_model
+        _propose = GaryClient._propose
         MAX_IMPORT_BYTES = GaryClient.MAX_IMPORT_BYTES
         IMPORT_CHUNK_CHARS = GaryClient.IMPORT_CHUNK_CHARS
         MAX_IMPORT_CHUNKS = GaryClient.MAX_IMPORT_CHUNKS
@@ -642,7 +663,7 @@ def test_import_fans_a_document_into_one_prompt_per_part():
 # -- ?dm state and ?dm notes ---------------------------------------------------------------
 
 
-def _dm_client(state, sent):
+def _dm_client(state, sent, narrator=None, answer=""):
     """Runs the real ?dm dispatcher against a stub store.
 
     These handlers had no test at all, and it showed: `?dm state` referenced a `prefix`
@@ -660,25 +681,42 @@ def _dm_client(state, sent):
         command_prefix = "?dm "
 
     class _Store:
+        applied = []
+
         def state(self):
             return state
 
+        def apply(self, mutations, reason=""):
+            self.applied.append((mutations, reason))
+
     class _Channel:
         id = 7
+
+    class _Author:
+        display_name = "John"
+        id = 11
 
     class _Client:
         settings = _Settings()
         sender = _Sender()
         store = _Store()
+        runner = _Runner(narrator or EchoNarrator(), answer)
+        _pending_proposals = {}
+        _has_model = GaryClient._has_model
+        _propose = GaryClient._propose
+        _apply_setting = GaryClient._apply_setting
+        _apply_scene = GaryClient._apply_scene
+        MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
 
     class _Msg:
         channel = _Channel()
+        author = _Author()
 
         def __init__(self, content):
             self.content = content
 
     client = _Client()
-    return _Msg, GaryClient._on_dm_command.__get__(client, _Client)
+    return _Msg, GaryClient._on_dm_command.__get__(client, _Client), client
 
 
 def _seeded_state():
@@ -703,7 +741,7 @@ def test_dm_state_does_not_stay_silent_about_stored_memory():
     import asyncio
 
     sent = []
-    Msg, dispatch = _dm_client(_seeded_state(), sent)
+    Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
 
     body = " ".join(sent)
@@ -718,7 +756,7 @@ def test_dm_state_stays_quiet_when_nothing_is_stored():
     state = _seeded_state()
     state["notes"], state["npcs"] = [], {}
     sent = []
-    Msg, dispatch = _dm_client(state, sent)
+    Msg, dispatch, _ = _dm_client(state, sent)
     asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm state")))
     assert "Also stored" not in " ".join(sent)
 
@@ -729,7 +767,7 @@ def test_dm_notes_lists_subjects_a_player_would_say():
     import asyncio
 
     sent = []
-    Msg, dispatch = _dm_client(_seeded_state(), sent)
+    Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
 
     body = " ".join(sent)
@@ -744,6 +782,208 @@ def test_dm_notes_on_an_empty_campaign_says_so():
     state = _seeded_state()
     state["notes"], state["npcs"] = [], {}
     sent = []
-    Msg, dispatch = _dm_client(state, sent)
+    Msg, dispatch, _ = _dm_client(state, sent)
     asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm notes")))
     assert "Nothing filed yet" in " ".join(sent)
+
+
+# -- proposals: ?dm accept, and the two places a proposal comes from -----------------------
+
+
+def test_import_proposes_a_premise_it_could_not_have_filed():
+    """A premise is the one thing an import cannot record, because it is not a sentence in
+    the document -- it is what the document is *about*. So it is asked for at the only
+    moment the model has read the whole thing."""
+    import asyncio
+
+    sent = []
+    client, do_import = _import_client(
+        _Narrator(), sent, state={"setting": ""}, answer="The Fen Marches, drowned and feudal."
+    )
+    asyncio.get_event_loop().run_until_complete(
+        do_import(_ImportMsg([_Attachment()]), 7)
+    )
+
+    assert [e.kind for e in client.runner.asked] == ["propose_setting"]
+    assert client.runner.asked[0].channel_id == 7
+    assert client._pending_proposals[(7, "setting")] == "The Fen Marches, drowned and feudal."
+    # Proposed, not written: the store saw nothing.
+    assert client.store.applied == []
+    assert "?dm accept" in " ".join(sent)
+
+
+def test_import_leaves_an_established_premise_alone():
+    """Re-importing a second sourcebook into a running campaign must not offer to
+    overwrite the premise the table has been playing under for weeks."""
+    import asyncio
+
+    sent = []
+    client, do_import = _import_client(
+        _Narrator(), sent, state={"setting": "The Fen Marches."}, answer="Something else."
+    )
+    asyncio.get_event_loop().run_until_complete(
+        do_import(_ImportMsg([_Attachment()]), 7)
+    )
+    assert client.runner.asked == []
+    assert "Suggested" not in " ".join(sent)
+
+
+def test_bare_dm_scene_proposes_one_instead_of_printing_its_own_usage():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(
+        _seeded_state(), sent, narrator=object(), answer="The Rusty Anchor | Rain on the shutters."
+    )
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+
+    assert [e.kind for e in client.runner.asked] == ["propose_scene"]
+    assert client._pending_proposals[(7, "scene")] == "The Rusty Anchor | Rain on the shutters."
+    assert client.store.applied == []
+    body = " ".join(sent)
+    assert "The Rusty Anchor" in body and "Rain on the shutters." in body
+    # The manual form is still reachable from the proposal, so nothing is lost by
+    # replacing the usage text with an offer.
+    assert "?dm scene <location> | <standing state>" in body
+
+
+def test_bare_dm_scene_falls_back_to_usage_with_no_model_attached():
+    """`EchoNarrator` cannot propose anything. Spending a turn to find that out and then
+    saying 'I couldn't put a scene into words' would be a worse answer than the usage."""
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+
+    assert client.runner.asked == []
+    assert "?dm scene <location> | <standing state>" in " ".join(sent)
+
+
+def test_accept_writes_the_held_line_and_spends_it():
+    import asyncio
+
+    from gary.models import MutationKind
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain on the shutters."
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+
+    (mutations, reason), = client.store.applied
+    assert mutations[0].kind is MutationKind.SCENE
+    assert mutations[0].payload == {
+        "location": "The Rusty Anchor",
+        "summary": "Rain on the shutters.",
+    }
+    assert "John" in reason
+    assert "Scene set" in " ".join(sent)
+    # Accepting consumes it, so a second accept cannot write it twice.
+    assert client._pending_proposals == {}
+
+
+def test_accept_can_take_one_kind_while_the_other_keeps_waiting():
+    import asyncio
+
+    from gary.models import MutationKind
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    client._pending_proposals[(7, "setting")] = "The Fen Marches."
+    client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain."
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept setting")))
+
+    (mutations, _), = client.store.applied
+    assert mutations[0].kind is MutationKind.SETTING
+    assert list(client._pending_proposals) == [(7, "scene")]
+
+
+def test_accept_with_nothing_pending_says_where_proposals_come_from():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+
+    body = " ".join(sent)
+    assert "Nothing to accept" in body
+    assert "?dm import" in body and "?dm scene" in body
+    assert client.store.applied == []
+
+
+def test_writing_a_setting_by_hand_drops_the_suggestion_it_overrules():
+    """Otherwise a later bare `?dm accept` -- meant for a scene, or typed by somebody who
+    missed the exchange -- would silently reinstate a premise the DM had already replaced."""
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    client._pending_proposals[(7, "setting")] = "The Fen Marches."
+    asyncio.get_event_loop().run_until_complete(
+        dispatch(Msg("?dm setting A dry upland barony."))
+    )
+    assert client._pending_proposals == {}
+    (mutations, _), = client.store.applied
+    assert mutations[0].payload == {"text": "A dry upland barony."}
+
+
+def test_a_proposal_the_model_fumbled_is_reported_not_stored():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object(), answer="```\n```")
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm scene")))
+
+    assert client._pending_proposals == {}
+    assert client.store.applied == []
+    assert "couldn't put a scene into words" in " ".join(sent)
+
+
+def test_dm_help_covers_every_command_the_dispatcher_answers():
+    """Help that has drifted from the dispatcher is worse than no help: it sends the DM
+    looking for a command that was renamed. Pin it to the branches themselves."""
+    import re
+
+    from gary.adapters.discord_bot import GaryClient, render_help
+
+    source = inspect.getsource(GaryClient._on_dm_command)
+    answered = set(re.findall(r'command == "(\w+)"', source))
+    assert len(answered) > 10, "the regex stopped matching the dispatcher"
+    text = render_help("?dm ")
+    missing = {c for c in answered if f"?dm {c}" not in text} - {"help"}
+    assert not missing, missing
+
+
+def test_dm_help_is_one_discord_message():
+    from gary.adapters.discord_bot import render_help
+
+    assert len(render_help("?dm ")) < 2000
+
+
+def test_dm_help_respects_a_custom_prefix():
+    from gary.adapters.discord_bot import render_help
+
+    text = render_help("!gm ")
+    assert "!gm setting <premise>" in text
+    assert "?dm" not in text
+
+
+def test_an_unknown_dm_command_says_so_and_then_helps():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm sitting")))
+
+    body = " ".join(sent)
+    assert "I don't know `?dm sitting`" in body
+    assert "Opening a campaign" in body
+
+
+def test_bare_dm_is_help():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm")))
+    assert "Opening a campaign" in " ".join(sent)

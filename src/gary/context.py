@@ -185,6 +185,70 @@ def render_document(filename: str, chunk: str, part: int, total: int) -> str:
     )
 
 
+#: A proposal is written into a field that rides on every turn, so it is capped at the
+#: same length the command that writes it accepts.
+MAX_PROPOSAL_CHARS = 600
+
+_PROPOSAL_LABEL = re.compile(r"^\s*(setting|scene|proposal|premise)\s*[:\-]\s*", re.IGNORECASE)
+_PROPOSAL_BULLET = re.compile(r"^\s*([>*\-]|\d+\.)\s+")
+
+
+def render_proposal(kind: str) -> str:
+    """Ask for a setting premise or an opening scene as one line the DM can accept.
+
+    A proposal is not a turn of play. Nothing it produces is written until the DM says
+    so, and the model is holding state-mutating tools for every call it makes -- so, as
+    with `render_document`, it is told plainly what this is and what not to do about it.
+    The instruction to answer with a bare line is the same instruction twice over: it is
+    what `parse_proposal` can read back, and it is what fits in the field.
+    """
+    if kind == "setting":
+        return (
+            "PROPOSAL: the setting premise. Nothing here is written until the DM accepts "
+            "it.\n"
+            "From what you have read and filed, write the standing premise of this "
+            "campaign: region, tone, and the situation that is true whether or not the "
+            "party does anything about it. Not tonight's events -- this line is shown to "
+            "you on every single turn, so anything that can stop being true does not "
+            "belong in it.\n"
+            f"Reply with that one line and nothing else: no preamble, no heading, no "
+            f"quotes, at most {MAX_PROPOSAL_CHARS} characters. Call no tools."
+        )
+    return (
+        "PROPOSAL: the next scene. Nothing here is written until the DM accepts it.\n"
+        "From the campaign so far, name where the party is and what is standing true "
+        "while they are there. The summary is re-read every turn, so write what stays "
+        "true for as long as they are in the room, not what happens when they walk in.\n"
+        "Reply with one line in exactly this form and nothing else:\n"
+        "<location> | <what is true while they are there>\n"
+        f"No preamble, no heading, no quotes, at most {MAX_PROPOSAL_CHARS} characters. "
+        "Call no tools."
+    )
+
+
+def parse_proposal(text: str, limit: int = MAX_PROPOSAL_CHARS) -> str:
+    """Reduce a proposal reply to the single line it was asked for.
+
+    The model answers with a bare line nearly always; the two ways it does not are a
+    lead-in ("Here you go:") and a code fence, and both would otherwise be written into
+    a field that is read aloud to the model on every turn. Returns "" if there is
+    nothing usable, which the caller reports rather than storing.
+    """
+    for line in str(text or "").splitlines():
+        if line.strip().startswith("```"):
+            continue
+        candidate = _PROPOSAL_BULLET.sub("", line).strip()
+        candidate = _PROPOSAL_LABEL.sub("", candidate).strip()
+        candidate = candidate.strip("`").strip().strip('"').strip("'").strip()
+        if not candidate:
+            continue
+        # A short line ending in a colon is a lead-in to the answer, not the answer.
+        if candidate.endswith(":") and len(candidate) < 60:
+            continue
+        return candidate[:limit]
+    return ""
+
+
 def attribute(display_name: str, actor: Optional[str], text: str) -> str:
     """Render player speech with explicit, unforgeable attribution."""
     who = f"{display_name} (playing {actor})" if actor else display_name
