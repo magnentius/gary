@@ -85,6 +85,10 @@ class EchoNarrator:
             return NarrationResult(
                 text=f"[expired] {payload.get('actor')}'s {payload.get('key')} check lapsed."
             )
+        if kind == "morale_break":
+            return NarrationResult(
+                text=f"[morale] {payload.get('combatant')} breaks and runs."
+            )
         if kind == "system_note":
             return NarrationResult(text=f"[system] {payload.get('error', '')}")
         return NarrationResult(

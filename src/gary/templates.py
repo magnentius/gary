@@ -297,6 +297,26 @@ def render_remove_effect_command(target: str, effect: Optional[str] = None) -> s
     return f'!init re "{target}" "{effect}"'
 
 
+def render_flee_command(target: str) -> str:
+    """`!init remove "GO1"`, or raise.
+
+    The module docstring names a hallucinated ``!init end`` as the thing this allowlist
+    exists to stop, and that still holds: this is rendered by Gary from a computed morale
+    call (§5.4), never from anything the model wrote. The model cannot reach it.
+    """
+    target = target.strip()
+    if not _COMBATANT_NAME.match(target):
+        raise TemplateError(f"unsafe target {target!r} — use the tracker name")
+    return f'!init remove "{target}"'
+
+
+def render_end_combat_command() -> str:
+    """`!init end`. Takes no argument, so there is nothing to validate and nothing to
+    inject; it is a function rather than a constant so every Avrae string in the system
+    still comes from one place."""
+    return "!init end"
+
+
 def render_coin_command(amount: str, command: str = "game coins") -> str:
     """Render an Avrae coinpurse invocation, or raise.
 

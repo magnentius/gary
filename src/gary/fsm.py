@@ -23,13 +23,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set
 
+from .encounters import lookup
 from .models import CancelReason, CheckKind, CheckOutcome, PendingCheck
-from .parser.avrae import ParsedAvraeMessage, ParseStatus
+from .morale import assess
+from .parser.avrae import ParsedAvraeMessage, ParseStatus, combatant_prefix
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import outcome_for_model, resolve
-from .templates import DEATHSAVE_FAIL, TemplateError, normalize_key, render_command
+from .templates import (
+    DEATHSAVE_FAIL,
+    TemplateError,
+    normalize_key,
+    render_command,
+    render_end_combat_command,
+    render_flee_command,
+)
 
 
 class ChannelState(str, Enum):
@@ -166,6 +175,7 @@ class Director:
         freeform_channels: Optional[Set[int]] = None,
         players: Optional[Dict[int, str]] = None,
         encounter_active: Optional[Callable[[], bool]] = None,
+        npc_disposition: Optional[Callable[[str], int]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -183,6 +193,14 @@ class Director:
         # Injected rather than imported: the core performs no I/O and holds no store.
         # None means "unknown", which permits — an unconfigured Director behaves as before.
         self._encounter_active = encounter_active
+        self._npc_disposition = npc_disposition
+        # SRD names Gary asked the table to add, per channel (§5.4). Avrae renames them
+        # -- `!init madd Goblin` becomes GO1 -- so morale needs this to recover what a
+        # tracker entry actually is. Without it no creature is assessed at all.
+        self._encounter_roster: Dict[int, List[str]] = {}
+        # Combatants already suggested as broken, so a rout is offered once and not on
+        # every tracker edit for the rest of the fight.
+        self._broken: Dict[int, Set[str]] = {}
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -278,6 +296,8 @@ class Director:
         self.players.clear()
         self._known_actors.clear()
         self._last_round.clear()
+        self._encounter_roster.clear()
+        self._broken.clear()
         self._acted_this_turn.clear()
         self._down.clear()
 
@@ -338,6 +358,13 @@ class Director:
         if current.is_dying:
             return []  # a downed monster does not act
 
+        # Checked before the turn: a creature that has just broken is leaving, not
+        # attacking, and narrating an attack it then flees from reads as two creatures.
+        broken = self._morale(channel_id, parsed, current)
+        if broken:
+            self._acted_this_turn[channel_id] = token
+            return broken
+
         self._acted_this_turn[channel_id] = token
         return [
             PromptModel(
@@ -355,6 +382,148 @@ class Director:
                 },
             )
         ]
+
+    # -- morale (§5.4) -----------------------------------------------------------------
+
+    def note_encounter(self, channel_id: int, monsters: Sequence[str]) -> None:
+        """Remember the SRD names Gary asked the table to add.
+
+        Called when `start_combat` posts its `!init madd` lines. Avrae names the resulting
+        combatants itself -- `!init madd Goblin` becomes GO1 -- so this is the only record
+        of what the tracker entries actually are, and morale is silent without it.
+        """
+        self._encounter_roster[channel_id] = [str(m).strip() for m in monsters if str(m).strip()]
+        self._broken.pop(channel_id, None)
+
+    def _srd_name(self, channel_id: int, tracker_name: str) -> str:
+        """Recover the SRD creature behind a tracker entry, or "" if it is not certain.
+
+        Avrae renames what it adds: `!init madd Bandit` becomes BA1. The rule is
+        reproduced exactly by `combatant_prefix` (§6.1, read from Avrae's source), so this
+        compares rather than guesses -- strip the trailing number and the rest must equal
+        exactly one rostered creature's prefix.
+
+        An earlier version matched loosely, on any shared leading letters. That was wrong
+        in both directions: it called Bandit and Bandit Captain ambiguous when Avrae gives
+        them BA and BC, and it would have matched `Swarm of Bats` against SOB when Avrae
+        writes SoB. Comparison is case-insensitive for that second reason.
+
+        **Ambiguity returns ""**, and so does no match -- a creature renamed with `-name`,
+        or a fight nobody opened through `start_combat`. An unidentified creature is one
+        morale says nothing about, which is the right way to be wrong: suggesting a rout
+        for the wrong creature removes something that was fine.
+        """
+        roster = self._encounter_roster.get(channel_id) or []
+        if not roster:
+            return ""
+
+        token = str(tracker_name or "").strip().rstrip("0123456789").strip()
+        if not token:
+            return ""
+
+        hits = {srd for srd in roster if combatant_prefix(srd).upper() == token.upper()}
+        return next(iter(hits)) if len(hits) == 1 else ""
+
+    def _morale(
+        self, channel_id: int, parsed: ParsedAvraeMessage, current: Any
+    ) -> List[Effect]:
+        """Assess the creature whose turn it is, and suggest the rout if it breaks.
+
+        Evaluated on its own turn rather than on every tracker edit: that is the moment it
+        would act, it is already deduplicated by round, and it keeps one suggestion per
+        creature per round instead of one per HP change.
+        """
+        srd = self._srd_name(channel_id, current.name)
+        if not srd:
+            return []
+        record = lookup(srd)
+        if record is None:
+            return []
+
+        folded = normalize_actor(current.name)
+        if folded in self._broken.get(channel_id, set()):
+            return []  # already offered; do not nag every round
+
+        down = self._down.get(channel_id, set())
+        enemies = [
+            c for c in parsed.combatants
+            if normalize_actor(c.name) not in self._known_actors
+        ]
+        allies_down = sum(
+            1 for c in enemies
+            if normalize_actor(c.name) != folded and normalize_actor(c.name) in down
+        )
+        allies_standing = sum(
+            1 for c in enemies
+            if normalize_actor(c.name) != folded and normalize_actor(c.name) not in down
+        )
+
+        call = assess(
+            current.name,
+            str(record.get("type") or ""),
+            disposition=self._disposition(srd),
+            status=current.status or "",
+            hp_current=current.hp_current,
+            hp_max=current.hp_max,
+            allies_down=allies_down,
+            allies_standing=allies_standing,
+            foes_standing=sum(
+                1 for c in parsed.combatants
+                if normalize_actor(c.name) in self._known_actors
+                and normalize_actor(c.name) not in down
+            ),
+        )
+        if call is None or not call.broke:
+            return []
+
+        self._broken.setdefault(channel_id, set()).add(folded)
+
+        # If nothing hostile is left standing that has not already broken, the fight is
+        # over rather than one creature short -- so offer `!init end` instead of a removal.
+        still_fighting = [
+            c for c in enemies
+            if normalize_actor(c.name) not in down
+            and normalize_actor(c.name) not in self._broken.get(channel_id, set())
+        ]
+        if still_fighting:
+            command = render_flee_command(current.name)
+            headline = f"**{current.name}** breaks."
+        else:
+            command = render_end_combat_command()
+            headline = f"**{current.name}** breaks, and it was the last one standing."
+
+        return [
+            SendMessage(
+                channel_id,
+                f"{headline}\n_{call.explain()}_\nRun it if you agree:\n`{command}`",
+            ),
+            PromptModel(
+                channel_id=channel_id,
+                kind="morale_break",
+                payload={
+                    "combatant": current.name,
+                    "creature": srd,
+                    "creature_type": call.creature_type,
+                    "round": parsed.round_number,
+                    "why": call.explain(),
+                    "instruction": (
+                        "This creature's nerve has broken and it is trying to leave the "
+                        "fight. Narrate the flight in a sentence or two -- which way it "
+                        "goes, what it drops, what it shouts. The command has ALREADY "
+                        "been posted; do not repeat it, and do not decide whether it "
+                        "escapes. Take no attacks for it and call no tools."
+                    ),
+                },
+            ),
+        ]
+
+    def _disposition(self, name: str) -> int:
+        if self._npc_disposition is None:
+            return 0
+        try:
+            return int(self._npc_disposition(name))
+        except Exception:  # noqa: BLE001 - a missing NPC must never break a turn
+            return 0
 
     def _player_has_open_check(self, channel_id: int, user_id: int) -> bool:
         return any(

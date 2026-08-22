@@ -292,6 +292,35 @@ Any command Gary posts is rendered from this table with validated parameters, or
 
 ---
 
+### 5.4 Morale
+
+Avrae has no morale rule, so everything it tracks fights to the death. That is wrong for almost every creature with a survival instinct, and it makes the back half of a won fight a formality — the party grinding down a bandit who would obviously have run three rounds ago.
+
+**Morale is computed, not chosen**, for the reason §5.2 gives about resolution. A model asked "would the goblin run now?" answers plausibly, inconsistently, and under the influence of whatever it just narrated. `morale.py` is a table and a comparison, so the same fight breaks in the same place and the journal says why: `BA1 (Humanoid): pressure 5 vs nerve 3 — bloodied, 1 of its side down, outnumbered 3 to 2`.
+
+**Nerve** comes from the SRD creature type (§3), adjusted by disposition. Mindless things — undead, constructs, oozes, plants, swarms — never break, which is Avrae's existing behaviour and correct for them. Beasts break soonest, because an animal has no cause. Disposition contributes *conviction*, `abs(disposition)`, not friendliness: a devoted ally holds the line and a creature that loathes the party fights out of hatred, and it is the mercenary between them who leaves first. It is worth at most +1 against a type spread of 1–5, because a larger bonus let a devoted wolf outlast an indifferent soldier.
+
+**Pressure** comes from the tracker: its own wounds, allies down, being the last one standing, being outnumbered. Outnumbering is counted separately from watching allies fall, or a creature outnumbered from round one — the lone survivor, the single ambusher — would feel nothing until it was nearly dead.
+
+The health bands are Avrae's own, read from `cogs5e/initiative/combatant.py` at `avrae@12b146fb` rather than inferred from the two words live capture happened to show: `Healthy` at full, `Injured` above ½, `Bloodied` above 0.15, **`Critical` at or below 0.15**, then `Dead`, and `Very Dead` when max HP is somehow ≤ 0. `Critical` had been left out on the evidence available, so a creature one hit from death read as merely bloodied and held a band longer than it should have. Numeric HP is bucketed on the same ratios, so a creature reads the same whether the DM is hiding its numbers or not.
+
+Three properties keep this honest:
+
+- **Gary suggests; the DM commits.** A broken creature produces narration and the command, and nothing else. Gary cannot execute Avrae commands — Avrae ignores bots, and so does Gary's own router (§6.3) — so anything else would be a lie about what happened. A DM who ignores the suggestion has a creature that fights on, which is a legitimate ruling rather than a desync. This is the same contract as `open_check` (§5.1).
+- **The command is rendered, never written.** §5.3's module docstring names a hallucinated `!init end` as the exact thing the allowlist exists to stop, and that still holds: `render_flee_command` and `render_end_combat_command` are reached from a computed call, and the model cannot reach them at all. The last creature standing is offered `!init end` rather than a removal, because an empty tracker is the fight being over.
+- **Not knowing is a distinct answer from holding.** `assess` returns `None` when it cannot identify the creature or read its health, and that is never journalled as a decision. An unrecognised status word suppresses morale rather than being read as unhurt: an unknown word most likely means Avrae changed format, and a rout suggested off a misread tracker removes a creature that was fine.
+
+**Identifying the creature** is what makes any of this reachable, because Avrae renames what it adds: `!init madd Bandit` becomes BA1. `parser.avrae.combatant_prefix` reproduces that rule exactly, transcribed from `utils/functions.get_initials` and `initiative/cog.get_name` at `avrae@12b146fb`. Two details defeat a guess:
+
+- A **single word** gives its first *two* letters, uppercased — `Bandit` is `BA`, never `B`.
+- **Multiple words** give one letter each and are **not** uppercased, so `Swarm of Bats` is `SoB`. Comparison is case-insensitive for that reason alone.
+
+`Director.note_encounter` records what `start_combat` asked for, and `_srd_name` requires the stripped tracker name to equal exactly one rostered creature's prefix. An earlier version matched on any shared leading letters and was wrong in both directions: it called `Bandit` and `Bandit Captain` ambiguous when Avrae gives them `BA` and `BC`, and it would have matched `SOB` where Avrae writes `SoB`.
+
+Three cases still yield nothing, all deliberately: two rostered creatures that genuinely share a prefix (`Bandit` and `Basilisk` are both `BA`, and Avrae is equally ambiguous there); a combatant renamed with `-name`; and a fight nobody opened through `start_combat`. The remaining blind spot is Avrae's `monster_name_exceptions`, two creatures keyed by D&D Beyond entity id — an id space nothing here holds — which fall back to `name[:2].upper()`. The cost is that morale is silent for two SRD creatures.
+
+---
+
 ## 6. Parsing Avrae
 
 ### 6.1 Principles
@@ -663,6 +692,7 @@ src/gary/
   resolver.py      DC comparison — deliberately boring         §5.2
   fsm.py           the Director: Mode A/B state machine        §4
   context.py       prompt assembly + injection defence         §8, §9.1
+  morale.py        when a creature breaks and runs            §5.4
   parser/avrae.py  Avrae output parsing, fail-loud             §6
   state/store.py   journal + snapshot + undo + bounds          §7.3
   state/backend.py storage protocols: in-memory, file          §7.4

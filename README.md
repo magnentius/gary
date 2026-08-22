@@ -320,6 +320,40 @@ waiting on; `?dm cancel` drops your own.
 **In combat** Avrae owns initiative and durations, and the world clock stops. Gary mirrors
 the tracker rather than keeping its own.
 
+### When the enemy has had enough
+
+Avrae fights everything to the death. Gary watches the tracker and works out when a
+creature would rather run — from its SRD creature type, how badly it is hurt, how much of
+its side is down, and whether it is outnumbered:
+
+```
+Gary  **BA1** breaks.
+      _BA1 (Humanoid): pressure 5 vs nerve 3 — bloodied, 1 of its side down,
+       outnumbered 3 to 2_
+      Run it if you agree:
+      `!init remove "BA1"`
+
+      The bandit throws down the shortsword and goes over the dyke wall…
+```
+
+**It is a suggestion, not an action.** Gary cannot run Avrae commands — it never has —
+so nothing happens until you run it. Ignore it and the bandit fights on; that is a
+ruling, not a bug. When the creature that breaks is the last one standing you get
+`!init end` instead, because the fight is over rather than one combatant short.
+
+Undead, constructs, oozes, plants and swarms are never offered — they have nothing to
+frighten. Beasts break soonest. A named NPC's disposition counts as *conviction* rather
+than friendliness: a devoted ally and a creature that hates you both hold longer than the
+mercenary between them.
+
+Morale needs to know what the tracker's `BA1` actually is. Avrae builds that name itself —
+`Bandit` becomes `BA1`, `Bandit Captain` becomes `BC1` — and Gary reproduces the rule to
+match it back against the `!init madd` lines it posted when combat started.
+
+It stays quiet rather than guessing. **A fight you set up by hand gets no morale**, nor
+does a combatant you renamed with `-name`, nor two creatures Avrae would abbreviate the
+same way (`Bandit` and `Basilisk` are both `BA`).
+
 ### When something goes wrong
 
 | Symptom | Try |

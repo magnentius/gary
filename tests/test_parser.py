@@ -144,3 +144,33 @@ def test_monster_status_word_counts_as_dying():
 
     healthy = parse_embed(load(FIXTURE_DIR / "initiative_healthy.json")["message"])
     assert not any(c.is_dying for c in healthy.combatants)
+
+
+# -- how Avrae names what it adds ---------------------------------------------------------
+
+
+def test_combatant_prefix_matches_avrae_get_initials():
+    """Transcribed from `utils/functions.get_initials` and `initiative/cog.get_name` at
+    avrae@12b146fb. Morale (§5.4) is the only thing that can tell the tracker's BA1 from
+    its BC1, so a drift here silently disables it rather than failing loudly."""
+    from gary.parser.avrae import combatant_prefix
+
+    # Single word: first TWO letters, uppercased -- not one initial.
+    assert combatant_prefix("Bandit") == "BA"
+    assert combatant_prefix("Skeleton") == "SK"
+    assert combatant_prefix("Gorgon") == "GO"
+
+    # Multiple words: one letter each, and NOT uppercased.
+    assert combatant_prefix("Bandit Captain") == "BC"
+    assert combatant_prefix("Adult Black Dragon") == "ABD"
+    assert combatant_prefix("Swarm of Bats") == "SoB"
+
+    # \W+ splits, so a hyphen makes two words.
+    assert combatant_prefix("Half-Ogre") == "HO"
+
+
+def test_combatant_prefix_survives_junk():
+    from gary.parser.avrae import combatant_prefix
+
+    assert combatant_prefix("") == ""
+    assert combatant_prefix(None) == ""

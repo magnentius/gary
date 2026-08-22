@@ -259,7 +259,7 @@ class GeminiNarrator:
                 ))],
             )
 
-        if kind in ("monster_turn", "death_save"):
+        if kind in ("monster_turn", "death_save", "morale_break"):
             # Never a deferred answer. A pending open_check is a *player's* roll, and
             # handing it a monster's turn as its function_response would answer it with
             # something that is not a roll at all.
@@ -482,6 +482,9 @@ class GeminiNarrator:
             if name == T.START_COMBAT:
                 names = [str(m) for m in (args.get("monsters") or []) if str(m).strip()]
                 unknown = [m for m in names if lookup(m) is None]
+                # Morale (§5.4) needs to know what the tracker's GO1 actually is, and
+                # this is the only moment anything says so.
+                self._director.note_encounter(channel_id, names)
                 adds = "\n".join(
                     f"`!init madd {(lookup(m) or {}).get('name', m)}`" for m in names
                 )

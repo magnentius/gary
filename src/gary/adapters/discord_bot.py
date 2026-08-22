@@ -979,6 +979,7 @@ def build_client(
         freeform_channels=set(settings.freeform_channels),
         players=dict(settings.players),
         encounter_active=lambda: store.encounter_active,
+        npc_disposition=lambda name: _disposition_of(store, name),
     )
 
     if narrator is None:
@@ -988,6 +989,27 @@ def build_client(
         settings, director, store, narrator=narrator, clock=clock, lock=lock,
         history_backend=history_backend,
     )
+
+
+def _disposition_of(store: CampaignStore, name: str) -> int:
+    """Disposition for a creature by NPC id or by name, 0 if it is nobody in particular.
+
+    NPCs are keyed by whatever slug the model chose, carrying the display name in a field,
+    so both are matched. A generic `Goblin` off a tracker is not an NPC and lands on 0 --
+    which is the honest answer: an anonymous creature has no loyalty either way, and 0 is
+    exactly the conviction a mercenary has (§5.4).
+    """
+    wanted = str(name or "").strip().lower()
+    if not wanted:
+        return 0
+    for npc_id, record in (store.state().get("npcs") or {}).items():
+        record = record or {}
+        if wanted in (str(npc_id).lower(), str(record.get("name") or "").strip().lower()):
+            try:
+                return int(record.get("disposition", 0))
+            except (TypeError, ValueError):
+                return 0
+    return 0
 
 
 def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:

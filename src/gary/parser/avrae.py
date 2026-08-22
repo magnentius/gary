@@ -60,6 +60,39 @@ class SheetView:
     level: Optional[int] = None
 
 
+#: Monsters whose initials Avrae refuses to use, falling back to the first two letters.
+#: Avrae keys these by D&D Beyond entity id (`monster_name_exceptions = (294945, 2059697)`
+#: in `cogs5e/initiative/cog.py`), which is an id space nothing here has, so the two
+#: creatures involved cannot be identified from a name alone. They are the known blind
+#: spot in `combatant_prefix`; the cost is that morale says nothing for two SRD creatures.
+_NAME_EXCEPTION_COUNT = 2
+
+_NON_WORD = re.compile(r"\W+")
+
+
+def combatant_prefix(monster_name: str) -> str:
+    """The letters Avrae puts before the number when it adds a monster to the tracker.
+
+    ``Bandit`` becomes ``BA1``, ``Bandit Captain`` becomes ``BC1``. Transcribed from
+    ``utils/functions.get_initials`` and ``cogs5e/initiative/cog.get_name`` at
+    ``avrae@12b146fb``, not inferred from output -- §6.1's whole point. The two rules that
+    a guess gets wrong:
+
+    * A **single word** yields its first two letters *uppercased*; the initials rule does
+      not apply, so ``Bandit`` is ``BA`` and never ``B``.
+    * **Multiple words** yield one letter each and are **not** uppercased. Avrae joins the
+      raw first characters, so ``Swarm of Bats`` is ``SoB``, not ``SOB``. Matching
+      case-insensitively is therefore required rather than merely convenient.
+
+    Words split on ``\W+``, so ``Half-Ogre`` is two words (``HO``) rather than one.
+    """
+    name = str(monster_name or "")
+    parts = _NON_WORD.split(name)
+    if len(parts) == 1:
+        return name[:2].upper()
+    return "".join(word[0] for word in parts if word)
+
+
 @dataclass(frozen=True)
 class CombatantView:
     """Read-only mirror of Avrae's combat state (ARCHITECTURE.md §3: Avrae owns this)."""
