@@ -35,6 +35,9 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # amd64 is the deployment target (§11's e2-micro); arm64 is so the image pulls
+      # on an Apple Silicon machine. The runner is x86_64, so arm64 is cross-built.
+      - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
 
       # A pull request builds and is smoke-tested but publishes nothing: a fork must not
@@ -60,11 +63,14 @@ jobs:
 
       # Loaded locally first so the smoke test runs against the exact image that will be
       # pushed, rather than a rebuild that might differ.
-      - name: Build
+      # Native arch only: `load` cannot take a multi-platform result, and the runner
+      # can only *run* its own architecture, which the smoke test below needs.
+      - name: Build for the smoke test
         uses: docker/build-push-action@v7
         with:
           context: .
           load: true
+          platforms: linux/amd64
           tags: gary:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -94,6 +100,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
