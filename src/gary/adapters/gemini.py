@@ -253,7 +253,10 @@ class GeminiNarrator:
             # scene -- and neither of those lives in state.
             return types.Content(
                 role="user",
-                parts=[types.Part.from_text(text=render_proposal(kind.split("_", 1)[1]))],
+                parts=[types.Part.from_text(text=render_proposal(
+                    kind.split("_", 1)[1],
+                    payload.get("already_offered") or (),
+                ))],
             )
 
         if kind in ("monster_turn", "death_save"):

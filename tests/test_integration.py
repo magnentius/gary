@@ -584,8 +584,11 @@ def _import_client(narrator, sent, state=None, answer=""):
         runner = _Runner(narrator, answer)
         store = _Store()
         _pending_proposals = {}
+        _declined_proposals = {}
         _has_model = GaryClient._has_model
         _propose = GaryClient._propose
+        _forget_proposals = GaryClient._forget_proposals
+        MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
         MAX_IMPORT_BYTES = GaryClient.MAX_IMPORT_BYTES
         IMPORT_CHUNK_CHARS = GaryClient.IMPORT_CHUNK_CHARS
         MAX_IMPORT_CHUNKS = GaryClient.MAX_IMPORT_CHUNKS
@@ -702,8 +705,11 @@ def _dm_client(state, sent, narrator=None, answer=""):
         store = _Store()
         runner = _Runner(narrator or EchoNarrator(), answer)
         _pending_proposals = {}
+        _declined_proposals = {}
         _has_model = GaryClient._has_model
         _propose = GaryClient._propose
+        _forget_proposals = GaryClient._forget_proposals
+        MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
         _apply_setting = GaryClient._apply_setting
         _apply_scene = GaryClient._apply_scene
         MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
@@ -987,3 +993,76 @@ def test_bare_dm_is_help():
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm")))
     assert "Opening a campaign" in " ".join(sent)
+
+
+def test_asking_again_tells_the_model_what_it_already_offered():
+    """The bug this exists for: `?dm scene` twice returned the same vault under a
+    different description, because the first suggestion was sitting in history for the
+    second call to read. Asking again is itself the rejection."""
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(
+        _seeded_state(), sent, narrator=object(), answer="The Unsealed Vault | Scribes."
+    )
+    run = asyncio.get_event_loop().run_until_complete
+
+    run(dispatch(Msg("?dm scene")))
+    assert client.runner.asked[0].payload["already_offered"] == []
+
+    run(dispatch(Msg("?dm scene")))
+    assert client.runner.asked[1].payload["already_offered"] == [
+        "The Unsealed Vault | Scribes."
+    ]
+    assert client._declined_proposals[(7, "scene")] == ["The Unsealed Vault | Scribes."]
+
+
+def test_the_list_of_rejects_is_bounded():
+    """Every reject rides in the prompt, so the list cannot grow with the session."""
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object())
+    run = asyncio.get_event_loop().run_until_complete
+
+    cap = GaryClient.MAX_DECLINED_PROPOSALS
+    for i in range(cap + 3):
+        client.runner._answer = f"Place {i} | Something true."
+        run(dispatch(Msg("?dm scene")))
+
+    assert len(client._declined_proposals[(7, "scene")]) == cap
+    assert len(client.runner.asked[-1].payload["already_offered"]) == cap
+    # The oldest fall off the front, not the newest.
+    assert client.runner.asked[-1].payload["already_offered"][-1] == f"Place {cap + 1} | Something true."
+
+
+def test_accepting_forgets_the_rejects_too():
+    """Rejects only mean 'not this one' while the DM is still looking. Carrying them past
+    a settled line would push later suggestions off perfectly good ground."""
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
+    client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
+
+    asyncio.get_event_loop().run_until_complete(dispatch(Msg("?dm accept")))
+    assert client._pending_proposals == {}
+    assert client._declined_proposals == {}
+
+
+def test_writing_a_scene_by_hand_forgets_the_rejects_too():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
+    client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
+    client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
+
+    asyncio.get_event_loop().run_until_complete(
+        dispatch(Msg("?dm scene The Eel-Runs | Fever-mist off the ditches."))
+    )
+    assert client._pending_proposals == {}
+    assert client._declined_proposals == {}

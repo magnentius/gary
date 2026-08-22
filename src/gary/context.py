@@ -193,7 +193,7 @@ _PROPOSAL_LABEL = re.compile(r"^\s*(setting|scene|proposal|premise)\s*[:\-]\s*",
 _PROPOSAL_BULLET = re.compile(r"^\s*([>*\-]|\d+\.)\s+")
 
 
-def render_proposal(kind: str) -> str:
+def render_proposal(kind: str, already_offered: Sequence[str] = ()) -> str:
     """Ask for a setting premise or an opening scene as one line the DM can accept.
 
     A proposal is not a turn of play. Nothing it produces is written until the DM says
@@ -201,7 +201,16 @@ def render_proposal(kind: str) -> str:
     with `render_document`, it is told plainly what this is and what not to do about it.
     The instruction to answer with a bare line is the same instruction twice over: it is
     what `parse_proposal` can read back, and it is what fits in the field.
+
+    ``already_offered`` is what stops a second ask from paraphrasing the first. A
+    proposal runs as an ordinary turn in the channel's history (§8.1.1), which is what
+    grounds a scene in recent play -- and also means the model reads its own previous
+    suggestion and rewrites it. Asking twice produced the same vault twice, reworded.
+    Naming the rejects and asking for a genuinely different one is the counterweight;
+    history is left alone because a scene that ignores the last few turns is worse than
+    a scene too like the last suggestion.
     """
+    again = _render_rejects(kind, already_offered)
     if kind == "setting":
         return (
             "PROPOSAL: the setting premise. Nothing here is written until the DM accepts "
@@ -211,7 +220,8 @@ def render_proposal(kind: str) -> str:
             "party does anything about it. Not tonight's events -- this line is shown to "
             "you on every single turn, so anything that can stop being true does not "
             "belong in it.\n"
-            f"Reply with that one line and nothing else: no preamble, no heading, no "
+            + again
+            + f"Reply with that one line and nothing else: no preamble, no heading, no "
             f"quotes, at most {MAX_PROPOSAL_CHARS} characters. Call no tools."
         )
     return (
@@ -221,8 +231,27 @@ def render_proposal(kind: str) -> str:
         "true for as long as they are in the room, not what happens when they walk in.\n"
         "Reply with one line in exactly this form and nothing else:\n"
         "<location> | <what is true while they are there>\n"
-        f"No preamble, no heading, no quotes, at most {MAX_PROPOSAL_CHARS} characters. "
+        + again
+        + f"No preamble, no heading, no quotes, at most {MAX_PROPOSAL_CHARS} characters. "
         "Call no tools."
+    )
+
+
+def _render_rejects(kind: str, already_offered: Sequence[str]) -> str:
+    """The "not that one" clause. Empty when nothing has been turned down yet."""
+    lines = [str(x).strip() for x in already_offered if str(x).strip()]
+    if not lines:
+        return ""
+    different = (
+        "a different place, or a different moment in the story"
+        if kind == "scene"
+        else "a different angle on the world -- another tension, another part of it"
+    )
+    return (
+        "You have already offered the following, and the DM took none of them:\n"
+        + "".join(f"- {line}\n" for line in lines)
+        + f"Offer {different}. A rewording of any line above is not a new suggestion, "
+        "and neither is the same place under a different description.\n"
     )
 
 

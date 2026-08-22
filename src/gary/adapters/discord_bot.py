@@ -150,6 +150,10 @@ class GaryClient(discord.Client):
         # (channel_id, "setting" | "scene") -> the line the model proposed. Held rather
         # than written: a proposal the DM never saw is not a decision the DM made.
         self._pending_proposals: Dict[Tuple[int, str], str] = {}
+        # Same key -> lines already offered and passed over. A proposal is an ordinary
+        # turn in history, so without this the model reads its own last suggestion and
+        # rewords it: asking twice produced the same vault twice.
+        self._declined_proposals: Dict[Tuple[int, str], List[str]] = {}
         self._sheet_asked_by: Dict[int, tuple] = {}
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
@@ -283,6 +287,10 @@ class GaryClient(discord.Client):
     #: under a second; anything older is a different request.
     SHEET_CLAIM_SECONDS = 30.0
 
+    #: How many rejected suggestions are named back to the model. Enough for a few
+    #: re-rolls to keep moving; bounded because every one of them rides in the prompt.
+    MAX_DECLINED_PROPOSALS = 5
+
     #: The setting rides on every turn, so it is capped. Detail belongs in
     #: notes, which surface only when their subject comes up.
     MAX_SETTING_CHARS = 600
@@ -330,6 +338,14 @@ class GaryClient(discord.Client):
             f" — {summary.strip()}" if summary.strip() else ""
         )
 
+    def _forget_proposals(self, channel_id: int, kind: str) -> None:
+        """End a proposal thread: the offer on the table and the record of what was
+        turned down to reach it. The rejects only mean anything while the DM is still
+        looking for a line; once one is settled, naming them back would push the *next*
+        campaign's suggestions away from perfectly good ground."""
+        self._pending_proposals.pop((channel_id, kind), None)
+        self._declined_proposals.pop((channel_id, kind), None)
+
     async def _propose(self, channel_id: int, kind: str) -> bool:
         """Ask the model for a setting or a scene and hold it for the DM to accept.
 
@@ -338,9 +354,21 @@ class GaryClient(discord.Client):
         goes into ``_pending_proposals`` and stays there until somebody types accept.
         """
         prefix = self.settings.command_prefix
+        key = (channel_id, kind)
+        # Whatever is still pending was also offered and not taken -- the DM asking again
+        # *is* the rejection, so it counts alongside the ones before it.
+        offered = list(self._declined_proposals.get(key, ()))
+        superseded = self._pending_proposals.get(key)
+        if superseded:
+            offered.append(superseded)
+
         line = parse_proposal(
             await self.runner.ask(
-                PromptModel(channel_id=channel_id, kind=f"propose_{kind}", payload={})
+                PromptModel(
+                    channel_id=channel_id,
+                    kind=f"propose_{kind}",
+                    payload={"already_offered": offered[-self.MAX_DECLINED_PROPOSALS:]},
+                )
             )
         )
         if not line:
@@ -351,7 +379,11 @@ class GaryClient(discord.Client):
             )
             return False
 
-        self._pending_proposals[(channel_id, kind)] = line
+        if superseded:
+            self._declined_proposals[key] = (
+                self._declined_proposals.get(key, []) + [superseded]
+            )[-self.MAX_DECLINED_PROPOSALS:]
+        self._pending_proposals[key] = line
         if kind == "setting":
             preview = f"> {line}"
             own = f"`{prefix}setting <premise>` to write your own"
@@ -665,7 +697,7 @@ class GaryClient(discord.Client):
                     "comes up.",
                 )
                 return
-            self._pending_proposals.pop((channel_id, "setting"), None)
+            self._forget_proposals(channel_id, "setting")
             await self.sender.send(
                 channel_id, self._apply_setting(raw, message.author.display_name)
             )
@@ -693,7 +725,7 @@ class GaryClient(discord.Client):
                     " shutters. Barkeep watches the door.`",
                 )
                 return
-            self._pending_proposals.pop((channel_id, "scene"), None)
+            self._forget_proposals(channel_id, "scene")
             await self.sender.send(
                 channel_id, self._apply_scene(raw, message.author.display_name)
             )
@@ -710,10 +742,12 @@ class GaryClient(discord.Client):
                 return
             kinds = [wanted] if wanted else ["setting", "scene"]
             taken = [
-                (kind, self._pending_proposals.pop((channel_id, kind)))
+                (kind, self._pending_proposals[(channel_id, kind)])
                 for kind in kinds
                 if (channel_id, kind) in self._pending_proposals
             ]
+            for kind, _ in taken:
+                self._forget_proposals(channel_id, kind)
             if not taken:
                 await self.sender.send(
                     channel_id,
@@ -760,6 +794,7 @@ class GaryClient(discord.Client):
 
             self._reset_token = None
             self._pending_proposals.clear()
+            self._declined_proposals.clear()
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
             if self.history_backend is not None:

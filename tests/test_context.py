@@ -528,3 +528,33 @@ def test_render_proposal_tells_the_model_it_is_deciding_nothing():
         assert "until the DM accepts it" in rendered
     assert "<location> | " in render_proposal("scene")
     assert "every single turn" in render_proposal("setting")
+
+
+def test_render_proposal_names_what_was_turned_down():
+    """Observed live: `?dm scene` twice returned the same vault, reworded. A proposal is
+    an ordinary turn in history, so the model reads its own last answer and paraphrases
+    it. Naming the rejects is the counterweight."""
+    from gary.context import render_proposal
+
+    rendered = render_proposal("scene", ["The Unsealed Vault | Scribes and sentries."])
+    assert "The Unsealed Vault | Scribes and sentries." in rendered
+    assert "took none of them" in rendered
+    assert "rewording" in rendered
+    assert "a different place" in rendered
+
+
+def test_render_proposal_asks_a_setting_for_a_different_angle_not_a_different_place():
+    from gary.context import render_proposal
+
+    rendered = render_proposal("setting", ["A drowned fen county."])
+    assert "a different angle on the world" in rendered
+    assert "a different place" not in rendered
+
+
+def test_render_proposal_says_nothing_about_rejects_on_a_first_ask():
+    from gary.context import render_proposal
+
+    for kind in ("setting", "scene"):
+        assert "took none of them" not in render_proposal(kind)
+        assert "took none of them" not in render_proposal(kind, [])
+        assert "took none of them" not in render_proposal(kind, ["", "   "])

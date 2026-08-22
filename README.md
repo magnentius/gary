@@ -224,6 +224,11 @@ Both are suggestions and neither is written until you accept. `?dm accept settin
 `?dm accept scene` takes one when both are waiting; typing your own `?dm setting` or
 `?dm scene` discards the suggestion it overrules; ignoring it does nothing.
 
+**Don't like it? Ask again.** Running `?dm scene` a second time is itself a rejection —
+Gary is told what it already offered and asked for a different place or a different
+moment, not the same one reworded. It remembers the last few, so you can keep re-rolling
+until one lands.
+
 ### Or write them yourself
 
 ```
