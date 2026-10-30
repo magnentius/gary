@@ -307,6 +307,29 @@ def weapons_line(sheet: Dict[str, Any]) -> str:
     return ", ".join(Item(**{**g, "tags": tuple(g["tags"])}).label() for g in weapons)
 
 
+def carrying_line(sheet: Dict[str, Any]) -> str:
+    """Everything carried, for the player: "Carrying: Chainmail (1 armor), …".
+
+    Counted items show what is left ("Bandages (2 uses left)"), and repeats are grouped,
+    so a player can see whether there is a potion before reaching for one.
+    """
+    gear = sheet.get("gear")
+    if gear is None:
+        return ""
+    labels: List[str] = []
+    for g in gear:
+        item = Item(**{**g, "tags": tuple(g.get("tags", ()))})
+        label = item.label()
+        if "uses" in g:
+            label = f"{item.name} ({g['uses']} uses left)"
+        labels.append(label)
+    grouped: Dict[str, int] = {}
+    for label in labels:
+        grouped[label] = grouped.get(label, 0) + 1
+    shown = [label if n == 1 else f"{n} × {label}" for label, n in grouped.items()]
+    return "Carrying: " + (", ".join(shown) if shown else "nothing") + "."
+
+
 def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     """One line for the table and for the model: who, what, and the numbers rolls use.
 

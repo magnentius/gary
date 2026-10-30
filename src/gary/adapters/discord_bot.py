@@ -37,7 +37,7 @@ from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
-from ..sheets import describe
+from ..sheets import carrying_line, describe
 from .creator import GearButton, StartButton
 from .routing import Route, route_message
 from .runner import EffectRunner
@@ -1002,11 +1002,11 @@ class GaryClient(discord.Client):
         if command == "sheet":
             actor = self.director.players.get(message.author.id)
             sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            await self.sender.send(
-                channel_id,
-                describe(sheet) if sheet
-                else f"You have no sheet yet. `{prefix}new` makes one.",
-            )
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            carrying = carrying_line(sheet)
+            await self.sender.send(channel_id, describe(sheet) + (f"\n{carrying}" if carrying else ""))
             return
 
         if command == "playing":

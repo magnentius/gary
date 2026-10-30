@@ -240,3 +240,16 @@ def test_rations_are_counted_including_on_gear_saved_before_rations_were():
 ])
 def test_the_description_shows_who_is_down_or_dead(changes, shown):
     assert describe({**fighter().build(), **changes}).endswith(shown)
+
+
+
+def test_the_carrying_line_shows_everything_grouped_with_uses_left():
+    from gary.gear import BANDAGES, CHAINMAIL, RATIONS
+    from gary.sheets import carrying_line, with_gear
+
+    sheet = with_gear({"name": "Thorin"}, [CHAINMAIL, RATIONS, RATIONS, BANDAGES])
+    sheet["gear"][-1]["uses"] = 2
+    assert carrying_line(sheet) == (
+        "Carrying: Chainmail (1 armor), 2 × Dungeon rations (5 uses), Bandages (2 uses left)."
+    )
+    assert carrying_line({"name": "Old"}) == ""  # a sheet from before gear
