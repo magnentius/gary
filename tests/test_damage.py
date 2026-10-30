@@ -130,3 +130,18 @@ def test_a_description_shows_what_attacks_need():
         "Cave Rat 1 (HP 7/7, armor 1, damage d6, 1 piercing)"
     )
     assert monsters.describe("Cave Rat 1", {**rat, "hp": 0}) == "Cave Rat 1 (defeated)"
+
+
+# -- severity -------------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("dealt,max_hp,hp_after,word", [
+    (2, 21, 18, "a graze"),            # the live case: a goblin's 2 on Thorin, told as "deep into your ribs"
+    (1, 3, 2, "a solid hit"),          # the same kind of blow is a third of a goblin
+    (5, 10, 5, "a serious wound"),
+    (14, 20, 6, "a terrible wound"),
+    (3, 3, 0, "taken down"),
+    (0, 20, 20, "no harm — armor or luck turned it"),
+])
+def test_severity_is_measured_against_max_hp(dealt, max_hp, hp_after, word):
+    assert damage.severity(dealt, max_hp, hp_after) == word

@@ -587,7 +587,7 @@ def test_a_strong_volley_goes_straight_to_damage(director, registry, dice, scene
     (prompt,) = prompts_in(effects)
     assert prompt.payload["damage"] == {
         "target": "Goblin 1", "rolled": 2, "armor": 1, "dealt": 1,
-        "hp_before": 3, "hp_after": 2, "defeated": False,
+        "hp_before": 3, "hp_after": 2, "defeated": False, "severity": "a solid hit",
     }
     assert "enemy_attack" not in prompt.payload
 
@@ -641,6 +641,8 @@ def test_a_creature_attack_is_rolled_and_applied_by_the_rules(director, dice):
     )
     assert ChangeHp(CHANNEL, "character", "Kethra", 16) in effects
     assert facts["ok"] and facts["dealt"] == 3 and facts["hp_after"] == 16
+    assert facts["severity"] == "a solid hit"  # 3 of Kethra's 19
+    assert "as bad as its severity" in facts["note"]
 
 
 def test_piercing_and_ignoring_armor_are_honoured(director, dice, scene):

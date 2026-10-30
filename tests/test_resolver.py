@@ -121,3 +121,13 @@ def test_an_auto_choice_is_disclosed():
         resolve(make_check("volley"), two_d6(4, 4), picks=[0], auto_chosen=True)
     )
     assert "did not choose in time" in payload["note"]
+
+
+def test_a_hit_with_damage_asks_for_wounds_at_their_severity():
+    from dataclasses import replace
+
+    outcome = replace(resolve(make_check(), two_d6(6, 6), picks=[0]),
+                      damage={"dealt": 2, "severity": "a graze"})
+    payload = outcome_for_model(outcome)
+    assert payload["damage"]["severity"] == "a graze"
+    assert "as bad as its severity says" in payload["instruction"]

@@ -512,7 +512,8 @@ class Director:
             dealt = damage.through_armor(hit.total, target["armor"])
             after = int(target["hp"]) - dealt
             facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
-                         hp_after=max(after, 0), defeated=after <= 0)
+                         hp_after=max(after, 0), defeated=after <= 0,
+                         severity=damage.severity(dealt, target.get("max_hp", target["hp"]), after))
             line += (
                 f" → {check.target}: {dealt} through armor {target['armor']}, "
                 f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else ".")
@@ -563,7 +564,8 @@ class Director:
         effects, facts = self._attack(channel_id, name, scene[name], character)
         return effects, {"ok": True, **facts,
                          "note": "Rolled and applied by the rules engine. Narrate it as it "
-                                 "landed; do not change the numbers."}
+                                 "landed, as bad as its severity and no worse or better; do "
+                                 "not change the numbers."}
 
     def _attack(
         self, channel_id: int, name: str, creature: Dict[str, Any], character: str
@@ -580,7 +582,8 @@ class Director:
         effects: List[Effect] = []
         if sheet is not None:
             after = int(sheet["hp"]) - dealt
-            facts.update(hp_before=sheet["hp"], hp_after=max(after, 0), down=after <= 0)
+            facts.update(hp_before=sheet["hp"], hp_after=max(after, 0), down=after <= 0,
+                         severity=damage.severity(dealt, sheet.get("max_hp", sheet["hp"]), after))
             line += (
                 f" → {dealt} through armor {armor}, HP {sheet['hp']} → {max(after, 0)}"
                 + (" — **down**." if after <= 0 else ".")

@@ -97,6 +97,28 @@ def roll(dice: Dice, spec: DamageSpec, extra: Optional[str] = None) -> DamageRol
     return DamageRoll(spec, faces, kept, extra, extra_face)
 
 
+def severity(dealt: int, max_hp: int, hp_after: int) -> str:
+    """How bad a hit is, in words the model should narrate it at.
+
+    Measured against the target's max HP, not the raw number: 2 damage is a graze on a
+    fighter with 25 HP and half of a goblin. Without this the model told a 2-point stab
+    into a 20 HP dwarf as "deep into your ribs" -- the numbers right, the danger wrong,
+    and the table unable to judge a fight from its narration.
+    """
+    if dealt <= 0:
+        return "no harm — armor or luck turned it"
+    if hp_after <= 0:
+        return "taken down"
+    share = dealt / max(1, max_hp)
+    if share <= 0.15:
+        return "a graze"
+    if share <= 0.35:
+        return "a solid hit"
+    if share <= 0.6:
+        return "a serious wound"
+    return "a terrible wound"
+
+
 def through_armor(total: int, armor: int, piercing: int = 0, ignores_armor: bool = False) -> int:
     """What actually comes off HP."""
     effective = 0 if ignores_armor else max(0, int(armor) - int(piercing))

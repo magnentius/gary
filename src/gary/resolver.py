@@ -95,10 +95,11 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
             "means, including anything the player chose. Do not restate the arithmetic, "
             "and do not reverse or soften the result."
         )
-        if outcome.damage:
+        if outcome.damage or outcome.enemy_attack:
             instruction += (
                 " The damage and HP are exact: a creature that is not defeated is still "
-                "fighting, however the blow reads, and one that is defeated is done."
+                "fighting, however the blow reads, and one that is defeated is done. "
+                "Describe each wound as bad as its severity says, no worse or better."
             )
     payload["instruction"] = instruction
     return payload
