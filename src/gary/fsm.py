@@ -1085,9 +1085,7 @@ class Director:
             effects.extend(self._trigger(channel_id, character, "last_breath"))
         return effects, {"ok": True, **facts,
                          "note": "Rolled and applied by the rules engine. Narrate it as it "
-                                 "landed, as bad as its severity and no worse or better, and "
-                                 "say how much damage it was and the HP left in plain words "
-                                 "(\"4 damage -- you're at 14\"); do "
+                                 "landed, as bad as its severity and no worse or better; do "
                                  "not change the numbers."}
 
     def _attack(

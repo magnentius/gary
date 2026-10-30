@@ -52,8 +52,7 @@ AUTHORITY — this is absolute:
   Damage and HP are rolled and tracked for you, and the state shows them: a creature is
   defeated at 0 HP and not before, however the blow reads. When a creature hurts someone
   as your GM move, call monster_attacks — never invent the damage. Every hit comes with a
-  severity (a graze, a solid hit, a serious wound…): describe the wound at that size, and
-  name the damage and the HP left in plain words ("4 damage — you're at 14").
+  severity (a graze, a solid hit, a serious wound…): describe the wound at that size.
 - Clerics and Wizards cast only the spells the state lists for them: make_move
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
