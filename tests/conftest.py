@@ -5,6 +5,7 @@ import json
 import pytest
 
 from gary.fsm import Director
+from gary.ports import ScriptedDice
 from gary.registry import PendingCheckRegistry
 
 
@@ -36,8 +37,14 @@ BOT = 999
 
 
 @pytest.fixture
-def director(registry: PendingCheckRegistry, clock: FakeClock) -> Director:
-    return Director(registry=registry, clock=clock, game_channels={CHANNEL})
+def dice() -> ScriptedDice:
+    """Dice that land where the test says. Queue faces before anything rolls."""
+    return ScriptedDice()
+
+
+@pytest.fixture
+def director(registry: PendingCheckRegistry, clock: FakeClock, dice: ScriptedDice) -> Director:
+    return Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice)
 
 
 class _FakeSnapshot:
@@ -120,32 +127,3 @@ class FakeFirestoreClient:
 
     def collection(self, name: str) -> _FakeCollection:
         return _FakeCollection(self.data, name)
-
-
-def avrae_message(
-    *,
-    title: str = "",
-    description: str = "",
-    fields=(),
-    author: str = "",
-    interaction_user_id=None,
-    referenced_user_id=None,
-    content: str = "",
-):
-    """Build a message dict shaped like discord.Message.to_dict()."""
-    embed = {}
-    if title:
-        embed["title"] = title
-    if description:
-        embed["description"] = description
-    if fields:
-        embed["fields"] = [{"name": n, "value": v} for n, v in fields]
-    if author:
-        embed["author"] = {"name": author}
-
-    msg = {"content": content, "embeds": [embed] if embed else []}
-    if interaction_user_id is not None:
-        msg["interaction"] = {"user": {"id": str(interaction_user_id)}}
-    if referenced_user_id is not None:
-        msg["referenced_message"] = {"author": {"id": str(referenced_user_id)}}
-    return msg

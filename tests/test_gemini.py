@@ -183,13 +183,40 @@ async def test_open_check_routes_through_the_director(rig):
     result = await player(n)
 
     assert result.text == "You crouch by the lock."
-    assert any(isinstance(e, SendMessage) and '!check "sleight of hand"' in e.text
+    assert any(isinstance(e, SendMessage) and "roll for sleight of hand" in e.text
                for e in result.effects)
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
     (check,) = list(director.registry.open_checks(CHANNEL))
     assert check.dc == 15
     assert check.on_success == "The tumblers give."
+
+
+async def test_with_no_roster_the_check_belongs_to_whoever_spoke(rig):
+    """At a table nobody has set up, the person acting is the person who rolls. Before
+    this the check went to user 0 -- which no click can ever come from."""
+    director, _, _ = rig
+    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS))
+    await player(n)
+
+    (check,) = list(director.registry.open_checks(CHANNEL))
+    assert check.user_id == ALICE
+
+
+async def test_the_roster_decides_who_rolls_not_the_speaker(rig):
+    """Bob describing Kethra's lockpicking does not make it Bob's roll."""
+    director, _, _ = rig
+    director.set_player_character(ALICE, "Kethra")
+    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS))
+    await n.narrate(
+        channel_id=CHANNEL,
+        kind="player_action",
+        payload={"speaker_display_name": "Bob", "speaker_user_id": 222,
+                 "text": "Kethra should pick that lock"},
+    )
+
+    (check,) = list(director.registry.open_checks(CHANNEL))
+    assert check.user_id == ALICE
 
 
 async def test_turn_stops_at_open_check(rig):
@@ -266,9 +293,9 @@ async def test_outcome_without_a_pending_call_falls_back_to_text(rig):
     assert "RULES ENGINE RESULT" in part.text
 
 
-async def test_bad_skill_key_becomes_a_retryable_system_note(rig):
-    """A hallucinated skill never reaches the channel; the model is told to fix it."""
-    n = narrator(rig, call_response(T.OPEN_CHECK, {**OPEN_ARGS, "key": "!init end"}))
+async def test_missing_key_becomes_a_retryable_system_note(rig):
+    """A check with nothing to test never reaches the channel; the model is told to fix it."""
+    n = narrator(rig, call_response(T.OPEN_CHECK, {**OPEN_ARGS, "key": ""}))
     result = await player(n)
 
     assert not any(isinstance(e, SendMessage) for e in result.effects)
@@ -315,19 +342,19 @@ async def test_rejected_mutation_is_reported_so_the_model_narrates_the_truth(rig
     assert "Kethra" not in store.state()["party"]
 
 
-async def test_advance_time_refused_in_combat_is_reported_not_raised(rig):
+async def test_refused_advance_time_is_reported_not_raised(rig):
+    """Past the per-call bound, the clock does not move and the model is told so."""
     director, store, _ = rig
-    store.begin_encounter()
     n = narrator(
         rig,
-        call_response(T.ADVANCE_TIME, {"minutes": 60, "reason": "short rest"}),
-        text_response("There is no time to rest."),
+        call_response(T.ADVANCE_TIME, {"minutes": 60 * 24 * 30, "reason": "a month"}),
+        text_response("Time is not so easily skipped."),
     )
     await player(n)
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False
-    assert "Avrae owns combat duration" in fr.response["error"]
+    assert store.state()["world_minutes"] == 0
 
 
 async def test_tool_exception_is_reported_to_the_model(rig):
@@ -620,79 +647,6 @@ async def test_upsert_npc_records_a_named_character(rig):
 
 
 @pytest.mark.asyncio
-async def test_request_payment_posts_a_command_and_claims_nothing(rig):
-    """Avrae owns coin (§3), so Gary posts a command and is never told the result. The
-    alias refuses an overspend itself, which is why Gary need not know the balance."""
-    n = narrator(
-        rig,
-        call_response(T.REQUEST_PAYMENT, {
-            "actor": "Caspian Varr", "amount": "-2cp", "reason": "a pint of Old Scupper",
-        }),
-        text_response("Garik slides the pint across."),
-    )
-    result = await player(n, "I buy a pint")
-
-    assert "slides the pint" in result.text
-    posted = [e for e in result.effects if isinstance(e, SendMessage)]
-    assert len(posted) == 1
-    assert "`!game coins -2cp`" in posted[0].text
-    assert "Caspian Varr" in posted[0].text
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is True
-    assert "must not assume it succeeded" in fr.response["note"]
-
-
-@pytest.mark.asyncio
-async def test_unsigned_amount_is_refused_back_to_the_model(rig):
-    """The alias requires a sign. Posting an unsigned amount would look like it worked
-    and move nothing, so the model is told rather than the command going out."""
-    n = narrator(
-        rig,
-        call_response(T.REQUEST_PAYMENT, {"actor": "Caspian Varr", "amount": "1gp 5sp"}),
-        text_response("..."),
-    )
-    result = await player(n, "I pay him")
-
-    assert not [e for e in result.effects if isinstance(e, SendMessage)]
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is False
-    assert "needs its own sign" in fr.response["error"]
-
-
-@pytest.mark.asyncio
-async def test_request_rest_moves_the_clock_once_for_the_party(rig):
-    """A rest is per-character; the clock is per-world. One call covers the party."""
-    director, store, _ = rig
-    n = narrator(
-        rig,
-        call_response(T.REQUEST_REST, {"kind": "long"}),
-        text_response("You wake to grey light."),
-    )
-    result = await player(n, "we bed down for the night")
-
-    assert store.state()["world_minutes"] == 480          # one night, not four
-    posted = [e for e in result.effects if isinstance(e, SendMessage)]
-    assert "`!game longrest`" in posted[0].text
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["minutes_elapsed"] == 480
-
-
-@pytest.mark.asyncio
-async def test_rest_is_refused_during_combat(rig):
-    """§3.1: Avrae owns duration while initiative runs, so the world clock is frozen."""
-    director, store, _ = rig
-    store.begin_encounter()
-    n = narrator(rig, call_response(T.REQUEST_REST, {"kind": "short"}), text_response("Not now."))
-    await player(n, "can we rest?")
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is False
-    assert store.state()["world_minutes"] == 0
-
-
-@pytest.mark.asyncio
 async def test_concurrent_turns_in_one_channel_do_not_lose_history(rig):
     """Two players addressing Gary at once both loaded the same history, both ran a turn
     against it, and both saved -- the second write discarding the first player's entire
@@ -727,165 +681,3 @@ async def test_the_second_turn_sees_the_first(rig):
     second_call = str(n.client.calls[1]["contents"])
     assert "I ask about crates" in second_call
     assert "Toby nods." in second_call
-
-
-@pytest.mark.asyncio
-async def test_start_combat_posts_the_initiative_commands(rig):
-    """Vane drew a cutlass and the model rendered !attack straight away: there was no
-    tool for starting a fight, so Avrae never tracked turn order and the enemies could
-    never act."""
-    n = narrator(
-        rig,
-        call_response(T.START_COMBAT, {"monsters": ["guard", "guard"]}),
-        text_response("Steel clears leather."),
-    )
-    result = await player(n, "I draw my longsword and attack")
-
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert "`!init begin`" in posted
-    assert "`!init join`" in posted
-    assert posted.count("!init madd Guard") == 2      # SRD name, duplicates listed
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is True
-    assert "frozen" in fr.response["note"]
-
-
-@pytest.mark.asyncio
-async def test_attack_posts_a_targeted_command_and_decides_nothing(rig):
-    """In combat the model told the player to "execute your attack command" -- open_check
-    had no target, so it could not express the attack and delegated writing the command,
-    which §5.3 exists to prevent."""
-    n = narrator(
-        rig,
-        call_response(T.ATTACK, {"actor": "Caspian Varr", "weapon": "Longsword", "target": "NO1"}),
-        text_response("Steel rings off the desk."),
-    )
-    result = await player(n, "I swing at Vane")
-
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert '`!attack "Longsword" -t NO1`' in posted
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is True
-    assert "must not decide whether it hit" in fr.response["note"]
-
-
-@pytest.mark.asyncio
-async def test_a_target_cannot_smuggle_a_flag(rig):
-    """§5.3: the only strings Gary posts are ones it built from an allowlist."""
-    n = narrator(
-        rig,
-        call_response(T.ATTACK, {"actor": "X", "weapon": "Longsword", "target": "NO1 -f"}),
-        text_response("..."),
-    )
-    result = await player(n, "I swing")
-    assert not [e for e in result.effects if isinstance(e, SendMessage)]
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.response["ok"] is False
-
-
-@pytest.mark.asyncio
-async def test_the_model_is_told_its_command_was_already_posted(rig):
-    """It posted `!attack "Longsword" -t NO1`, then narrated "Run !attack ... in the
-    channel to resolve the strike" — the command appeared twice, because nothing told it
-    Gary had already sent one."""
-    n = narrator(
-        rig,
-        call_response(T.ATTACK, {"actor": "X", "weapon": "Longsword", "target": "NO1"}),
-        text_response("Steel rings."),
-    )
-    await player(n, "I swing")
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert "ALREADY POSTED" in fr.response["note"]
-
-
-@pytest.mark.asyncio
-async def test_enemy_attack_posts_the_monsters_turn(rig):
-    """Monsters do not act on their own -- Avrae pings whoever added them -- and Gary
-    cannot run commands itself (§1). So the Director pattern covers the opposition too."""
-    n = narrator(
-        rig,
-        call_response(T.ENEMY_ATTACK, {"attacker": "GU2", "attack": "Spear", "target": "Caspian Varr"}),
-        text_response("The guard lunges."),
-    )
-    result = await player(n, "what does the guard do")
-
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert '`!init attack "Spear" -t "Caspian Varr"`' in posted
-    assert "GU2's turn" in posted
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert "only correct on this creature's turn" in fr.response["note"]
-
-
-@pytest.mark.asyncio
-async def test_an_attack_on_a_downed_target_gets_advantage(rig):
-    """A creature at 0 HP is Prone and Incapacitated, and a melee attack against a prone
-    target has advantage. Avrae applies none of it, so every spear thrust at an
-    unconscious fighter was rolled once when it should have been rolled twice."""
-    from gary.parser.avrae import CombatantView, ParsedAvraeMessage, ParseStatus
-
-    director, _, _ = rig
-    director._encounter_active = lambda: True
-    director.set_player_character(ALICE, "Kethra")
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),
-                        CombatantView(name="GU1", status="Healthy", is_current_turn=True)),
-            round_number=6,
-        ),
-    )
-
-    n = narrator(
-        rig,
-        call_response(T.ENEMY_ATTACK, {"attacker": "GU1", "attack": "Spear", "target": "Kethra"}),
-        text_response("The spear comes down."),
-    )
-    result = await player(n, "go on then")
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert '`!init attack "Spear" -t "Kethra" adv`' in posted
-
-
-@pytest.mark.asyncio
-async def test_applying_a_condition_returns_its_rules(rig):
-    """Avrae tracks a condition and never its consequences, so the model is handed the
-    SRD text at the moment it matters."""
-    n = narrator(
-        rig,
-        call_response(T.APPLY_EFFECT, {"target": "GU1", "effect": "restrained", "rounds": 2}),
-        text_response("The net closes."),
-    )
-    result = await player(n, "I throw the net")
-
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert '`!init effect "GU1" "Restrained" -dur 2`' in posted   # canonicalised
-
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert "Restrained condition" in fr.response["rules"]
-
-
-@pytest.mark.asyncio
-async def test_a_narrative_label_is_marked_as_having_no_mechanics(rig):
-    n = narrator(
-        rig,
-        call_response(T.APPLY_EFFECT, {"target": "GU1", "effect": "Soaked to the skin"}),
-        text_response("Water streams off him."),
-    )
-    result = await player(n, "I throw the bucket")
-    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert "no mechanical effect" in fr.response["rules"]
-
-
-@pytest.mark.asyncio
-async def test_remove_effect_posts_the_command(rig):
-    n = narrator(
-        rig,
-        call_response(T.REMOVE_EFFECT, {"target": "GU1", "effect": "poisoned"}),
-        text_response("The shaking stops."),
-    )
-    result = await player(n, "the poison runs its course")
-    posted = [e for e in result.effects if isinstance(e, SendMessage)][0].text
-    assert '`!init re "GU1" "Poisoned"`' in posted

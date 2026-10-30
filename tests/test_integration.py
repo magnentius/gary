@@ -1,34 +1,30 @@
 """End-to-end through every layer except the Gateway socket itself.
 
-Player speaks → Director → open_check → command posted → Avrae answers → parse →
-correlate → resolve → narrate. The unit tests prove each piece; this proves they are
-wired to each other, which is where a system like this usually breaks.
+Player speaks → Director → open_check → player asked to roll → player rolls → Gary rolls
+the dice → resolve → narrate. The unit tests prove each piece; this proves they are wired
+to each other, which is where a system like this usually breaks.
 
-Only Discord's transport is faked. The parser sees a real fixture payload, the registry
-does real correlation, and the resolver does real arithmetic.
+Only Discord's transport is faked, and the dice are scripted. The registry does real
+attribution and the resolver does real arithmetic.
 """
 
 from __future__ import annotations
 
 import inspect
-import json
-from pathlib import Path
 
 import pytest
 
-from gary.adapters.discord_bot import message_to_dict
 from gary.adapters.runner import EffectRunner
 from gary.adapters.sender import ChannelSender
 from gary.fsm import ChannelState, Director
 from gary.models import CheckKind
-from gary.parser.avrae import parse_embed
-from gary.ports import EchoNarrator, NarrationResult
+from gary.ports import EchoNarrator, NarrationResult, ScriptedDice
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import FileCheckBackend
 
-FIXTURES = Path(__file__).parent / "fixtures" / "avrae"
 CHANNEL = 555
 ALICE = 111
+BOB = 222
 
 
 class FakeTransport:
@@ -68,23 +64,29 @@ class DirectorNarrator:
 
 @pytest.fixture
 def rig(clock, tmp_path):
+    dice = ScriptedDice()
     registry = PendingCheckRegistry(
         clock=clock, backend=FileCheckBackend(tmp_path / "checks.json")
     )
-    director = Director(registry=registry, clock=clock, game_channels={CHANNEL})
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice)
     narrator = DirectorNarrator(director)
     transport = FakeTransport()
     sender = ChannelSender(transport, interval_seconds=0.0, clock=lambda: 0.0)
     runner = EffectRunner(sender, narrator, max_depth=4)
-    return director, narrator, runner, transport, registry
+    return director, narrator, runner, transport, dice
 
 
-def fixture_message(name: str) -> dict:
-    return json.loads((FIXTURES / name).read_text())["message"]
+async def declare(director, runner, content="I try to pick the lock", user_id=ALICE):
+    await runner.run(
+        director.on_player_message(
+            channel_id=CHANNEL, user_id=user_id, display_name="Alice",
+            content=content, mentions_bot=True,
+        )
+    )
 
 
-async def test_full_turn_from_declaration_to_narrated_outcome(rig, clock):
-    director, narrator, runner, transport, _ = rig
+async def test_full_turn_from_declaration_to_narrated_outcome(rig):
+    director, narrator, runner, transport, dice = rig
 
     narrator.open_next = dict(
         actor="Kethra",
@@ -96,21 +98,15 @@ async def test_full_turn_from_declaration_to_narrated_outcome(rig, clock):
     )
 
     # 1. Player declares a risky action.
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I try to pick the lock", mentions_bot=True,
-        )
-    )
+    await declare(director, runner)
 
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
     # Posted ahead of the narration it belongs to, not after it.
-    assert any('`!check "sleight of hand"`' in t for _, t in transport.sent)
-    assert transport.sent[0][1].startswith("**Kethra**")
+    assert transport.sent[0][1] == "**Kethra** — roll for sleight of hand (check)."
 
-    # 2. Avrae answers, from a real fixture payload. Total 20 vs DC 15.
-    parsed = parse_embed(fixture_message("check_success.json"))
-    await runner.run(director.on_avrae_message(channel_id=CHANNEL, parsed=parsed))
+    # 2. The player rolls. 20 vs DC 15.
+    dice.queue(20)
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
 
     # 3. The outcome was decided by arithmetic and handed to the model as fact.
     kinds = [k for k, _ in narrator.seen]
@@ -119,81 +115,43 @@ async def test_full_turn_from_declaration_to_narrated_outcome(rig, clock):
     assert outcome["succeeded"] is True
     assert outcome["dc"] == 15 and outcome["roll_total"] == 20
 
-    assert transport.sent[-1][1] == "The tumblers give. The door swings inward."
+    assert [t for _, t in transport.sent[-2:]] == [
+        "🎲 **Kethra** rolls 20.",
+        "The tumblers give. The door swings inward.",
+    ]
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
 async def test_failed_roll_narrates_the_committed_failure_line(rig):
-    director, narrator, runner, transport, _ = rig
+    director, narrator, runner, transport, dice = rig
     narrator.open_next = dict(
         actor="Kethra", kind=CheckKind.CHECK, key="sleight of hand", dc=25,
         on_success="The tumblers give.", on_failure="The pick snaps.",
     )
 
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I pick the lock", mentions_bot=True,
-        )
-    )
-    parsed = parse_embed(fixture_message("check_success.json"))  # total 20 vs DC 25
-    await runner.run(director.on_avrae_message(channel_id=CHANNEL, parsed=parsed))
+    await declare(director, runner, "I pick the lock")
+    dice.queue(20)  # 20 vs DC 25
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
 
     assert narrator.seen[-1][1]["succeeded"] is False
     assert transport.sent[-1][1] == "The pick snaps."
 
 
-async def test_help_embed_costs_nothing(rig):
-    """The v1 spam case, end to end: no model call, no message, no state change."""
-    director, narrator, runner, transport, _ = rig
-
-    parsed = parse_embed(fixture_message("help_text.json"))
-    await runner.run(director.on_avrae_message(channel_id=CHANNEL, parsed=parsed))
-
-    assert narrator.seen == []
-    assert transport.sent == []
-    assert runner.stats.narrated == 0
-
-
-async def test_initiative_embed_never_resolves_a_pending_check(rig):
-    director, narrator, runner, transport, _ = rig
+async def test_someone_elses_roll_costs_nothing(rig):
+    """Bob asking to roll Alice's check: no dice, no model call, no message."""
+    director, narrator, runner, transport, dice = rig
     narrator.open_next = dict(
         actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
         on_success="unseen", on_failure="spotted",
     )
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I sneak", mentions_bot=True,
-        )
-    )
+    await declare(director, runner, "I sneak")
+    before = (list(transport.sent), runner.stats.narrated)
 
-    parsed = parse_embed(fixture_message("initiative_dying.json"))
-    await runner.run(director.on_avrae_message(channel_id=CHANNEL, parsed=parsed))
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=BOB))
 
-    assert [k for k, _ in narrator.seen] == ["player_action"]
+    assert (transport.sent, runner.stats.narrated) == before
+    assert dice.rolls == []
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-
-async def test_unreadable_embed_asks_instead_of_guessing(rig):
-    director, narrator, runner, transport, _ = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
-        on_success="unseen", on_failure="spotted",
-    )
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I sneak", mentions_bot=True,
-        )
-    )
-
-    parsed = parse_embed(fixture_message("unreadable_embed.json"))
-    await runner.run(director.on_avrae_message(channel_id=CHANNEL, parsed=parsed))
-
-    assert "couldn't read that roll" in transport.sent[-1][1]
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-    assert runner.stats.drops_by_status.get("unknown") == 1
 
 
 async def test_expiry_narrates_a_pivot(rig, clock):
@@ -202,12 +160,7 @@ async def test_expiry_narrates_a_pivot(rig, clock):
         actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
         on_success="unseen", on_failure="spotted", ttl_seconds=60,
     )
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I sneak", mentions_bot=True,
-        )
-    )
+    await declare(director, runner, "I sneak")
 
     clock.advance(61)
     await runner.run(director.sweep())
@@ -217,25 +170,21 @@ async def test_expiry_narrates_a_pivot(rig, clock):
 
 
 async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
-    """Gary dies after posting the command and before the player rolls."""
+    """Gary dies after asking for the roll and before the player makes it."""
     director, narrator, runner, transport, _ = rig
     narrator.open_next = dict(
         actor="Kethra", kind=CheckKind.CHECK, key="sleight of hand", dc=15,
         on_success="The tumblers give.", on_failure="The pick snaps.",
     )
-    await runner.run(
-        director.on_player_message(
-            channel_id=CHANNEL, user_id=ALICE, display_name="Alice",
-            content="I pick the lock", mentions_bot=True,
-        )
-    )
+    await declare(director, runner, "I pick the lock")
 
     # ... process restarts: everything below is rebuilt from storage ...
+    revived_dice = ScriptedDice([20])
     revived_registry = PendingCheckRegistry(
         clock=clock, backend=FileCheckBackend(tmp_path / "checks.json")
     )
     revived_director = Director(
-        registry=revived_registry, clock=clock, game_channels={CHANNEL}
+        registry=revived_registry, clock=clock, game_channels={CHANNEL}, dice=revived_dice
     )
     revived_narrator = DirectorNarrator(revived_director)
     revived_transport = FakeTransport()
@@ -246,10 +195,7 @@ async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
 
     assert revived_director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
-    parsed = parse_embed(fixture_message("check_success.json"))
-    await revived_runner.run(
-        revived_director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
-    )
+    await revived_runner.run(revived_director.roll(channel_id=CHANNEL, user_id=ALICE))
 
     outcome = revived_narrator.seen[-1][1]
     assert outcome["succeeded"] is True
@@ -257,74 +203,7 @@ async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
     assert revived_transport.sent[-1][1] == "The tumblers give."
 
 
-# -- the discord.py boundary conversion --------------------------------------------------------
-
-
-class _Obj:
-    def __init__(self, **kw):
-        self.__dict__.update(kw)
-
-
-class _Embed:
-    def __init__(self, payload):
-        self._payload = payload
-
-    def to_dict(self):
-        return self._payload
-
-
-def test_message_to_dict_extracts_the_slash_command_invoker():
-    """The strongest correlation signal available (§6.2)."""
-    msg = _Obj(
-        id=1,
-        content="",
-        embeds=[_Embed({"title": "Kethra makes a Stealth check!"})],
-        interaction_metadata=_Obj(user=_Obj(id=111)),
-        reference=None,
-    )
-    out = message_to_dict(msg)
-    assert out["interaction"]["user"]["id"] == "111"
-    assert out["embeds"][0]["title"] == "Kethra makes a Stealth check!"
-
-
-def test_message_to_dict_falls_back_to_the_legacy_interaction_attribute():
-    """discord.py renamed this; a bump must not silently drop correlation."""
-    msg = _Obj(
-        id=1, content="", embeds=[],
-        interaction_metadata=None, interaction=_Obj(user=_Obj(id=222)), reference=None,
-    )
-    assert message_to_dict(msg)["interaction"]["user"]["id"] == "222"
-
-
-def test_message_to_dict_extracts_a_resolved_reply_author():
-    msg = _Obj(
-        id=1, content="", embeds=[], interaction_metadata=None, interaction=None,
-        reference=_Obj(resolved=_Obj(author=_Obj(id=333))),
-    )
-    assert message_to_dict(msg)["referenced_message"]["author"]["id"] == "333"
-
-
-def test_message_to_dict_tolerates_everything_absent():
-    msg = _Obj(
-        id=1, content="hi", embeds=[],
-        interaction_metadata=None, interaction=None, reference=None,
-    )
-    out = message_to_dict(msg)
-    assert out["content"] == "hi"
-    assert "interaction" not in out and "referenced_message" not in out
-
-
-def test_message_to_dict_output_is_parseable():
-    """The conversion feeds the parser directly, so it must round-trip through JSON."""
-    msg = _Obj(
-        id=1, content="",
-        embeds=[_Embed({"title": "Kethra makes a Stealth check!",
-                        "description": "**1d20 (13) + 7** = `20`"})],
-        interaction_metadata=None, interaction=None, reference=None,
-    )
-    parsed = parse_embed(json.loads(json.dumps(message_to_dict(msg))))
-    assert parsed.roll.total == 20
-    assert parsed.roll.natural == 13
+# -- addressing ---------------------------------------------------------------------------------
 
 
 class _Tags:
@@ -375,151 +254,6 @@ def test_bot_role_mention_counts_as_addressing_gary():
     assert addressed(_Msg(role_mentions=[_Role(bot_id=42)])) is True
     assert addressed(_Msg(role_mentions=[_Role(bot_id=999)])) is False
     assert addressed(_Msg()) is False
-
-
-def test_only_avrae_edits_are_reprocessed():
-    """Avrae EDITS the initiative tracker rather than reposting it, so the bot must watch
-    edits — but re-running every edit would make a player fixing a typo cost another model
-    call, and an edited roll embed would re-enter resolution."""
-    import asyncio
-
-    from gary.adapters.discord_bot import GaryClient
-
-    seen = []
-
-    class _Settings:
-        avrae_bot_id = 261302296103747584
-
-    class _Client:
-        settings = _Settings()
-
-        async def on_message(self, message):
-            seen.append(message)
-
-    client = _Client()
-    edit = GaryClient.on_message_edit.__get__(client, _Client)
-
-    class _Msg:
-        def __init__(self, author_id):
-            self.author = type("A", (), {"id": author_id})()
-
-    avrae, player = _Msg(261302296103747584), _Msg(999)
-    asyncio.run(edit(avrae, avrae))
-    asyncio.run(edit(player, player))
-
-    assert seen == [avrae]
-
-
-def test_raw_edits_are_fetched_when_the_message_was_never_cached():
-    """on_message_edit only fires for messages discord.py has cached — those seen since
-    this process connected. The initiative tracker is pinned and long-lived, so after a
-    restart mid-combat every `!init next` edits it silently."""
-    import asyncio
-
-    from gary.adapters.discord_bot import GaryClient
-
-    seen = []
-    AVRAE = 261302296103747584
-
-    class _Msg:
-        def __init__(self, author_id):
-            self.author = type("A", (), {"id": author_id})()
-
-    class _Channel:
-        def __init__(self, message):
-            self._message = message
-
-        async def fetch_message(self, _id):
-            return self._message
-
-    class _Payload:
-        def __init__(self, cached, fetched):
-            self.cached_message = cached
-            self.channel_id = 1
-            self.message_id = 2
-            self._fetched = fetched
-
-    class _Client:
-        settings = type("S", (), {"avrae_bot_id": AVRAE})()
-
-        def __init__(self, fetched):
-            self._fetched = fetched
-
-        def get_channel(self, _id):
-            return _Channel(self._fetched)
-
-        async def on_message(self, message):
-            seen.append(message)
-
-    run = asyncio.run
-
-    tracker = _Msg(AVRAE)
-    client = _Client(tracker)
-    raw = GaryClient.on_raw_message_edit.__get__(client, _Client)
-
-    run(raw(_Payload(cached=None, fetched=tracker)))          # uncached Avrae edit: fetched
-    assert seen == [tracker]
-
-    run(raw(_Payload(cached=tracker, fetched=tracker)))       # cached: on_message_edit has it
-    assert seen == [tracker]
-
-    seen.clear()
-    player = _Msg(999)
-    client = _Client(player)
-    raw = GaryClient.on_raw_message_edit.__get__(client, _Client)
-    run(raw(_Payload(cached=None, fetched=player)))           # not Avrae: ignored
-    assert seen == []
-
-
-def test_a_sheet_registers_whoever_asked_for_it():
-    """`!sheet` names the character but not the person -- it is a prefix command and
-    carries no interaction metadata. Remembering who asked is the only way to connect the
-    two without a separate registration step."""
-    import asyncio, time
-
-    from gary.adapters.discord_bot import GaryClient
-    from gary.fsm import Director
-    from gary.registry import PendingCheckRegistry
-    from gary.state.backend import InMemoryStateBackend
-    from gary.state.store import CampaignStore
-
-    now = [1000.0]
-    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: now[0])
-    director = Director(registry=PendingCheckRegistry(clock=lambda: now[0]),
-                        clock=lambda: now[0], game_channels={7})
-    sent = []
-
-    class _Sender:
-        async def send(self, channel_id, text):
-            sent.append(text)
-
-    class _Client:
-        SHEET_CLAIM_SECONDS = GaryClient.SHEET_CLAIM_SECONDS
-        def __init__(self):
-            self.store, self.director, self.sender = store, director, _Sender()
-            self.clock = lambda: now[0]
-            self._sheet_asked_by = {}
-
-    client = _Client()
-    claim = GaryClient._claim_sheet.__get__(client, _Client)
-    run = asyncio.run
-
-    # nobody asked: nothing is claimed
-    run(claim(7, "Caspian Varr"))
-    assert director.players == {}
-
-    # John ran !sheet a moment ago
-    client._sheet_asked_by[7] = (111, "John K", now[0])
-    run(claim(7, "Caspian Varr"))
-    assert director.players == {111: "Caspian Varr"}
-    assert store.state()["players"] == {"111": "Caspian Varr"}
-    assert "John K" in sent[0] and "Caspian Varr" in sent[0]
-
-    # a stale request is not claimed by a later sheet
-    client._sheet_asked_by[7] = (222, "Someone", now[0])
-    now[0] += GaryClient.SHEET_CLAIM_SECONDS + 1
-    run(claim(7, "Kethra"))
-    assert 222 not in director.players
 
 
 # -- ?dm import --------------------------------------------------------------------------

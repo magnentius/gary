@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from gary.adapters.runner import STALL_MESSAGE, EffectRunner
-from gary.fsm import AskPlayer, LogDrop, PromptModel, SendMessage
+from gary.fsm import PromptModel, SendMessage
 from gary.ports import EchoNarrator, NarrationResult
 
 CHANNEL = 555
@@ -51,34 +51,6 @@ async def test_send_message_reaches_the_channel():
     sender = FakeSender()
     await runner(sender).run([SendMessage(CHANNEL, "The door opens.")])
     assert sender.sent == [(CHANNEL, "The door opens.")]
-
-
-async def test_ask_player_is_sent_like_any_message():
-    sender = FakeSender()
-    await runner(sender).run([AskPlayer(CHANNEL, "What was the total?")])
-    assert sender.sent == [(CHANNEL, "What was the total?")]
-
-
-async def test_log_drop_sends_nothing():
-    """Dropping is silent at the table by design -- it is the common case."""
-    sender = FakeSender()
-    r = runner(sender)
-    await r.run([LogDrop(CHANNEL, "irrelevant", "help text")])
-    assert sender.sent == []
-    assert r.stats.drops_by_status == {"irrelevant": 1}
-
-
-async def test_drop_counters_track_parse_failures():
-    """A rising 'unknown' rate is how an Avrae format change announces itself (§10)."""
-    r = runner()
-    await r.run(
-        [
-            LogDrop(CHANNEL, "unknown", "no total"),
-            LogDrop(CHANNEL, "unknown", "no total"),
-            LogDrop(CHANNEL, "irrelevant", "help"),
-        ]
-    )
-    assert r.stats.drops_by_status == {"unknown": 2, "irrelevant": 1}
 
 
 async def test_unknown_effect_type_is_logged_not_fatal():
@@ -129,28 +101,28 @@ async def test_empty_narration_with_effects_stays_quiet():
     """The model called a tool instead of speaking; the tool's output is the response."""
     sender = FakeSender()
     narrator = ScriptedNarrator(
-        NarrationResult(text="", effects=[SendMessage(CHANNEL, "`!check stealth`")])
+        NarrationResult(text="", effects=[SendMessage(CHANNEL, "**Kethra** — roll for stealth (check).")])
     )
     await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
-    assert sender.sent == [(CHANNEL, "`!check stealth`")]
+    assert sender.sent == [(CHANNEL, "**Kethra** — roll for stealth (check).")]
 
 
 # -- recursion bound ---------------------------------------------------------------------------
 
 
 async def test_narration_effects_are_performed():
-    """open_check produces a SendMessage carrying the Avrae command."""
+    """open_check produces a SendMessage asking the player to roll."""
     sender = FakeSender()
     narrator = ScriptedNarrator(
         NarrationResult(text="You crouch by the lock.",
-                        effects=[SendMessage(CHANNEL, "**Kethra** — run `!check stealth`")]),
+                        effects=[SendMessage(CHANNEL, "**Kethra** — roll for stealth (check).")]),
     )
     await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
 
-    # The command goes first: it is a stage direction for the prose that follows, not a
+    # The request to roll goes first: it is a stage direction for the prose that follows, not a
     # footnote to it. See the runner's comment for the rest that made this obvious.
     assert [t for _, t in sender.sent] == [
-        "**Kethra** — run `!check stealth`",
+        "**Kethra** — roll for stealth (check).",
         "You crouch by the lock.",
     ]
 
@@ -226,7 +198,7 @@ async def test_non_message_effects_keep_their_place():
         NarrationResult(
             text="Nothing happens.",
             effects=[
-                SendMessage(CHANNEL, "**Kethra** — run `!check stealth`"),
+                SendMessage(CHANNEL, "**Kethra** — roll for stealth (check)."),
                 PromptModel(CHANNEL, "system_note", {"error": "bad key"}),
             ],
         ),
@@ -235,7 +207,7 @@ async def test_non_message_effects_keep_their_place():
     await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
 
     assert [t for _, t in sender.sent] == [
-        "**Kethra** — run `!check stealth`",   # hoisted
+        "**Kethra** — roll for stealth (check).",   # hoisted
         "Nothing happens.",                    # this turn's prose
         "(the DM reconsiders)",                # the nested turn, still last
     ]

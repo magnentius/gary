@@ -15,11 +15,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, FrozenSet, Mapping, Optional
 
-# Verified against the Discord App Directory. Kept overridable because hardcoding an ID
-# that turns out to be wrong is exactly how v1 of this design shipped a dead parser.
-DEFAULT_AVRAE_BOT_ID = 261302296103747584
-
-# Avrae owns "!". A collision would make Gary answer commands meant for the dice bot.
+# "!" is the prefix most Discord bots claim. Sharing it would make Gary answer commands
+# meant for another bot in the same server.
 DEFAULT_COMMAND_PREFIX = "?dm "
 
 #: Where a campaign lives when nothing says otherwise.
@@ -60,12 +57,11 @@ def _ids(raw: Optional[str]) -> FrozenSet[int]:
 
 
 def _players(raw: Optional[str]) -> "Mapping[int, str]":
-    """Parse ``GARY_PLAYERS`` -- ``<discord_user_id>=<Avrae character name>`` pairs.
+    """Parse ``GARY_PLAYERS`` -- ``<discord_user_id>=<character name>`` pairs.
 
-    Without this the model is only ever told a Discord display name, so ``open_check``
-    names an actor Avrae has never heard of and the roll silently fails to correlate
-    (ARCHITECTURE.md §6.2). Semicolon-separated, because character names contain commas
-    far more often than semicolons.
+    Without this (or ``?dm playing``) the model is only ever told a Discord display name,
+    and has no character to open a check for. Semicolon-separated, because character
+    names contain commas far more often than semicolons.
     """
     if not raw:
         return {}
@@ -91,12 +87,8 @@ class Settings:
     discord_token: str
     game_channels: FrozenSet[int]
     freeform_channels: FrozenSet[int] = field(default_factory=frozenset)
-    avrae_bot_id: int = DEFAULT_AVRAE_BOT_ID
-    # Avrae's built-in coinpurse. Override only to use a workshop alias instead
-    # (e.g. "coins"); the native command needs nothing installed.
-    coins_command: str = "game coins"
     command_prefix: str = DEFAULT_COMMAND_PREFIX
-    # discord user id -> Avrae character name. Empty is allowed: actor
+    # discord user id -> character name. Empty is allowed: actor
     # validation is then skipped rather than rejecting everything.
     players: Mapping[int, str] = field(default_factory=dict)
 
@@ -131,7 +123,8 @@ class Settings:
             )
         if self.command_prefix.startswith("!"):
             raise ConfigError(
-                f"command prefix {self.command_prefix!r} collides with Avrae's '!'"
+                f"command prefix {self.command_prefix!r} collides with '!', which most "
+                "bots claim"
             )
         if self.backend not in ("file", "firestore"):
             raise ConfigError(f"unknown backend {self.backend!r}")
@@ -167,8 +160,6 @@ class Settings:
             discord_token=e.get("DISCORD_TOKEN", ""),
             game_channels=_ids(e.get("GARY_GAME_CHANNELS")),
             freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
-            avrae_bot_id=int(e.get("GARY_AVRAE_BOT_ID", DEFAULT_AVRAE_BOT_ID)),
-            coins_command=e.get("GARY_COINS_COMMAND", "game coins"),
             command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
             players=_players(e.get("GARY_PLAYERS")),
             campaign_root=Path(e["GARY_CAMPAIGN_ROOT"]) if e.get("GARY_CAMPAIGN_ROOT")

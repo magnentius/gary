@@ -12,7 +12,7 @@ from gary.state.firestore import FirestoreStateBackend
 
 from .conftest import FakeFirestoreClient
 from gary.state.schema import DEFAULT_EPOCH_DATE
-from gary.state.store import Bounds, CampaignStore, EncounterActive, StateError
+from gary.state.store import Bounds, CampaignStore, StateError
 
 
 @pytest.fixture(params=["file", "memory", "firestore"])
@@ -193,7 +193,7 @@ def test_state_is_a_copy_not_a_live_reference(store):
     assert store.state()["party"]["Kethra"]["gold"] == 10
 
 
-# -- time and the encounter boundary (ARCHITECTURE.md §3.1) ---------------------------------------
+# -- time ----------------------------------------------------------------------------------------
 
 
 def test_time_expires_effects(store):
@@ -214,53 +214,27 @@ def test_time_expires_effects(store):
     assert store.state()["effects"] == []
 
 
-def test_advance_time_is_refused_during_an_encounter(store):
-    """The invariant: two clocks running at once is what made v1 incoherent."""
-    store.begin_encounter()
-    with pytest.raises(EncounterActive):
-        store.advance_time(60, reason="should not happen")
+def test_a_journal_from_the_avrae_era_still_replays(backend_factory, clock):
+    """Campaigns journalled before Avrae was removed carry encounter entries.
 
-
-def test_adding_effects_is_refused_during_an_encounter(store):
-    store.begin_encounter()
-    diff = store.apply(
-        [Mutation(MutationKind.EFFECT_ADD, "Kethra", {"name": "Bless", "duration_minutes": 10})],
-        reason="in combat",
-    )
-    assert not diff.ok
-    assert "Avrae owns effects" in diff.rejected[0][1]
-
-
-def test_encounter_end_reconciles_time_and_effects(store):
-    store.apply(
-        [
-            Mutation(MutationKind.EFFECT_ADD, "Kethra", {"name": "Bless", "duration_minutes": 10}),
-            Mutation(MutationKind.EFFECT_ADD, "Dorn", {"name": "Mage Armor", "duration_minutes": 480}),
-        ],
-        reason="pre-combat buffs",
-    )
-    effects = store.state()["effects"]
-    mage_armor = next(e for e in effects if e["name"] == "Mage Armor")
-
-    store.begin_encounter()
-    # Avrae ran 12 rounds and reports only Mage Armor still active. Avrae wins.
-    result = store.end_encounter(rounds=12, surviving_effect_ids=[mage_armor["effect_id"]])
-
-    assert result["minutes_elapsed"] == 2  # 12 rounds x 6s = 72s -> 2 minutes (ceil)
-    assert result["effects_dropped"] == ["Bless"]
-    assert [e["name"] for e in store.state()["effects"]] == ["Mage Armor"]
-    assert store.state()["world_minutes"] == 2
-    assert not store.encounter_active
-
-
-def test_encounter_state_survives_a_restart(backend_factory, clock):
+    They must replay as nothing at all: no frozen clock, and the effects that were live
+    before the fight are still live after it.
+    """
     first = CampaignStore(backend=backend_factory(), clock=clock)
-    first.begin_encounter()
+    first.apply(
+        [Mutation(MutationKind.EFFECT_ADD, "Kethra", {"name": "Bless", "duration_minutes": 10})],
+        reason="before the fight",
+    )
+    for kind in ("encounter_begin", "encounter_end"):
+        first._append_journal({
+            "entry_id": kind, "at": clock(), "kind": kind, "target": "enc1",
+            "payload": {"effects": []}, "inverse": None, "reason": "old Avrae handoff",
+        })
 
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
-    assert reopened.encounter_active
-    with pytest.raises(EncounterActive):
-        reopened.advance_time(10, reason="still frozen")
+    assert [e["name"] for e in reopened.state()["effects"]] == ["Bless"]
+    reopened.advance_time(5, reason="the clock is not frozen")
+    assert reopened.state()["world_minutes"] == 5
 
 
 def test_custom_bounds(backend_factory, clock):
@@ -311,7 +285,7 @@ def test_check_outcomes_are_journalled_but_change_no_state(store):
         CheckOutcome(
             check_id="c1", actor="Caspian Varr", kind=CheckKind.CHECK,
             key="sleight_of_hand", total=19, dc=15, margin=4, succeeded=True,
-            consequence="The latch releases.", natural=20,
+            consequence="The latch releases.", natural=20, faces=(20,),
         )
     )
     assert store.state() == before  # history, not state
@@ -322,6 +296,7 @@ def test_check_outcomes_are_journalled_but_change_no_state(store):
     assert entry["payload"]["dc"] == 15
     assert entry["payload"]["total"] == 19
     assert entry["payload"]["natural"] == 20
+    assert entry["payload"]["faces"] == [20]
     assert entry["payload"]["succeeded"] is True
 
 
@@ -498,24 +473,6 @@ def test_a_campaign_without_a_calendar_still_renders_its_clock():
     st["calendar"] = {"epoch_label": "1st of Hammer, 1492 DR", "minutes_per_day": 1440}
     st["world_minutes"] = 510
     assert format_world_time(st) == "Day 1, 08:30"
-
-
-def test_mirror_sheet_caches_class_and_level(store):
-    """Avrae owns the sheet (§3); this is only what Gary last saw go past."""
-    store.mirror_sheet("Caspian Varr", "Human Fighter 1", 1)
-    slot = store.state()["party"]["Caspian Varr"]
-    assert slot["sheet"] == "Human Fighter 1"
-    assert slot["level"] == 1
-
-    store.mirror_sheet("Caspian Varr", "Human Fighter 2", 2)   # after !update, !sheet
-    assert store.state()["party"]["Caspian Varr"]["level"] == 2
-
-
-def test_mirroring_a_sheet_is_not_journalled(store):
-    """Nothing to undo, and replaying a stale mirror is worse than not having one."""
-    before = len(store.journal())
-    store.mirror_sheet("Kethra", "Elf Wizard 4", 4)
-    assert len(store.journal()) == before
 
 
 def test_the_setting_is_journalled_and_undoable(store):

@@ -1,8 +1,8 @@
-"""Correlation: the property that stops every Avrae message becoming an LLM call."""
+"""Attribution: a check belongs to the player it was asked of, and to nobody else."""
 
 from __future__ import annotations
 
-from gary.models import AvraeRoll, CancelReason, CheckKind
+from gary.models import CancelReason, CheckKind
 
 CHANNEL = 555
 ALICE = 111
@@ -20,61 +20,38 @@ def open_for(registry, user_id, actor, key="stealth", dc=15, ttl=None):
         on_success="ok",
         on_failure="no",
         stakes="",
-        command=f"!check {key}",
+        dice="1d20",
         ttl_seconds=ttl,
     )
 
 
-def test_unmatched_roll_returns_none(registry):
-    """The common case: Avrae output nobody is waiting for is dropped."""
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17)) is None
+def test_nobody_waiting_returns_none(registry):
+    assert registry.for_player(CHANNEL, ALICE) is None
 
 
-def test_matches_by_actor_name(registry):
+def test_finds_the_players_own_check(registry):
     check, _ = open_for(registry, ALICE, "Kethra")
-    matched = registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17))
-    assert matched is not None and matched.check_id == check.check_id
+    found = registry.for_player(CHANNEL, ALICE)
+    assert found is not None and found.check_id == check.check_id
 
 
-def test_actor_matching_ignores_case_and_punctuation(registry):
-    open_for(registry, ALICE, "Kethra Vane")
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("kethra vane", 17)) is not None
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra-Vane", 17)) is not None
-
-
-def test_interaction_id_beats_actor_name(registry):
-    """Two players, one character name. Discord's own attribution wins."""
+def test_another_player_cannot_reach_it(registry):
+    """Bob asking to roll finds nothing of Alice's, even playing a same-named character."""
     open_for(registry, ALICE, "Kethra")
-    bob_check, _ = open_for(registry, BOB, "Kethra")
-    matched = registry.match(
-        channel_id=CHANNEL,
-        roll=AvraeRoll("Kethra", 17),
-        interaction_user_id=BOB,
-    )
-    assert matched.check_id == bob_check.check_id
+    assert registry.for_player(CHANNEL, BOB) is None
 
 
-def test_reply_reference_used_when_no_interaction(registry):
-    alice_check, _ = open_for(registry, ALICE, "Kethra")
-    open_for(registry, BOB, "Dorn")
-    matched = registry.match(
-        channel_id=CHANNEL, roll=AvraeRoll("", 17), referenced_user_id=ALICE
-    )
-    assert matched.check_id == alice_check.check_id
-
-
-def test_concurrent_players_do_not_cross_talk(registry):
-    """The v1 misattribution bug: simultaneous rolls landing on the wrong check."""
-    alice_check, _ = open_for(registry, ALICE, "Kethra")
-    bob_check, _ = open_for(registry, BOB, "Dorn")
-
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Dorn", 9)).check_id == bob_check.check_id
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 22)).check_id == alice_check.check_id
+def test_two_players_sharing_a_character_name_stay_apart(registry):
+    """The case name matching could not resolve (§14 (6)): attribution is by user now."""
+    alice_check, _ = open_for(registry, ALICE, "Kethra", dc=10)
+    bob_check, _ = open_for(registry, BOB, "Kethra", dc=25)
+    assert registry.for_player(CHANNEL, ALICE).check_id == alice_check.check_id
+    assert registry.for_player(CHANNEL, BOB).check_id == bob_check.check_id
 
 
 def test_other_channels_are_isolated(registry):
     open_for(registry, ALICE, "Kethra")
-    assert registry.match(channel_id=CHANNEL + 1, roll=AvraeRoll("Kethra", 17)) is None
+    assert registry.for_player(CHANNEL + 1, ALICE) is None
 
 
 def test_second_check_supersedes_first(registry):
@@ -85,12 +62,12 @@ def test_second_check_supersedes_first(registry):
     assert list(registry.open_checks(CHANNEL)) == [second]
 
 
-def test_expiry_stops_matching(registry, clock):
+def test_expiry_stops_rolling(registry, clock):
     open_for(registry, ALICE, "Kethra", ttl=60)
     clock.advance(59)
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17)) is not None
+    assert registry.for_player(CHANNEL, ALICE) is not None
     clock.advance(2)
-    assert registry.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17)) is None
+    assert registry.for_player(CHANNEL, ALICE) is None
 
 
 def test_sweep_reports_expired_checks(registry, clock):
@@ -119,42 +96,4 @@ def test_restore_after_restart(registry, clock):
     fresh = PendingCheckRegistry(clock=clock)
     assert not fresh.has_open(CHANNEL)
     fresh.restore([check])
-    assert fresh.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 17)) is not None
-
-
-# -- correlation identifies who rolled; these check WHAT they rolled ---------------------
-
-
-def test_a_different_skill_does_not_resolve_the_check(registry):
-    """Gary asked for Stealth; the player rolled Perception.
-
-    Before this check the roll correlated on actor name alone and resolved the Stealth
-    DC, and resolver.resolve then reported it to the model as the stealth total.
-    """
-    open_for(registry, ALICE, "Kethra", key="stealth")
-    wrong = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Perception")
-    assert registry.match(channel_id=CHANNEL, roll=wrong) is None
-
-    right = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Stealth")
-    assert registry.match(channel_id=CHANNEL, roll=right) is not None
-
-
-def test_a_different_kind_does_not_resolve_the_check(registry):
-    open_for(registry, ALICE, "Kethra", key="stealth")
-    attack = AvraeRoll(actor="Kethra", total=21, kind=CheckKind.ATTACK, key="Longsword")
-    assert registry.match(channel_id=CHANNEL, roll=attack) is None
-
-
-def test_identity_alone_is_not_enough(registry):
-    """Even the strongest correlation signal cannot vouch for the wrong roll."""
-    check, _ = open_for(registry, ALICE, "Kethra", key="stealth")
-    wrong = AvraeRoll(actor="Kethra", total=22, kind=CheckKind.CHECK, key="Perception")
-    assert registry.match(channel_id=CHANNEL, roll=wrong, interaction_user_id=ALICE) is None
-    assert registry.match(channel_id=CHANNEL, roll=wrong, referenced_user_id=ALICE) is None
-
-
-def test_key_comparison_ignores_formatting(registry):
-    """Avrae titles 'Sleight Of Hand'; the canonical key is 'sleight_of_hand'."""
-    open_for(registry, ALICE, "Kethra", key="sleight_of_hand")
-    roll = AvraeRoll(actor="Kethra", total=17, kind=CheckKind.CHECK, key="Sleight Of Hand")
-    assert registry.match(channel_id=CHANNEL, roll=roll) is not None
+    assert fresh.for_player(CHANNEL, ALICE) is not None

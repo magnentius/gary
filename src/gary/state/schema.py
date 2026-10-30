@@ -2,16 +2,15 @@
 
 Plain dicts behind typed accessors rather than a rigid object graph: campaign state
 accretes odd fields over a long game, and a schema that fights that costs more than it
-saves. What *is* pinned down is the version number and the authority boundary -- the
-fields Avrae owns during an encounter are marked and are not written here.
+saves. What *is* pinned down is the version number.
 """
 
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import date, timedelta
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 SCHEMA_VERSION = 1
 
@@ -47,8 +46,7 @@ def default_epoch_date(today: Optional[date] = None) -> str:
     """Today, a millennium ago, as ISO. Frozen into the campaign at creation.
 
     Anchored once rather than tracked: a clock that followed the real date would jump
-    weeks between sessions, and §3.1 hands the world clock to Avrae mid-encounter on the
-    assumption that nothing else moves it.
+    weeks between sessions.
     """
     today = today or date.today()
     try:
@@ -57,15 +55,11 @@ def default_epoch_date(today: Optional[date] = None) -> str:
         # 29 February, and the target year is not a leap year.
         return today.replace(year=today.year - YEARS_BEHIND, day=28).isoformat()
 
-# In-game minutes per real combat round (ARCHITECTURE.md §3.1).
-SECONDS_PER_ROUND = 6
-
 
 def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
-        # Absolute in-world clock, in minutes since campaign epoch. Minute granularity
-        # is deliberate: finer resolution invites conflict with Avrae's round timing.
+        # Absolute in-world clock, in minutes since campaign epoch.
         "world_minutes": 0,
         # `epoch_date` is day 1. Time is stored as minutes since it, never as a date, so
         # the clock stays a single integer that can only move forward.
@@ -79,25 +73,19 @@ def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
         "setting": "",
         "scene": {"location": "", "summary": ""},
         "party": {},  # actor -> {"gold": int, "inventory": [str], "notes": [str]}
-        "effects": [],  # out-of-combat only; see EffectRecord
+        "effects": [],  # see EffectRecord
         "quests": {},  # quest_id -> {"title": str, "status": str, "notes": [str]}
         "npcs": {},  # npc_id -> {"name": str, "disposition": int, "notes": [str]}
-        # discord user id (as str -- JSON object keys are strings) -> Avrae character
-        # name. Correlation is name-based in practice (§14 (7)), so this is what lets
-        # open_check name an actor Avrae will echo back.
+        # discord user id (as str -- JSON object keys are strings) -> character name.
+        # What lets open_check name a character someone is actually playing.
         "players": {},
         "notes": [],  # narrative memory, feeds context retrieval
-        "encounter": None,  # non-None while Avrae owns combat state
     }
 
 
 @dataclass(frozen=True)
 class EffectRecord:
-    """An out-of-combat effect with a wall-clock expiry.
-
-    Effects inside initiative are Avrae's, tracked in rounds, and are never represented
-    here -- that dual ownership is what made v1 of the design incoherent.
-    """
+    """An effect with a wall-clock expiry."""
 
     effect_id: str
     actor: str
@@ -122,30 +110,6 @@ class EffectRecord:
             name=d["name"],
             expires_at_minute=int(d["expires_at_minute"]),
             source=d.get("source", ""),
-        )
-
-
-@dataclass(frozen=True)
-class Encounter:
-    """Marks the window in which Avrae, not the state server, owns effects and time."""
-
-    encounter_id: str
-    started_at_minute: int
-    frozen_effects: List[Dict[str, Any]] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "encounter_id": self.encounter_id,
-            "started_at_minute": self.started_at_minute,
-            "frozen_effects": self.frozen_effects,
-        }
-
-    @classmethod
-    def from_dict(cls, d: Dict[str, Any]) -> "Encounter":
-        return cls(
-            encounter_id=d["encounter_id"],
-            started_at_minute=int(d["started_at_minute"]),
-            frozen_effects=list(d.get("frozen_effects", [])),
         )
 
 

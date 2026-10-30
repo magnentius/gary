@@ -1,13 +1,13 @@
 """Performing effects (ARCHITECTURE.md §4, §10).
 
 The core returns ``Effect`` objects and performs nothing. This is where they become real:
-messages sent, model called, drops counted.
+messages sent, model called, outcomes journalled.
 
 Two properties worth stating outright, because both are failure modes that only appear
 mid-session:
 
 * **Depth is bounded.** Narrating can produce more effects — the model calls
-  ``open_check``, which posts a command. Without a bound, a model that keeps opening
+  ``open_check``, which asks a player to roll. Without a bound, a model that keeps opening
   checks in response to its own output loops until the quota runs out. The bound is
   small and exceeding it is logged loudly, because it means the model is misbehaving.
 * **A narrator failure never silences the channel.** If the model errors or returns
@@ -17,21 +17,10 @@ mid-session:
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
-from typing import Any, Dict, List, Optional, Sequence
+from dataclasses import dataclass
+from typing import Sequence
 
-from ..fsm import (
-    AskPlayer,
-    BeginEncounter,
-    Effect,
-    EndEncounter,
-    LogDrop,
-    MirrorCombat,
-    MirrorSheet,
-    PromptModel,
-    RecordOutcome,
-    SendMessage,
-)
+from ..fsm import Effect, PromptModel, RecordOutcome, SendMessage
 from ..ports import Narrator, NarrationResult
 
 log = logging.getLogger("gary.runner")
@@ -41,22 +30,13 @@ STALL_MESSAGE = "*(The DM pauses, gathering the thread...)*"
 
 @dataclass
 class RunnerStats:
-    """Counters worth watching.
-
-    ``drops_by_status`` is the leading indicator from §10: a rising ``unknown`` rate is
-    how an Avrae format change announces itself, well before anyone reports a bug.
-    """
+    """Counters worth watching."""
 
     sent: int = 0
     narrated: int = 0
     narrator_failures: int = 0
     outcomes_recorded: int = 0
-    sheets_mirrored: int = 0
     depth_exceeded: int = 0
-    drops_by_status: Dict[str, int] = field(default_factory=dict)
-
-    def drop(self, status: str) -> None:
-        self.drops_by_status[status] = self.drops_by_status.get(status, 0) + 1
 
 
 class EffectRunner:
@@ -91,37 +71,9 @@ class EffectRunner:
             await self._run_one(effect, depth)
 
     async def _run_one(self, effect: Effect, depth: int) -> None:
-        if isinstance(effect, (SendMessage, AskPlayer)):
+        if isinstance(effect, SendMessage):
             await self._sender.send(effect.channel_id, effect.text)
             self.stats.sent += 1
-            return
-
-        if isinstance(effect, BeginEncounter):
-            # §3.1: the wall clock stops and Avrae owns durations from here.
-            if self._store is not None and not self._store.encounter_active:
-                self._store.begin_encounter()
-                log.info("encounter begun in %d; world clock frozen", effect.channel_id)
-            return
-
-        if isinstance(effect, EndEncounter):
-            if self._store is not None and self._store.encounter_active:
-                # Effects Avrae no longer shows are dropped; Avrae wins (§3).
-                result = self._store.end_encounter(effect.rounds, surviving_effect_ids=[])
-                log.info(
-                    "encounter ended in %d after %d round(s); clock advanced to %s",
-                    effect.channel_id, effect.rounds, result.get("world_minutes"),
-                )
-            return
-
-        if isinstance(effect, MirrorCombat):
-            if self._store is not None:
-                self._store.mirror_combat(effect.combatants, effect.round_number)
-            return
-
-        if isinstance(effect, MirrorSheet):
-            if self._store is not None:
-                self._store.mirror_sheet(effect.actor, effect.descriptor, effect.level)
-            self.stats.sheets_mirrored += 1
             return
 
         if isinstance(effect, RecordOutcome):
@@ -130,16 +82,6 @@ class EffectRunner:
             else:
                 log.warning("no store wired; check outcome not journalled")
             self.stats.outcomes_recorded += 1
-            return
-
-        if isinstance(effect, LogDrop):
-            self.stats.drop(effect.status)
-            log.info(
-                "dropped avrae message in %d (status=%s): %s",
-                effect.channel_id,
-                effect.status,
-                effect.reason,
-            )
             return
 
         if isinstance(effect, PromptModel):
@@ -195,9 +137,9 @@ class EffectRunner:
 
         self.stats.narrated += 1
 
-        # A command the player must run is a stage direction: it goes before the prose it
-        # belongs to. Observed 2026-08-21 — the model narrated a whole night's rest and
-        # the following morning, and only then said "Everyone run: !game longrest".
+        # A request to roll is a stage direction: it goes before the prose it belongs to.
+        # Observed 2026-08-21 — the model narrated a whole night's rest and the following
+        # morning, and only then posted what the table had to do about it.
         #
         # Only SendMessage is hoisted. The rest keep their place, because effects may
         # include a PromptModel (an open_check rejection returns one) and running that

@@ -1,13 +1,12 @@
 """The Discord adapter (ARCHITECTURE.md §1, §6.3, §11).
 
 Everything that touches discord.py lives here, and it is deliberately thin: routing,
-parsing, correlation, and resolution all happen in the core, which this module feeds and
-then obeys.
+rolling and resolution all happen in the core, which this module feeds and then obeys.
 
 **Message Content is a privileged intent.** It must be enabled in the Discord Developer
 Portal *and* set in code. Enabling only one of the two produces the same silent failure —
-``message.embeds`` arrives empty, the parser sees nothing, and Gary looks alive while
-resolving no rolls. ``GaryClient.on_ready`` checks for this and complains loudly.
+``message.content`` arrives empty, every player says nothing, and Gary looks alive while
+answering no one. ``GaryClient.on_ready`` checks for this and complains loudly.
 
 Run it:
 
@@ -22,7 +21,7 @@ import asyncio
 import logging
 import signal
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import discord
 
@@ -30,7 +29,6 @@ from ..config import Settings
 from ..context import chunk_document, parse_proposal
 from ..fsm import Director, PromptModel
 from ..models import CancelReason, Mutation, MutationKind
-from ..parser.avrae import ParseStatus, parse_embed
 from ..ports import EchoNarrator, Narrator
 from ..registry import PendingCheckRegistry
 from ..state.backend import FileCheckBackend, FileStateBackend
@@ -43,36 +41,6 @@ from .runner import EffectRunner
 from .sender import ChannelSender
 
 log = logging.getLogger("gary.discord")
-
-
-def message_to_dict(message: "discord.Message") -> Dict[str, Any]:
-    """The subset of Discord's payload the parser consumes.
-
-    Converting at the boundary keeps ``parser/avrae.py`` free of discord.py, so it stays
-    testable against captured JSON fixtures.
-    """
-    out: Dict[str, Any] = {
-        "id": str(message.id),
-        "content": message.content,
-        "embeds": [e.to_dict() for e in message.embeds],
-    }
-
-    # discord.py renamed this; support both so a library bump does not silently drop the
-    # strongest correlation signal we have (§6.2).
-    interaction = getattr(message, "interaction_metadata", None) or getattr(
-        message, "interaction", None
-    )
-    user = getattr(interaction, "user", None)
-    if user is not None:
-        out["interaction"] = {"user": {"id": str(user.id)}}
-
-    ref = message.reference
-    resolved = getattr(ref, "resolved", None) if ref is not None else None
-    author = getattr(resolved, "author", None)
-    if author is not None:
-        out["referenced_message"] = {"author": {"id": str(author.id)}}
-
-    return out
 
 
 class DiscordTransport:
@@ -105,7 +73,7 @@ __Opening a campaign__
 `{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
 
 __At the table__
-`{p}playing <character name>` — claim a character (or just run `!sheet` once)
+`{p}playing <character name>` — claim a character
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
 `{p}undo` — reverse the last change to the world
@@ -113,7 +81,7 @@ __At the table__
 __Looking in__
 `{p}state` — clock, scene, party, and what is stored
 `{p}notes` — what has been filed, by subject
-`{p}stats` — messages sent, turns narrated, parse failures
+`{p}stats` — messages sent, turns narrated, model failures
 `{p}help` — this list. So does `{bare}` on its own
 
 __Starting over__
@@ -155,7 +123,6 @@ class GaryClient(discord.Client):
         # turn in history, so without this the model reads its own last suggestion and
         # rewords it: asking twice produced the same vault twice.
         self._declined_proposals: Dict[Tuple[int, str], List[str]] = {}
-        self._sheet_asked_by: Dict[int, tuple] = {}
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
@@ -175,9 +142,8 @@ class GaryClient(discord.Client):
     async def on_ready(self) -> None:
         log.info("connected as %s (%s)", self.user, getattr(self.user, "id", "?"))
         log.info(
-            "watching %d channel(s); avrae=%d; %d pending check(s) restored",
+            "watching %d channel(s); %d pending check(s) restored",
             len(self.settings.game_channels),
-            self.settings.avrae_bot_id,
             len(list(self.director.registry.open_checks())),
         )
         persisted = {
@@ -194,15 +160,14 @@ class GaryClient(discord.Client):
             )
         else:
             log.warning(
-                "GARY_PLAYERS is not set. The model is told only Discord display names, so "
-                "open_check will name an actor Avrae does not know and the roll will not "
-                "correlate -- the check lapses on TTL and is narrated as hesitation."
+                "GARY_PLAYERS is not set. Until players run ?dm playing, the model is told "
+                "only Discord display names, and a check goes to whoever spoke."
             )
 
         if not self.intents.message_content:
             log.error(
-                "MESSAGE CONTENT INTENT IS OFF. Embeds will arrive empty and no roll "
-                "will ever resolve. Enable it in the Discord Developer Portal."
+                "MESSAGE CONTENT INTENT IS OFF. Player messages will arrive empty and "
+                "Gary will answer nobody. Enable it in the Discord Developer Portal."
             )
 
     async def close(self) -> None:
@@ -242,56 +207,6 @@ class GaryClient(discord.Client):
                 log.exception("sweep failed; continuing")
 
     # -- ingest ------------------------------------------------------------------------
-
-    async def on_message_edit(
-        self, before: "discord.Message", after: "discord.Message"
-    ) -> None:
-        """Avrae EDITS the initiative tracker rather than reposting it.
-
-        `!init next` fires no on_message at all, so a bot without this sees the tracker
-        once — when combat starts — and never again. Gary's mirror stayed empty for a
-        whole fight because of it, and the model could not tell whose turn it was.
-
-        scripts/capture_avrae_fixtures.py had this from the start and says so in a
-        comment; the bot never got the same handler, which is why every captured
-        initiative fixture carries `trigger: edit`.
-
-        Only Avrae's edits are forwarded. Re-running every edit would mean a player
-        fixing a typo costs another model call and another narration, and an edited roll
-        embed would re-enter the resolution path.
-        """
-        if after.author.id != self.settings.avrae_bot_id:
-            return
-        await self.on_message(after)
-
-    async def on_raw_message_edit(self, payload) -> None:
-        """Edits to messages the bot never saw posted.
-
-        ``on_message_edit`` only fires for messages in discord.py's own cache — those seen
-        since this process connected. The initiative tracker is pinned and long-lived, so
-        after any restart mid-combat it is not cached, and every `!init next` edits it
-        silently. That is not an edge case here: Gary was restarted repeatedly during one
-        fight and the combat mirror stayed empty the whole time.
-
-        Fetching costs an API call per edit, which is a handful per turn.
-        """
-        if payload.cached_message is not None:
-            return  # on_message_edit already handled it
-        channel = self.get_channel(payload.channel_id)
-        if channel is None:
-            return
-        try:
-            message = await channel.fetch_message(payload.message_id)
-        except discord.HTTPException:
-            log.warning("could not fetch edited message %s", payload.message_id)
-            return
-        if message.author.id != self.settings.avrae_bot_id:
-            return
-        await self.on_message(message)
-
-    #: How long a `!sheet` request stays claimable, in seconds. Avrae answers in well
-    #: under a second; anything older is a different request.
-    SHEET_CLAIM_SECONDS = 30.0
 
     #: How many rejected suggestions are named back to the model. Enough for a few
     #: re-rolls to keep moving; bounded because every one of them rides in the prompt.
@@ -508,32 +423,18 @@ class GaryClient(discord.Client):
             await self._propose(channel_id, "setting")
 
     async def on_message(self, message: "discord.Message") -> None:
-        # `!sheet` carries no interaction metadata — it is a prefix command — so the sheet
-        # embed that follows cannot say who asked for it. Remember the asker, and claim
-        # the next sheet for them. This is what lets `!sheet` register a player outright:
-        # character name and level from the embed, Discord user from here.
-        if (message.content or "").strip().lower().startswith("!sheet"):
-            self._sheet_asked_by[message.channel.id] = (
-                message.author.id,
-                message.author.display_name,
-                self.clock(),
-            )
-
         route = route_message(
             author_id=message.author.id,
             author_is_bot=message.author.bot,
             channel_id=message.channel.id,
             content=message.content or "",
             bot_user_id=getattr(self.user, "id", None),
-            avrae_bot_id=self.settings.avrae_bot_id,
             game_channels=self.settings.game_channels,
             command_prefix=self.settings.command_prefix,
         )
 
         try:
-            if route is Route.AVRAE:
-                await self._on_avrae(message)
-            elif route is Route.PLAYER:
+            if route is Route.PLAYER:
                 await self._on_player(message)
             elif route is Route.DM_COMMAND:
                 await self._on_dm_command(message)
@@ -551,47 +452,6 @@ class GaryClient(discord.Client):
             # IGNORE_SELF / IGNORE_BOT: nothing to do, and nothing worth saying.
         except Exception:  # noqa: BLE001 - one bad message must not kill the bot
             log.exception("handling %s message %s failed", route.value, message.id)
-
-    async def _on_avrae(self, message: "discord.Message") -> None:
-        parsed = parse_embed(message_to_dict(message))
-        if parsed.status is ParseStatus.UNKNOWN:
-            log.warning("unparsed avrae embed %s: %s", message.id, parsed.reason)
-        if parsed.status is ParseStatus.SHEET and parsed.sheet is not None:
-            await self._claim_sheet(message.channel.id, parsed.sheet.actor)
-        effects = self.director.on_avrae_message(
-            channel_id=message.channel.id, parsed=parsed
-        )
-        await self.runner.run(effects)
-
-    async def _claim_sheet(self, channel_id: int, actor: str) -> None:
-        """Register whoever just ran `!sheet` as playing the character it reported.
-
-        The embed names the character but not the person: `!sheet` is a prefix command and
-        carries no interaction metadata, so this is the only way to connect the two
-        without asking. It makes `!sheet` the whole of setup -- name, level, and who is
-        playing it -- from a command everyone runs anyway.
-
-        Claims lapse after SHEET_CLAIM_SECONDS. Two people running `!sheet` in the same
-        instant could be swapped; re-running fixes it, and `?dm playing` overrides.
-        """
-        claim = self._sheet_asked_by.pop(channel_id, None)
-        if claim is None:
-            return
-        user_id, display_name, asked_at = claim
-        if self.clock() - asked_at > self.SHEET_CLAIM_SECONDS:
-            return
-        if self.director.players.get(user_id) == actor:
-            return  # already registered; nothing to journal
-
-        self.store.apply(
-            [Mutation(MutationKind.PLAYER_CHARACTER, str(user_id), {"actor": actor})],
-            reason=f"{display_name} plays {actor} (from !sheet)",
-        )
-        self.director.set_player_character(user_id, actor)
-        log.info("registered %s as playing %s from !sheet", display_name, actor)
-        await self.sender.send(
-            channel_id, f"Noted — **{display_name}** is playing **{actor}**."
-        )
 
     def _addressed_directly(self, message: "discord.Message") -> bool:
         """Was Gary mentioned -- as the user, or as his own managed role?
@@ -822,8 +682,7 @@ class GaryClient(discord.Client):
             if not actor:
                 await self.sender.send(
                     channel_id,
-                    f"`{self.settings.command_prefix}playing <character name>` — the name "
-                    "exactly as Avrae shows it.",
+                    f"`{self.settings.command_prefix}playing <character name>`.",
                 )
                 return
             if self.director.players.get(message.author.id) != actor:
@@ -869,7 +728,7 @@ class GaryClient(discord.Client):
             else:
                 now = self.clock()
                 lines = [
-                    f"- **{c.actor}** {c.kind.value} {c.key} — `{c.command}` "
+                    f"- **{c.actor}** {c.kind.value} {c.key} — {c.dice} "
                     f"({max(0, int(c.expires_at - now))}s left)"
                     for c in open_checks
                 ]
@@ -922,7 +781,7 @@ class GaryClient(discord.Client):
                 channel_id,
                 f"sent={s.sent} narrated={s.narrated} "
                 f"narrator_failures={s.narrator_failures} "
-                f"drops={s.drops_by_status or '{}'}",
+                f"outcomes_recorded={s.outcomes_recorded}",
             )
 
         elif command == "help":
@@ -945,7 +804,7 @@ def build_client(
     """Assemble the object graph from configuration.
 
     Pending checks are restored here, before the Gateway connects, so a restart between
-    "run this command" and the player rolling still resolves against the committed DC.
+    "roll for it" and the player rolling still resolves against the committed DC.
     """
     if settings.backend == "firestore":
         from google.cloud import firestore  # imported lazily: optional dependency
@@ -993,8 +852,6 @@ def build_client(
         game_channels=set(settings.game_channels),
         freeform_channels=set(settings.freeform_channels),
         players=dict(settings.players),
-        encounter_active=lambda: store.encounter_active,
-        npc_disposition=lambda name: _disposition_of(store, name),
     )
 
     if narrator is None:
@@ -1004,27 +861,6 @@ def build_client(
         settings, director, store, narrator=narrator, clock=clock, lock=lock,
         history_backend=history_backend,
     )
-
-
-def _disposition_of(store: CampaignStore, name: str) -> int:
-    """Disposition for a creature by NPC id or by name, 0 if it is nobody in particular.
-
-    NPCs are keyed by whatever slug the model chose, carrying the display name in a field,
-    so both are matched. A generic `Goblin` off a tracker is not an NPC and lands on 0 --
-    which is the honest answer: an anonymous creature has no loyalty either way, and 0 is
-    exactly the conviction a mercenary has (§5.4).
-    """
-    wanted = str(name or "").strip().lower()
-    if not wanted:
-        return 0
-    for npc_id, record in (store.state().get("npcs") or {}).items():
-        record = record or {}
-        if wanted in (str(npc_id).lower(), str(record.get("name") or "").strip().lower()):
-            try:
-                return int(record.get("disposition", 0))
-            except (TypeError, ValueError):
-                return 0
-    return 0
 
 
 def build_narrator(settings: Settings, director, store, history_backend) -> Narrator:
@@ -1057,7 +893,6 @@ def build_narrator(settings: Settings, director, store, history_backend) -> Narr
         window=settings.history_window,
         timeout_seconds=settings.gemini_timeout_seconds,
         fallback_model=settings.gemini_fallback_model,
-        coins_command=settings.coins_command,
     )
 
 

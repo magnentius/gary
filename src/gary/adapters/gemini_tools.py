@@ -21,21 +21,11 @@ from google.genai import types
 
 OPEN_CHECK = "open_check"
 ADVANCE_TIME = "advance_time"
-# ADJUST_GOLD removed 2026-08-21: Avrae owns coin now (§3). Kept out of the tool
-# surface entirely rather than left as a no-op, so the model cannot believe it paid.
 GIVE_ITEMS = "give_items"
 TAKE_ITEMS = "take_items"
 RECORD_NOTE = "record_note"
 SET_SCENE = "set_scene"
 UPSERT_NPC = "upsert_npc"
-REQUEST_PAYMENT = "request_payment"
-REQUEST_REST = "request_rest"
-WEIGH_ENCOUNTER = "weigh_encounter"
-START_COMBAT = "start_combat"
-ATTACK = "attack"
-ENEMY_ATTACK = "enemy_attack"
-APPLY_EFFECT = "apply_effect"
-REMOVE_EFFECT = "remove_effect"
 
 
 def _s(**kw) -> types.Schema:
@@ -61,13 +51,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         parameters=_s(
             type=_OBJECT,
             properties={
-                "actor": _s(type=_STRING, description="Character name exactly as it appears in Avrae."),
+                "actor": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
                 "kind": _s(type=_STRING, enum=["check", "save"]),
                 "key": _s(
                     type=_STRING,
                     description=(
-                        "Skill (e.g. 'sleight of hand', 'stealth'), ability for a save "
-                        "(e.g. 'dexterity'), or attack name (e.g. 'Longsword')."
+                        "Skill (e.g. 'sleight of hand', 'stealth'), or ability for a save "
+                        "(e.g. 'dexterity')."
                     ),
                 ),
                 "dc": _s(type=_INTEGER, description="Difficulty class. 10 easy, 15 moderate, 20 hard."),
@@ -87,10 +77,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=ADVANCE_TIME,
         description=(
-            "Advance the world clock and expire finished effects. Short rest is 60, long "
-            "rest is 480 — both fixed by the rules, so use exactly those. Searching a room "
-            "is about 10, a conversation about 5, crossing a town about 30. Refused during "
-            "combat: Avrae owns duration while initiative runs."
+            "Advance the world clock and expire finished effects. A night's rest is 480, "
+            "and is advanced once for the whole party. Searching a room is about 10, a "
+            "conversation about 5, crossing a town about 30."
         ),
         parameters=_s(
             type=_OBJECT,
@@ -103,10 +92,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     ),
     types.FunctionDeclaration(
         name=GIVE_ITEMS,
-        description=(
-            "Record items gained. Gary cannot write to D&D Beyond, so also tell the "
-            "player in your narration to add them to their sheet."
-        ),
+        description="Record items a character gains — found, bought, given, or looted.",
         parameters=_s(
             type=_OBJECT,
             properties={
@@ -147,186 +133,6 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "body": _s(type=_STRING),
             },
             required=["kind", "subject", "body"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=REMOVE_EFFECT,
-        description=(
-            "Take a condition off a combatant — the poison wears off, the grapple is "
-            "broken, they stand up. A condition Avrae is tracking stays until removed, so "
-            "one you narrate ending and do not remove is still on them mechanically. "
-            "Name the effect; omitting it removes EVERY effect on that combatant, which "
-            "also clears anything the DM applied deliberately, so only do that when you "
-            "mean it."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "target": _s(type=_STRING, description="Tracker name, e.g. 'GU1'."),
-                "effect": _s(type=_STRING, description="The condition to remove. Omit to remove all."),
-            },
-            required=["target"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=APPLY_EFFECT,
-        description=(
-            "Put a condition on a combatant — poisoned, restrained, frightened, prone. "
-            "Avrae tracks a condition faithfully once told and never infers one, so if "
-            "you do not apply it, it does not exist mechanically and nobody at the table "
-            "can see it. Use the standard condition names where one fits; a short label "
-            "is fine for something narrative. Duration is in rounds; omit it for "
-            "something that lasts until removed. You cannot pass mechanical arguments "
-            "here, deliberately — nothing that changes AC, hit points, damage or attacks."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "target": _s(type=_STRING, description="Tracker name, e.g. 'GU1'."),
-                "effect": _s(type=_STRING, description="Condition or short label, e.g. 'Poisoned'."),
-                "rounds": _s(type=_INTEGER, description="Duration in rounds. Omit for indefinite."),
-            },
-            required=["target", "effect"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=ENEMY_ATTACK,
-        description=(
-            "A monster takes its turn. Call this when initiative reaches a creature you "
-            "control — they do not act on their own, and nothing else in the fight will "
-            "make them. Narrate what the creature does, then call this; the command is "
-            "posted for the DM to run, and it attacks as whoever's turn it currently is, "
-            "so only call it on that creature's turn. Use `!init attack list` in the "
-            "channel if you do not know a creature's attacks. You are told nothing until "
-            "Avrae reports, and you do not decide whether it hit."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "attacker": _s(type=_STRING, description="Tracker name whose turn it is, e.g. 'GU2'."),
-                "attack": _s(type=_STRING, description="The creature's attack, e.g. 'Spear'."),
-                "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'Caspian Varr'."),
-                "ranged": _s(
-                    type=types.Type.BOOLEAN,
-                    description="True for a bow, thrown weapon or ranged spell. "
-                                "Nothing tracks positions, so only you know.",
-                ),
-            },
-            required=["attacker", "attack", "target"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=ATTACK,
-        description=(
-            "Someone attacks in combat. This is NOT a check: Avrae owns the target's AC "
-            "and hit points, so it rolls, compares and applies damage itself — you commit "
-            "no DC and decide no outcome. Posts the command for the player to run on "
-            "their turn; you are told nothing until Avrae reports. Target by the name in "
-            "the initiative tracker ('NO1', 'GU1'), not the character's fictional name."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "actor": _s(type=_STRING, description="Who is attacking, as Avrae names them."),
-                "weapon": _s(type=_STRING, description="Weapon or attack name, e.g. 'Longsword'."),
-                "target": _s(type=_STRING, description="Tracker name of the target, e.g. 'NO1'."),
-                "ranged": _s(
-                    type=types.Type.BOOLEAN,
-                    description="True for a bow, thrown weapon or ranged spell. "
-                                "Nothing tracks positions, so only you know.",
-                ),
-            },
-            required=["actor", "weapon", "target"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=START_COMBAT,
-        description=(
-            "Begin initiative. Call this the moment a fight starts — before anyone swings "
-            "— and never render an attack outside initiative: Avrae tracks turn order, "
-            "hit points and durations only once combat has begun, so a fight started "
-            "without it has no rounds and the enemies never act. Posts the commands the "
-            "table runs. Weigh the line-up with weigh_encounter first."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "monsters": _s(
-                    type=types.Type.ARRAY,
-                    description="Creatures to add, duplicates listed separately. SRD names are looked up.",
-                    items=_s(type=_STRING),
-                ),
-            },
-            required=["monsters"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=WEIGH_ENCOUNTER,
-        description=(
-            "Weigh a planned line-up against the Lazy Encounter Benchmark before you "
-            "commit to it. Name every creature, listing duplicates separately. CRs are "
-            "looked up in the SRD, so give the name exactly and do not worry about the "
-            "number — pass a cr only for something homebrew that is not in the SRD, and "
-            "the reply will tell you which names it did not recognise. Use it whenever "
-            "more than one creature faces the party, or anything you suspect is large. "
-            "Deadly is allowed; it is a gauge, not a veto."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "monsters": _s(
-                    type=types.Type.ARRAY,
-                    description="Every creature in the encounter, with duplicates listed separately.",
-                    items=_s(
-                        type=_OBJECT,
-                        properties={
-                            "name": _s(type=_STRING),
-                            "cr": _s(
-                                type=types.Type.NUMBER,
-                                description="Only for homebrew. SRD creatures are looked up.",
-                            ),
-                        },
-                        required=["name"],
-                    ),
-                ),
-            },
-            required=["monsters"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=REQUEST_REST,
-        description=(
-            "The party rests. Call this ONCE for the whole party, however many characters "
-            "are resting — it moves the world clock (short 60 minutes, long 480) and posts "
-            "the Avrae command each player runs on their own sheet. Calling it per "
-            "character would advance the clock several times for one night. Refused during "
-            "combat. If a rest is interrupted, do not call this: narrate the interruption "
-            "and use advance_time for however long actually passed."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={"kind": _s(type=_STRING, enum=["short", "long"])},
-            required=["kind"],
-        ),
-    ),
-    types.FunctionDeclaration(
-        name=REQUEST_PAYMENT,
-        description=(
-            "Ask a player to pay or receive coin. You do not hold coin and cannot move it "
-            "— this posts a command the player runs on their own sheet, and their purse "
-            "refuses an overspend by itself. ALWAYS sign every term: '-2cp' spends two "
-            "copper, '+5gp' grants five gold, '-1gp -5sp' spends a gold and five silver. "
-            "A bare number is gold and may have decimals ('-2', '+102.13'). Never state "
-            "what someone can afford; you cannot see their purse."
-        ),
-        parameters=_s(
-            type=_OBJECT,
-            properties={
-                "actor": _s(type=_STRING, description="Character name as it appears in Avrae."),
-                "amount": _s(type=_STRING, description="Signed single denomination, e.g. '-2cp'."),
-                "reason": _s(type=_STRING, description="What it is for, shown at the table."),
-            },
-            required=["actor", "amount"],
         ),
     ),
     types.FunctionDeclaration(

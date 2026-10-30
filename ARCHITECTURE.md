@@ -3,6 +3,30 @@
 **System architecture & technical specification, v2**
 Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (persistence), orchestrated over Discord.
 
+> **On the `dungeon-world` branch, Avrae is gone and much of this document describes code
+> that no longer exists.** Gary is moving to Dungeon World, and owns its own dice. What
+> changed:
+>
+> - **Gary rolls.** A `Dice` port (`ports.py`: `RandomDice` in production, `ScriptedDice` in
+>   tests) is the only source of randomness. The player whose check it is asks Gary to roll
+>   (`Director.roll`, keyed by Discord user id); Gary posts the dice face by face and
+>   resolves against the DC committed beforehand. The Discord **Roll** button that calls it
+>   is not built yet.
+> - **No parsing, no correlation.** `parser/avrae.py`, `templates.py`, the captured fixtures
+>   and their scripts, and `registry.match` are deleted. `registry.for_player` replaces
+>   name matching, which closes §14 (6) and (7).
+> - **No Avrae authority.** The §3 rows Avrae owned, the §3.1 initiative handoff, the
+>   `!sheet` mirror, monster turns, death saves, attack refusals, coin and rest commands are
+>   gone, as are `morale.py`, `encounters.py` and the SRD data. Old journals' `encounter_*`
+>   entries replay as no-ops.
+> - **Tools.** The model keeps `open_check`, `advance_time`, `give_items`, `take_items`,
+>   `record_note`, `upsert_npc` and `set_scene`.
+>
+> Still accurate: §5's commit-before-the-dice protocol and §5.2 resolution, §7's store,
+> journal and backends, §8 context assembly, §9.1 prompt injection, §10 reliability, §11
+> deployment, §12.4 the deferred function call. Sections 1, 3, 4 (Mode B), 6, 13 and most
+> of 14 describe the Avrae design and will be rewritten with the Dungeon World design.
+
 ---
 
 ## 0. What changed from v1, and why

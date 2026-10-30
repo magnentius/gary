@@ -2,8 +2,13 @@
 
 <img src="images/gary.jpg" alt="Gary" width="600">
 
-An AI Game Master for D&D 2024 over Discord. Gemini writes the narrative, Avrae rolls the
-dice and enforces the maths, and a local state server owns the persistent world.
+An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice and
+enforces the maths, and a local state server owns the persistent world.
+
+> **This branch (`dungeon-world`) is mid-migration.** Avrae and the D&D 5e rules support
+> are gone, and Gary now rolls its own dice. Dungeon World moves, character sheets and the
+> **Roll** button players click are not built yet — until the button lands, a check Gary
+> asks for cannot be rolled, and it expires after `GARY_CHECK_TTL`. Use `main` to play.
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
@@ -31,7 +36,6 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 | | |
 |---|---|
 | **A Discord bot token** | With the **Message Content privileged intent enabled** in the Developer Portal. |
-| **Avrae in the same server** | Gary reads Avrae's embeds; it does not roll dice itself. |
 | **A channel id** | Right-click the channel → Copy Channel ID (needs Developer Mode on). |
 | **Python 3.11+** | `pyproject.toml` requires it. Developed on 3.12. |
 | **A Gemini API key** | Optional at first. Without one Gary runs on `EchoNarrator` and spends nothing. |
@@ -48,7 +52,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 git clone <this repo> && cd gary
 python -m venv .venv
 .venv/bin/pip install -e '.[discord,llm,dev]'
-.venv/bin/python -m pytest -q          # 576 passed
+.venv/bin/python -m pytest -q          # 413 passed
 ```
 
 The editable install needs **Python 3.11+** and a pip new enough for PEP 660. On an older
@@ -64,9 +68,8 @@ that happens, but rebuilding is the fix — a venv is disposable.
 
 ### Run it in Docker
 
-A published image saves the venv entirely. It pins Python 3.12 and carries the adapters
-and the SRD data, so the only thing you supply is config and somewhere to keep the
-campaign.
+A published image saves the venv entirely. It pins Python 3.12 and carries the adapters,
+so the only thing you supply is config and somewhere to keep the campaign.
 
 ```bash
 mkdir -p ~/.config/gary && chmod 700 ~/.config/gary
@@ -117,9 +120,9 @@ and on `v*` tags. To build locally instead, uncomment `build: .` in `docker-comp
 
 ### The dry run (no model, no spend)
 
-Prove the whole Discord path — intents, routing, parsing, correlation, resolution,
-sending — against a live Avrae before spending a single token. Leave `GEMINI_API_KEY`
-unset and Gary uses `EchoNarrator`, which reports outcomes in flat text:
+Prove the whole Discord path — intents, routing, state, sending — before spending a
+single token. Leave `GEMINI_API_KEY` unset and Gary uses `EchoNarrator`, which reports
+what it heard in flat text:
 
 ```bash
 export DISCORD_TOKEN='...'
@@ -136,9 +139,8 @@ set -a; . ~/.config/gary/env; set +a
 PYTHONPATH=src .venv/bin/python -m gary.adapters.discord_bot
 ```
 
-In the channel, have someone run `!sheet` and then roll something. If Gary answers with
-`[SUCCESS] Caspian Varr rolled 17 against DC 15.` the plumbing is sound and the only thing
-left is the model.
+In the channel, @-mention Gary. If he answers `[echo] heard <your name>.` the plumbing is
+sound and the only thing left is the model.
 
 ### The real thing
 
@@ -161,8 +163,8 @@ the repo, so deleting a checkout cannot delete a campaign. If Gary finds an old
 ### Optional, but worth knowing early
 
 ```bash
-# Who plays whom. Without this the model can call for a check as "John K" — a name
-# Avrae never says — and the check silently waits out its TTL. ';' between players.
+# Who plays whom. Without this the model only ever hears Discord display names, and a
+# check goes to whoever spoke. ';' between players.
 export GARY_PLAYERS='111111111111111111=Caspian Varr;222222222222222222=Liriel'
 
 # Channels where Gary answers every message instead of only when @-mentioned.
@@ -170,9 +172,8 @@ export GARY_PLAYERS='111111111111111111=Caspian Varr;222222222222222222=Liriel'
 export GARY_FREEFORM_CHANNELS='123456789012345678'
 ```
 
-`GARY_PLAYERS` is usually unnecessary — see [step 6](#6-sit-down-and-play), where `!sheet`
-does the same job by itself — but it is the one that fails *invisibly* if it is wrong, so
-it is worth knowing about.
+`GARY_PLAYERS` is usually unnecessary — see [step 6](#6-sit-down-and-play), where
+`?dm playing` does the same job from the table.
 
 ---
 
@@ -321,22 +322,17 @@ names its own season instead of needing to be looked up. **The clock only moves 
 
 ### Register the players
 
-Have everyone run `!sheet` once. Avrae's reply names the character and its level, and Gary
-registers whoever asked for it — so one command everybody runs anyway is the whole of
-setup. It persists to campaign state and survives restarts.
+Have everyone claim their character once. It persists to campaign state and survives
+restarts.
 
 ```
-!sheet
+?dm playing Caspian Varr
 ```
 
-`?dm playing <character name>` is the explicit override if a claim lands on the wrong
-person. It takes the Discord user id from the message author, so it cannot be
-misattributed.
-
-Why this matters: Avrae's embed says `Caspian Varr makes a Sleight Of Hand check!`, and
-correlation is name-based in practice. A check opened for a Discord *display* name matches
-nothing — it waits out its TTL and is then narrated as hesitation, with no sign anything
-went wrong.
+It takes the Discord user id from the message author, so it cannot be misattributed. Why
+it matters: a check belongs to the player whose character it is, and only that player can
+roll it. Without a claim, the model only knows Discord display names, and a check goes to
+whoever happened to be speaking.
 
 ### Talk to Gary
 
@@ -353,63 +349,28 @@ He answers when:
 @Gary  I want a look at what the wardens are guarding, without them seeing me.
 ```
 
-Gary narrates, decides a check is needed, and posts the Avrae command for you to run:
+Gary narrates, decides a check is needed, and asks you to roll:
 
 ```
-Gary   The reeds are chest-high and the mist is with you, but the nearer warden keeps
+Gary   **Caspian Varr** — roll for stealth (check).
+       The reeds are chest-high and the mist is with you, but the nearer warden keeps
        turning back towards the road…
-       Caspian Varr: !check stealth
 ```
 
-You run it. Avrae rolls. Gary reads the embed, compares against the DC **it persisted
-before you rolled**, and narrates the consequence it committed to in advance:
+You roll. Gary rolls the dice where everyone can see them, compares against the DC **it
+persisted before you rolled**, and narrates the consequence it committed to in advance:
 
 ```
-!check stealth
-Avrae  Caspian Varr makes a Stealth check! 1d20 (17) + 4 = 21
+Gary   🎲 **Caspian Varr** rolls 17.
 Gary   You are past them before the tide sounds again…
 ```
+
+Only you can roll your own check, and only once. *(On this branch the Roll button is not
+built yet, so this step is not reachable from Discord — see the note at the top.)*
 
 If nobody rolls, the check expires after `GARY_CHECK_TTL` (default 180s) and is narrated
 as hesitation or the moment passing — never as a success. `?dm checks` shows what Gary is
 waiting on; `?dm cancel` drops your own.
-
-**In combat** Avrae owns initiative and durations, and the world clock stops. Gary mirrors
-the tracker rather than keeping its own.
-
-### When the enemy has had enough
-
-Avrae fights everything to the death. Gary watches the tracker and works out when a
-creature would rather run — from its SRD creature type, how badly it is hurt, how much of
-its side is down, and whether it is outnumbered:
-
-```
-Gary  **BA1** breaks.
-      _BA1 (Humanoid): pressure 5 vs nerve 3 — bloodied, 1 of its side down,
-       outnumbered 3 to 2_
-      Run it if you agree:
-      `!init remove "BA1"`
-
-      The bandit throws down the shortsword and goes over the dyke wall…
-```
-
-**It is a suggestion, not an action.** Gary cannot run Avrae commands — it never has —
-so nothing happens until you run it. Ignore it and the bandit fights on; that is a
-ruling, not a bug. When the creature that breaks is the last one standing you get
-`!init end` instead, because the fight is over rather than one combatant short.
-
-Undead, constructs, oozes, plants and swarms are never offered — they have nothing to
-frighten. Beasts break soonest. A named NPC's disposition counts as *conviction* rather
-than friendliness: a devoted ally and a creature that hates you both hold longer than the
-mercenary between them.
-
-Morale needs to know what the tracker's `BA1` actually is. Avrae builds that name itself —
-`Bandit` becomes `BA1`, `Bandit Captain` becomes `BC1` — and Gary reproduces the rule to
-match it back against the `!init madd` lines it posted when combat started.
-
-It stays quiet rather than guessing. **A fight you set up by hand gets no morale**, nor
-does a combatant you renamed with `-name`, nor two creatures Avrae would abbreviate the
-same way (`Bandit` and `Basilisk` are both `BA`).
 
 ### When something goes wrong
 
@@ -417,7 +378,7 @@ same way (`Bandit` and `Basilisk` are both `BA`).
 |---|---|
 | Gary says nothing at all | Is the channel in `GARY_GAME_CHANNELS`? Did you @-mention him? Is Message Content enabled? |
 | Gary narrated but no dice | `?dm checks` — the check may already have expired |
-| A roll did nothing | The name Avrae printed is not one Gary knows. `?dm playing <name>` |
+| Your roll did nothing | It may not be your check — `?dm checks` shows whose it is |
 | Gary invented the wrong world | `?dm state` — setting or scene is probably empty |
 | Gary forgot something you filed | `?dm notes` — check it is filed under the subject you actually say |
 | He wrote something you hate | `?dm undo` |
@@ -443,10 +404,10 @@ afterwards to recover from.
 
 | Wiped | Untouched |
 |---|---|
-| Setting, scene, world clock | **Your Avrae characters.** Sheets, HP and inventory are Avrae's; Gary never held them |
-| Party roster, inventories, active effects | Your environment variables and channel config |
-| Quests, NPCs, notes | The `campaign/` directory itself — the journal is truncated and a fresh snapshot written in place |
-| Every channel's conversation history and rolling summary | Any copy of `campaign/` you took first — see step 1 |
+| Setting, scene, world clock | Your environment variables and channel config |
+| Party roster, inventories, active effects | The `campaign/` directory itself — the journal is truncated and a fresh snapshot written in place |
+| Quests, NPCs, notes | Any copy of `campaign/` you took first — see step 1 |
+| Every channel's conversation history and rolling summary | |
 | All pending checks, and any unaccepted suggestion | |
 
 It is not per-channel: one Gary process is one campaign, and reset ends all of it.
@@ -495,7 +456,7 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 21 Sturgeon Moon 1026, 00:00 — so this is the same job as
 [step 5](#5-open-the-campaign), from the top:
 
-1. **Re-register the players.** Everyone runs `!sheet` again, or `?dm playing <name>`.
+1. **Re-register the players.** Everyone runs `?dm playing <name>` again.
    The roster went with everything else. *(If `GARY_PLAYERS` is set, restarting Gary
    restores it instead — that is the one piece of setup an env var can hand back.)*
 2. **`?dm import`** the new setting document, and `?dm accept` the premise Gary proposes
@@ -510,7 +471,7 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 
 `?dm help` prints this in the channel. So does `?dm` on its own, and any command Gary does
 not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not start with
-`!`, which is Avrae's.
+`!`, which most other bots claim.
 
 ### Opening a campaign
 
@@ -531,7 +492,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 
 | Command | What it does |
 |---|---|
-| `?dm playing <character name>` | Claim a character, spelled exactly as Avrae spells it. Usually unnecessary — `!sheet` does it. |
+| `?dm playing <character name>` | Claim a character. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
 | `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |
 | `?dm undo` | Reverse the last change to the world. |
@@ -542,7 +503,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 |---|---|
 | `?dm state` | Clock, scene, party, and counts of what is stored. |
 | `?dm notes` | What has been filed, by subject, plus the people. These are the words that retrieve them. |
-| `?dm stats` | Messages sent, turns narrated, narrator failures, Avrae parse drops. A rising `unknown` drop rate is how an Avrae format change announces itself. |
+| `?dm stats` | Messages sent, turns narrated, narrator failures, outcomes recorded. |
 | `?dm help` | This reference. |
 
 ### Starting over
@@ -570,10 +531,8 @@ required.
 | Variable | Default | Notes |
 |---|---|---|
 | `GARY_FREEFORM_CHANNELS` | *(none)* | Channels where Gary answers without being @-mentioned. Must be a subset of `GARY_GAME_CHANNELS`. |
-| `GARY_PLAYERS` | *(none)* | `<discord id>=<Avrae character>`, `;` between entries. Unset skips actor validation. |
-| `GARY_COMMAND_PREFIX` | `?dm ` | May not start with `!` — that collides with Avrae. |
-| `GARY_AVRAE_BOT_ID` | `261302296103747584` | Avrae's application id. |
-| `GARY_COINS_COMMAND` | `game coins` | Override only to use a workshop alias; the native command needs nothing installed. |
+| `GARY_PLAYERS` | *(none)* | `<discord id>=<character name>`, `;` between entries. Unset skips actor validation. |
+| `GARY_COMMAND_PREFIX` | `?dm ` | May not start with `!` — most other bots claim it. |
 
 ### Storage
 
@@ -621,8 +580,8 @@ The short version, with the sections that carry the argument:
 - **Trust rides on the transport, not on strings.** Roll results arrive as structured
   tool results; player text and imported documents are sanitised, fenced and labelled as
   data. §9.1
-- **Only `AWAITING_ROLL` consumes Avrae output**, which is what stops `!help` and other
-  players' rolls from each costing a model call. §4, §6.3
+- **Only the player a check belongs to can roll it, and only once.** Gary rolls the dice
+  itself, so there is no roll to parse and no name to match.
 - **A proposal decides nothing.** `?dm scene` and the post-import premise run the model
   while it holds every state-mutating tool, so nothing they produce is written until you
   accept it. §8.1.1
@@ -631,5 +590,6 @@ The short version, with the sections that carry the argument:
 - **Nothing important lives on the box.** State sits behind storage protocols with
   in-memory, file and Firestore implementations. §7.4, §11.1
 
-The source map is §12.7, re-capturing Avrae fixtures is §6.5, and the open risks —
-including the Firestore document ceiling and Avrae version drift — are §14.
+The source map is §12.7 and the open risks — including the Firestore document ceiling —
+are §14. ARCHITECTURE.md still describes the Avrae design in most sections; see the note
+at its top.

@@ -74,23 +74,29 @@ def test_live_state_renders_the_clock_and_party():
     rendered = render_live_state(state)
     assert "1 Wolf Moon 1000, 08:30" in rendered
     assert "Kethra: carrying rope, torch" in rendered
-    assert "gp" not in rendered  # Avrae owns coin (§3); a stale number here would mislead
+    assert "gp" not in rendered  # nothing tracks coin yet; a made-up number would mislead
     assert "rope" in rendered
     assert "The Drowned Rat" in rendered
     assert t  # silence linters
 
 
-def test_combat_suppresses_effect_list_and_announces_avrae_authority():
+def test_active_effects_are_listed():
     state = empty_state()
-    state["encounter"] = {"encounter_id": "E1", "started_at_minute": 0, "frozen_effects": []}
     state["effects"] = [
         {"actor": "Kethra", "name": "Bless", "expires_at_minute": 10, "effect_id": "x"}
     ]
+    assert "Kethra: Bless (until minute 10)" in render_live_state(state)
+
+
+def test_a_snapshot_from_the_avrae_era_renders_without_its_combat_mirror():
+    """Old snapshots still hold `encounter` and `combat`. Nothing reads them now, and a
+    stale tracker headed "authoritative" would be worse than none."""
+    state = empty_state()
+    state["encounter"] = {"encounter_id": "E1", "started_at_minute": 0, "frozen_effects": []}
+    state["combat"] = {"round": 2, "combatants": [{"name": "GU1", "current_turn": True}]}
     rendered = render_live_state(state)
-    assert "COMBAT ACTIVE" in rendered
-    assert "Avrae owns" in rendered
-    # Effects are not listed during combat -- Avrae is showing them in the tracker.
-    assert "Bless" not in rendered
+    assert "COMBAT" not in rendered
+    assert "GU1" not in rendered
 
 
 def test_completed_quests_are_not_rendered():
@@ -168,7 +174,7 @@ def test_authority_rules_are_actually_in_the_persona():
     lowered = DM_SYSTEM_INSTRUCTION.lower()
     assert "do not decide whether a roll succeeded" in lowered
     assert "open_check" in lowered
-    assert "never write an avrae command" in lowered
+    assert "never roll or invent a number yourself" in lowered
 
 
 def test_notes_are_filtered_to_present_subjects():
@@ -211,24 +217,12 @@ def test_persona_specifies_scene_summaries_as_standing_state():
     assert "time of day" in text.lower()
 
 
-def test_persona_disclaims_coin():
-    """§3 moved coin to Avrae. A model that thinks it can charge people will assert
-    payments that never happened and balances it cannot see."""
-    text = DM_SYSTEM_INSTRUCTION
-    assert "You do NOT hold coin" in text
-    assert "never claim a payment happened" in text.lower() or "payment happened" in text
-
-
-def test_rest_durations_are_pinned_and_applied_once():
+def test_rest_duration_is_pinned_and_applied_once():
     """advance_time never fired across two live scenes: "meaningful time" gave the model
-    nothing to calibrate against. Rests are now request_rest, which carries the fixed
-    durations and applies them once for the party -- a rest is per-character but the
-    clock is per-world."""
-    from gary.templates import REST_MINUTES
-
-    assert REST_MINUTES == {"short": 60, "long": 480}
-    assert "call request_rest ONCE" in DM_SYSTEM_INSTRUCTION
-    assert "not once per character" in DM_SYSTEM_INSTRUCTION
+    nothing to calibrate against. A rest is per-character but the clock is per-world, so
+    the persona pins the duration and says it is advanced once for the party."""
+    assert "a night's rest 480" in DM_SYSTEM_INSTRUCTION
+    assert "once for the whole party" in DM_SYSTEM_INSTRUCTION
 
 
 def test_persona_stays_a_small_fraction_of_the_budget():
@@ -350,33 +344,13 @@ def test_an_unregistered_actor_with_items_still_appears():
     assert "Dorn: carrying a torch" in render_live_state(state)
 
 
-def test_combat_renders_the_tracker_with_names_to_target():
-    """enemy_attack needs the tracker name, and the model has no other way to learn it."""
-    state = empty_state()
-    state["encounter"] = {"encounter_id": "e1"}
-    state["combat"] = {
-        "round": 2,
-        "combatants": [
-            {"name": "GU1", "hp": "Healthy", "current_turn": True, "dying": False},
-            {"name": "Caspian Varr", "hp": "15/15", "current_turn": False, "dying": False},
-            {"name": "NO1", "hp": "Dead", "current_turn": False, "dying": True},
-        ],
-    }
-    rendered = render_live_state(state)
-    assert "round 2" in rendered
-    assert "GU1 [Healthy] <- their turn" in rendered
-    assert "Caspian Varr [15/15]" in rendered
-    assert "DOWN" in rendered
-
-
 def test_persona_states_that_nothing_tracks_position():
-    """Avrae has no map, no distances and no adjacency, and neither does Gary. The model
-    is the only record of where anyone is standing, which was true before and unstated --
-    so reach was unenforced and range unknowable."""
+    """Gary has no map, no distances and no adjacency. The model is the only record of
+    where anyone is standing, which was true before and unstated -- so reach was
+    unenforced and range unknowable."""
     text = DM_SYSTEM_INSTRUCTION
     assert "NOTHING TRACKS POSITION" in text
     assert "scene summary" in text
-    assert "ranged" in text
 
 
 def test_the_setting_frames_everything_else():

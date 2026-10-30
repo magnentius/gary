@@ -1,7 +1,7 @@
 [project]
 name = "gary"
 version = "0.1.0"
-description = "AI Game Master: Gemini narrative + Avrae rules + persistent campaign state, over Discord."
+description = "AI Game Master: Gemini narrative, Gary-rolled dice and persistent campaign state, over Discord."
 requires-python = ">=3.11"
 dependencies = []
 
@@ -15,8 +15,6 @@ gcp = ["google-cloud-firestore>=2.16"]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
-    "d20>=1.1",   # reproduces Avrae's roll strings
-    "pypdf>=5.0", # scripts/extract_srd_*.py read the SRD PDF
 ]
 
 [build-system]
@@ -25,13 +23,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-# The SRD data is part of the package, not a development convenience. Without this a
-# non-editable install (which is what a container is) ships no data/*.json at all, and
-# both loaders below degrade to empty in silence: every creature reads as homebrew, the
-# encounter benchmark stops recognising anything, and morale never fires.
-[tool.setuptools.package-data]
-gary = ["data/*.json"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

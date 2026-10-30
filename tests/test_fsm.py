@@ -1,26 +1,17 @@
-"""The Director gate: only AWAITING_ROLL consumes Avrae output.
+"""The Director: a check is resolved only by the roll of the player it was asked of.
 
-The first test is the one that matters most -- it is the direct regression test for v1's
-central bug, where every Avrae message triggered a Gemini call.
+Gary is the only roller. These tests pin who may roll, that a roll happens once, and that
+the outcome is arithmetic against the DC committed before the dice.
 """
 
 from __future__ import annotations
 
-from gary.fsm import AskPlayer, ChannelState, LogDrop, PromptModel, SendMessage
-from gary.models import AvraeRoll, CheckKind
-from gary.parser.avrae import ParsedAvraeMessage, ParseStatus
+from gary.fsm import ChannelState, PromptModel, RecordOutcome, SendMessage
+from gary.models import CheckKind
 
 CHANNEL = 555
 ALICE = 111
 BOB = 222
-
-
-def roll_msg(actor="Kethra", total=17, user_id=None):
-    return ParsedAvraeMessage(
-        status=ParseStatus.ROLL,
-        roll=AvraeRoll(actor=actor, total=total),
-        interaction_user_id=user_id,
-    )
 
 
 def open_check(director, user_id=ALICE, actor="Kethra", dc=15, **kw):
@@ -37,92 +28,119 @@ def open_check(director, user_id=ALICE, actor="Kethra", dc=15, **kw):
     )
 
 
-# -- the gate ------------------------------------------------------------------------------
+def roll(director, user_id=ALICE):
+    return director.roll(channel_id=CHANNEL, user_id=user_id)
 
 
-def test_avrae_output_while_idle_never_reaches_the_model(director):
-    """v1 regression: !help, sheet lookups and stray rolls each cost an LLM call."""
-    assert director.state(CHANNEL) is ChannelState.IDLE
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg())
-    assert all(isinstance(e, LogDrop) for e in effects)
-    assert not any(isinstance(e, PromptModel) for e in effects)
+def prompts_in(effects):
+    return [e for e in effects if isinstance(e, PromptModel)]
 
 
-def test_irrelevant_embed_while_awaiting_is_dropped(director):
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(status=ParseStatus.IRRELEVANT, reason="help text"),
-    )
-    assert all(isinstance(e, LogDrop) for e in effects)
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+# -- rolling -------------------------------------------------------------------------------
 
 
-def test_initiative_embeds_never_resolve_a_check(director):
-    """A tracker mirrors combat state and never consumes a pending check."""
-    from gary.fsm import MirrorCombat
-
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.INITIATIVE)
-    )
-    assert all(isinstance(e, (LogDrop, MirrorCombat)) for e in effects)
-    assert not any(isinstance(e, (PromptModel, AskPlayer)) for e in effects)
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-
-def test_unreadable_embed_asks_rather_than_guessing(director):
-    """Fail loud (ARCHITECTURE.md §6.1): never degrade a parse miss into a false result."""
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(status=ParseStatus.UNKNOWN, reason="no total"),
-    )
-    assert any(isinstance(e, AskPlayer) for e in effects)
-    assert not any(isinstance(e, PromptModel) for e in effects)
-
-
-def test_unmatched_roll_while_awaiting_is_dropped(director):
-    """Alice is rolling; Bob's unrelated roll must not resolve her check."""
-    open_check(director, user_id=ALICE, actor="Kethra")
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(actor="Dorn"))
-    assert all(isinstance(e, LogDrop) for e in effects)
-
-
-# -- the happy path ------------------------------------------------------------------------
-
-
-def test_open_check_posts_a_rendered_command(director):
+def test_open_check_asks_the_player_to_roll(director):
     effects = open_check(director)
     sends = [e for e in effects if isinstance(e, SendMessage)]
     assert len(sends) == 1
-    assert '`!check "sleight of hand"`' in sends[0].text
+    assert "Kethra" in sends[0].text and "sleight of hand" in sends[0].text
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
 
-def test_full_loop_resolves_with_the_committed_dc(director):
+def test_full_loop_resolves_with_the_committed_dc(director, dice):
     open_check(director, dc=15)
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
-    assert len(prompts) == 1
-    payload = prompts[0].payload
-    assert payload["succeeded"] is True
-    assert payload["dc"] == 15
-    assert payload["established_consequence"] == "The door opens."
+    dice.queue(17)
+    effects = roll(director)
+
+    (prompt,) = prompts_in(effects)
+    assert prompt.kind == "check_outcome"
+    assert prompt.payload["succeeded"] is True
+    assert prompt.payload["dc"] == 15
+    assert prompt.payload["roll_total"] == 17
+    assert prompt.payload["established_consequence"] == "The door opens."
 
 
-def test_check_is_consumed_so_a_second_roll_does_nothing(director):
+def test_a_miss_takes_the_failure_branch(director, dice):
+    open_check(director, dc=15)
+    dice.queue(14)
+    (prompt,) = prompts_in(roll(director))
+    assert prompt.payload["succeeded"] is False
+    assert prompt.payload["established_consequence"] == "The pick snaps."
+
+
+def test_the_dice_are_shown_to_the_table(director, dice):
+    """Gary is referee and dice both. A roll nobody can see is one nobody can trust."""
     open_check(director)
-    director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))
-    again = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=25))
-    assert all(isinstance(e, LogDrop) for e in again)
+    dice.queue(13)
+    sends = [e.text for e in roll(director) if isinstance(e, SendMessage)]
+    assert sends == ["🎲 **Kethra** rolls 13."]
 
 
-def test_invalid_key_never_posts_to_the_channel(director):
-    """A hallucinated skill is bounced back to the model, not shown to players."""
-    effects = open_check(director, key="!init end")
+def test_the_dice_are_posted_before_the_narration_is_asked_for(director, dice):
+    open_check(director)
+    dice.queue(13)
+    kinds = [type(e) for e in roll(director)]
+    assert kinds.index(SendMessage) < kinds.index(PromptModel)
+
+
+def test_a_check_rolls_a_d20(director, dice):
+    open_check(director)
+    dice.queue(9)
+    roll(director)
+    assert [r.spec for r in dice.rolls] == ["1d20"]
+
+
+def test_resolution_emits_a_record_alongside_the_narration(director, dice):
+    """Narration and record are emitted together so they cannot diverge."""
+    open_check(director, dc=15)
+    dice.queue(19)
+    records = [e for e in roll(director) if isinstance(e, RecordOutcome)]
+    assert len(records) == 1
+    assert records[0].outcome.dc == 15
+    assert records[0].outcome.total == 19
+    assert records[0].outcome.faces == (19,)
+    assert records[0].outcome.succeeded is True
+
+
+def test_a_check_rolls_once(director, dice):
+    open_check(director)
+    dice.queue(17)
+    roll(director)
+    assert roll(director) == []  # nothing left to roll, and no second die is thrown
+    assert len(dice.rolls) == 1
+    assert director.state(CHANNEL) is ChannelState.IDLE
+
+
+def test_another_player_cannot_roll_your_check(director, dice):
+    """The request carries the roller. Bob asking finds nothing of Alice's."""
+    open_check(director, user_id=ALICE)
+    assert roll(director, user_id=BOB) == []
+    assert dice.rolls == []
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+def test_two_players_roll_their_own_checks(director, dice):
+    """Concurrent checks never cross: each roll resolves its own player's DC."""
+    open_check(director, user_id=ALICE, actor="Kethra", dc=10)
+    open_check(director, user_id=BOB, actor="Dorn", dc=25)
+    dice.queue(18, 18)
+
+    (bob,) = prompts_in(roll(director, user_id=BOB))
+    (alice,) = prompts_in(roll(director, user_id=ALICE))
+    assert (bob.payload["actor"], bob.payload["succeeded"]) == ("Dorn", False)
+    assert (alice.payload["actor"], alice.payload["succeeded"]) == ("Kethra", True)
+
+
+def test_rolling_with_nothing_pending_does_nothing(director, dice):
+    assert roll(director) == []
+    assert dice.rolls == []
+
+
+def test_a_missing_key_never_reaches_the_table(director):
+    """Bounced back to the model, not shown to players."""
+    effects = open_check(director, key="   ")
     assert not any(isinstance(e, SendMessage) for e in effects)
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    prompts = prompts_in(effects)
     assert prompts and prompts[0].kind == "system_note"
     assert director.state(CHANNEL) is ChannelState.IDLE
 
@@ -141,20 +159,18 @@ def test_expired_check_narrates_a_pivot_and_returns_to_idle(director, clock):
     open_check(director, ttl_seconds=60)
     clock.advance(61)
 
-    effects = director.sweep()
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    prompts = prompts_in(director.sweep())
     assert len(prompts) == 1
     assert prompts[0].kind == "check_expired"
     assert "Do not resolve" in prompts[0].payload["instruction"]
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
-def test_expired_check_no_longer_resolves(director, clock):
+def test_an_expired_check_can_no_longer_be_rolled(director, clock, dice):
     open_check(director, ttl_seconds=60)
     clock.advance(61)
-    director.sweep()
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg())
-    assert all(isinstance(e, LogDrop) for e in effects)
+    assert roll(director) == []  # even before the sweep has run
+    assert dice.rolls == []
 
 
 # -- player routing ------------------------------------------------------------------------
@@ -206,12 +222,11 @@ def test_freeform_mode_hears_everything(director):
 # -- state is derived, not stored ------------------------------------------------------------
 
 
-def test_player_chatter_does_not_drop_the_roll_that_follows(director):
+def test_player_chatter_does_not_drop_the_roll_that_follows(director, dice):
     """Regression: storing channel state let ordinary table talk cancel a pending check.
 
-    Sequence that broke it: open a check, the player says "rolling now!", then the roll
-    arrives. The chatter flipped the channel out of AWAITING_ROLL and the roll was
-    silently dropped -- the player sees dice in the channel and the DM says nothing.
+    Sequence that broke it: open a check, the player says "rolling now!", then rolls. The
+    chatter flipped the channel out of AWAITING_ROLL and the roll was silently dropped.
     """
     open_check(director, user_id=ALICE, actor="Kethra", dc=15)
 
@@ -221,8 +236,8 @@ def test_player_chatter_does_not_drop_the_roll_that_follows(director):
     )
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    dice.queue(17)
+    prompts = prompts_in(roll(director))
     assert prompts, "the roll was dropped"
     assert prompts[0].payload["succeeded"] is True
 
@@ -244,77 +259,32 @@ def test_state_is_derived_from_the_registry(director, registry):
     check, _ = registry.open(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
         key="stealth", dc=10, on_success="a", on_failure="b", stakes="",
-        command="!check stealth",
+        dice="1d20",
     )
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
     registry.consume(check.check_id)
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
-def test_a_fresh_director_on_the_same_registry_agrees(director, registry, clock):
+def test_a_fresh_director_on_the_same_registry_agrees(director, registry, clock, dice):
     """The property that makes the process replaceable: no state to hand over."""
     from gary.fsm import Director
 
     open_check(director, user_id=ALICE, actor="Kethra", dc=15)
 
-    replacement = Director(registry=registry, clock=clock, game_channels={CHANNEL})
+    replacement = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice)
     assert replacement.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
-    effects = replacement.on_avrae_message(channel_id=CHANNEL, parsed=roll_msg(total=17))
-    assert any(isinstance(e, PromptModel) for e in effects)
+    dice.queue(17)
+    assert prompts_in(replacement.roll(channel_id=CHANNEL, user_id=ALICE))
 
 
-def test_avrae_prompt_stays_silent_and_keeps_the_check_open(director):
-    """Avrae asked the player a question instead of rolling.
+def test_a_director_without_dice_rolls_real_ones(registry, clock):
+    """Production passes nothing and gets real dice; only tests script them."""
+    from gary.fsm import Director
+    from gary.ports import RandomDice
 
-    Captured live 2026-08-20: `!check notaskill` yields a "Multiple Matches Found"
-    selector. Answering it produces a real roll that correlates normally, so the check
-    must stay open -- and Gary must not speak, or the player is fielding two questions
-    from two bots at once.
-    """
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.AVRAE_PROMPT, reason="avrae is awaiting player input"
-        ),
-    )
-    assert all(isinstance(e, LogDrop) for e in effects)
-    assert not any(isinstance(e, (AskPlayer, SendMessage)) for e in effects)
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-
-def test_abandoned_selector_reposts_the_command(director):
-    """The player never answered Avrae's selector, so no roll is coming.
-
-    Captured live 2026-08-20: "Selection timed out or was cancelled." The check itself is
-    still good -- its DC and consequences were fixed before the dice -- so the command is
-    re-posted rather than left to lapse on TTL.
-    """
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.PROMPT_ABANDONED, reason="selector lapsed without an answer"
-        ),
-    )
-
-    sends = [e for e in effects if isinstance(e, SendMessage)]
-    assert len(sends) == 1
-    assert "Kethra" in sends[0].text
-    assert "!check" in sends[0].text or "sleight" in sends[0].text.lower()
-    assert not any(isinstance(e, AskPlayer) for e in effects)
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-
-def test_abandoned_selector_while_idle_says_nothing(director):
-    """No open check means nothing to re-prompt; the gate drops it like any other."""
-    assert director.state(CHANNEL) is ChannelState.IDLE
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(status=ParseStatus.PROMPT_ABANDONED, reason="lapsed"),
-    )
-    assert all(isinstance(e, LogDrop) for e in effects)
+    assert isinstance(Director(registry=registry, clock=clock).dice, RandomDice)
 
 
 # -- the roster: who is playing which character ------------------------------------------
@@ -322,27 +292,26 @@ def test_abandoned_selector_while_idle_says_nothing(director):
 
 def _cast(director):
     """A Director that knows Alice plays Kethra."""
-    director.players = {ALICE: "Kethra"}
-    director._known_actors = {"kethra"}
+    director.set_player_character(ALICE, "Kethra")
     return director
 
 
 def test_player_text_carries_the_character_name(director):
-    """Without this the model only ever sees a Discord display name, so open_check names
-    an actor Avrae has never heard of and the roll cannot correlate."""
+    """Without this the model only ever sees a Discord display name, and opens checks for
+    a character nobody is playing."""
     _cast(director)
     open_check(director)  # so the message is 'addressed'
     effects = director.on_player_message(
         channel_id=CHANNEL, user_id=ALICE, display_name="John K",
         content="I pick the lock", mentions_bot=False,
     )
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
+    prompts = prompts_in(effects)
     assert prompts and prompts[0].payload["actor"] == "Kethra"
 
 
 def test_unknown_actor_is_refused_not_opened(director):
-    """Opening it would create a check no roll can match -- a silent dead end that TTL
-    later narrates as player hesitation."""
+    """Nobody could ever roll it -- a silent dead end that TTL later narrates as player
+    hesitation."""
     _cast(director)
     effects = director.open_check(
         channel_id=CHANNEL, user_id=ALICE, actor="John K", kind=CheckKind.CHECK,
@@ -391,364 +360,15 @@ def test_set_player_character_updates_validation(director):
     assert rejected[0].kind == "system_note"
 
 
-def test_resolution_emits_a_record_alongside_the_narration(director):
-    """Narration and record are emitted together so they cannot diverge."""
-    from gary.fsm import RecordOutcome
-
-    open_check(director, dc=15)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=roll_msg(actor="Kethra", total=19)
-    )
-    records = [e for e in effects if isinstance(e, RecordOutcome)]
-    assert len(records) == 1
-    assert records[0].outcome.dc == 15
-    assert records[0].outcome.total == 19
-    assert records[0].outcome.succeeded is True
-
-
-def test_a_sheet_mirrors_without_consuming_a_pending_check(director):
-    """A player checking their sheet mid-check must not resolve it. Sheets are state, not
-    rolls -- handled before the AWAITING_ROLL gate, like the initiative tracker."""
-    from gary.fsm import MirrorSheet
-    from gary.parser.avrae import SheetView
-
-    open_check(director)
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.SHEET,
-            sheet=SheetView(actor="Kethra", descriptor="Human Fighter 3", level=3),
-        ),
-    )
-
-    assert len(effects) == 1
-    assert isinstance(effects[0], MirrorSheet)
-    assert effects[0].level == 3
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL   # still pending
-
-
-def test_combat_boundaries_drive_the_handoff(director):
-    """§3.1's handoff fires on Avrae's own boundaries — it had no trigger at all until
-    2026-08-21, so the clock never froze and the invariant was documented, not enforced."""
-    from gary.fsm import BeginEncounter, EndEncounter
-
-    begun = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_BEGIN)
-    )
-    assert [type(e) for e in begun] == [BeginEncounter]
-
-    # The tracker reports the round; the handoff needs it to convert rounds to minutes.
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(status=ParseStatus.INITIATIVE, round_number=4),
-    )
-    ended = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_END)
-    )
-    assert isinstance(ended[0], EndEncounter)
-    assert ended[0].rounds == 4
-
-
-def test_combat_boundaries_are_not_gated_on_awaiting_roll(director):
-    """A fight starts when Avrae says so, whether or not a check is pending."""
-    from gary.fsm import BeginEncounter
-
-    assert director.state(CHANNEL) is ChannelState.IDLE
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=ParsedAvraeMessage(status=ParseStatus.COMBAT_BEGIN)
-    )
-    assert isinstance(effects[0], BeginEncounter)
-
-
-def _fighting(director, active):
-    director._encounter_active = lambda: active
-    return director
-
-
-def test_an_attack_outside_initiative_is_refused(director):
-    """The persona says to call start_combat before anyone swings. Twice in live play it
-    went straight to !attack instead, so the swing resolved against nothing and the target
-    never acted. Advisory did not hold."""
-    _fighting(director, False)
-    effects = director.open_check(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
-        key="Longsword", dc=13, on_success="hit", on_failure="miss",
-    )
-    assert len(effects) == 1
-    assert effects[0].kind == "system_note"
-    assert "start_combat" in effects[0].payload["instruction"]
-    assert director.state(CHANNEL) is ChannelState.IDLE      # nothing opened
-    assert not any(isinstance(e, SendMessage) for e in effects)
-
-
-def test_an_attack_during_initiative_is_allowed(director):
-    _fighting(director, True)
-    effects = director.open_check(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
-        key="Longsword", dc=13, on_success="hit", on_failure="miss",
-    )
-    assert any(isinstance(e, SendMessage) for e in effects)
-    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-
-def test_checks_and_saves_are_unaffected_outside_combat(director):
-    """Only attacks need initiative. A stealth check in an empty corridor does not."""
-    _fighting(director, False)
-    effects = director.open_check(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        key="stealth", dc=13, on_success="ok", on_failure="no",
-    )
-    assert any(isinstance(e, SendMessage) for e in effects)
-
-
-def test_an_unconfigured_director_still_permits_attacks(director):
-    """None means unknown, and unknown permits — behaviour is unchanged where no store
-    is wired, which is most of the test suite."""
-    assert director._encounter_active is None
-    effects = director.open_check(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.ATTACK,
-        key="Longsword", dc=13, on_success="hit", on_failure="miss",
-    )
-    assert any(isinstance(e, SendMessage) for e in effects)
-
-
-def test_the_tracker_is_mirrored_not_discarded(director):
-    """parse_initiative extracted every combatant and the FSM threw them away, so the
-    model knew only that combat was active -- not who was fighting, whose turn it was, or
-    what anything was called in the tracker. It cannot take a monster's turn without them."""
-    from gary.fsm import MirrorCombat
-    from gary.parser.avrae import CombatantView
-
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            round_number=2,
-            combatants=(
-                CombatantView(name="GU1", status="Healthy", is_current_turn=True),
-                CombatantView(name="Caspian Varr", hp_current=15, hp_max=15),
-            ),
-        ),
-    )
-    mirrors = [e for e in effects if isinstance(e, MirrorCombat)]
-    assert len(mirrors) == 1
-    assert mirrors[0].round_number == 2
-    assert [c.name for c in mirrors[0].combatants] == ["GU1", "Caspian Varr"]
-
-
-def _tracker(current, *others, round_number=1):
-    from gary.parser.avrae import CombatantView
-
-    fighters = [CombatantView(name=current, status="Healthy", is_current_turn=True)]
-    fighters += [CombatantView(name=n, hp_current=15, hp_max=15) for n in others]
-    return ParsedAvraeMessage(
-        status=ParseStatus.INITIATIVE, combatants=tuple(fighters), round_number=round_number
-    )
-
-
-def test_a_monsters_turn_is_taken_unprompted(director):
-    """Otherwise the DM has to notice it is the guard's turn and ask, every round."""
-    director.set_player_character(ALICE, "Kethra")
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
-
-    prompts = [e for e in effects if isinstance(e, PromptModel)]
-    assert len(prompts) == 1
-    assert prompts[0].kind == "monster_turn"
-    assert prompts[0].payload["combatant"] == "GU1"
-
-
-def test_a_players_turn_is_left_alone(director):
-    """Avrae already pings them, and Gary must not play someone's character."""
-    director.set_player_character(ALICE, "Kethra")
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("Kethra", "GU1"))
-    assert not [e for e in effects if isinstance(e, PromptModel)]
-
-
-def test_a_monster_acts_once_per_turn_not_per_tracker_edit(director):
-    """Avrae edits the tracker several times a turn -- on a hit, on an HP change."""
-    director.set_player_character(ALICE, "Kethra")
-    first = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
-    again = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
-    assert [e for e in first if isinstance(e, PromptModel)]
-    assert not [e for e in again if isinstance(e, PromptModel)]
-
-    # ...but the next round is a new turn.
-    later = director.on_avrae_message(
-        channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra", round_number=2)
-    )
-    assert [e for e in later if isinstance(e, PromptModel)]
-
-
-def test_a_downed_monster_does_not_act(director):
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    parsed = ParsedAvraeMessage(
-        status=ParseStatus.INITIATIVE,
-        combatants=(CombatantView(name="GU1", status="Dead", is_current_turn=True),),
-        round_number=1,
-    )
-    assert not [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
-                if isinstance(e, PromptModel)]
-
-
-def test_without_a_roster_nothing_acts_unprompted(director):
-    """Everything would look like a monster, including the players."""
-    effects = director.on_avrae_message(channel_id=CHANNEL, parsed=_tracker("GU1", "Kethra"))
-    assert not [e for e in effects if isinstance(e, PromptModel)]
-
-
-def test_a_downed_character_is_prompted_for_a_death_save(director):
-    """At 0 HP a character rolls a death save on their turn — the one roll nobody should
-    have to remember to ask for, and the one that decides whether they live."""
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    parsed = ParsedAvraeMessage(
-        status=ParseStatus.INITIATIVE,
-        combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15, is_current_turn=True),),
-        round_number=3,
-    )
-    prompts = [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
-               if isinstance(e, PromptModel)]
-    assert len(prompts) == 1
-    assert prompts[0].kind == "death_save"
-    assert prompts[0].payload["actor"] == "Kethra"
-
-
-def test_a_standing_character_is_still_left_alone(director):
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    parsed = ParsedAvraeMessage(
-        status=ParseStatus.INITIATIVE,
-        combatants=(CombatantView(name="Kethra", hp_current=9, hp_max=15, is_current_turn=True),),
-        round_number=3,
-    )
-    assert not [e for e in director.on_avrae_message(channel_id=CHANNEL, parsed=parsed)
-                if isinstance(e, PromptModel)]
-
-
-def test_a_death_save_is_prompted_once_per_round(director):
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    def tracker(round_number):
-        return ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15, is_current_turn=True),),
-            round_number=round_number,
-        )
-    first = director.on_avrae_message(channel_id=CHANNEL, parsed=tracker(3))
-    again = director.on_avrae_message(channel_id=CHANNEL, parsed=tracker(3))
-    assert [e for e in first if isinstance(e, PromptModel)]
-    assert not [e for e in again if isinstance(e, PromptModel)]
-
-
-def test_a_downed_combatant_may_not_attack(director):
-    """Avrae does not referee: it tracks hit points and rolls dice, and has no concept
-    that 0 HP stops you acting. A downed fighter swung a longsword for two rounds because
-    nothing in the stack adjudicates -- which is the DM's job, and the DM is Gary."""
-    from gary.parser.avrae import CombatantView
-
-    director._encounter_active = lambda: True
-    director.set_player_character(ALICE, "Kethra")
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(
-                CombatantView(name="Kethra", hp_current=0, hp_max=15),
-                CombatantView(name="GU1", status="Bloodied", is_current_turn=True),
-            ),
-            round_number=5,
-        ),
-    )
-
-    assert "0 HP" in director.attack_refusal(CHANNEL, "Kethra")
-    assert "death save" in director.attack_refusal(CHANNEL, "Kethra")
-    assert director.attack_refusal(CHANNEL, "GU1") is None      # bloodied is not down
-
-
-def test_attack_refusal_permits_when_nothing_is_known(director):
-    """Unknown permits, as everywhere else."""
-    assert director.attack_refusal(CHANNEL, "Anyone") is None
-
-
-def test_a_crit_on_a_downed_character_prompts_two_failed_death_saves(director):
-    """Any melee hit on an unconscious creature is an automatic crit, and a crit costs two
-    failed death saves. Avrae rolled the crit, applied the damage, and tracked neither --
-    the sheet read zero failures while the fighter was two from dead."""
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),),
-            round_number=4,
-        ),
-    )
-
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.ROLL,
-            roll=AvraeRoll(actor="GU1", total=23),
-            critical_targets=("Kethra",),
-        ),
-    )
-    posts = [e for e in effects if isinstance(e, SendMessage)]
-    assert len(posts) == 1
-    assert posts[0].text.count("!game deathsave fail") == 2
-    assert "Kethra" in posts[0].text
-
-
-def test_a_crit_on_someone_standing_is_just_a_crit(director):
-    from gary.parser.avrae import CombatantView
-
-    director.set_player_character(ALICE, "Kethra")
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(CombatantView(name="Kethra", hp_current=9, hp_max=15),),
-            round_number=4,
-        ),
-    )
-    effects = director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.ROLL,
-            roll=AvraeRoll(actor="GU1", total=23),
-            critical_targets=("Kethra",),
-        ),
-    )
-    assert not [e for e in effects if isinstance(e, SendMessage)]
-
-
 def test_forget_everything_drops_the_in_memory_roster(director):
-    """The roster, the combat mirror and the per-turn bookkeeping live here as well as in
-    the store, so clearing the store alone would leave a stale roster answering for
-    characters who no longer exist until the next restart."""
-    from gary.parser.avrae import CombatantView
-
+    """The roster lives here as well as in the store, so clearing the store alone would
+    leave a stale roster answering for characters who no longer exist."""
     director.set_player_character(ALICE, "Kethra")
-    director.on_avrae_message(
-        channel_id=CHANNEL,
-        parsed=ParsedAvraeMessage(
-            status=ParseStatus.INITIATIVE,
-            combatants=(CombatantView(name="Kethra", hp_current=0, hp_max=15),),
-            round_number=2,
-        ),
-    )
-    assert director.players and director.is_down(CHANNEL, "Kethra")
+    assert director.players
 
     director.forget_everything()
 
     assert director.players == {}
-    assert not director.is_down(CHANNEL, "Kethra")
     # and an actor is no longer validated against a roster that is gone
     effects = director.open_check(
         channel_id=CHANNEL, user_id=ALICE, actor="Anyone", kind=CheckKind.CHECK,

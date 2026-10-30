@@ -34,7 +34,6 @@ from .schema import (
     DEFAULT_EPOCH_DATE,
     SCHEMA_VERSION,
     EffectRecord,
-    Encounter,
     default_epoch_date,
     empty_state,
 )
@@ -44,10 +43,6 @@ SNAPSHOT_EVERY = 25
 
 class StateError(RuntimeError):
     """A mutation could not be applied."""
-
-
-class EncounterActive(StateError):
-    """Rejected because Avrae owns the clock right now (ARCHITECTURE.md §3.1)."""
 
 
 class Bounds:
@@ -178,46 +173,6 @@ class CampaignStore:
             reason="campaign calendar anchored",
         )
 
-    def mirror_combat(self, combatants: Sequence[Any], round_number: Optional[int]) -> None:
-        """Cache Avrae's tracker: who is in the fight, whose turn, and their state.
-
-        A mirror of Avrae's own view (§3), not journalled and not authoritative — it is
-        replaced wholesale every time a newer tracker goes past, and cleared when combat
-        ends. Held so the model can see the fight it is running.
-        """
-        with self._lock:
-            self._state["combat"] = {
-                "round": round_number,
-                "combatants": [
-                    {
-                        "name": c.name,
-                        "hp": (
-                            f"{c.hp_current}/{c.hp_max}"
-                            if c.hp_current is not None and c.hp_max is not None
-                            else (c.status or "")
-                        ),
-                        "current_turn": bool(c.is_current_turn),
-                        "dying": bool(c.is_dying),
-                        "conditions": list(c.conditions),
-                    }
-                    for c in combatants
-                ],
-            }
-
-    def mirror_sheet(self, actor: str, descriptor: str, level: Optional[int]) -> None:
-        """Cache what `!sheet` reported about a character.
-
-        A mirror, not a mutation: Avrae owns the sheet (§3) and this is only what Gary
-        last saw. It is not journalled — there is nothing to undo, and replaying a stale
-        mirror would be worse than not having one. It is overwritten whenever a newer
-        sheet goes past, which is what `!update` then `!sheet` is for after a level-up.
-        """
-        with self._lock:
-            slot = self._party_slot(actor)
-            slot["sheet"] = descriptor
-            if level is not None:
-                slot["level"] = int(level)
-
     def record_check_outcome(self, outcome: "CheckOutcome") -> None:
         """Journal a resolved check.
 
@@ -241,6 +196,7 @@ class CampaignStore:
                         "dc": outcome.dc,
                         "total": outcome.total,
                         "natural": outcome.natural,
+                        "faces": list(outcome.faces),
                         "margin": outcome.margin,
                         "succeeded": outcome.succeeded,
                         "consequence": outcome.consequence,
@@ -252,8 +208,10 @@ class CampaignStore:
 
     def _replay(self, entry: Dict[str, Any]) -> None:
         kind = entry["kind"]
-        if kind == "encounter_begin":
-            self._state["encounter"] = entry["payload"]
+        if kind in ("encounter_begin", "encounter_end"):
+            # The Avrae initiative handoff, which no longer exists. Journals written
+            # before its removal still carry these, and they changed only the clock-freeze
+            # flag and effect ownership -- neither of which means anything now.
             return
         if kind == "campaign_reset":
             # Reset truncates the journal now, so nothing writes this kind any more.
@@ -265,11 +223,6 @@ class CampaignStore:
             # History, not state. Replaying it must change nothing -- the campaign is
             # whatever the consequences made it, and those are journalled separately as
             # their own mutations.
-            return
-        if kind == "encounter_end":
-            self._state["encounter"] = None
-            self._state["combat"] = None
-            self._state["effects"] = entry["payload"].get("effects", [])
             return
         self._apply_unchecked(
             Mutation(
@@ -307,10 +260,6 @@ class CampaignStore:
         with self._lock:
             entries = list(self._journal)
         return entries[-limit:] if limit else entries
-
-    @property
-    def encounter_active(self) -> bool:
-        return self._state.get("encounter") is not None
 
     # -- writes ------------------------------------------------------------------------
 
@@ -448,21 +397,10 @@ class CampaignStore:
         party = self._state.setdefault("party", {})
         return party.setdefault(actor, {"gold": 0, "inventory": [], "notes": []})
 
-    # -- time & encounters -------------------------------------------------------------
+    # -- time --------------------------------------------------------------------------
 
     def advance_time(self, minutes: int, reason: str) -> Dict[str, Any]:
-        """Advance the wall clock and expire effects.
-
-        Refuses while an encounter is open. This is the invariant from ARCHITECTURE.md §3.1:
-        during combat Avrae owns duration, and a second clock running in parallel is how
-        the two views of the world drift apart.
-        """
-        with self._lock:
-            if self.encounter_active:
-                raise EncounterActive(
-                    "cannot advance world time during an encounter; Avrae owns combat "
-                    "duration until !init end"
-                )
+        """Advance the wall clock and expire effects."""
         diff = self.apply(
             [Mutation(kind=MutationKind.TIME, target="", payload={"minutes": int(minutes)})],
             reason=reason,
@@ -470,76 +408,6 @@ class CampaignStore:
         if diff.rejected:
             raise StateError(diff.rejected[0][1])
         return self.state()
-
-    def begin_encounter(self) -> Encounter:
-        """Freeze the clock and hand effect tracking to Avrae."""
-        with self._lock:
-            if self.encounter_active:
-                return Encounter.from_dict(self._state["encounter"])
-            encounter = Encounter(
-                encounter_id=new_id(self._clock()),
-                started_at_minute=int(self._state["world_minutes"]),
-                frozen_effects=list(self._state.get("effects", [])),
-            )
-            self._state["encounter"] = encounter.to_dict()
-            self._append_journal(
-                {
-                    "entry_id": new_id(self._clock()),
-                    "at": self._clock(),
-                    "kind": "encounter_begin",
-                    "target": encounter.encounter_id,
-                    "payload": encounter.to_dict(),
-                    "inverse": None,
-                    "reason": "!init begin observed",
-                    "source_message_id": None,
-                }
-            )
-            return encounter
-
-    def end_encounter(self, rounds: int, surviving_effect_ids: Sequence[str]) -> Dict[str, Any]:
-        """Reconcile Avrae's combat back onto the wall clock.
-
-        Elapsed time is ``rounds x 6s``, rounded up to a whole minute. Effects Avrae no
-        longer shows are dropped: where the two disagree, Avrae wins (ARCHITECTURE.md §3).
-        """
-        with self._lock:
-            if not self.encounter_active:
-                raise StateError("no active encounter")
-            encounter = Encounter.from_dict(self._state["encounter"])
-            self._state["encounter"] = None
-
-            seconds = max(0, int(rounds)) * 6
-            minutes = -(-seconds // 60)  # ceil
-
-            survivors = set(surviving_effect_ids)
-            dropped = [
-                e for e in encounter.frozen_effects if e["effect_id"] not in survivors
-            ]
-            kept = [e for e in encounter.frozen_effects if e["effect_id"] in survivors]
-            self._state["effects"] = kept
-            self._append_journal(
-                {
-                    "entry_id": new_id(self._clock()),
-                    "at": self._clock(),
-                    "kind": "encounter_end",
-                    "target": encounter.encounter_id,
-                    "payload": {"effects": kept, "rounds": int(rounds)},
-                    "inverse": None,
-                    "reason": "!init end observed",
-                    "source_message_id": None,
-                }
-            )
-
-        self.apply(
-            [Mutation(kind=MutationKind.TIME, target="", payload={"minutes": minutes})],
-            reason=f"encounter {encounter.encounter_id} resolved over {rounds} rounds",
-        )
-        return {
-            "encounter_id": encounter.encounter_id,
-            "minutes_elapsed": minutes,
-            "effects_dropped": [e["name"] for e in dropped],
-            "state": self.state(),
-        }
 
 
 # ---------------------------------------------------------------------------------------
@@ -612,8 +480,6 @@ def _h_time(store: "CampaignStore", m: Mutation) -> AppliedMutation:
 
 
 def _h_effect_add(store: "CampaignStore", m: Mutation) -> AppliedMutation:
-    if store.encounter_active:
-        raise EncounterActive("Avrae owns effects during an encounter")
     effect = EffectRecord(
         effect_id=m.payload.get("effect_id") or new_id(),
         actor=m.target,

@@ -1,11 +1,11 @@
 """Pending-check registry (ARCHITECTURE.md §5).
 
-This is the component that makes Avrae's channel output *addressable*. Without it, every
-Avrae message -- ``!help``, a sheet lookup, another player's attack -- looks identical to
-the roll you were waiting for. v1 of the design had no such correlation and consequently
-fired a Gemini call on every embed.
+Holds every check whose DC is committed and whose dice have not been rolled. It is what
+"are we waiting on a roll?" is answered from, and what a restart reloads so a committed DC
+survives it.
 
-Correlation is per-player, so several players may hold checks in one channel safely.
+Checks are keyed by player, so several players may hold checks in one channel safely, and
+a roll is attributed by the Discord user who made it -- never by a name in someone's text.
 Time is injected so expiry is testable without sleeping.
 """
 
@@ -15,7 +15,7 @@ import threading
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
 
-from .models import AvraeRoll, CancelReason, CheckKind, PendingCheck, new_id
+from .models import CancelReason, CheckKind, PendingCheck, new_id
 
 if TYPE_CHECKING:  # pragma: no cover
     from .state.backend import CheckBackend
@@ -26,35 +26,10 @@ DEFAULT_TTL_SECONDS = 180.0
 def normalize_actor(name: str) -> str:
     """Fold an actor name for comparison.
 
-    Avrae renders character names with varying case and punctuation across embeds, so
-    correlation must not depend on exact formatting.
+    The model writes character names with varying case and punctuation, so checking one
+    against the roster must not depend on exact formatting.
     """
     return "".join(ch for ch in name.lower() if ch.isalnum())
-
-
-def _fold(text: str) -> str:
-    """Fold a skill/save/attack key for comparison, as normalize_actor does for names."""
-    return "".join(ch for ch in text.lower() if ch.isalnum())
-
-
-def _answers_the_request(check: "PendingCheck", roll: AvraeRoll) -> bool:
-    """Is this roll the roll the check asked for?
-
-    Correlation identifies WHO rolled; this asks WHAT they rolled. Without it, any roll by
-    a correlated player resolves whatever check is open: a Perception 22 settles a pending
-    Stealth DC, and resolver.resolve then reports it to the model as ``key: "stealth",
-    roll_total: 22`` under an instruction not to reverse the result. The transport is
-    trustworthy, so the claim it carries has to be true.
-
-    Only checked where the parser actually extracted the fields. An embed whose title did
-    not parse yields kind=None and key=None, and is correlated on identity alone as
-    before -- see ARCHITECTURE.md §14.
-    """
-    if roll.kind is not None and roll.kind is not check.kind:
-        return False
-    if roll.key and check.key and _fold(roll.key) != _fold(check.key):
-        return False
-    return True
 
 
 @dataclass(frozen=True)
@@ -79,9 +54,9 @@ class PendingCheckRegistry:
     ) -> None:
         """``backend`` makes open checks durable.
 
-        Without it, a restart between "run this command" and the player rolling loses the
+        Without it, a restart between "roll for it" and the player rolling loses the
         DC that was committed before the dice -- which is exactly the guarantee the whole
-        design exists to provide. The in-memory index is kept for matching speed; the
+        design exists to provide. The in-memory index is kept for lookup speed; the
         backend is written through on every change.
         """
         self._clock = clock
@@ -106,7 +81,7 @@ class PendingCheckRegistry:
         on_success: str,
         on_failure: str,
         stakes: str,
-        command: str,
+        dice: str,
         ttl_seconds: Optional[float] = None,
     ) -> Tuple[PendingCheck, Optional[PendingCheck]]:
         """Open a check. Returns (new_check, superseded_check_or_None)."""
@@ -123,7 +98,7 @@ class PendingCheckRegistry:
             on_success=on_success,
             on_failure=on_failure,
             stakes=stakes,
-            command=command,
+            dice=dice,
             created_at=now,
             expires_at=now + ttl,
         )
@@ -170,61 +145,21 @@ class PendingCheckRegistry:
         if self._backend is not None:
             self._backend.remove(check_id)
 
-    # -- correlation -------------------------------------------------------------------
+    # -- attribution -----------------------------------------------------------------
 
-    def match(
-        self,
-        *,
-        channel_id: int,
-        roll: AvraeRoll,
-        interaction_user_id: Optional[int] = None,
-        referenced_user_id: Optional[int] = None,
-    ) -> Optional[PendingCheck]:
-        """Find the open check an Avrae roll belongs to, or None.
+    def for_player(self, channel_id: int, user_id: int) -> Optional[PendingCheck]:
+        """The check this player is being asked to roll, or None.
 
-        Priority mirrors ARCHITECTURE.md §6.2, strongest signal first:
-
-        1. ``interaction_user_id`` -- would be unambiguous, but Avrae registers no slash
-           commands, so it never arrives (ARCHITECTURE.md §14 (7)).
-        2. ``referenced_user_id`` -- Avrae replying rather than sending. Never observed
-           in live capture either.
-        3. actor name from the embed, matched against ``PendingCheck.actor``. Despite
-           being listed last, this is the tier that carries every real roll.
-
-        Tiers 1 and 2 are kept because they cost nothing and are correct if Avrae ever
-        changes. Nothing may depend on them firing. Identity is not sufficient on its own
-        regardless -- see ``_answers_the_request``.
-
-        Returning None is the common, correct case: it is how ``!help`` and unrelated
-        rolls get dropped instead of triggering an LLM call.
+        Keyed by Discord user, which a click carries exactly. Nothing here reads a name:
+        matching rolls to checks by character name was the weakest link in the Avrae
+        design (§14 (6), (7)), and owning the dice is what lets it go.
         """
         now = self._clock()
         with self._lock:
-            live = [
-                c
-                for c in self._by_player.values()
-                if c.channel_id == channel_id and not c.is_expired(now)
-            ]
-
-        live = [c for c in live if _answers_the_request(c, roll)]
-        if not live:
+            check = self._by_player.get((channel_id, user_id))
+        if check is None or check.is_expired(now):
             return None
-
-        for user_id in (interaction_user_id, referenced_user_id):
-            if user_id is not None:
-                for check in live:
-                    if check.user_id == user_id:
-                        return check
-
-        if roll.actor:
-            wanted = normalize_actor(roll.actor)
-            named = [c for c in live if normalize_actor(c.actor) == wanted]
-            if named:
-                # Ambiguity is possible if one player somehow holds two checks for the
-                # same character; oldest-first keeps resolution deterministic.
-                return min(named, key=lambda c: c.created_at)
-
-        return None
+        return check
 
     # -- introspection -----------------------------------------------------------------
 

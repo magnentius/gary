@@ -2,7 +2,7 @@
 
 The ordering of these checks is the whole substance of the module, and getting it wrong
 produces failures that look like anything but a routing bug: a bot arguing with itself,
-or a system that never resolves a roll.
+or a player's words narrated as a command.
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ import pytest
 from gary.adapters.routing import Route, route_message
 
 GARY = 999
-AVRAE = 261302296103747584
+DICE_BOT = 261302296103747584
 ALICE = 111
 OTHER_BOT = 777
 GAME = frozenset({555})
@@ -25,7 +25,6 @@ def route(**kw) -> Route:
         channel_id=555,
         content="I open the door",
         bot_user_id=GARY,
-        avrae_bot_id=AVRAE,
         game_channels=GAME,
         command_prefix="?dm ",
     )
@@ -43,14 +42,9 @@ def test_self_check_precedes_everything():
     assert route(author_id=GARY, author_is_bot=True, content="?dm undo") is Route.IGNORE_SELF
 
 
-def test_avrae_is_routed_despite_being_a_bot():
-    """A blanket 'ignore bots' ahead of this discards every roll the system needs."""
-    assert route(author_id=AVRAE, author_is_bot=True, content="") is Route.AVRAE
-
-
-def test_avrae_outside_a_game_channel_still_routes():
-    """One drop path, so the logs say why -- 'no pending check', not 'wrong channel'."""
-    assert route(author_id=AVRAE, author_is_bot=True, channel_id=42) is Route.AVRAE
+def test_dice_bots_are_ignored_like_any_other_bot():
+    """Gary rolls its own dice. Another bot's roll means nothing to it."""
+    assert route(author_id=DICE_BOT, author_is_bot=True, content="") is Route.IGNORE_BOT
 
 
 def test_other_bots_are_ignored():
@@ -75,17 +69,12 @@ def test_command_prefix_must_match_exactly():
     assert route(content=" ?dm undo") is Route.PLAYER
 
 
-@pytest.mark.parametrize("content", ["!check stealth", "!init begin", "!attack sword"])
-def test_avrae_commands_typed_by_players_are_ordinary_speech(content):
-    """Gary must not act on the command; it waits for Avrae's answer to it."""
+@pytest.mark.parametrize("content", ["!check stealth", "!r 2d6", "!attack sword"])
+def test_other_bots_commands_typed_by_players_are_ordinary_speech(content):
+    """Another bot's prefix is not Gary's: the message is a player talking."""
     assert route(content=content) is Route.PLAYER
 
 
 def test_missing_bot_id_does_not_crash_before_ready():
     """on_message can fire before the Gateway has told us who we are."""
     assert route(bot_user_id=None) is Route.PLAYER
-
-
-def test_avrae_id_is_configurable():
-    """Hardcoding an ID that turns out wrong is how v1 shipped a dead parser."""
-    assert route(author_id=12345, author_is_bot=True, avrae_bot_id=12345) is Route.AVRAE

@@ -1,24 +1,23 @@
 """Gary: AI Game Master orchestrator.
 
-The deterministic core (models, registry, resolver, fsm, templates, context, state)
-imports nothing third-party, so it can be exercised without Discord, Gemini, or Avrae.
+The deterministic core (models, ports, registry, resolver, fsm, context, state) imports
+nothing third-party, so it can be exercised without Discord or Gemini.
 Adapters live outside it.
 """
 
 from .models import (
-    AvraeRoll,
     CheckKind,
     CheckOutcome,
     Mutation,
     MutationKind,
     PendingCheck,
+    Roll,
 )
 from .registry import PendingCheckRegistry
 from .resolver import resolve
 from .fsm import ChannelState, Director
 
 __all__ = [
-    "AvraeRoll",
     "CheckKind",
     "CheckOutcome",
     "ChannelState",
@@ -27,5 +26,6 @@ __all__ = [
     "MutationKind",
     "PendingCheck",
     "PendingCheckRegistry",
+    "Roll",
     "resolve",
 ]

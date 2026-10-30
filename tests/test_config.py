@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from gary.config import DEFAULT_AVRAE_BOT_ID, ConfigError, Settings
+from gary.config import ConfigError, Settings
 
 
 def settings(**kw) -> Settings:
@@ -21,8 +21,6 @@ def settings(**kw) -> Settings:
 
 def test_defaults_are_the_verified_values():
     s = settings()
-    assert s.avrae_bot_id == 261302296103747584
-    assert DEFAULT_AVRAE_BOT_ID == 261302296103747584
     assert not s.command_prefix.startswith("!")
     # Must track adapters/gemini.py; a drift between them is a silent misconfiguration.
     assert s.gemini_model == "gemini-3.7-flash"
@@ -48,9 +46,9 @@ def test_no_game_channels_is_fatal():
         settings(game_channels=frozenset())
 
 
-def test_prefix_colliding_with_avrae_is_fatal():
-    """Avrae owns '!'. Sharing it means answering commands meant for the dice bot."""
-    with pytest.raises(ConfigError, match="collides with Avrae"):
+def test_prefix_colliding_with_other_bots_is_fatal():
+    """Most bots claim '!'. Sharing it means answering commands meant for another bot."""
+    with pytest.raises(ConfigError, match="collides with '!'"):
         settings(command_prefix="!dm ")
 
 
@@ -87,13 +85,11 @@ def test_from_env_overrides():
         {
             "DISCORD_TOKEN": "tok",
             "GARY_GAME_CHANNELS": "555",
-            "GARY_AVRAE_BOT_ID": "12345",
             "GARY_BACKEND": "firestore",
             "GARY_CHECK_TTL": "300",
             "GARY_CAMPAIGN_ROOT": "/srv/gary",
         }
     )
-    assert s.avrae_bot_id == 12345
     assert s.backend == "firestore"
     assert s.check_ttl_seconds == 300.0
     assert s.campaign_root == Path("/srv/gary")

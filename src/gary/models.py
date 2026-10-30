@@ -46,12 +46,11 @@ def new_id(now: Optional[float] = None) -> str:
 class CheckKind(str, Enum):
     CHECK = "check"
     SAVE = "save"
-    ATTACK = "attack"
 
 
 @dataclass(frozen=True)
 class PendingCheck:
-    """A check that has been declared and is awaiting an Avrae roll.
+    """A check that has been declared and is awaiting the player's roll.
 
     ``dc``, ``on_success`` and ``on_failure`` are set by the model at declaration time
     and are never revisited. The model is not consulted again about whether the roll
@@ -61,14 +60,14 @@ class PendingCheck:
     check_id: str
     channel_id: int
     user_id: int
-    actor: str  # Avrae character name; the correlation key for inbound embeds
+    actor: str  # character name, as the model and the table know them
     kind: CheckKind
     key: str  # canonical snake_case skill/save key, or an attack name
     dc: int
     on_success: str
     on_failure: str
     stakes: str
-    command: str  # the exact Avrae command the player was told to run
+    dice: str  # what Gary rolls when the player rolls, e.g. "1d20"
     created_at: float
     expires_at: float
 
@@ -92,7 +91,7 @@ class PendingCheck:
             "on_success": self.on_success,
             "on_failure": self.on_failure,
             "stakes": self.stakes,
-            "command": self.command,
+            "dice": self.dice,
             "created_at": self.created_at,
             "expires_at": self.expires_at,
         }
@@ -110,7 +109,9 @@ class PendingCheck:
             on_success=d["on_success"],
             on_failure=d["on_failure"],
             stakes=d.get("stakes", ""),
-            command=d["command"],
+            # Checks persisted before Avrae was removed carry "command" instead. Any
+            # still pending after the upgrade were d20 checks, so they roll as one.
+            dice=d.get("dice", "1d20"),
             created_at=float(d["created_at"]),
             expires_at=float(d["expires_at"]),
         )
@@ -123,20 +124,35 @@ class CancelReason(str, Enum):
 
 
 @dataclass(frozen=True)
-class AvraeRoll:
-    """A dice result parsed out of an Avrae embed.
+class Roll:
+    """Dice Gary rolled, kept face by face.
 
-    ``natural`` is the raw d20 face before modifiers, when the parser could recover it.
-    It is Optional because not every Avrae embed exposes the breakdown, and inventing a
-    value here would silently fabricate crits.
+    The faces are kept rather than only the total because the table is shown them: Gary
+    is both referee and dice, and a roll nobody can inspect is one nobody has reason to
+    trust.
     """
 
-    actor: str
-    total: int
-    natural: Optional[int] = None
-    kind: Optional[CheckKind] = None
-    key: Optional[str] = None
-    raw: str = ""
+    spec: str  # what was asked for, e.g. "1d20" or "2d6"
+    faces: tuple  # each die as it landed, in order
+    modifier: int = 0
+
+    @property
+    def total(self) -> int:
+        return sum(self.faces) + self.modifier
+
+    @property
+    def natural(self) -> Optional[int]:
+        """The bare face of a single die, or None when there is more than one."""
+        return self.faces[0] if len(self.faces) == 1 else None
+
+    def render(self) -> str:
+        """`4 + 5 +1 = 10`, or `17` for a single unmodified die."""
+        dice = " + ".join(str(f) for f in self.faces)
+        if self.modifier:
+            dice += f" {self.modifier:+d}"
+        if len(self.faces) == 1 and not self.modifier:
+            return dice
+        return f"{dice} = {self.total}"
 
 
 @dataclass(frozen=True)
@@ -157,6 +173,7 @@ class CheckOutcome:
     succeeded: bool
     consequence: str  # the pre-written on_success/on_failure line, chosen by arithmetic
     natural: Optional[int] = None
+    faces: tuple = ()
 
     @property
     def critical_success(self) -> bool:

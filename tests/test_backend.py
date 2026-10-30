@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from gary.models import AvraeRoll, CheckKind, PendingCheck
+from gary.models import CheckKind, PendingCheck
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import (
     CheckBackend,
@@ -131,7 +131,7 @@ def make_check(check_id="01ABC", user_id=ALICE, dc=15) -> PendingCheck:
         on_success="The tumblers give.",
         on_failure="The pick snaps.",
         stakes="the guard next door",
-        command='!check "sleight of hand"',
+        dice="1d20",
         created_at=1000.0,
         expires_at=1180.0,
     )
@@ -144,6 +144,17 @@ def test_check_round_trips_completely(check_backend_factory):
 
     (restored,) = check_backend_factory().load_all()
     assert restored == original
+
+
+def test_a_check_saved_before_avrae_was_removed_still_loads():
+    """Those carry the Avrae command where the dice now go. Its DC is what matters."""
+    saved = make_check().to_dict()
+    del saved["dice"]
+    saved["command"] = '!check "sleight of hand"'
+
+    restored = PendingCheck.from_dict(saved)
+    assert restored.dc == 15
+    assert restored.dice == "1d20"
 
 
 def test_removed_checks_do_not_come_back(check_backend_factory):
@@ -170,7 +181,7 @@ def test_corrupt_check_file_does_not_block_boot(tmp_path):
 
 
 def test_pending_check_survives_a_process_restart(check_backend_factory, clock):
-    """Gary dies between "run this command" and the player rolling.
+    """Gary dies between "roll for it" and the player rolling.
 
     The DC was committed before the dice; a restart must not lose it, or the guarantee
     the whole design exists to provide is void.
@@ -179,13 +190,13 @@ def test_pending_check_survives_a_process_restart(check_backend_factory, clock):
     check, _ = first.open(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
         key="stealth", dc=17, on_success="unseen", on_failure="spotted",
-        stakes="", command="!check stealth",
+        stakes="", dice="1d20",
     )
 
     # ... process restarts ...
     revived = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
 
-    matched = revived.match(channel_id=CHANNEL, roll=AvraeRoll("Kethra", 20))
+    matched = revived.for_player(CHANNEL, ALICE)
     assert matched is not None
     assert matched.check_id == check.check_id
     assert matched.dc == 17
@@ -197,7 +208,7 @@ def test_resolved_check_does_not_survive_a_restart(check_backend_factory, clock)
     check, _ = first.open(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
         key="stealth", dc=17, on_success="a", on_failure="b",
-        stakes="", command="!check stealth",
+        stakes="", dice="1d20",
     )
     first.consume(check.check_id)
 
@@ -210,7 +221,7 @@ def test_superseded_check_is_evicted_from_storage(check_backend_factory, clock):
     reg = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
     kw = dict(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        dc=10, on_success="a", on_failure="b", stakes="", command="!check x",
+        dc=10, on_success="a", on_failure="b", stakes="", dice="1d20",
     )
     reg.open(key="stealth", **kw)
     second, displaced = reg.open(key="perception", **kw)
@@ -225,7 +236,7 @@ def test_expired_check_is_evicted_from_storage(check_backend_factory, clock):
     reg.open(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
         key="stealth", dc=10, on_success="a", on_failure="b", stakes="",
-        command="!check stealth", ttl_seconds=60,
+        dice="1d20", ttl_seconds=60,
     )
     clock.advance(61)
     reg.sweep_expired()
@@ -239,7 +250,7 @@ def test_registry_without_a_backend_still_works(clock):
     reg.open(
         channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
         key="stealth", dc=10, on_success="a", on_failure="b", stakes="",
-        command="!check stealth",
+        dice="1d20",
     )
     assert reg.has_open(CHANNEL)
 

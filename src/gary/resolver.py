@@ -10,10 +10,10 @@ If this file ever grows a call to an LLM, the design has regressed.
 
 from __future__ import annotations
 
-from .models import AvraeRoll, CheckOutcome, PendingCheck
+from .models import CheckOutcome, PendingCheck, Roll
 
 
-def resolve(check: PendingCheck, roll: AvraeRoll) -> CheckOutcome:
+def resolve(check: PendingCheck, roll: Roll) -> CheckOutcome:
     margin = roll.total - check.dc
     succeeded = margin >= 0
     return CheckOutcome(
@@ -27,6 +27,7 @@ def resolve(check: PendingCheck, roll: AvraeRoll) -> CheckOutcome:
         succeeded=succeeded,
         consequence=check.on_success if succeeded else check.on_failure,
         natural=roll.natural,
+        faces=roll.faces,
     )
 
 

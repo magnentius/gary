@@ -6,7 +6,7 @@ and returns prose plus whatever effects those calls produced.
 The one non-obvious idea here is how a check's result gets back to the model.
 
 **A check is a deferred function call.** When the model calls ``open_check``, the call is
-*deliberately left unanswered*. Gary posts the Avrae command and the turn ends with that
+*deliberately left unanswered*. Gary asks the player to roll and the turn ends with that
 call still open. Minutes later the player rolls, and the outcome is delivered as the
 ``function_response`` to that original call. This is not a trick — it is exactly what
 happened: the model asked for a check, and this is the answer. It gives three things for
@@ -17,7 +17,7 @@ free:
   travelled on rather than from any string in it (§9.1).
 * The model cannot mistake the result for a player's claim about the result.
 
-Expiry answers the same call with ``attempted: false``. A bad skill key answers it with an
+Expiry answers the same call with ``attempted: false``. A missing key answers it with an
 error, and the model retries — an ordinary tool-error loop.
 """
 
@@ -40,10 +40,9 @@ from ..context import (
     render_live_state,
     render_memory,
 )
-from ..encounters import benchmark, lookup, weigh
-from ..fsm import Director, SendMessage
-from ..templates import REST_MINUTES, condition, render_attack_command, render_effect_command, render_remove_effect_command, render_enemy_attack_command, render_rest_command, TemplateError, render_coin_command
+from ..fsm import Director
 from ..models import CheckKind, Mutation, MutationKind
+from ..registry import normalize_actor
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
 from ..state.store import CampaignStore, StateError
@@ -58,7 +57,7 @@ log = logging.getLogger("gary.gemini")
 # model is gemini-3.7-flash, which carries Pro-grade reasoning at Flash latency and cost.
 # (gemini-3.1-pro-preview exists but is preview, and gemini-3-pro-preview is retired.)
 # Latency and cost are live risks here -- §14 (4) and (5) -- and a turn costs two model
-# calls around a human copy-paste, so Flash is the right shape as well as the current one.
+# calls around a player's roll, so Flash is the right shape as well as the current one.
 DEFAULT_MODEL = "gemini-3.7-flash"
 
 # Summarisation is a cheap background job on text nobody reads directly.
@@ -104,7 +103,6 @@ class GeminiNarrator:
         max_retries: int = 2,
         timeout_seconds: float = 90.0,
         fallback_model: str = "",
-        coins_command: str = "game coins",
         max_context_chars: int = 160_000,
         summarize: bool = True,
     ) -> None:
@@ -120,11 +118,13 @@ class GeminiNarrator:
         self._max_retries = max_retries
         self._timeout = timeout_seconds
         self._fallback_model = fallback_model
-        self._coins_command = coins_command
         self._max_context_chars = max_context_chars
         self._summarize = summarize
         self._tasks: set = set()
         self._turn_locks: Dict[int, asyncio.Lock] = {}
+        # Who spoke to start the turn now running, per channel. Read only under that
+        # channel's turn lock, so a concurrent turn elsewhere cannot change it.
+        self._speaker: Dict[int, int] = {}
 
     # -- Narrator ----------------------------------------------------------------------
 
@@ -150,6 +150,7 @@ class GeminiNarrator:
         message and the reply to it.
         """
         async with self._turn_lock(channel_id):
+            self._speaker[channel_id] = int(payload.get("speaker_user_id") or 0)
             return await self._narrate_locked(channel_id, kind, payload)
 
     async def _narrate_locked(
@@ -259,17 +260,6 @@ class GeminiNarrator:
                 ))],
             )
 
-        if kind in ("monster_turn", "death_save", "morale_break"):
-            # Never a deferred answer. A pending open_check is a *player's* roll, and
-            # handing it a monster's turn as its function_response would answer it with
-            # something that is not a roll at all.
-            return types.Content(
-                role="user",
-                parts=[types.Part.from_text(
-                    text="RULES ENGINE: " + json.dumps({"event": kind, **payload})
-                )],
-            )
-
         response = dict(payload)
         if kind == "check_expired":
             response = {
@@ -343,245 +333,6 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
-            if name == T.REMOVE_EFFECT:
-                try:
-                    command = render_remove_effect_command(
-                        str(args.get("target", "")), args.get("effect")
-                    )
-                except TemplateError as exc:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                effects.append(SendMessage(channel_id, f"`{command}`"))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "posted": command,
-                        "note": "ALREADY POSTED to the channel — do not repeat it.",
-                    },
-                ))
-                continue
-
-            if name == T.APPLY_EFFECT:
-                rounds = args.get("rounds")
-                try:
-                    command = render_effect_command(
-                        str(args.get("target", "")),
-                        str(args.get("effect", "")),
-                        int(rounds) if rounds is not None else None,
-                    )
-                except (TemplateError, TypeError, ValueError) as exc:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                effects.append(SendMessage(channel_id, f"`{command}`"))
-                known = condition(str(args.get("effect", "")))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "posted": command,
-                        # The rules verbatim, because Avrae tracks the condition and never
-                        # its consequences: knowing what Restrained actually does is the
-                        # difference between narrating it and adjudicating it.
-                        "rules": known["rules"] if known else
-                                 "Not an SRD condition — a narrative label with no "
-                                 "mechanical effect. Avrae will display it and nothing more.",
-                        "note": "ALREADY POSTED to the channel — do not repeat it. Avrae "
-                                "tracks the condition once someone runs it; until then it "
-                                "does not exist mechanically.",
-                    },
-                ))
-                continue
-
-            if name == T.ENEMY_ATTACK:
-                refusal = self._director.attack_refusal(
-                    channel_id, str(args.get("attacker", ""))
-                )
-                if refusal:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": refusal}))
-                    continue
-                try:
-                    target = str(args.get("target", ""))
-                    command = render_enemy_attack_command(
-                        str(args.get("attack", "")),
-                        target,
-                        advantage=self._director.is_down(channel_id, target),
-                        ranged=bool(args.get("ranged")),
-                    )
-                except TemplateError as exc:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                attacker = str(args.get("attacker", "")).strip() or "The enemy"
-                effects.append(SendMessage(
-                    channel_id, f"**{attacker}'s turn** — run this:\n`{command}`"
-                ))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "posted": command,
-                        "note": "ALREADY POSTED to the channel — do not repeat it in your "
-                                "narration. It attacks as whoever's turn it currently is, "
-                                "so it is only correct on this creature's turn. Avrae "
-                                "resolves it; you are told nothing until it reports.",
-                    },
-                ))
-                continue
-
-            if name == T.ATTACK:
-                refusal = self._director.attack_refusal(
-                    channel_id, str(args.get("actor", ""))
-                )
-                if refusal:
-                    responses.append(types.Part.from_function_response(
-                        name=name,
-                        response={
-                            "ok": False,
-                            "error": refusal,
-                            "instruction": "Do not post an attack for them. Narrate what "
-                                           "is happening to them instead.",
-                        },
-                    ))
-                    continue
-                try:
-                    target = str(args.get("target", ""))
-                    command = render_attack_command(
-                        str(args.get("weapon", "")),
-                        target,
-                        # Prone: melee attacks against a downed creature have advantage
-                        # and ranged ones disadvantage. Avrae adds neither, and cannot
-                        # see range — so the model declares it.
-                        advantage=self._director.is_down(channel_id, target),
-                        ranged=bool(args.get("ranged")),
-                    )
-                except TemplateError as exc:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                actor = str(args.get("actor", "")).strip() or "Someone"
-                effects.append(SendMessage(
-                    channel_id, f"**{actor}** — on your turn:\n`{command}`"
-                ))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "posted": command,
-                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
-                                "Avrae rolls it against the target's AC and applies the "
-                                "damage itself. You are told nothing until it reports, and "
-                                "you must not decide whether it hit.",
-                    },
-                ))
-                continue
-
-            if name == T.START_COMBAT:
-                names = [str(m) for m in (args.get("monsters") or []) if str(m).strip()]
-                unknown = [m for m in names if lookup(m) is None]
-                # Morale (§5.4) needs to know what the tracker's GO1 actually is, and
-                # this is the only moment anything says so.
-                self._director.note_encounter(channel_id, names)
-                adds = "\n".join(
-                    f"`!init madd {(lookup(m) or {}).get('name', m)}`" for m in names
-                )
-                effects.append(SendMessage(
-                    channel_id,
-                    "**Roll for initiative.**\n"
-                    "`!init begin`\n"
-                    "Everyone joins with `!init join`."
-                    + (f"\nThen add the opposition:\n{adds}" if adds else "")
-                    + "\nStart the first round with `!init next`.",
-                ))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "monsters": names,
-                        "not_in_srd": unknown,
-                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
-                                "Initiative is Avrae's from here: it owns turn order, hit "
-                                "points and durations, and the world clock is frozen until "
-                                "!init end. Describe what happens; do not recalculate it.",
-                    },
-                ))
-                continue
-
-            if name == T.REQUEST_REST:
-                kind = str(args.get("kind", "")).strip().lower()
-                try:
-                    command = render_rest_command(kind)
-                except TemplateError as exc:
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                minutes = REST_MINUTES[kind]
-                try:
-                    # ONCE for the party. A rest is per-character but the clock is
-                    # per-world, so advancing per character would burn four nights on one.
-                    state = self._store.advance_time(minutes, reason=f"{kind} rest")
-                except Exception as exc:  # noqa: BLE001 - EncounterActive and friends
-                    responses.append(types.Part.from_function_response(
-                        name=name, response={"ok": False, "error": str(exc)}))
-                    continue
-                effects.append(SendMessage(
-                    channel_id,
-                    f"The party takes a **{kind} rest**. "
-                    f"Everyone run:\n`{command}`",
-                ))
-                responses.append(types.Part.from_function_response(
-                    name=name,
-                    response={
-                        "ok": True,
-                        "minutes_elapsed": minutes,
-                        "world_minutes": state["world_minutes"],
-                        "posted": command,
-                        "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
-                                "The clock has moved for the whole party. Each player "
-                                "resets their own sheet; you are not told when they do.",
-                    },
-                ))
-                continue
-
-            if name == T.REQUEST_PAYMENT:
-                try:
-                    command = render_coin_command(
-                        str(args.get("amount", "")), self._coins_command
-                    )
-                except TemplateError as exc:
-                    responses.append(
-                        types.Part.from_function_response(
-                            name=name, response={"ok": False, "error": str(exc)}
-                        )
-                    )
-                    continue
-                actor = str(args.get("actor", "")).strip() or "Someone"
-                reason = str(args.get("reason", "")).strip()
-                effects.append(
-                    SendMessage(
-                        channel_id,
-                        f"**{actor}**"
-                        + (f" — {reason}" if reason else "")
-                        + f"\n`{command}`",
-                    )
-                )
-                responses.append(
-                    types.Part.from_function_response(
-                        name=name,
-                        response={
-                            "ok": True,
-                            "posted": command,
-                            "note": "ALREADY POSTED to the channel — do not repeat it in your narration. "
-                                    "The player runs it. You will not be told the result "
-                                    "and must not assume it succeeded.",
-                        },
-                    )
-                )
-                continue
-
             if name == T.OPEN_CHECK:
                 effects.extend(self._open_check(channel_id, args))
                 if len(calls) > 1:
@@ -618,16 +369,19 @@ class GeminiNarrator:
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
-        """Best-effort Discord user for a character name.
+        """The Discord user who may roll this character's check.
 
-        Correlation does not depend on getting this right — the registry also matches on
-        the slash-command invoker, the reply reference, and the actor name (§6.2). It only
-        improves the ordering of those signals.
+        This decides who can resolve it, so it comes from the roster -- who said they were
+        playing whom -- and never from anything the model wrote about a person. With no
+        roster entry for the character, it is whoever spoke to start this turn: at a table
+        nobody has set up, the person acting is the person who should roll. 0 when the
+        turn had no speaker either, which leaves a check nobody can roll until it expires.
         """
-        for check in self._director.registry.open_checks(channel_id):
-            if check.actor.lower() == actor.lower():
-                return check.user_id
-        return 0
+        wanted = normalize_actor(actor)
+        for user_id, name in self._director.players.items():
+            if normalize_actor(name) == wanted:
+                return int(user_id)
+        return self._speaker.get(channel_id, 0)
 
     def _call_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         store = self._store
@@ -639,19 +393,6 @@ class GeminiNarrator:
                 return {"ok": False, "error": str(exc)}
             return {"ok": True, "world_minutes": state["world_minutes"],
                     "active_effects": [e["name"] for e in state.get("effects", [])]}
-
-        if name == T.WEIGH_ENCOUNTER:
-            state = store.state()
-            bench = benchmark(
-                state.get("party") or {}, (state.get("players") or {}).values()
-            )
-            if bench is None:
-                return {
-                    "ok": False,
-                    "error": "No character levels known yet — nobody has run !sheet, so "
-                             "there is nothing to weigh against.",
-                }
-            return weigh(bench, list(args.get("monsters") or []))
 
         if name == T.UPSERT_NPC:
             payload: Dict[str, Any] = {}

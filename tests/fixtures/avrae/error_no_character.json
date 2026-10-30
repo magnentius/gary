@@ -1,9 +1,0 @@
-{
-  "_provenance": "DERIVED from avrae@cb75be2 (2026-08-06) dbot.py command_errors, which sends errors as PLAIN TEXT via ctx.send(f\"Error: {msg}\"), not as an embed.",
-  "_description": "Command error. Must classify as irrelevant, not as an unreadable roll -- otherwise an error arriving mid-check makes Gary ask the player what they rolled when nothing was rolled.",
-  "message": {
-    "content": "Error: You have no character active. Use `!char <name>` to select one.",
-    "embeds": []
-  },
-  "expect": {"status": "irrelevant"}
-}
