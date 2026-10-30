@@ -201,6 +201,7 @@ class MutationKind(str, Enum):
     SCENE = "scene"
     TIME = "time"
     PLAYER_CHARACTER = "player_character"
+    SHEET = "sheet"
     SETTING = "setting"
     CALENDAR = "calendar"
 

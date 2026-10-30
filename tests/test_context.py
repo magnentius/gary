@@ -532,3 +532,23 @@ def test_render_proposal_says_nothing_about_rejects_on_a_first_ask():
         assert "took none of them" not in render_proposal(kind)
         assert "took none of them" not in render_proposal(kind, [])
         assert "took none of them" not in render_proposal(kind, ["", "   "])
+
+
+def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
+    """The model narrates HP and picks stats for moves; it can only see what is rendered."""
+    from gary.sheets import Draft
+
+    d = Draft()
+    d.choose_class("fighter")
+    d.choose_race("Dwarf")
+    for stat in ("str", "con", "dex", "wis", "cha"):
+        d.assign(stat, d.next_score())
+    d.choose_name("Kael")
+
+    state = empty_state()
+    state["players"] = {"111": "Kael", "222": "Liriel"}
+    state["sheets"] = {"Kael": d.build()}
+    rendered = render_live_state(state)
+    assert "Kael — Dwarf Fighter 1, HP 25/25" in rendered
+    assert "STR 16 (+2)" in rendered
+    assert "- Liriel: carrying nothing" in rendered  # no sheet yet: just the name

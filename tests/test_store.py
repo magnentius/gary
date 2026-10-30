@@ -557,3 +557,31 @@ def test_replay_across_a_reset_does_not_resurrect_state(backend_factory, clock):
     rebuilt = CampaignStore(backend=_NoSnapshot(backend_factory()), clock=clock)
     assert rebuilt.state().get("setting") == "A high desert empire."
     assert rebuilt.state()["npcs"] == {}
+
+
+def test_a_sheet_is_journalled_and_a_first_sheet_undoes_to_nothing(store):
+    """Undoing a character's creation must remove the sheet, not leave it behind."""
+    sheet = {"name": "Kael", "class": "Fighter", "hp": 25, "max_hp": 25}
+    store.apply([Mutation(MutationKind.SHEET, "Kael", {"sheet": sheet})], reason="created")
+    assert store.state()["sheets"]["Kael"] == sheet
+
+    store.undo_last()
+    assert "Kael" not in store.state()["sheets"]
+
+
+def test_replacing_a_sheet_undoes_to_the_old_one(store):
+    first = {"name": "Kael", "class": "Fighter"}
+    second = {"name": "Kael", "class": "Paladin"}
+    store.apply([Mutation(MutationKind.SHEET, "Kael", {"sheet": first})], reason="a")
+    store.apply([Mutation(MutationKind.SHEET, "Kael", {"sheet": second})], reason="b")
+
+    store.undo_last()
+    assert store.state()["sheets"]["Kael"] == first
+
+
+def test_sheets_survive_a_restart(backend_factory, clock):
+    first = CampaignStore(backend=backend_factory(), clock=clock)
+    first.apply([Mutation(MutationKind.SHEET, "Kael", {"sheet": {"name": "Kael"}})], reason="x")
+    assert CampaignStore(backend=backend_factory(), clock=clock).state()["sheets"] == {
+        "Kael": {"name": "Kael"}
+    }

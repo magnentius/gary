@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from .sheets import describe
 from .state.schema import format_world_time
 
 DEFAULT_RECENT_TURNS = 30
@@ -280,14 +281,17 @@ def render_live_state(state: Dict[str, Any]) -> str:
     # Without the roster the model only learns a character exists when they speak: it
     # cannot address a quiet player, say "the three of you", or know Dorn is there at all.
     party = state.get("party") or {}
-    roster = sorted({*(state.get("players") or {}).values(), *party.keys()})
+    sheets = state.get("sheets") or {}
+    roster = sorted({*(state.get("players") or {}).values(), *party.keys(), *sheets.keys()})
     if roster:
         lines.append("- Party:")
         for actor in roster:
             data = party.get(actor) or {}
             inventory = data.get("inventory") or []
             carried = "carrying " + ", ".join(inventory[:8]) if inventory else "carrying nothing"
-            lines.append(f"    - {actor}: {carried}")
+            # The sheet line carries the name itself, so it replaces the bare name.
+            who = describe(sheets[actor]) if actor in sheets else actor
+            lines.append(f"    - {who}: {carried}")
 
     effects = state.get("effects") or []
     if effects:

@@ -18,7 +18,8 @@ WORKDIR /src
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 PIP_NO_CACHE_DIR=1
 
 # Build a wheel rather than installing into the final image, so no build tooling and no
-# source tree ship to production.
+# source tree ship to production. `data/*.json` rides along via [tool.setuptools.
+# package-data].
 COPY pyproject.toml README.md ./
 COPY src ./src
 RUN pip install --no-cache-dir build \
@@ -49,9 +50,9 @@ ENV GARY_CAMPAIGN_ROOT=/campaign \
     PYTHONUNBUFFERED=1
 VOLUME ["/campaign"]
 
-# Proves the package imports with the adapters it needs -- a wheel missing a module fails
-# here rather than at the first message.
+# Proves the package imports with the adapters it needs and its class data -- a wheel
+# missing either fails here rather than at the first `?dm new`.
 HEALTHCHECK --interval=5m --timeout=10s --start-period=30s \
-    CMD python -c "import gary.adapters.discord_bot"
+    CMD python -c "import gary.adapters.discord_bot, gary.sheets"
 
 ENTRYPOINT ["python", "-m", "gary.adapters.discord_bot"]

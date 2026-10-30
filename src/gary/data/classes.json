@@ -1,0 +1,80 @@
+{
+  "attribution": "Dungeon World is the work of Sage LaTorra and Adam Koebel and is licensed under the Creative Commons Attribution 3.0 Unported License (http://creativecommons.org/licenses/by/3.0/). Extracted from https://github.com/Sagelt/Dungeon-World by scripts/extract_dw_classes.py.",
+  "source_commit": "e67bd51",
+  "classes": {
+    "bard": {
+      "name": "Bard",
+      "base_hp": 6,
+      "damage": "d6",
+      "races": [
+        "Elf",
+        "Human"
+      ]
+    },
+    "cleric": {
+      "name": "Cleric",
+      "base_hp": 8,
+      "damage": "d6",
+      "races": [
+        "Dwarf",
+        "Human"
+      ]
+    },
+    "druid": {
+      "name": "Druid",
+      "base_hp": 6,
+      "damage": "d6",
+      "races": [
+        "Elf",
+        "Human",
+        "Halfling"
+      ]
+    },
+    "fighter": {
+      "name": "Fighter",
+      "base_hp": 10,
+      "damage": "d10",
+      "races": [
+        "Dwarf",
+        "Elf",
+        "Halfling",
+        "Human"
+      ]
+    },
+    "paladin": {
+      "name": "Paladin",
+      "base_hp": 10,
+      "damage": "d10",
+      "races": [
+        "Human"
+      ]
+    },
+    "ranger": {
+      "name": "Ranger",
+      "base_hp": 8,
+      "damage": "d8",
+      "races": [
+        "Elf",
+        "Human"
+      ]
+    },
+    "thief": {
+      "name": "Thief",
+      "base_hp": 6,
+      "damage": "d8",
+      "races": [
+        "Halfling",
+        "Human"
+      ]
+    },
+    "wizard": {
+      "name": "Wizard",
+      "base_hp": 4,
+      "damage": "d4",
+      "races": [
+        "Elf",
+        "Human"
+      ]
+    }
+  }
+}

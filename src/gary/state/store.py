@@ -573,6 +573,24 @@ def _h_player_character(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_sheet(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the character name; payload carries {"sheet": dict}, or
+    {"sheet": None} to remove one -- which is what undoing a first sheet needs."""
+    sheets = store._state.setdefault("sheets", {})
+    before = sheets.get(m.target)
+    after = m.payload.get("sheet")
+    if after is None:
+        sheets.pop(m.target, None)
+    else:
+        sheets[m.target] = dict(after)
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.SHEET, m.target, {"sheet": before}),
+        before=before,
+        after=after,
+    )
+
+
 def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = store._state.get("setting", "")
     store._state["setting"] = str(m.payload.get("text", ""))
@@ -634,4 +652,5 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.SETTING: _h_setting,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
+    MutationKind.SHEET: _h_sheet,
 }

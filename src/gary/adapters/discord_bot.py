@@ -36,6 +36,8 @@ from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
+from ..sheets import describe
+from .creator import StartButton
 from .routing import Route, route_message
 from .runner import EffectRunner
 from .sender import ChannelSender
@@ -121,7 +123,9 @@ __Opening a campaign__
 `{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
 
 __At the table__
-`{p}playing <character name>` — claim a character
+`{p}new` — make a character (a private form; it is yours to roll for)
+`{p}sheet` — your character's sheet
+`{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
 `{p}undo` — reverse the last change to the world
@@ -534,6 +538,39 @@ class GaryClient(discord.Client):
             log.warning("could not disable roll button for %s", check_id)
         await self.runner.run(effects)
 
+    async def _finish_character(
+        self, interaction: "discord.Interaction", sheet: dict, channel_id: int
+    ) -> Optional[str]:
+        """Store a finished sheet and claim it for whoever made it.
+
+        One apply, so the sheet and the claim land together or not at all -- a sheet
+        nobody plays, or a claim on a character with no sheet, is exactly the half-state
+        a crash between two writes would leave.
+
+        Refuses a name another player's character already has: checks are attributed by
+        character, and two Kaels at one table cannot both be the one rolling.
+        """
+        user_id = interaction.user.id
+        name = sheet["name"]
+        owner = next(
+            (uid for uid, actor in self.director.players.items() if actor == name), None
+        )
+        if owner is not None and owner != user_id:
+            return f"Someone at this table already plays a character named {name}."
+
+        diff = self.store.apply(
+            [
+                Mutation(MutationKind.SHEET, name, {"sheet": sheet}),
+                Mutation(MutationKind.PLAYER_CHARACTER, str(user_id), {"actor": name}),
+            ],
+            reason=f"{interaction.user.display_name} creates {name}",
+        )
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        self.director.set_player_character(user_id, name)
+        await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet)}")
+        return None
+
     def _why_no_roll(self, channel_id: int, check_id: str) -> str:
         pending = next(
             (c for c in self.director.registry.open_checks(channel_id) if c.check_id == check_id),
@@ -735,7 +772,7 @@ class GaryClient(discord.Client):
                     f"Currently: {len(state.get('notes') or [])} note(s), "
                     f"{len(state.get('quests') or {})} quest(s), "
                     f"{len(state.get('npcs') or {})} NPC(s).\n"
-                    "Everything goes, including who is playing whom.\n"
+                    "Everything goes, including every character sheet and who is playing whom.\n"
                     f"To confirm: `{self.settings.command_prefix}reset "
                     f"{self._reset_token}`"
                 )
@@ -761,9 +798,31 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id,
                 f"Campaign reset. It is {format_world_time(self.store.state())}. "
-                "Everyone run "
-                f"`{self.settings.command_prefix}playing <character name>` again before "
-                "the first roll.",
+                "Characters went with it: everyone run "
+                f"`{self.settings.command_prefix}new` before the first roll.",
+            )
+            return
+
+        if command == "new":
+            view = StartButton(
+                message.author.id,
+                message.author.display_name,
+                lambda interaction, sheet: self._finish_character(interaction, sheet, channel_id),
+            )
+            # Sent directly rather than through the sender: it carries a form, and a
+            # one-line reply to a command has no pacing to protect.
+            await message.channel.send(
+                f"**{message.author.display_name}** — make your character:", view=view
+            )
+            return
+
+        if command == "sheet":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            await self.sender.send(
+                channel_id,
+                describe(sheet) if sheet
+                else f"You have no sheet yet. `{prefix}new` makes one.",
             )
             return
 

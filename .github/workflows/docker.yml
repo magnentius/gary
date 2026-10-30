@@ -75,16 +75,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # A green suite runs from source, so it cannot catch a wheel that is missing a module.
-      # This imports the adapters from the installed image and rolls one die through it.
+      # A green suite runs from source, so it cannot catch a wheel that is missing a module
+      # or its data. This imports the adapters from the installed image, checks the class
+      # data shipped, and rolls one die through it.
       - name: Smoke-test the built image
         run: |
           docker run --rm --entrypoint python gary:ci -c "
           import gary.adapters.discord_bot
+          from gary.sheets import CLASSES
           from gary.ports import RandomDice
+          assert len(CLASSES) == 8, f'class data missing: {sorted(CLASSES)}'
           roll = RandomDice().roll('2d6')
           assert 2 <= roll.total <= 12, roll
-          print('ok: adapters import, dice roll', roll.render())
+          print('ok: adapters import, 8 classes, dice roll', roll.render())
           "
           # Config validation must fail fast and by name, not hang holding a token.
           docker run --rm gary:ci 2>&1 | grep -q 'DISCORD_TOKEN is empty'

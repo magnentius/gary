@@ -173,7 +173,7 @@ export GARY_FREEFORM_CHANNELS='123456789012345678'
 ```
 
 `GARY_PLAYERS` is usually unnecessary — see [step 6](#6-sit-down-and-play), where
-`?dm playing` does the same job from the table.
+`?dm new` does the same job from the table.
 
 ---
 
@@ -320,19 +320,26 @@ names its own season instead of needing to be looked up. **The clock only moves 
 
 ## 6. Sit down and play
 
-### Register the players
+### Make your characters
 
-Have everyone claim their character once. It persists to campaign state and survives
-restarts.
+Everyone runs:
 
 ```
-?dm playing Caspian Varr
+?dm new
 ```
 
-It takes the Discord user id from the message author, so it cannot be misattributed. Why
-it matters: a check belongs to the player whose character it is, and only that player can
-roll it. Without a claim, the model only knows Discord display names, and a check goes to
-whoever happened to be speaking.
+Gary posts a **Create character** button for you. Clicking it opens a form only you can
+see: pick a class and a race, place the Dungeon World stats (16, 15, 13, 12, 9, 8) one at
+a time, and name your character. Gary works out your hit points and damage die, saves the
+sheet, and tells the table who has joined. `?dm sheet` shows yours again.
+
+Making a character also claims it: its checks are yours to roll, and nobody else's. Why it
+matters: without a claim the model only knows Discord display names, and a check goes to
+whoever happened to be speaking. `?dm playing <character name>` claims a character without
+a sheet, for a table that keeps its sheets elsewhere.
+
+The sheet tracks what rolls need — class, race, stats, HP, damage, armor, level — and not
+yet alignment, gear, bonds or moves. Armor starts at 0 because it comes from gear.
 
 ### Talk to Gary
 
@@ -407,7 +414,7 @@ afterwards to recover from.
 | Wiped | Untouched |
 |---|---|
 | Setting, scene, world clock | Your environment variables and channel config |
-| Party roster, inventories, active effects | The `campaign/` directory itself — the journal is truncated and a fresh snapshot written in place |
+| Party roster, character sheets, inventories, active effects | The `campaign/` directory itself — the journal is truncated and a fresh snapshot written in place |
 | Quests, NPCs, notes | Any copy of `campaign/` you took first — see step 1 |
 | Every channel's conversation history and rolling summary | |
 | All pending checks, and any unaccepted suggestion | |
@@ -435,7 +442,7 @@ Gary answers with what is about to be destroyed and a four-digit code:
 **This deletes the campaign.** World state, quests, NPCs, notes, inventories and
 conversation memory all go — and so does the journal, so there is no record afterwards
 and no undo. Currently: 14 note(s), 2 quest(s), 9 NPC(s).
-Everything goes, including who is playing whom.
+Everything goes, including every character sheet and who is playing whom.
 To confirm: `?dm reset 4821`
 ```
 
@@ -445,8 +452,8 @@ To confirm: `?dm reset 4821`
 ?dm reset 4821
 ```
 ```
-Campaign reset. It is 21 Sturgeon Moon 1026, 00:00. Everyone run
-`?dm playing <character name>` again before the first roll.
+Campaign reset. It is 21 Sturgeon Moon 1026, 00:00. Characters went with it: everyone
+run `?dm new` before the first roll.
 ```
 
 A fresh code is issued every time you run bare `?dm reset`, and a stale one is refused
@@ -458,7 +465,7 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 21 Sturgeon Moon 1026, 00:00 — so this is the same job as
 [step 5](#5-open-the-campaign), from the top:
 
-1. **Re-register the players.** Everyone runs `?dm playing <name>` again.
+1. **Make the characters again.** Everyone runs `?dm new`.
    The roster went with everything else. *(If `GARY_PLAYERS` is set, restarting Gary
    restores it instead — that is the one piece of setup an env var can hand back.)*
 2. **`?dm import`** the new setting document, and `?dm accept` the premise Gary proposes
@@ -494,7 +501,9 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 
 | Command | What it does |
 |---|---|
-| `?dm playing <character name>` | Claim a character. Its checks are yours to roll. |
+| `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
+| `?dm sheet` | Your character's sheet. |
+| `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
 | `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |
 | `?dm undo` | Reverse the last change to the world. |

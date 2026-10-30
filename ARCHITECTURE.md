@@ -21,6 +21,12 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   `!sheet` mirror, monster turns, death saves, attack refusals, coin and rest commands are
 >   gone, as are `morale.py`, `encounters.py` and the SRD data. Old journals' `encounter_*`
 >   entries replay as no-ops.
+> - **Sheets.** Gary owns them (`sheets.py`, state `sheets`, the journalled `SHEET`
+>   mutation). `?dm new` opens a private Discord form (`adapters/creator.py`) that fills a
+>   `Draft` checked at every step: class and race from `data/classes.json` (extracted from
+>   Sagelt's XML by `scripts/extract_dw_classes.py`), the 16/15/13/12/9/8 array, a name.
+>   Max HP is class base + Constitution score. Creating a character also claims it.
+>   Sheets hold what rolls need; alignment, gear, bonds and moves are not tracked yet.
 > - **Tools.** The model keeps `open_check`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >

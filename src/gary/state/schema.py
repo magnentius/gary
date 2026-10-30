@@ -79,6 +79,8 @@ def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
         # discord user id (as str -- JSON object keys are strings) -> character name.
         # What lets open_check name a character someone is actually playing.
         "players": {},
+        # character name -> sheet (see sheets.py). Written whole on creation.
+        "sheets": {},
         "notes": [],  # narrative memory, feeds context retrieval
     }
 
