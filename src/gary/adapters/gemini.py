@@ -41,6 +41,8 @@ from ..context import (
     render_memory,
 )
 from ..fsm import Director
+from .. import trade
+from ..fsm import SendMessage
 from ..models import Mutation, MutationKind
 from ..monsters import describe as describe_monster, prepare as prepare_monsters
 from ..registry import normalize_actor
@@ -344,6 +346,12 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
+            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL):
+                trade_effects, result = self._trade(channel_id, name, args)
+                effects.extend(trade_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.MAKE_CAMP:
                 camp_effects, result = self._director.make_camp(
                     channel_id=channel_id,
@@ -414,6 +422,58 @@ class GeminiNarrator:
             if normalize_actor(name) == wanted:
                 return int(user_id)
         return self._speaker.get(channel_id, 0)
+
+    def _trade(self, channel_id: int, name: str, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
+        """Items and coin, on the character's sheet: one journalled change each, so every
+        pickup, purchase and sale undoes. A character with no sheet keeps the old loose
+        inventory list for items, and has no purse."""
+        store = self._store
+        sheets = store.state().get("sheets") or {}
+        wanted = str(args.get("actor", "")).strip()
+        actor = next((a for a in sheets if a.lower() == wanted.lower()), None)
+        reason = str(args.get("reason", "")).strip()
+
+        if actor is None:
+            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS):
+                kind = MutationKind.ITEM_ADD if name == T.GIVE_ITEMS else MutationKind.ITEM_REMOVE
+                return [], _diff_result(store.apply(
+                    [Mutation(kind, wanted, {"items": [str(i) for i in args.get("items", [])]})],
+                    reason=reason,
+                ))
+            return [], {"ok": False, "error": f"{wanted!r} has no character sheet, so no purse."}
+
+        sheet = sheets[actor]
+        try:
+            if name == T.GIVE_ITEMS:
+                new, got = trade.add_items(sheet, [str(i) for i in args.get("items", [])])
+                line = f"🎒 **{actor}** gets {', '.join(got)}" + (f" — {reason}" if reason else "") + "."
+                result = {"ok": True, "got": got}
+            elif name == T.TAKE_ITEMS:
+                new, lost = trade.remove_items(sheet, [str(i) for i in args.get("items", [])])
+                line = f"🎒 **{actor}** loses {', '.join(lost)}" + (f" — {reason}" if reason else "") + "."
+                result = {"ok": True, "lost": lost}
+            elif name == T.GIVE_COINS:
+                amount = int(args.get("amount", 0))
+                new = trade.give_coins(sheet, amount)
+                verb = "gains" if amount >= 0 else "spends"
+                line = f"🪙 **{actor}** {verb} {abs(amount)} coins" + (f" — {reason}" if reason else "") + "."
+                result = {"ok": True}
+            elif name == T.BUY:
+                new, label, cost = trade.buy(sheet, str(args.get("item", "")))
+                line = f"🪙 **{actor}** buys {label} for {cost} coins."
+                result = {"ok": True, "bought": label, "cost": cost}
+            else:
+                offer = args.get("offer")
+                new, item, paid = trade.sell(sheet, str(args.get("item", "")),
+                                             None if offer is None else int(offer))
+                line = f"🪙 **{actor}** sells {item} for {paid} coins."
+                result = {"ok": True, "sold": item, "paid": paid}
+        except trade.TradeError as exc:
+            return [], {"ok": False, "error": str(exc)}
+
+        store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": new})], reason=line)
+        result.update(coins=new.get("coins", 0), armor=new["armor"])
+        return [SendMessage(channel_id, f"{line} ({new.get('coins', 0)} coins)")], result
 
     def _call_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         store = self._store

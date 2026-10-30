@@ -17,7 +17,10 @@ Dungeon World is CC-BY 3.0, by Sage LaTorra and Adam Koebel.
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import asdict, dataclass
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 MELEE = ("hand", "close", "reach")
@@ -296,3 +299,64 @@ def ammo_of(gear: Sequence[Dict[str, Any]]) -> int:
 
 #: Every catalog item by name, for reading gear saved before a field existed.
 _CATALOG: Dict[str, Item] = {v.name: v for v in list(globals().values()) if isinstance(v, Item)}
+
+
+# -- the book's equipment list: what a found or bought item is -----------------------------
+
+_EQUIPMENT_DATA = Path(__file__).parent / "data" / "equipment.json"
+
+
+def _load_equipment() -> Dict[str, Dict[str, Any]]:
+    try:
+        return json.loads(_EQUIPMENT_DATA.read_text())["items"]
+    except (OSError, ValueError, KeyError) as exc:
+        raise RuntimeError(
+            f"Dungeon World equipment data missing or unreadable at {_EQUIPMENT_DATA} ({exc}). "
+            "Regenerate it with scripts/extract_dw_equipment.py."
+        ) from exc
+
+
+#: name (lowercase, straight quotes) -> the book's entry, with price and description.
+EQUIPMENT: Dict[str, Dict[str, Any]] = {
+    k.replace("’", "'"): v for k, v in _load_equipment().items()
+}
+
+_ARTICLE = re.compile(r"^(a|an|the|some|one)\s+", re.IGNORECASE)
+
+
+def _key(name: str) -> str:
+    return _ARTICLE.sub("", " ".join(str(name or "").replace("’", "'").split())).lower()
+
+
+def catalog_entry(name: str) -> Optional[Dict[str, Any]]:
+    """The book's entry for a name, forgiving articles, curly quotes and a plural."""
+    key = _key(name)
+    words = key.split()
+    candidates = [key]
+    # A plural can sit on any word: "healing potions", but "bundles of arrows".
+    for i, word in enumerate(words):
+        for cut in ("es", "s"):
+            if word.endswith(cut) and len(word) > len(cut) + 1:
+                candidates.append(" ".join(words[:i] + [word[: -len(cut)]] + words[i + 1:]))
+    return next((EQUIPMENT[c] for c in candidates if c in EQUIPMENT), None)
+
+
+def item_for(name: str) -> Tuple[Item, bool]:
+    """(the item, whether the book knows it). An item the book does not list is carried
+    with no effect on the rules -- a locket, a letter, a bone flute."""
+    entry = catalog_entry(name)
+    if entry is None:
+        clean = _ARTICLE.sub("", " ".join(str(name).split()))
+        return Item(clean[:1].upper() + clean[1:]), False
+    return Item(
+        name=entry["name"].replace("’", "'"),
+        tags=tuple(entry["tags"]),
+        armor=entry["armor"], shield=entry["shield"], damage=entry["damage"],
+        piercing=entry["piercing"], ammo=entry["ammo"], needs_ammo=entry["needs_ammo"],
+        weight=entry["weight"], rations=entry["rations"],
+    ), True
+
+
+def price_of(name: str) -> Optional[int]:
+    entry = catalog_entry(name)
+    return None if entry is None else int(entry["price"])

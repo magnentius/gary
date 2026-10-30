@@ -84,12 +84,14 @@ jobs:
           import gary.adapters.discord_bot
           from gary.sheets import CLASSES
           from gary.monsters import BESTIARY
+          from gary.gear import EQUIPMENT
           from gary.ports import RandomDice
           assert len(CLASSES) == 8, f'class data missing: {sorted(CLASSES)}'
           assert len(BESTIARY) == 154, f'monster data missing: {len(BESTIARY)}'
+          assert len(EQUIPMENT) == 45, f'equipment data missing: {len(EQUIPMENT)}'
           roll = RandomDice().roll('2d6')
           assert 2 <= roll.total <= 12, roll
-          print('ok: adapters import, 8 classes, 154 monsters, dice roll', roll.render())
+          print('ok: adapters import, 8 classes, 154 monsters, 45 items, dice roll', roll.render())
           "
           # Config validation must fail fast and by name, not hang holding a token.
           docker run --rm gary:ci 2>&1 | grep -q 'DISCORD_TOKEN is empty'

@@ -35,6 +35,9 @@ ADD_MONSTERS = "add_monsters"
 REMOVE_MONSTERS = "remove_monsters"
 MONSTER_ATTACKS = "monster_attacks"
 MAKE_CAMP = "make_camp"
+GIVE_COINS = "give_coins"
+BUY = "buy"
+SELL = "sell"
 
 
 def _s(**kw) -> types.Schema:
@@ -186,7 +189,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     ),
     types.FunctionDeclaration(
         name=GIVE_ITEMS,
-        description="Record items a character gains — found, bought, given, or looted.",
+        description=(
+            "A character gains items -- found, looted, given. Name them as the book does "
+            "where you can ('long sword', 'plate', 'bundle of arrows', '2 healing "
+            "potions'): book items come with their real stats, so a long sword hits harder "
+            "and plate is armor at once. Anything else ('a silver locket') is carried with "
+            "no effect on the rules. '12 coins' is coin. Not for purchases: use buy."
+        ),
         parameters=_s(
             type=_OBJECT,
             properties={
@@ -199,7 +208,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     ),
     types.FunctionDeclaration(
         name=TAKE_ITEMS,
-        description="Record items consumed, sold, lost, or stolen.",
+        description=(
+            "A character loses items -- dropped, used up, stolen, broken. Refused for "
+            "anything they do not carry. Dropping a weapon or armor changes what they can "
+            "attack with and their armor at once. Not for sales: use sell."
+        ),
         parameters=_s(
             type=_OBJECT,
             properties={
@@ -208,6 +221,55 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING),
             },
             required=["actor", "items", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=GIVE_COINS,
+        description=(
+            "Coin gained or lost outside a sale: treasure, a reward, a bribe, a fine. "
+            "Positive gains, negative spends. Refused if they cannot pay."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING),
+                "amount": _s(type=_INTEGER, description="Coins; negative to spend."),
+                "reason": _s(type=_STRING, description="What it is for, shown at the table."),
+            },
+            required=["actor", "amount", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=BUY,
+        description=(
+            "A character buys something at the book's price, paid from their coin. Refused "
+            "if they cannot afford it, or if the book gives it no price -- then name a price "
+            "in the fiction, take it with give_coins, and hand the item over with give_items."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING),
+                "item": _s(type=_STRING, description="e.g. 'long sword', '2 healing potions'."),
+            },
+            required=["actor", "item"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=SELL,
+        description=(
+            "A character sells something they carry. A book item fetches half its price; "
+            "give offer only if this buyer pays less (a fence, a stingy merchant) -- never "
+            "more. An item the book does not price needs an offer, capped at 100 coins."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING),
+                "item": _s(type=_STRING),
+                "offer": _s(type=_INTEGER, description="Optional: what this buyer pays, if less."),
+            },
+            required=["actor", "item"],
         ),
     ),
     types.FunctionDeclaration(

@@ -824,3 +824,62 @@ async def test_an_interrupted_camp_does_not_move_the_clock(clock):
                  text_response("A twig snaps."))
     await player(n)
     assert store.state()["world_minutes"] == 0
+
+
+# -- items and coin on the sheet --------------------------------------------------------------
+
+
+def _shop(clock, coins=20):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {**KETHRA_SHEET, "gear": [],
+                                                                  "coins": coins}})], reason="setup")
+    director = Director(registry=PendingCheckRegistry(clock=clock), clock=clock,
+                        game_channels={CHANNEL})
+    return store, (director, store, InMemoryHistoryBackend())
+
+
+async def test_found_loot_goes_on_the_sheet_and_is_announced(clock):
+    store, rig = _shop(clock)
+    n = narrator(rig, call_response(T.GIVE_ITEMS, {"actor": "kethra", "items": ["a long sword",
+                 "12 coins"], "reason": "from the bandit"}), text_response("It is a fine blade."))
+    result = await player(n)
+
+    sheet = store.state()["sheets"]["Kethra"]
+    assert [g["name"] for g in sheet["gear"]] == ["Long Sword"] and sheet["coins"] == 32
+    assert any(isinstance(e, SendMessage) and e.text == (
+        "🎒 **Kethra** gets Long Sword (close, +1 damage), 12 coins — from the bandit. (32 coins)"
+    ) for e in result.effects)
+    store.undo_last()
+    assert store.state()["sheets"]["Kethra"]["coins"] == 20
+
+
+async def test_a_purchase_it_cannot_afford_is_refused_and_nothing_changes(clock):
+    store, rig = _shop(clock, coins=10)
+    n = narrator(rig, call_response(T.BUY, {"actor": "Kethra", "item": "long sword"}),
+                 text_response("The smith shakes his head."))
+    result = await player(n)
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False and "costs 15 coins; Kethra has 10" in fr.response["error"]
+    assert store.state()["sheets"]["Kethra"]["coins"] == 10
+    assert not [e for e in result.effects if isinstance(e, SendMessage)]
+
+
+async def test_a_sale_pays_half(clock):
+    store, rig = _shop(clock, coins=0)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+        **store.state()["sheets"]["Kethra"],
+        "gear": [{"name": "Long Sword", "tags": ["close", "+1 damage"], "damage": 1}]}})], reason="x")
+    n = narrator(rig, call_response(T.SELL, {"actor": "Kethra", "item": "long sword"}),
+                 text_response("Coins clink."))
+    await player(n)
+    assert store.state()["sheets"]["Kethra"]["coins"] == 7
+
+
+async def test_a_character_without_a_sheet_keeps_the_loose_inventory(rig):
+    """Loot for an NPC ally or an unregistered character still lands somewhere."""
+    director, store, _ = rig
+    n = narrator(rig, call_response(T.GIVE_ITEMS, {"actor": "Dorn", "items": ["a torch"],
+                                                   "reason": "x"}), text_response("."))
+    await player(n)
+    assert store.state()["party"]["Dorn"]["inventory"] == ["a torch"]

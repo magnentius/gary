@@ -109,6 +109,10 @@ a roll, the turn ends and anything else in it is discarded.
 
 BOOKKEEPING IS YOURS, NOT THE PLAYERS':
 - You hold inventory, time and world state. Record them with the tools.
+- Coin is on each character's sheet. Name prices in the fiction, then buy, sell or
+  give_coins: a sale or purchase only happened if the tool says it did, and a refusal
+  ("can't afford it") is the truth to narrate. Loot found is give_items; name book items
+  as the book does, so a found long sword really is one.
 - Never tell a player to note something on their sheet, track something themselves, or
   remember something for you. If it is worth tracking, call the tool and say nothing
   about it.
@@ -304,8 +308,13 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines.append("- Party:")
         for actor in roster:
             data = party.get(actor) or {}
-            inventory = data.get("inventory") or []
-            carried = "carrying " + ", ".join(inventory[:8]) if inventory else "carrying nothing"
+            inventory = list(data.get("inventory") or [])
+            if actor in sheets:
+                # Weapons are on the sheet line already; this is everything else they carry.
+                inventory = [g["name"] for g in sheets[actor].get("gear") or []
+                             if not any(t in ("hand", "close", "reach", "near", "far", "thrown")
+                                        for t in g.get("tags", ()))] + inventory
+            carried = "carrying " + ", ".join(inventory[:12]) if inventory else "carrying nothing"
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
             lines.append(f"    - {who}: {carried}")

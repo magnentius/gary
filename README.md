@@ -409,6 +409,14 @@ Gary   **Thorin**, roll your damage (d6) against Goblin 1.   [⚔️ Roll damage
 Gary   🎲 **Thorin** damage — d6: 5 → Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**.
 ```
 
+**Loot, buying and selling.** Pick something up in the fiction and Gary adds it to your
+sheet. If the book lists it — a long sword, plate, a bundle of arrows — it comes with its
+real stats, so a found long sword hits harder and plate is armor at once; anything else (a
+silver locket) is carried with no effect on the rules. Coin is on your sheet. Buying costs
+the book's price, refused if you can't afford it; selling fetches half, or less from a
+stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
+Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
+
 A creature is defeated at 0 HP and not before, however the narration reads. When a
 creature hurts you as the GM's move, Gary rolls that too and takes it off your sheet's HP.
 `?dm undo` takes a blow back like any other change.
@@ -443,7 +451,8 @@ waiting on; `?dm cancel` drops your own.
   Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
-  weight and load are not tracked.
+  weight and load are not tracked. Using an item — drinking a potion, binding a wound —
+  is narrated, not yet applied, and there are no magic items yet.
 
 ### When something goes wrong
 

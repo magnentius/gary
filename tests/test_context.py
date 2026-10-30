@@ -577,3 +577,20 @@ def test_the_persona_says_creatures_must_be_added_and_damage_never_invented():
     assert "call add_monsters the moment they" in text
     assert "defeated at 0 HP and not before" in text
     assert "never invent the damage" in text
+
+
+def test_a_character_with_a_sheet_shows_what_they_carry_besides_weapons():
+    from gary.gear import CHAINMAIL, WARHAMMER, RATIONS
+    from gary.sheets import with_gear
+
+    sheet = with_gear({"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 1,
+                       "stats": {s: 10 for s in ("str", "dex", "con", "int", "wis", "cha")},
+                       "hp": 18, "max_hp": 21, "damage": "d6"}, [CHAINMAIL, WARHAMMER, RATIONS])
+    state = empty_state()
+    state["sheets"] = {"Thorin": {**sheet, "coins": 7}}
+    rendered = render_live_state(state)
+    assert "wields Warhammer (close) · rations 5 · 7 coins: carrying Chainmail, Dungeon rations" in rendered
+
+
+def test_the_persona_keeps_money_honest():
+    assert "a sale or purchase only happened if the tool says it did" in DM_SYSTEM_INSTRUCTION

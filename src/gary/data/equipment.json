@@ -1,0 +1,798 @@
+{
+ "attribution": "Dungeon World is the work of Sage LaTorra and Adam Koebel and is licensed under the Creative Commons Attribution 3.0 Unported License (http://creativecommons.org/licenses/by/3.0/). Extracted from https://github.com/Sagelt/Dungeon-World by scripts/extract_dw_equipment.py.",
+ "source_commit": "e67bd51",
+ "items": {
+  "ragged bow": {
+   "name": "Ragged Bow",
+   "kind": "weapon",
+   "tags": [
+    "near"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": true,
+   "weight": 2,
+   "rations": 0,
+   "price": 15,
+   "description": ""
+  },
+  "fine bow": {
+   "name": "Fine Bow",
+   "kind": "weapon",
+   "tags": [
+    "near",
+    "far"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": true,
+   "weight": 2,
+   "rations": 0,
+   "price": 60,
+   "description": ""
+  },
+  "hunter’s bow": {
+   "name": "Hunter’s Bow",
+   "kind": "weapon",
+   "tags": [
+    "near",
+    "far"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": true,
+   "weight": 1,
+   "rations": 0,
+   "price": 100,
+   "description": ""
+  },
+  "crossbow": {
+   "name": "Crossbow",
+   "kind": "weapon",
+   "tags": [
+    "near",
+    "+1 damage",
+    "reload"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 1,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": true,
+   "weight": 3,
+   "rations": 0,
+   "price": 35,
+   "description": ""
+  },
+  "bundle of arrows": {
+   "name": "Bundle of Arrows",
+   "kind": "weapon",
+   "tags": [
+    "3 ammo"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 3,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 1,
+   "description": ""
+  },
+  "elven arrows": {
+   "name": "Elven Arrows",
+   "kind": "weapon",
+   "tags": [
+    "4 ammo"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 4,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 20,
+   "description": ""
+  },
+  "club": {
+   "name": "Club",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 1,
+   "description": ""
+  },
+  "shillelagh": {
+   "name": "Shillelagh",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 1,
+   "description": ""
+  },
+  "staff": {
+   "name": "Staff",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "two-handed"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 1,
+   "description": ""
+  },
+  "dagger": {
+   "name": "Dagger",
+   "kind": "weapon",
+   "tags": [
+    "hand"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 2,
+   "description": ""
+  },
+  "shiv": {
+   "name": "Shiv",
+   "kind": "weapon",
+   "tags": [
+    "hand"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 2,
+   "description": ""
+  },
+  "knife": {
+   "name": "Knife",
+   "kind": "weapon",
+   "tags": [
+    "hand"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 2,
+   "description": ""
+  },
+  "throwing dagger": {
+   "name": "Throwing Dagger",
+   "kind": "weapon",
+   "tags": [
+    "thrown",
+    "near"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 1,
+   "description": ""
+  },
+  "short sword": {
+   "name": "Short Sword",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 8,
+   "description": ""
+  },
+  "axe": {
+   "name": "Axe",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 8,
+   "description": ""
+  },
+  "warhammer": {
+   "name": "Warhammer",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 8,
+   "description": ""
+  },
+  "mace": {
+   "name": "Mace",
+   "kind": "weapon",
+   "tags": [
+    "close"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 8,
+   "description": ""
+  },
+  "spear": {
+   "name": "Spear",
+   "kind": "weapon",
+   "tags": [
+    "reach",
+    "thrown",
+    "near"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 5,
+   "description": ""
+  },
+  "long sword": {
+   "name": "Long Sword",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "+1 damage"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 1,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 15,
+   "description": ""
+  },
+  "battle axe": {
+   "name": "Battle Axe",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "+1 damage"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 1,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 15,
+   "description": ""
+  },
+  "flail": {
+   "name": "Flail",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "+1 damage"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 1,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 15,
+   "description": ""
+  },
+  "halberd": {
+   "name": "Halberd",
+   "kind": "weapon",
+   "tags": [
+    "reach",
+    "+1 damage",
+    "two-handed"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 1,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 9,
+   "description": ""
+  },
+  "rapier": {
+   "name": "Rapier",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "precise"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 25,
+   "description": ""
+  },
+  "dueling rapier": {
+   "name": "Dueling Rapier",
+   "kind": "weapon",
+   "tags": [
+    "close",
+    "1 piercing",
+    "precise"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 1,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 50,
+   "description": ""
+  },
+  "leather": {
+   "name": "Leather",
+   "kind": "armor",
+   "tags": [
+    "1 armor",
+    "worn"
+   ],
+   "armor": 1,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 10,
+   "description": ""
+  },
+  "chainmail": {
+   "name": "Chainmail",
+   "kind": "armor",
+   "tags": [
+    "1 armor",
+    "worn"
+   ],
+   "armor": 1,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 10,
+   "description": ""
+  },
+  "scale mail": {
+   "name": "Scale Mail",
+   "kind": "armor",
+   "tags": [
+    "2 armor",
+    "worn",
+    "clumsy"
+   ],
+   "armor": 2,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 3,
+   "rations": 0,
+   "price": 50,
+   "description": ""
+  },
+  "plate": {
+   "name": "Plate",
+   "kind": "armor",
+   "tags": [
+    "3 armor",
+    "worn",
+    "clumsy"
+   ],
+   "armor": 3,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 4,
+   "rations": 0,
+   "price": 350,
+   "description": ""
+  },
+  "shield": {
+   "name": "Shield",
+   "kind": "armor",
+   "tags": [
+    "+1 armor"
+   ],
+   "armor": 0,
+   "shield": 1,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 15,
+   "description": ""
+  },
+  "adventuring gear": {
+   "name": "Adventuring Gear",
+   "kind": "gear",
+   "tags": [
+    "5 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 20,
+   "description": "Adventuring gear is a collection of useful mundane items such as chalk, poles, spikes, ropes, etc. When you rummage through your adventuring gear for some useful mundane item, you find what you need and mark off a use."
+  },
+  "bandages": {
+   "name": "Bandages",
+   "kind": "gear",
+   "tags": [
+    "3 uses",
+    "slow"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 5,
+   "description": "When you have a few minutes to bandage someone else’s wounds, heal them of 4 damage and expend a use."
+  },
+  "poultices and herbs": {
+   "name": "Poultices and Herbs",
+   "kind": "gear",
+   "tags": [
+    "2 uses",
+    "slow"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 0,
+   "price": 10,
+   "description": "When you carefully treat someone’s wounds with poultices and herbs, heal them of 7 damage and expend a use."
+  },
+  "healing potion": {
+   "name": "Healing Potion",
+   "kind": "gear",
+   "tags": [],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 50,
+   "description": "When you drink an entire healing potion, heal yourself of 10 damage or remove one debility, your choice."
+  },
+  "keg of dwarven stout": {
+   "name": "Keg of Dwarven Stout",
+   "kind": "gear",
+   "tags": [],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 4,
+   "rations": 0,
+   "price": 10,
+   "description": "When you open a keg of dwarven stout and let everyone drink freely, take +1 to your Carouse roll. If you drink a whole keg yourself, you are very, very drunk."
+  },
+  "bag of books": {
+   "name": "Bag of Books",
+   "kind": "gear",
+   "tags": [
+    "5 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 2,
+   "rations": 0,
+   "price": 10,
+   "description": "When your bag of books contains just the right book for the subject you’re spouting lore on, consult the book, mark off a use, and take +1 to your roll."
+  },
+  "antitoxin": {
+   "name": "Antitoxin",
+   "kind": "gear",
+   "tags": [],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 10,
+   "description": "When you drink antitoxin, you’re cured of one poison affecting you."
+  },
+  "dungeon rations": {
+   "name": "Dungeon Rations",
+   "kind": "gear",
+   "tags": [
+    "Ration",
+    "5 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 5,
+   "price": 3,
+   "description": "Not tasty, but not bad either."
+  },
+  "personal feast": {
+   "name": "Personal Feast",
+   "kind": "gear",
+   "tags": [
+    "Ration",
+    "1 use"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 1,
+   "price": 10,
+   "description": "Ostentatious to say the least."
+  },
+  "dwarven hardtack": {
+   "name": "Dwarven Hardtack",
+   "kind": "gear",
+   "tags": [
+    "Requires Dwarf",
+    "ration",
+    "7 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 7,
+   "price": 3,
+   "description": "Dwarves say it tastes like home. Everyone else says it tastes like home, if home is a hog farm, and on fire."
+  },
+  "elven bread": {
+   "name": "Elven Bread",
+   "kind": "gear",
+   "tags": [
+    "Ration",
+    "7 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 1,
+   "rations": 7,
+   "price": 10,
+   "description": "Only the greatest of elf-friends are treated to this rare delicacy."
+  },
+  "halfling pipeleaf": {
+   "name": "Halfling Pipeleaf",
+   "kind": "gear",
+   "tags": [
+    "6 uses"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 5,
+   "description": "When you share halfling pipeleaf with someone, expend two uses and take +1 forward to parley with them."
+  },
+  "oil of tagit": {
+   "name": "Oil of Tagit",
+   "kind": "poison",
+   "tags": [
+    "Dangerous",
+    "applied"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 15,
+   "description": "The target falls into a light sleep."
+  },
+  "bloodweed": {
+   "name": "Bloodweed",
+   "kind": "poison",
+   "tags": [
+    "Dangerous",
+    "touch"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 12,
+   "description": "Until cured, whenever the afflicted rolls damage, they roll an additional d4 and subtract that result from their normal damage."
+  },
+  "goldenroot": {
+   "name": "Goldenroot",
+   "kind": "poison",
+   "tags": [
+    "Dangerous",
+    "applied"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 20,
+   "description": "The target treats the next creature they see as a trusted ally, until proved otherwise."
+  },
+  "serpent’s tears": {
+   "name": "Serpent’s Tears",
+   "kind": "poison",
+   "tags": [
+    "Dangerous",
+    "touch"
+   ],
+   "armor": 0,
+   "shield": 0,
+   "damage": 0,
+   "piercing": 0,
+   "ammo": 0,
+   "needs_ammo": false,
+   "weight": 0,
+   "rations": 0,
+   "price": 10,
+   "description": "Anyone dealing damage against the target rolls twice and takes the better result."
+  }
+ }
+}

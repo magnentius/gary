@@ -59,7 +59,15 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   `dead`, a miss `deaths_mark` (`UpdateSheet`, journalled). The down and dead cannot act.
 >   `make_camp` eats a counted ration each, heals half max HP on a quiet night, and moves
 >   the clock 480 once.
-> - **Tools.** The model keeps `make_move`, `make_camp`, `add_monsters`, `remove_monsters`,
+> - **Items and coin.** `data/equipment.json` (45 items, `scripts/extract_dw_equipment.py`)
+>   gives found and bought items their book stats and prices; `gear.item_for` forgives
+>   articles, plurals on any word and curly quotes; unlisted items carry no rules.
+>   `trade.py` adds, removes, buys and sells on the sheet: armor recomputed, ammo and
+>   rations moved by the item's amount (never recounted, so spent arrows stay spent),
+>   coin bounded (500 a call; unlisted sales capped at 100; sales at half price or less).
+>   `give_items`/`take_items` write the sheet, falling back to the old loose inventory
+>   only for characters without one; each change is one journalled `SHEET` mutation.
+> - **Tools.** The model keeps `make_move`, `make_camp`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >

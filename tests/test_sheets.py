@@ -146,7 +146,7 @@ def test_the_description_shows_scores_and_modifiers():
     line = describe(fighter().build())
     assert line.startswith("Kael — Dwarf Fighter 1, HP 25/25, armor 1, damage d10")
     assert "STR 16 (+2)" in line and "INT 8 (-1)" in line
-    assert line.endswith("wields Signature sword (close, +1 damage, 2 piercing) · rations 5")
+    assert line.endswith("wields Signature sword (close, +1 damage, 2 piercing) · rations 5 · 22 coins")
 
 
 # -- gear --------------------------------------------------------------------------------

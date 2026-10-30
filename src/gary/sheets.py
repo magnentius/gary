@@ -13,6 +13,7 @@ is computed from, which is the class of decision §5 keeps away from the model.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -286,9 +287,11 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
     Used for a new character and for giving gear to one made before gear existed -- so
     their HP, stats and everything else are left exactly as they are.
     """
-    gear = [i.to_dict() for i in items]
+    # "10 coins" in a starting kit is money, not something to carry.
+    coins = sum(int(m[1]) for i in items if (m := re.fullmatch(r"(\d+) coins?", i.name.lower())))
+    gear = [i.to_dict() for i in items if not re.fullmatch(r"\d+ coins?", i.name.lower())]
     return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear),
-            "rations": rations_of(gear)}
+            "rations": rations_of(gear), "coins": int(sheet.get("coins", 0)) + coins}
 
 
 def weapons_line(sheet: Dict[str, Any]) -> str:
@@ -317,7 +320,7 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         if any(g.get("needs_ammo") for g in sheet["gear"]):
             line += f" · ammo {sheet.get('ammo', 0)}"
         rations = sheet["rations"] if "rations" in sheet else rations_of(sheet["gear"])
-        line += f" · rations {rations}"
+        line += f" · rations {rations} · {int(sheet.get('coins', 0))} coins"
     if sheet.get("dead"):
         line += " · DEAD"
     elif int(sheet.get("hp", 1)) <= 0:
