@@ -350,6 +350,12 @@ spends ammo. A character made before gear existed runs `?dm gear` once to pick t
 ("Good: endanger yourself to heal another"); a character made before that runs
 `?dm alignment`. The GM sees it.
 
+**Defend.** Defend names who or what you protect ("Defend Eva", "Defend the gate"): hold 3
+on a 10+, 1 on a 7–9, shown on your sheet. When a creature attacks you or the character you
+defend, Gary rolls the blow and holds it while you choose — redirect it to yourself, halve
+it, open the attacker up (+1 forward to an ally), strike back for your level, or spend
+nothing. No answer spends nothing. Hold runs out, or ends when you make camp.
+
 **Class choices.** `?dm new` also asks what your class decides: a Cleric names their god
 and picks a domain and precept, a Druid their land and tell, a Bard their lore, a Thief
 their poison (three uses to start), a Fighter their weapon's look — and an Elf Fighter a
@@ -530,8 +536,9 @@ waiting on; `?dm cancel` drops your own.
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
   them from their text. A move that names another ("choose one spell", a move from another
   class) is recorded without that second choice — tell the GM which.
-- **Defend's hold** is
-  announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
+- **Defend's hold** is spent one point per attack, and only against `monster_attacks` — not
+  the blow back on a weak Hack and Slash. Defending an item or a place records it, but
+  nothing attacks those through the rules. Ammo is one count shared by bows and throwing daggers, and
   weight and load are not tracked. Debilities are not tracked, so a potion always heals
   rather than curing one, and antitoxin does nothing yet. There are no magic items yet.
 

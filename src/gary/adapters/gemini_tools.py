@@ -94,6 +94,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "creature, exactly as the scene lists it ('Goblin 2') -- add it with "
                         "add_monsters first. For lay_on_hands or arcane_art: the character "
                         "helped. For aid_or_interfere: the character helped or hindered. "
+                        "For defend: who or what they defend -- a character, or 'the gate'. "
                         "For cast_a_spell: the creature a damaging spell hits (for "
                         "Fireball every creature caught in it, comma-separated), or the "
                         "character a healing spell or Bless is cast on. For shapeshifter: the "

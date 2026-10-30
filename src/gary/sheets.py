@@ -416,6 +416,9 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
             line += f" · ammo {sheet.get('ammo', 0)}"
         rations = sheet["rations"] if "rations" in sheet else rations_of(sheet["gear"])
         line += f" · rations {rations} · {int(sheet.get('coins', 0))} coins"
+    guard = sheet.get("defending")
+    if guard:
+        line += f" · defending {guard['charge']} (hold {guard['hold']})"
     shape = sheet.get("shape")
     if shape:
         moves = f": {', '.join(shape['moves'])}" if shape.get("moves") else ""

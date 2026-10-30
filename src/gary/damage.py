@@ -88,13 +88,23 @@ class DamageRoll:
 
 def roll(dice: Dice, spec: DamageSpec, extra: Optional[str] = None) -> DamageRoll:
     faces = dice.roll(spec.dice).faces
-    kept = max(faces) if spec.mode == "best" else min(faces) if spec.mode == "worst" else faces[0]
+    kept = _kept(spec, faces)
     extra_face = None
     if extra:
         if not _EXTRA.match(extra):
             raise ValueError(f"not a damage extra: {extra!r}")
         extra_face = dice.roll("1d6").faces[0]
     return DamageRoll(spec, faces, kept, extra, extra_face)
+
+
+def _kept(spec: DamageSpec, faces) -> int:
+    return max(faces) if spec.mode == "best" else min(faces) if spec.mode == "worst" else faces[0]
+
+
+def landed(spec: DamageSpec, faces) -> DamageRoll:
+    """A damage roll already made, rebuilt from its faces -- one held while a defender
+    decides how to spend hold, across a restart."""
+    return DamageRoll(spec, tuple(faces), _kept(spec, tuple(faces)))
 
 
 def severity(dealt: int, max_hp: int, hp_after: int) -> str:

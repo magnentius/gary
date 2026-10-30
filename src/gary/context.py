@@ -60,6 +60,9 @@ AUTHORITY — this is absolute:
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
   chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
+- Defend holds against later attacks: when a creature attacks a defender or their charge,
+  monster_attacks holds the blow while the defender's player spends hold; narrate only
+  that it comes, and the outcome arrives as a rules event.
 - A Druid shapeshifts with make_move shapeshifter (target = the species). Then name the
   form's moves with form_moves; each use is spend_hold, no roll.
 - NOTHING TRACKS POSITION. There is no map, no distances and no notion of who is next to

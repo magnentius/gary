@@ -380,6 +380,17 @@ class Director:
                     "make_move with its exact name as target.",
                 )]
             target = match
+        elif rules.defends:
+            # Defend: a person, an item or a place. A character at the table is named as
+            # their sheet has it, so an attack on them can find the defender.
+            charge = " ".join(str(target or "").split())[:60]
+            if not charge:
+                return [self._refuse(
+                    channel_id, f"{rules.name} needs who or what is defended: a character, an "
+                                "item or a place.",
+                    "Re-issue make_move with target set to it.",
+                )]
+            target = self._character(charge) or charge
         elif rules.names_form:
             # Shapeshifter: "any species whose essence you have studied or who lives in your
             # land". Which those are is the fiction's -- the land is not recorded -- so any
@@ -477,7 +488,8 @@ class Director:
                 mod += bonus
                 notes.append(f"+{bonus} {pet}")
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
-              else f" into a {target}" if rules.names_form else f" at {target}") if target else ""
+              else f" into a {target}" if rules.names_form else f" {target}" if rules.defends
+              else f" at {target}") if target else ""
         return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                           ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
                           notes, companion=pet)
@@ -750,10 +762,22 @@ class Director:
         """Resolve a move that deals no damage: heal, cast, and tell the model."""
         cast, spell = self._cast(channel_id, check, dice)
         shift, shape = self._shift(channel_id, check, dice)
+        guard = self._guard(channel_id, check, dice)
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
                           healing=self._healing(check, dice), spell=spell, shape=shape)
-        return [*self._consequences(channel_id, outcome), *cast, *shift,
+        return [*self._consequences(channel_id, outcome), *cast, *shift, *guard,
                 *self._resolved(channel_id, outcome)]
+
+    def _guard(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Defend: hold 3 on a 10+, 1 on a 7-9, against attacks on the defender or their
+        charge, for as long as they stand in defense."""
+        if check.move != "defend" or band(dice) == "miss" or not check.target:
+            return []
+        hold = 3 if band(dice) == "strong" else 1
+        return [
+            SendMessage(channel_id, f"🛡️ **{check.actor}** stands in defense of {check.target} — hold {hold}."),
+            UpdateSheet(channel_id, check.actor, {"defending": {"charge": check.target, "hold": hold}}),
+        ]
 
     def _shift(self, channel_id: int, check: PendingCheck, dice: Roll) -> Tuple[List[Effect], Optional[Dict[str, Any]]]:
         """Shapeshifter: take the form, with 3, 2 or 1 hold -- even a miss holds 1."""
@@ -998,6 +1022,9 @@ class Director:
             f"**{check.actor}** chooses: "
             + "; ".join(rules.choice.options[p].text for p in chosen.picks),
         )
+        if check.move in _DEFENCE:
+            self.registry.consume(check.check_id)
+            return [said, *self._spend_defence(channel_id, chosen)]
         return [said, *self._next(channel_id, chosen, dice)]
 
     # -- inbound: the player rolls damage ----------------------------------------------
@@ -1185,6 +1212,10 @@ class Director:
         unable = _unable(character, sheet)
         if unable:
             return [], {"ok": False, "error": unable}
+        character = sheet.get("name", character)
+        defender = self._defender_of(character)
+        if defender is not None:
+            return self._hold_attack(channel_id, name, scene[name], character, defender)
         effects, facts = self._attack(channel_id, name, scene[name], character)
         if facts.get("down"):
             effects.extend(self._trigger(channel_id, character, "last_breath"))
@@ -1193,16 +1224,105 @@ class Director:
                                  "landed, as bad as its severity and no worse or better; do "
                                  "not change the numbers."}
 
+    def _defender_of(self, character: str) -> Optional[str]:
+        """Who stands in defense of this character -- themselves or another -- with hold
+        to spend and able to act. None if nobody."""
+        folded = normalize_actor(character)
+        for actor, sheet in self._party():
+            guard = sheet.get("defending") or {}
+            if int(guard.get("hold", 0)) <= 0 or _unable(actor, sheet):
+                continue
+            if normalize_actor(actor) == folded or normalize_actor(str(guard.get("charge", ""))) == folded:
+                return actor
+        return None
+
+    def _hold_attack(
+        self, channel_id: int, name: str, creature: Dict[str, Any], character: str, defender: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The attack is rolled, then held while the defender decides how to spend hold."""
+        hit = damage.roll(self.dice, damage.parse(creature["damage"]))
+        move = "defend_self" if normalize_actor(defender) == normalize_actor(character) else "defend_charge"
+        user_id = next((uid for uid, a in self.players.items()
+                        if normalize_actor(a) == normalize_actor(defender)), 0)
+        check, _ = self.registry.open(
+            channel_id=channel_id, user_id=user_id, actor=defender, move=move, stat=NOTHING,
+            modifier=0, stakes=character, dice=creature["damage"], target=name,
+        )
+        held = self.registry.hold(check, faces=hit.faces)
+        hold = int((self._sheet_for(defender) or {}).get("defending", {}).get("hold", 0))
+        whom = "you" if move == "defend_self" else f"**{character}**"
+        options = MOVES[move].strong.choice.options
+        return [SendMessage(
+            channel_id,
+            f"🗡️ **{name}** attacks {whom} — {hit.render()} damage, before armor.\n"
+            f"**{defender}**, you stand in defense ({hold} hold): spend one?",
+            prompt=ChoicePrompt(check_id=held.check_id, move=move, band="strong", count=1,
+                                options=tuple(o.text for o in options)),
+        )], {"ok": True, "held": True, "note": (
+            f"{defender} stands in defense and is choosing how to spend hold. The attack has "
+            "not landed yet: say only that it comes. What it does arrives as a rules event."
+        )}
+
+    def _spend_defence(self, channel_id: int, check: PendingCheck) -> List[Effect]:
+        """Land a held attack as the defender chose, spend the hold, tell the model."""
+        defender, character, name = check.actor, check.stakes, check.target
+        choice = MOVES[check.move].strong.choice.options[check.picks[0]].text
+        creature = self._monsters().get(name)
+        hit = damage.landed(damage.parse(check.dice), check.faces)
+        sheet = self._sheet_for(defender) or {}
+        guard = dict(sheet.get("defending") or {})
+        spent = not choice.startswith("Don't")
+        effects: List[Effect] = []
+        victim, halve = character, False
+        if choice.startswith("Redirect"):
+            victim = defender
+        elif choice.startswith("Halve"):
+            halve = True
+        elif choice.startswith("Deal damage") and creature is not None:
+            level = int(sheet.get("level", 1))
+            dealt = damage.through_armor(level, creature["armor"])
+            after = int(creature["hp"]) - dealt
+            effects += [
+                SendMessage(channel_id, f"🛡️ **{defender}** strikes back — {name} takes **{dealt} damage** "
+                                        f"(level {level}, armor {creature['armor']}), HP {creature['hp']} → "
+                                        f"{max(after, 0)}" + (" — **defeated**." if after <= 0 else ".")),
+                ChangeHp(channel_id, "monster", name, after),
+            ]
+        if spent:
+            guard["hold"] = int(guard.get("hold", 0)) - 1
+            effects.append(UpdateSheet(channel_id, defender,
+                                       {"defending": guard if guard["hold"] > 0 else None}))
+        attack: Dict[str, Any] = {}
+        dying: List[Effect] = []
+        if creature is not None:
+            landed, attack = self._attack(channel_id, name, creature, victim, hit=hit, halve=halve)
+            effects = landed + effects
+            if attack.get("down"):
+                dying = self._trigger(channel_id, victim, "last_breath")
+        left = guard.get("hold", 0) if spent else int(guard.get("hold", 0))
+        return [*effects, PromptModel(channel_id, "rules_event", {
+            "event": "An attack meets a defender",
+            "attacker": name, "attacked": character, "defender": defender,
+            "defender_chose": choice, "hold_left": max(left, 0),
+            "attack": attack or {"note": f"{name} is gone; the attack lands on nothing."},
+            "instruction": ("Narrate the attack as it landed and the defender's part in it. The "
+                            "damage and HP are exact. If they opened the attacker up, an ally "
+                            "takes +1 forward against it."),
+        }), *dying]
+
     def _attack(
         self, channel_id: int, name: str, creature: Dict[str, Any], character: str,
-        extra_armor: int = 0,
+        extra_armor: int = 0, hit: Optional["damage.DamageRoll"] = None, halve: bool = False,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
-        hit = damage.roll(self.dice, damage.parse(creature["damage"]))
+        if hit is None:
+            hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         armor = (int(sheet["armor"]) if sheet else 0) + extra_armor
         dealt = damage.through_armor(
             hit.total, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
         )
+        if halve:
+            dealt //= 2  # Defend: "halve its effect or damage"
         facts: Dict[str, Any] = {"attacker": name, "character": character,
                                  "rolled": hit.total, "armor": armor, "dealt": dealt}
         line = f"🗡️ **{name}** hits **{character}** — {hit.render()}"
@@ -1303,6 +1423,12 @@ class Director:
 
     def _finish_for_them(self, check: PendingCheck) -> List[Effect]:
         channel_id = check.channel_id
+        if check.move in _DEFENCE:
+            # Silence spends nothing: the attack lands as it was rolled.
+            options = MOVES[check.move].strong.choice.options
+            check = replace(check, picks=(len(options) - 1,))
+            return [SendMessage(channel_id, f"**{check.actor}** didn't spend hold in time."),
+                    *self._spend_defence(channel_id, check)]
         dice = self._dice_of(check)
         rules = MOVES[check.move].band(band(dice))
         effects: List[Effect] = []
@@ -1372,6 +1498,8 @@ class Director:
             lines.append(f"A halfling's healing song carries over the camp: +{songs.total} to all healing.")
         for actor, sheet in party:
             changes: Dict[str, Any] = {}
+            if sheet.get("defending"):
+                changes["defending"] = None  # nobody stands in defense through the night
             fed = True
             sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
             if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
@@ -1610,6 +1738,9 @@ class Director:
 
 
 _RESULT = {"strong": "strong hit", "weak": "weak hit", "miss": "miss"}
+
+#: The moves that spend Defend's hold on an attack.
+_DEFENCE = ("defend_charge", "defend_self")
 
 #: Shapeshifter's hold by result.
 _SHAPE_HOLD = {"strong": 3, "weak": 2, "miss": 1}

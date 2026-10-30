@@ -106,6 +106,8 @@ class Move:
     helps_target: bool = False
     # The target names a form to take, not anyone in the scene (Shapeshifter).
     names_form: bool = False
+    # The target names who or what is defended: a character, an item, a place (Defend).
+    defends: bool = False
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
@@ -174,6 +176,22 @@ _CAST = (
            loses_spell=True),
 )
 
+# Spending Defend's hold when an attack comes in: one point for one of these, or none.
+# Held as a move of its own, so the choice is the defender's click like any other, and
+# survives a restart with the attack's damage dice.
+_SPEND = (
+    Option("Halve its damage."),
+    Option("Open the attacker up to an ally: +1 forward against it."),
+    Option("Deal damage to the attacker equal to my level."),
+    Option("Don't spend hold."),
+)
+_REDIRECT = Option("Redirect the attack to me.")
+
+
+def _spend_band(options) -> Band:
+    return Band("You stand in defense: spend 1 hold?", choice=Choice(1, options))
+
+
 MOVES: Dict[str, Move] = {m.key: m for m in (
     Move(
         "hack_and_slash", "Hack and Slash", "attack an enemy in melee", "str",
@@ -220,7 +238,7 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
     ),
     Move(
         "defend", "Defend", "stand in defense of a person, item, or location under attack",
-        "con",
+        "con", defends=True,
         strong=Band(
             "Hold 3. So long as you stand in defense, when you or the thing you defend is "
             "attacked you may spend hold, 1 for 1, to redirect the attack to yourself, halve "
@@ -415,6 +433,18 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, _ARCANE_ART),
         ),
         miss=_MISS, classes=("Bard",), heals_target=True,
+    ),
+    # The thing defended is attacked: redirect is one of the choices.
+    Move(
+        "defend_charge", "Defend", "hold Defend's hold and your charge is attacked", NOTHING,
+        strong=_spend_band((_REDIRECT, *_SPEND)), weak=_spend_band((_REDIRECT, *_SPEND)),
+        miss=_spend_band((_REDIRECT, *_SPEND)), callable=False,
+    ),
+    # The defender is attacked themselves: nothing to redirect.
+    Move(
+        "defend_self", "Defend", "hold Defend's hold and are attacked", NOTHING,
+        strong=_spend_band(_SPEND), weak=_spend_band(_SPEND), miss=_spend_band(_SPEND),
+        callable=False,
     ),
     Move(
         "shapeshifter", "Shapeshifter", "call upon the spirits to change your shape", "wis",

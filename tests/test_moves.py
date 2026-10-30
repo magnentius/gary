@@ -15,7 +15,8 @@ def test_the_eight_basic_moves_and_their_stats():
         "aid_or_interfere": BOND,
     }
     assert all(m.stat in (*STATS, ANY, BOND, CASTER, "nothing") for m in MOVES.values())
-    assert {k for k, m in MOVES.items() if not m.callable} == {"last_breath", "take_watch"}
+    assert {k for k, m in MOVES.items() if not m.callable} == {
+        "last_breath", "take_watch", "defend_charge", "defend_self"}
 
 
 @pytest.mark.parametrize("total,band", [(12, "strong"), (10, "strong"), (9, "weak"),
@@ -38,7 +39,8 @@ def test_the_choices_players_make():
     assert choice("discern_realities", "weak") == (1, 6)
     assert choice("aid_or_interfere", "strong") == (1, 2)
     assert choice("aid_or_interfere", "weak") == (1, 2)
-    assert all(m.miss.choice is None for m in MOVES.values())
+    # A miss offers no choice -- except spending hold, which is no roll at all.
+    assert all(m.miss.choice is None for k, m in MOVES.items() if not k.startswith("defend_"))
 
 
 def test_only_hack_and_slash_makes_the_enemy_attack_and_only_where_the_rules_say():

@@ -417,7 +417,18 @@ The Druid's Shapeshifter rolls into a named species and holds 3/2/1 (even a miss
 The model records the form's moves with `form_moves`; `spend_hold` spends one per use with
 no roll, or all to turn back, and the Druid returns to their natural form at 0.
 
-### 6.8 Camp, XP and advancement
+### 6.8 Defend
+
+Defend (`defends`: the target is the charge, a character's name if it is one) puts
+`defending = {charge, hold 3/1}` on the defender's sheet. `monster_attacks` against the
+defender or their charge, while hold remains and the defender can act, rolls the damage
+and **holds** it as a non-callable move of its own (`defend_charge`, with redirect, or
+`defend_self`), its dice the creature's damage faces, so it survives a restart. The
+defender's click lands it — redirected, halved, with the defender striking back for their
+level, or as rolled — spends one hold (clearing the defense at 0) and tells the model as a
+rules event. Expiry spends nothing. Make Camp ends every defense.
+
+### 6.9 Camp, XP and advancement
 
 - **Make Camp** — one call for the party: a counted ration each; on a quiet night everyone
   who ate heals half max HP and the clock moves eight hours once. If something approaches,
@@ -760,9 +771,9 @@ src/gary/
   class_moves.py   class move texts, kinds, the model's class moves block           §6.2
   spells.py        spell lists, caster state, Preparation                           §6.6
   companion.py     animal companion and Command                                     §6.7
-  levelling.py     Level Up                                                         §6.8
+  levelling.py     Level Up                                                         §6.9
   choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
-  bonds.py         bonds and +Bond                                                  §6.8
+  bonds.py         bonds and +Bond                                                  §6.9
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
   ports.py         Narrator / transport / Dice seams, EchoNarrator, ScriptedDice    §12.2
   config.py        boot-time settings, fail-fast validation                         §12.5
@@ -782,9 +793,9 @@ src/gary/
     creator.py     ?dm new / gear / alignment / choices forms                       §6.3
     spellbook.py   Choose spells                                                    §6.6
     companion_form.py  ?dm companion                                                §6.7
-    levelup.py     ?dm levelup                                                      §6.8
-    bonds_form.py  ?dm bonds                                                        §6.8
-    session.py     ?dm endsession                                                   §6.8
+    levelup.py     ?dm levelup                                                      §6.9
+    bonds_form.py  ?dm bonds                                                        §6.9
+    session.py     ?dm endsession                                                   §6.9
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6
 scripts/extract_dw_*.py   XML → data/*.json                                         §6.1
@@ -809,7 +820,8 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    choices only the Elf's precise weapon and the Thief's poison uses are wired; a deity's
    petition, a Druid's land and a Bard's lore are the model's to honour, and poison effects
    are narrated, not tracked on creatures.
-5. **Gaps in the rules engine.** Defend's hold, debilities and antitoxin, Recover,
+5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
+   `monster_attacks`; debilities and antitoxin, Recover,
    Undertake a Perilous Journey, weight and load, magic items; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option

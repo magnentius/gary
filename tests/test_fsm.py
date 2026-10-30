@@ -162,7 +162,7 @@ def test_without_sheets_configured_every_move_rolls_plus_zero(registry, clock, d
 
 def test_supersede_is_announced(director):
     make_move(director, "volley")
-    texts = [e.text for e in sends_in(make_move(director, "defend"))]
+    texts = [e.text for e in sends_in(make_move(director, "defend", target="the gate"))]
     assert texts[0] == "(Superseding Kethra's pending Volley.)"
 
 
@@ -253,7 +253,7 @@ def test_two_players_roll_their_own_moves(director, dice):
 def test_a_stale_roll_button_does_not_roll_the_move_that_replaced_it(director, registry, dice):
     make_move(director, "volley")
     volley = only_check(registry)
-    make_move(director, "defend")
+    make_move(director, "defend", target="the gate")
     assert roll(director, check_id=volley.check_id) == []
     assert dice.rolls == []
 
