@@ -10,8 +10,10 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 > - **Gary rolls.** A `Dice` port (`ports.py`: `RandomDice` in production, `ScriptedDice` in
 >   tests) is the only source of randomness. The player whose check it is asks Gary to roll
 >   (`Director.roll`, keyed by Discord user id); Gary posts the dice face by face and
->   resolves against the DC committed beforehand. The Discord **Roll** button that calls it
->   is not built yet.
+>   resolves against the DC committed beforehand. The request to roll carries a Discord
+>   **Roll** button (`RollButton`, a `DynamicItem` whose custom id holds the check id, so it
+>   survives restarts); a click from anyone else is answered privately, and a button left
+>   over from a superseded check rolls nothing.
 > - **No parsing, no correlation.** `parser/avrae.py`, `templates.py`, the captured fixtures
 >   and their scripts, and `registry.match` are deleted. `registry.for_player` replaces
 >   name matching, which closes §14 (6) and (7).

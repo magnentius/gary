@@ -6,9 +6,9 @@ An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice
 enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) is mid-migration.** Avrae and the D&D 5e rules support
-> are gone, and Gary now rolls its own dice. Dungeon World moves, character sheets and the
-> **Roll** button players click are not built yet — until the button lands, a check Gary
-> asks for cannot be rolled, and it expires after `GARY_CHECK_TTL`. Use `main` to play.
+> are gone, and Gary rolls its own dice when a player clicks **Roll**. Dungeon World moves
+> and character sheets are not built yet, so checks are a plain d20 against a DC with no
+> modifiers.
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
@@ -352,21 +352,23 @@ He answers when:
 Gary narrates, decides a check is needed, and asks you to roll:
 
 ```
-Gary   **Caspian Varr** — roll for stealth (check).
+Gary   **Caspian Varr** — roll for stealth (check).   [🎲 Roll]
        The reeds are chest-high and the mist is with you, but the nearer warden keeps
        turning back towards the road…
 ```
 
-You roll. Gary rolls the dice where everyone can see them, compares against the DC **it
-persisted before you rolled**, and narrates the consequence it committed to in advance:
+You click **Roll**. Gary rolls the dice where everyone can see them, compares against the
+DC **it persisted before you rolled**, and narrates the consequence it committed to in
+advance:
 
 ```
 Gary   🎲 **Caspian Varr** rolls 17.
 Gary   You are past them before the tide sounds again…
 ```
 
-Only you can roll your own check, and only once. *(On this branch the Roll button is not
-built yet, so this step is not reachable from Discord — see the note at the top.)*
+Only you can roll your own check, and only once: anyone else who clicks is told privately
+whose roll it is, and the button greys out to **Rolled** once it is taken. Buttons keep
+working across a Gary restart, like the checks behind them.
 
 If nobody rolls, the check expires after `GARY_CHECK_TTL` (default 180s) and is narrated
 as hesitation or the moment passing — never as a success. `?dm checks` shows what Gary is

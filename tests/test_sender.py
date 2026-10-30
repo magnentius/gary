@@ -12,9 +12,11 @@ from gary.adapters.sender import DISCORD_LIMIT, ChannelSender, split_message
 class FakeTransport:
     def __init__(self) -> None:
         self.sent = []
+        self.buttons = []
 
-    async def send(self, channel_id: int, text: str) -> None:
+    async def send(self, channel_id: int, text: str, roll_check_id=None) -> None:
         self.sent.append((channel_id, text))
+        self.buttons.append(roll_check_id)
 
 
 # -- splitting ------------------------------------------------------------------------------
@@ -200,3 +202,31 @@ async def test_empty_send_reaches_no_transport():
     sender = ChannelSender(FakeTransport(), interval_seconds=0.0)
     await sender.send(555, "   ")
     assert sender._transport.sent == []
+
+
+# -- the Roll button ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_a_roll_button_rides_on_the_last_part_only():
+    """A long request still gets one button, under the end of it."""
+    transport = FakeTransport()
+    sender = ChannelSender(transport, interval_seconds=0.0, limit=50, clock=lambda: 0.0)
+    await sender.send(555, "word " * 30, roll_check_id="C1")
+
+    assert len(transport.sent) > 1
+    assert transport.buttons == [None] * (len(transport.sent) - 1) + ["C1"]
+
+
+@pytest.mark.asyncio
+async def test_a_plain_send_never_asks_the_transport_for_a_button():
+    """Passed only when set, so a transport with nothing to attach need not accept it."""
+    sent = []
+
+    class PlainTransport:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    sender = ChannelSender(PlainTransport(), interval_seconds=0.0, clock=lambda: 0.0)
+    await sender.send(555, "hello")
+    assert sent == ["hello"]

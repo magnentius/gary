@@ -47,6 +47,31 @@ def test_open_check_asks_the_player_to_roll(director):
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
 
+def test_the_request_to_roll_carries_the_button(director, registry):
+    (send,) = [e for e in open_check(director) if isinstance(e, SendMessage)]
+    (check,) = list(registry.open_checks(CHANNEL))
+    assert send.roll_check_id == check.check_id
+
+
+def test_the_button_rolls_the_check_it_was_attached_to(director, registry, dice):
+    open_check(director)
+    (check,) = list(registry.open_checks(CHANNEL))
+    dice.queue(12)
+    assert prompts_in(director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=check.check_id))
+
+
+def test_a_stale_button_does_not_roll_the_check_that_replaced_it(director, registry, dice):
+    """Gary superseded a Stealth check with a Perception one. Clicking the old Stealth
+    button must not roll Perception, which the player has not even read yet."""
+    open_check(director, key="stealth")
+    (stealth,) = list(registry.open_checks(CHANNEL))
+    open_check(director, key="perception")
+
+    assert director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=stealth.check_id) == []
+    assert dice.rolls == []
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
 def test_full_loop_resolves_with_the_committed_dc(director, dice):
     open_check(director, dc=15)
     dice.queue(17)

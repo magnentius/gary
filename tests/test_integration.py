@@ -30,9 +30,12 @@ BOB = 222
 class FakeTransport:
     def __init__(self) -> None:
         self.sent = []
+        self.buttons = []  # (text, check_id) for each message that carried a Roll button
 
-    async def send(self, channel_id: int, text: str) -> None:
+    async def send(self, channel_id: int, text: str, roll_check_id=None) -> None:
         self.sent.append((channel_id, text))
+        if roll_check_id is not None:
+            self.buttons.append((text, roll_check_id))
 
 
 class DirectorNarrator:
@@ -101,12 +104,14 @@ async def test_full_turn_from_declaration_to_narrated_outcome(rig):
     await declare(director, runner)
 
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-    # Posted ahead of the narration it belongs to, not after it.
+    # Posted ahead of the narration it belongs to, not after it -- with the button.
     assert transport.sent[0][1] == "**Kethra** — roll for sleight of hand (check)."
+    ((text, check_id),) = transport.buttons
+    assert text == transport.sent[0][1]
 
-    # 2. The player rolls. 20 vs DC 15.
+    # 2. The player clicks Roll. 20 vs DC 15.
     dice.queue(20)
-    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=check_id))
 
     # 3. The outcome was decided by arithmetic and handed to the model as fact.
     kinds = [k for k, _ in narrator.seen]
@@ -201,6 +206,99 @@ async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
     assert outcome["succeeded"] is True
     assert outcome["dc"] == 15  # the DC committed before the crash
     assert revived_transport.sent[-1][1] == "The tumblers give."
+
+
+# -- the Roll button -------------------------------------------------------------------------
+
+
+class _Response:
+    def __init__(self):
+        self.private = []   # ephemeral replies
+        self.edits = []     # views the clicked message was edited to
+
+    async def send_message(self, text, ephemeral=False):
+        assert ephemeral, "a failed click must never be answered in front of the table"
+        self.private.append(text)
+
+    async def edit_message(self, view=None):
+        self.edits.append(view)
+
+
+class _Interaction:
+    def __init__(self, user_id, channel_id=CHANNEL):
+        self.user = type("U", (), {"id": user_id})()
+        self.channel_id = channel_id
+        self.response = _Response()
+
+
+def _click_client(director, runner):
+    from gary.adapters.discord_bot import GaryClient
+
+    class _Client:
+        pass
+
+    client = _Client()
+    client.director, client.runner = director, runner
+    client._why_no_roll = GaryClient._why_no_roll.__get__(client, _Client)
+    return GaryClient.on_roll.__get__(client, _Client)
+
+
+async def _ask_for_a_roll(rig):
+    director, narrator, runner, transport, dice = rig
+    narrator.open_next = dict(
+        actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
+        on_success="Unseen.", on_failure="Spotted.",
+    )
+    await declare(director, runner, "I sneak")
+    ((_, check_id),) = transport.buttons
+    return check_id
+
+
+async def test_clicking_roll_rolls_narrates_and_disables_the_button(rig):
+    director, narrator, runner, transport, dice = rig
+    check_id = await _ask_for_a_roll(rig)
+    click = _click_client(director, runner)
+
+    dice.queue(18)
+    interaction = _Interaction(ALICE)
+    await click(interaction, check_id)
+
+    # Answered first, by disabling the button -- Discord allows three seconds.
+    (view,) = interaction.response.edits
+    (button,) = view.children
+    assert button.item.disabled and button.custom_id == f"gary:roll:{check_id}"
+    assert interaction.response.private == []
+    # Then the dice and the narration, in front of everyone.
+    assert [t for _, t in transport.sent[-2:]] == ["🎲 **Kethra** rolls 18.", "Unseen."]
+
+
+async def test_someone_elses_click_is_answered_privately_and_rolls_nothing(rig):
+    director, narrator, runner, transport, dice = rig
+    check_id = await _ask_for_a_roll(rig)
+    click = _click_client(director, runner)
+    before = list(transport.sent)
+
+    interaction = _Interaction(BOB)
+    await click(interaction, check_id)
+
+    assert interaction.response.private == ["That roll is **Kethra**'s to make."]
+    assert interaction.response.edits == []
+    assert transport.sent == before and dice.rolls == []
+    assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
+
+
+async def test_a_second_click_says_the_roll_is_made(rig):
+    director, narrator, runner, transport, dice = rig
+    check_id = await _ask_for_a_roll(rig)
+    click = _click_client(director, runner)
+    dice.queue(18)
+    await click(_Interaction(ALICE), check_id)
+
+    again = _Interaction(ALICE)
+    await click(again, check_id)
+
+    assert "already been made" in again.response.private[0]
+    assert len(dice.rolls) == 1
 
 
 # -- addressing ---------------------------------------------------------------------------------

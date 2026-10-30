@@ -18,9 +18,12 @@ CHANNEL = 555
 class FakeSender:
     def __init__(self) -> None:
         self.sent = []
+        self.buttons = []
 
-    async def send(self, channel_id: int, text: str) -> None:
+    async def send(self, channel_id: int, text: str, roll_check_id=None) -> None:
         self.sent.append((channel_id, text))
+        if roll_check_id is not None:
+            self.buttons.append((text, roll_check_id))
 
 
 class ScriptedNarrator:
@@ -51,6 +54,23 @@ async def test_send_message_reaches_the_channel():
     sender = FakeSender()
     await runner(sender).run([SendMessage(CHANNEL, "The door opens.")])
     assert sender.sent == [(CHANNEL, "The door opens.")]
+
+
+async def test_a_roll_request_keeps_its_button():
+    sender = FakeSender()
+    await runner(sender).run([SendMessage(CHANNEL, "**Kethra** — roll", roll_check_id="C1")])
+    assert sender.buttons == [("**Kethra** — roll", "C1")]
+
+
+async def test_a_hoisted_roll_request_keeps_its_button_too():
+    """open_check's request is hoisted ahead of the prose; the button must come with it."""
+    sender = FakeSender()
+    narrator = ScriptedNarrator(NarrationResult(
+        text="You crouch by the lock.",
+        effects=[SendMessage(CHANNEL, "**Kethra** — roll", roll_check_id="C1")],
+    ))
+    await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
+    assert sender.buttons == [("**Kethra** — roll", "C1")]
 
 
 async def test_unknown_effect_type_is_logged_not_fatal():

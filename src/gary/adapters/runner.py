@@ -72,8 +72,7 @@ class EffectRunner:
 
     async def _run_one(self, effect: Effect, depth: int) -> None:
         if isinstance(effect, SendMessage):
-            await self._sender.send(effect.channel_id, effect.text)
-            self.stats.sent += 1
+            await self._send(effect)
             return
 
         if isinstance(effect, RecordOutcome):
@@ -89,6 +88,15 @@ class EffectRunner:
             return
 
         log.warning("no handler for effect %r", type(effect).__name__)
+
+    async def _send(self, effect: SendMessage) -> None:
+        if effect.roll_check_id is not None:
+            await self._sender.send(
+                effect.channel_id, effect.text, roll_check_id=effect.roll_check_id
+            )
+        else:
+            await self._sender.send(effect.channel_id, effect.text)
+        self.stats.sent += 1
 
     async def ask(self, effect: PromptModel) -> str:
         """One model turn whose answer comes back here instead of going to the channel.
@@ -147,8 +155,7 @@ class EffectRunner:
         posts = [e for e in result.effects if isinstance(e, SendMessage)]
         rest = [e for e in result.effects if not isinstance(e, SendMessage)]
         for post in posts:
-            await self._sender.send(post.channel_id, post.text)
-            self.stats.sent += 1
+            await self._send(post)
 
         text = (result.text or "").strip()
         if text:

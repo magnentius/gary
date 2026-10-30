@@ -58,6 +58,9 @@ class Effect:
 class SendMessage(Effect):
     channel_id: int
     text: str
+    # Attach a Roll button for this check. Only the request to roll carries one: the
+    # button is how the player rolls, and the click is what says who they are.
+    roll_check_id: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -270,24 +273,34 @@ class Director:
                 )
             )
         effects.append(
-            SendMessage(channel_id, f"**{actor}** — roll for {key} ({kind.value}).")
+            SendMessage(
+                channel_id,
+                f"**{actor}** — roll for {key} ({kind.value}).",
+                roll_check_id=check.check_id,
+            )
         )
         return effects
 
     # -- inbound: the player rolls -----------------------------------------------------
 
-    def roll(self, *, channel_id: int, user_id: int) -> List[Effect]:
+    def roll(
+        self, *, channel_id: int, user_id: int, check_id: Optional[str] = None
+    ) -> List[Effect]:
         """The player whose check this is asked Gary to roll it.
 
         ``user_id`` is whoever made the request, as Discord reports it -- so a player can
         roll only their own check, and a check can only be rolled once: consuming it is
         what returns the channel to IDLE, and a second request finds nothing to roll.
 
-        Returns nothing when this player holds no check. The adapter says so privately;
-        the table does not need to hear it.
+        ``check_id`` is the check the request was made from -- the one a button was
+        attached to. A button left over from a superseded check must not roll its
+        replacement, which the player has not seen yet.
+
+        Returns nothing when there is nothing for this player to roll. The adapter says
+        so privately; the table does not need to hear it.
         """
         check = self.registry.for_player(channel_id, user_id)
-        if check is None:
+        if check is None or (check_id is not None and check.check_id != check_id):
             return []
 
         self.registry.consume(check.check_id)

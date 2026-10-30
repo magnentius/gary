@@ -55,9 +55,15 @@ class Narrator(Protocol):
 
 @runtime_checkable
 class MessageTransport(Protocol):
-    """Sends text to a channel. Implemented by the Discord adapter."""
+    """Sends text to a channel. Implemented by the Discord adapter.
 
-    async def send(self, channel_id: int, text: str) -> None: ...
+    ``roll_check_id``, when given, asks for a Roll button for that check under the text.
+    Passed only when set, so a transport with nothing to attach need not accept it.
+    """
+
+    async def send(
+        self, channel_id: int, text: str, roll_check_id: Optional[str] = None
+    ) -> None: ...
 
 
 @runtime_checkable

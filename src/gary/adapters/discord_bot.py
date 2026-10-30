@@ -43,13 +43,58 @@ from .sender import ChannelSender
 log = logging.getLogger("gary.discord")
 
 
+class RollButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:roll:(?P<check_id>[0-9A-Z]+)",
+):
+    """The button a player clicks to roll their check.
+
+    A ``DynamicItem`` rather than a View held in memory: the check id rides in the
+    custom id, and discord.py rebuilds the button from it on any click. Pending checks
+    survive a restart (§10), so their buttons have to as well -- a View would have died
+    with the process and left every open check unrollable.
+
+    Discord shows a button to everyone in the channel. Whether the person clicking may
+    roll is decided by the Director, from who Discord says clicked.
+    """
+
+    def __init__(self, check_id: str, disabled: bool = False) -> None:
+        super().__init__(
+            discord.ui.Button(
+                label="Rolled" if disabled else "Roll",
+                emoji="🎲",
+                style=discord.ButtonStyle.secondary if disabled else discord.ButtonStyle.primary,
+                custom_id=f"gary:roll:{check_id}",
+                disabled=disabled,
+            )
+        )
+        self.check_id = check_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "RollButton":
+        return cls(match["check_id"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_roll(interaction, self.check_id)
+
+
+def roll_view(check_id: str, disabled: bool = False) -> "discord.ui.View":
+    # timeout=None: a check can wait minutes for its roll, and a View that times out
+    # stops answering clicks while the check is still open.
+    view = discord.ui.View(timeout=None)
+    view.add_item(RollButton(check_id, disabled=disabled))
+    return view
+
+
 class DiscordTransport:
     """MessageTransport over discord.py."""
 
     def __init__(self, client: "discord.Client") -> None:
         self._client = client
 
-    async def send(self, channel_id: int, text: str) -> None:
+    async def send(
+        self, channel_id: int, text: str, roll_check_id: Optional[str] = None
+    ) -> None:
         channel = self._client.get_channel(channel_id)
         if channel is None:
             try:
@@ -57,7 +102,10 @@ class DiscordTransport:
             except discord.HTTPException:
                 log.error("cannot reach channel %d; dropping message", channel_id)
                 return
-        await channel.send(text)
+        if roll_check_id is not None:
+            await channel.send(text, view=roll_view(roll_check_id))
+        else:
+            await channel.send(text)
 
 
 #: Grouped by the moment you need them, because the commands that matter are not the
@@ -137,6 +185,9 @@ class GaryClient(discord.Client):
     # -- lifecycle ---------------------------------------------------------------------
 
     async def setup_hook(self) -> None:
+        # Before the Gateway connects, so a click on a button posted before a restart is
+        # answered from the first moment.
+        self.add_dynamic_items(RollButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -452,6 +503,45 @@ class GaryClient(discord.Client):
             # IGNORE_SELF / IGNORE_BOT: nothing to do, and nothing worth saying.
         except Exception:  # noqa: BLE001 - one bad message must not kill the bot
             log.exception("handling %s message %s failed", route.value, message.id)
+
+    async def on_roll(self, interaction: "discord.Interaction", check_id: str) -> None:
+        """A Roll button was clicked.
+
+        Discord gives three seconds to answer an interaction, and narrating takes longer.
+        So the click is answered first -- the button is disabled, which is also how the
+        table sees the roll was taken -- and the dice and narration follow as ordinary
+        messages.
+
+        A click that rolls nothing is answered privately: telling the whole table that
+        Bob pressed Alice's button helps nobody.
+        """
+        channel_id = interaction.channel_id
+        user_id = interaction.user.id
+        effects = self.director.roll(
+            channel_id=channel_id, user_id=user_id, check_id=check_id
+        )
+        if not effects:
+            await interaction.response.send_message(
+                self._why_no_roll(channel_id, check_id), ephemeral=True
+            )
+            return
+
+        try:
+            await interaction.response.edit_message(view=roll_view(check_id, disabled=True))
+        except discord.HTTPException:
+            # The roll is already made and must be narrated regardless; a button left
+            # enabled only costs a click that will now say it has been rolled.
+            log.warning("could not disable roll button for %s", check_id)
+        await self.runner.run(effects)
+
+    def _why_no_roll(self, channel_id: int, check_id: str) -> str:
+        pending = next(
+            (c for c in self.director.registry.open_checks(channel_id) if c.check_id == check_id),
+            None,
+        )
+        if pending is not None:
+            return f"That roll is **{pending.actor}**'s to make."
+        return "That roll has already been made, has expired, or was replaced by a newer one."
 
     def _addressed_directly(self, message: "discord.Message") -> bool:
         """Was Gary mentioned -- as the user, or as his own managed role?
