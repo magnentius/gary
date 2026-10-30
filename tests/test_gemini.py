@@ -993,3 +993,19 @@ async def test_end_spell_goes_through_the_director(clock):
     await player(n, "the fight is over")
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response == {"ok": True, "ended": "Bless"}
+
+
+async def test_spend_hold_goes_through_the_director(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+        **KETHRA_SHEET, "class": "Druid", "shape": {"form": "bear", "hold": 2, "moves": ["Maul"]}}})],
+        reason="setup")
+    director = Director(registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+                        players={ALICE: "Kethra"},
+                        sheet_for=lambda a: (store.state().get("sheets") or {}).get(a))
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.SPEND_HOLD, {"character": "Kethra", "move": "Maul"}),
+                 text_response("Claws rake."))
+    await player(n, "I maul the goblin")
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response == {"ok": True, "move": "Maul", "hold": 1}

@@ -104,6 +104,8 @@ class Move:
     heals_target: bool = False
     # Acts on another character named as the target (Aid or Interfere).
     helps_target: bool = False
+    # The target names a form to take, not anyone in the scene (Shapeshifter).
+    names_form: bool = False
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
@@ -413,6 +415,14 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, _ARCANE_ART),
         ),
         miss=_MISS, classes=("Bard",), heals_target=True,
+    ),
+    Move(
+        "shapeshifter", "Shapeshifter", "call upon the spirits to change your shape", "wis",
+        strong=Band("Hold 3."),
+        weak=Band("Hold 2."),
+        # The one move whose miss still works: "hold 1 in addition to whatever the GM says".
+        miss=Band("Hold 1, in addition to whatever the GM says."),
+        classes=("Druid",), names_form=True,
     ),
     Move(
         "cast_a_spell", "Cast a Spell",

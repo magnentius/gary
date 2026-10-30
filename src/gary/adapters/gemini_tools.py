@@ -41,6 +41,8 @@ SELL = "sell"
 USE_ITEM = "use_item"
 PREPARE_SPELLS = "prepare_spells"
 END_SPELL = "end_spell"
+FORM_MOVES = "form_moves"
+SPEND_HOLD = "spend_hold"
 
 
 def _s(**kw) -> types.Schema:
@@ -92,7 +94,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "helped. For aid_or_interfere: the character helped or hindered. "
                         "For cast_a_spell: the creature a damaging spell hits (for "
                         "Fireball every creature caught in it, comma-separated), or the "
-                        "character a healing spell or Bless is cast on. Omit otherwise."
+                        "character a healing spell or Bless is cast on. For shapeshifter: the "
+                        "species to become ('bear', 'hawk'). Omit otherwise."
                     ),
                 ),
                 "companion": _s(
@@ -232,6 +235,40 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "spell": _s(type=_STRING, description="The spell, as the state lists it."),
             },
             required=["character", "spell"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=FORM_MOVES,
+        description=(
+            "After a Druid shapeshifts: record the one to three moves their new form can make "
+            "('maul with claws', 'roar to scatter the weak'). Tell the player them in the "
+            "fiction too. Each use costs 1 hold, through spend_hold."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "moves": _s(type=_ARRAY, items=_s(type=_STRING), description="Short names, as the player would ask for them."),
+            },
+            required=["character", "moves"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=SPEND_HOLD,
+        description=(
+            "A shapeshifted Druid makes one of their form's moves: spend 1 hold, then narrate "
+            "it -- no roll, the hold is the cost. At 0 hold they return to their natural form. "
+            "revert=true when they choose to turn back early. Refused for a move the form "
+            "does not have."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "move": _s(type=_STRING, description="One of the moves form_moves recorded."),
+                "revert": _s(type=types.Type.BOOLEAN, description="True to spend all hold and turn back."),
+            },
+            required=["character"],
         ),
     ),
     types.FunctionDeclaration(

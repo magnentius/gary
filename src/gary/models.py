@@ -221,6 +221,7 @@ class MoveOutcome:
     enemy_attack: Optional[dict] = None
     healing: Optional[dict] = None  # a healing move's roll and what it healed
     spell: Optional[dict] = None  # Cast a Spell: the spell, and what became of it
+    shape: Optional[dict] = None  # Shapeshifter: the form taken and the hold
 
 
 # --------------------------------------------------------------------------------------

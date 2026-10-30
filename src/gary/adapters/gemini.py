@@ -379,6 +379,19 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.FORM_MOVES, T.SPEND_HOLD):
+                character = str(args.get("character", ""))
+                if name == T.FORM_MOVES:
+                    shape_effects, result = self._director.form_moves(
+                        channel_id=channel_id, character=character, moves=list(args.get("moves") or []))
+                else:
+                    shape_effects, result = self._director.spend_hold(
+                        channel_id=channel_id, character=character, move=str(args.get("move", "") or ""),
+                        revert=bool(args.get("revert")))
+                effects.extend(shape_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.PREPARE_SPELLS, T.END_SPELL):
                 if name == T.PREPARE_SPELLS:
                     spell_effects, result = self._director.prepare_spells(

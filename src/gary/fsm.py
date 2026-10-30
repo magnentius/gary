@@ -380,6 +380,16 @@ class Director:
                     "make_move with its exact name as target.",
                 )]
             target = match
+        elif rules.names_form:
+            # Shapeshifter: "any species whose essence you have studied or who lives in your
+            # land". Which those are is the fiction's -- the land is not recorded -- so any
+            # form named is taken, and the model judges whether it is one of them.
+            target = " ".join(str(target or "").split())[:40]
+            if not target:
+                return [self._refuse(
+                    channel_id, f"{rules.name} needs the form to take, e.g. 'bear' or 'hawk'.",
+                    "Re-issue make_move with target set to the species.",
+                )]
         elif rules.helps_target:
             # Aid or Interfere is with someone: +Bond counts the bonds with them.
             wanted = str(target or "").strip()
@@ -465,7 +475,7 @@ class Director:
                 mod += bonus
                 notes.append(f"+{bonus} {pet}")
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
-              else f" at {target}") if target else ""
+              else f" into a {target}" if rules.names_form else f" at {target}") if target else ""
         return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                           ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
                           notes, companion=pet)
@@ -737,9 +747,29 @@ class Director:
     def _settle(self, channel_id: int, check: PendingCheck, dice: Roll, auto_chosen: bool = False) -> List[Effect]:
         """Resolve a move that deals no damage: heal, cast, and tell the model."""
         cast, spell = self._cast(channel_id, check, dice)
+        shift, shape = self._shift(channel_id, check, dice)
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
-                          healing=self._healing(check, dice), spell=spell)
-        return [*self._consequences(channel_id, outcome), *cast, *self._resolved(channel_id, outcome)]
+                          healing=self._healing(check, dice), spell=spell, shape=shape)
+        return [*self._consequences(channel_id, outcome), *cast, *shift,
+                *self._resolved(channel_id, outcome)]
+
+    def _shift(self, channel_id: int, check: PendingCheck, dice: Roll) -> Tuple[List[Effect], Optional[Dict[str, Any]]]:
+        """Shapeshifter: take the form, with 3, 2 or 1 hold -- even a miss holds 1."""
+        if check.move != "shapeshifter":
+            return [], None
+        hold = _SHAPE_HOLD[band(dice)]
+        shape = {"form": check.target, "hold": hold, "moves": []}
+        facts = {**shape, "instruction": (
+            f"Describe {check.actor} becoming a {check.target}: its innate abilities and "
+            f"weaknesses are theirs, though they keep their own stats. Then name one to three "
+            f"moves this form can make and record them with form_moves. Each use of one costs "
+            f"1 hold (spend_hold); at 0 they return to their natural form."
+            + (" It is a miss: make a GM move as well." if band(dice) == "miss" else "")
+        )}
+        return [
+            SendMessage(channel_id, f"🐾 **{check.actor}** takes the shape of a {check.target} — hold {hold}."),
+            UpdateSheet(channel_id, check.actor, {"shape": shape}),
+        ], facts
 
     def _spell_of(self, check: PendingCheck) -> Optional["spells.Spell"]:
         if not check.spell or self._sheet_for is None:
@@ -1460,6 +1490,64 @@ class Director:
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
         ], {"ok": True, "ended": name}
 
+    # -- Shapeshifter's form ------------------------------------------------------------------
+
+    def _shaped(self, character: str) -> Tuple[Optional[str], Optional[Dict[str, Any]], str]:
+        """(the character, their sheet, why not) for someone in another shape."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return None, None, f"{character!r} has no character sheet."
+        if not sheet.get("shape"):
+            return None, None, f"{actor} is in their natural form."
+        return actor, sheet, ""
+
+    def form_moves(self, *, channel_id: int, character: str, moves: Sequence[str]) -> Tuple[List[Effect], Dict[str, Any]]:
+        """"The GM will also tell you one or more moves associated with your new form.\""""
+        actor, sheet, why = self._shaped(character)
+        if actor is None:
+            return [], {"ok": False, "error": why}
+        moves = [" ".join(str(m).split())[:60] for m in moves if str(m).strip()][:4]
+        if not moves:
+            return [], {"ok": False, "error": "Name at least one move the form can make."}
+        shape = {**sheet["shape"], "moves": moves}
+        return [
+            SendMessage(channel_id, f"🐾 As a {shape['form']}, **{actor}** can: {'; '.join(moves)} "
+                                    f"(1 hold each, {shape['hold']} left)."),
+            UpdateSheet(channel_id, actor, {"shape": shape}),
+        ], {"ok": True, **shape}
+
+    def spend_hold(
+        self, *, channel_id: int, character: str, move: str = "", revert: bool = False
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Spend 1 hold to make one of the form's moves -- or all of it to turn back. Out of
+        hold, they return to their natural form."""
+        actor, sheet, why = self._shaped(character)
+        if actor is None:
+            return [], {"ok": False, "error": why}
+        shape = sheet["shape"]
+        if revert:
+            return [
+                SendMessage(channel_id, f"🐾 **{actor}** lets the {shape['form']} go and returns to their natural form."),
+                UpdateSheet(channel_id, actor, {"shape": None}),
+            ], {"ok": True, "hold": 0, "reverted": True}
+        made = next((m for m in shape.get("moves") or () if m.lower() == str(move or "").strip().lower()), None)
+        if made is None:
+            listing = "; ".join(shape.get("moves") or ()) or "none recorded -- call form_moves first"
+            return [], {"ok": False, "error": f"That is not one of the {shape['form']}'s moves: {listing}."}
+        hold = int(shape["hold"]) - 1
+        if hold <= 0:
+            return [
+                SendMessage(channel_id, f"🐾 **{actor}** — {made}, the last of their hold: they return to "
+                                        "their natural form."),
+                UpdateSheet(channel_id, actor, {"shape": None}),
+            ], {"ok": True, "move": made, "hold": 0, "reverted": True,
+                "note": "Narrate the move, then the change back."}
+        return [
+            SendMessage(channel_id, f"🐾 **{actor}** — {made} ({hold} hold left)."),
+            UpdateSheet(channel_id, actor, {"shape": {**shape, "hold": hold}}),
+        ], {"ok": True, "move": made, "hold": hold}
+
     def cancel(self, channel_id: int, check_id: str) -> List[Effect]:
         cancellation = self.registry.cancel(check_id, CancelReason.MANUAL)
         if cancellation is None:
@@ -1471,6 +1559,9 @@ class Director:
 
 
 _RESULT = {"strong": "strong hit", "weak": "weak hit", "miss": "miss"}
+
+#: Shapeshifter's hold by result.
+_SHAPE_HOLD = {"strong": 3, "weak": 2, "miss": 1}
 
 
 def _auto(effect: Effect) -> Effect:

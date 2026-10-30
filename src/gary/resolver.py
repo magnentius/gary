@@ -87,6 +87,8 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
         payload["healing"] = {k: v for k, v in outcome.healing.items() if k != "rolled_render"}
     if outcome.spell:
         payload["spell"] = outcome.spell
+    if outcome.shape:
+        payload["shape"] = outcome.shape
     if outcome.band == "miss":
         instruction = (
             "This outcome is final and was determined by the rules engine. It is a miss: "

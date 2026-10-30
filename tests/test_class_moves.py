@@ -30,7 +30,7 @@ def test_a_dwarf_cleric_has_their_race_move_then_their_class_moves():
     assert kinds["Divine Guidance"] == NARRATIVE
     assert kinds["Cast a Spell"] == ROLLED
     assert kinds["Commune"] == PREPARE
-    assert {m["name"]: m["kind"] for m in moves_of("Druid", "Elf")}["Shapeshifter"] == NOT_YET
+    assert {m["name"]: m["kind"] for m in moves_of("Druid", "Elf")}["Shapeshifter"] == ROLLED
 
 
 def test_the_model_sees_how_to_roll_what_is_rolled_and_the_text_of_the_rest():

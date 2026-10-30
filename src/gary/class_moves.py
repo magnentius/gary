@@ -10,8 +10,8 @@ Three kinds:
   rolled. The caster's spells are listed with their text (spells.py).
 - **Companion** -- the Ranger's Animal Companion and Command (companion.py): the
   companion is shown, and the model flags make_move when it works with them.
-- **Not yet** -- shapeshifting, a whole system of its own. Shown with a note, so the model
-  narrates around it rather than inventing how it works.
+- **Not yet** -- nothing at the moment; kept for a move Gary cannot run, shown with a note
+  so the model narrates around it rather than inventing how it works.
 
 A few narrative moves also have a number Gary applies where it already runs the rules:
 By Nature Sustained (no ration at camp), the Halfling Druid's +1d6 at camp, the Halfling
@@ -51,7 +51,7 @@ TEXTS = _load()
 _KINDS: Dict[str, Dict[str, str]] = {
     "bard": {"Arcane Art": "arcane_art"},
     "cleric": {"Turn Undead": "turn_undead", "Commune": PREPARE, "Cast a Spell": "cast_a_spell"},
-    "druid": {"Shapeshifter": NOT_YET, "Studied Essence": NOT_YET},
+    "druid": {"Shapeshifter": "shapeshifter"},
     "fighter": {"Bend Bars, Lift Gates": "bend_bars"},
     "paladin": {"Lay on Hands (Cha)": "lay_on_hands", "I Am the Law": "i_am_the_law"},
     "ranger": {"Hunt and Track (Wis)": "hunt_and_track", "Called Shot": "called_shot",

@@ -59,6 +59,8 @@ AUTHORITY — this is absolute:
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
   chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
+- A Druid shapeshifts with make_move shapeshifter (target = the species). Then name the
+  form's moves with form_moves; each use is spend_hold, no roll.
 - NOTHING TRACKS POSITION. There is no map, no distances and no notion of who is next to
   whom. You are the only record of where anyone is standing, so: keep it in the
   scene summary while a fight runs — who is where, what is between them, roughly how

@@ -359,6 +359,12 @@ Hunt and Track (hunt, search), Discern Realities (search, scout, guard) and Parl
 (perform). The roll line says so ("+1 Fang"). Its instinct on someone interfering with you
 is left to the table.
 
+**Shapeshifter.** A Druid who calls on the spirits rolls +Wis into the form named ("into a
+bear"): hold 3, 2, or 1 even on a miss. The GM names the form's moves, which Gary records
+and shows on your sheet ("in the shape of a bear (hold 2: maul, roar)"); each use costs 1
+hold with no roll, and at 0 you turn back. You can turn back early. Which species you
+know (your land, Studied Essence) is the GM's to judge — your land isn't recorded yet.
+
 **Bonds.** Once there's another character at the table, run `?dm bonds`: a private form
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
 the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
@@ -500,8 +506,8 @@ waiting on; `?dm cancel` drops your own.
 - **Class moves: starting moves only.** Rolled class moves work —
   Turn Undead, Lay on Hands, I Am the Law, Hunt and Track, Called Shot, Trap Expert,
   Tricks of the Trade, Backstab, Bend Bars, Arcane Art, Cast a Spell — for that class
-  alone. The rest are shown to the GM to honour in the story. Shapeshifter is not
-  playable yet; nor are choices made at creation (a Cleric's deity, a
+  alone. The rest are shown to the GM to honour in the story. Not yet: choices made at
+  creation (a Cleric's deity, a
   Bard's lore). Called Shot and Arcane Art pick their effect after the roll rather than
   before.
 - **Spells, as far as the numbers go.** Sanctuary's +1d4 healing, Bless ending with the
