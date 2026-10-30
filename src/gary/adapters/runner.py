@@ -20,7 +20,8 @@ import logging
 from dataclasses import dataclass
 from typing import Sequence
 
-from ..fsm import Effect, PromptModel, RecordOutcome, SendMessage
+from ..fsm import ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage
+from ..models import Mutation, MutationKind
 from ..ports import Narrator, NarrationResult
 
 log = logging.getLogger("gary.runner")
@@ -75,6 +76,10 @@ class EffectRunner:
             await self._send(effect)
             return
 
+        if isinstance(effect, ChangeHp):
+            self._change_hp(effect)
+            return
+
         if isinstance(effect, RecordOutcome):
             if self._store is not None:
                 self._store.record_check_outcome(effect.outcome)
@@ -88,6 +93,23 @@ class EffectRunner:
             return
 
         log.warning("no handler for effect %r", type(effect).__name__)
+
+    def _change_hp(self, effect: ChangeHp) -> None:
+        """Journalled like any other change, so ``?dm undo`` takes a blow back."""
+        if self._store is None:
+            log.warning("no store wired; %s's HP change not applied", effect.name)
+            return
+        if effect.kind == "monster":
+            mutation = Mutation(MutationKind.MONSTER_HP, effect.name, {"hp": effect.hp})
+        else:
+            sheet = (self._store.state().get("sheets") or {}).get(effect.name)
+            if sheet is None:
+                log.warning("no sheet for %s; HP change not applied", effect.name)
+                return
+            mutation = Mutation(MutationKind.SHEET, effect.name, {"sheet": {**sheet, "hp": effect.hp}})
+        diff = self._store.apply([mutation], reason=f"{effect.name} to {effect.hp} HP")
+        if not diff.ok:
+            log.warning("HP change for %s refused: %s", effect.name, diff.rejected)
 
     async def _send(self, effect: SendMessage) -> None:
         if effect.prompt is not None:

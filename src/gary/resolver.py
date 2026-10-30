@@ -72,10 +72,17 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
         payload["player_chose"] = list(outcome.chosen)
     if outcome.auto_chosen:
         payload["note"] = "The player did not choose in time, so the first options were taken."
+    if outcome.damage:
+        payload["damage"] = outcome.damage
     if outcome.enemy_attacks:
         payload["enemy_attacks"] = (
+            "The rules say the enemy makes an attack against them. It has been rolled and "
+            "applied (enemy_attack); narrate it landing."
+            if outcome.enemy_attack else
             "The rules say the enemy makes an attack against them. Narrate it landing."
         )
+    if outcome.enemy_attack:
+        payload["enemy_attack"] = outcome.enemy_attack
     if outcome.band == "miss":
         instruction = (
             "This outcome is final and was determined by the rules engine. It is a miss: "
@@ -88,5 +95,10 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
             "means, including anything the player chose. Do not restate the arithmetic, "
             "and do not reverse or soften the result."
         )
+        if outcome.damage:
+            instruction += (
+                " The damage and HP are exact: a creature that is not defeated is still "
+                "fighting, however the blow reads, and one that is defeated is done."
+            )
     payload["instruction"] = instruction
     return payload

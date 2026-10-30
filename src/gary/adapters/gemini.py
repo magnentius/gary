@@ -42,6 +42,7 @@ from ..context import (
 )
 from ..fsm import Director
 from ..models import Mutation, MutationKind
+from ..monsters import describe as describe_monster, prepare as prepare_monsters
 from ..registry import normalize_actor
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -335,6 +336,16 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
+            if name == T.MONSTER_ATTACKS:
+                attack_effects, result = self._director.monster_attacks(
+                    channel_id=channel_id,
+                    monster=str(args.get("monster", "")),
+                    character=str(args.get("character", "")),
+                )
+                effects.extend(attack_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.MAKE_MOVE:
                 effects.extend(self._make_move(channel_id, args))
                 if len(calls) > 1:
@@ -361,6 +372,7 @@ class GeminiNarrator:
             move=str(args.get("move", "")),
             stat=str(args.get("stat", "") or ""),
             stakes=str(args.get("stakes", "")),
+            target=str(args.get("target", "") or ""),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
@@ -388,6 +400,35 @@ class GeminiNarrator:
                 return {"ok": False, "error": str(exc)}
             return {"ok": True, "world_minutes": state["world_minutes"],
                     "active_effects": [e["name"] for e in state.get("effects", [])]}
+
+        if name == T.ADD_MONSTERS:
+            scene = store.state().get("monsters") or {}
+            added, errors = prepare_monsters(list(args.get("monsters") or []), scene)
+            if added:
+                store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": added})],
+                            reason="creatures enter the scene")
+            return {
+                "ok": not errors,
+                "added": [describe_monster(n, r) for n, r in added.items()],
+                "refused": errors,
+            }
+
+        if name == T.REMOVE_MONSTERS:
+            asked = args.get("names")
+            scene = store.state().get("monsters") or {}
+            payload: Dict[str, Any] = {}
+            if asked:
+                # Names given and none match must not fall through to "clear everything":
+                # an empty list here would read exactly like no list at all.
+                lowered = {n.lower(): n for n in scene}
+                names = [lowered[str(n).lower()] for n in asked if str(n).lower() in lowered]
+                if not names:
+                    return {"ok": False, "error": f"None of {list(asked)} are in the scene.",
+                            "remaining": sorted(scene)}
+                payload = {"names": names}
+            diff = store.apply([Mutation(MutationKind.MONSTERS_REMOVE, "", payload)],
+                               reason="creatures leave the scene")
+            return {"ok": diff.ok, "remaining": sorted(store.state().get("monsters") or {})}
 
         if name == T.UPSERT_NPC:
             payload: Dict[str, Any] = {}

@@ -17,7 +17,7 @@ import pytest
 
 from gary.adapters.runner import EffectRunner
 from gary.adapters.sender import ChannelSender
-from gary.fsm import ChannelState, ChoicePrompt, Director, RollPrompt
+from gary.fsm import ChannelState, ChoicePrompt, DamagePrompt, Director, RollPrompt
 from gary.ports import EchoNarrator, NarrationResult, ScriptedDice
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import FileCheckBackend
@@ -26,7 +26,10 @@ CHANNEL = 555
 ALICE = 111
 BOB = 222
 
-KETHRA = {"name": "Kethra", "stats": {"str": 8, "dex": 16, "con": 13, "int": 12, "wis": 15, "cha": 9}}
+KETHRA = {"name": "Kethra", "stats": {"str": 8, "dex": 16, "con": 13, "int": 12, "wis": 15, "cha": 9},
+          "hp": 19, "max_hp": 19, "armor": 1, "damage": "d8"}
+GOBLIN = {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6",
+          "piercing": 0, "ignores_armor": False, "srd": True}
 
 
 class FakeTransport:
@@ -69,9 +72,10 @@ class DirectorNarrator:
 
 def build(clock, path, dice):
     registry = PendingCheckRegistry(clock=clock, backend=FileCheckBackend(path))
+    scene = {"Goblin 1": dict(GOBLIN)}
     director = Director(
         registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
-        sheet_for={"Kethra": KETHRA}.get,
+        sheet_for={"Kethra": KETHRA}.get, monsters=lambda: scene,
     )
     narrator = DirectorNarrator(director)
     transport = FakeTransport()
@@ -124,7 +128,7 @@ async def test_full_turn_from_move_to_narrated_outcome(rig):
 
 async def test_a_weak_volley_waits_for_the_players_choice_then_narrates_it(rig):
     director, narrator, runner, transport, dice = rig
-    narrator.move_next = dict(actor="Kethra", move="volley")
+    narrator.move_next = dict(actor="Kethra", move="volley", target="Goblin 1")
     await declare(director, runner)
     ((_, roll_prompt),) = transport.prompts
 
@@ -137,15 +141,24 @@ async def test_a_weak_volley_waits_for_the_players_choice_then_narrates_it(rig):
     await runner.run(director.choose(
         channel_id=CHANNEL, user_id=ALICE, check_id=choice.check_id, picks=[2]
     ))
+    assert [k for k, _ in narrator.seen] == ["player_action"]  # damage still to roll
+    (_, damage_prompt) = transport.prompts[-1]
+    assert isinstance(damage_prompt, DamagePrompt)
+
+    dice.queue(5)
+    await runner.run(director.roll_damage(
+        channel_id=CHANNEL, user_id=ALICE, check_id=damage_prompt.check_id
+    ))
     outcome = narrator.seen[-1][1]
     assert outcome["player_chose"] == ["Take several shots, reducing your ammo by one."]
+    assert outcome["damage"]["dealt"] == 4 and outcome["damage"]["defeated"] is True
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
 async def test_someone_elses_roll_costs_nothing(rig):
     """Bob asking to roll Alice's move: no dice, no model call, no message."""
     director, narrator, runner, transport, dice = rig
-    narrator.move_next = dict(actor="Kethra", move="volley")
+    narrator.move_next = dict(actor="Kethra", move="volley", target="Goblin 1")
     await declare(director, runner)
     before = (list(transport.sent), runner.stats.narrated)
 
@@ -158,7 +171,7 @@ async def test_someone_elses_roll_costs_nothing(rig):
 
 async def test_expiry_narrates_a_pivot(rig, clock):
     director, narrator, runner, transport, _ = rig
-    narrator.move_next = dict(actor="Kethra", move="volley", ttl_seconds=60)
+    narrator.move_next = dict(actor="Kethra", move="volley", target="Goblin 1", ttl_seconds=60)
     await declare(director, runner)
 
     clock.advance(61)
@@ -189,21 +202,25 @@ async def test_a_restart_mid_move_still_resolves(rig, clock, tmp_path):
 
 async def test_a_restart_between_the_dice_and_the_choice_loses_neither(rig, clock, tmp_path):
     director, narrator, runner, transport, dice = rig
-    narrator.move_next = dict(actor="Kethra", move="volley")
+    narrator.move_next = dict(actor="Kethra", move="volley", target="Goblin 1")
     await declare(director, runner)
     dice.queue(3, 2)
     await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
     (_, choice) = transport.prompts[-1]
 
-    revived, revived_narrator, revived_runner, _ = build(
-        clock, tmp_path / "checks.json", ScriptedDice()
+    revived, revived_narrator, revived_runner, revived_transport = build(
+        clock, tmp_path / "checks.json", ScriptedDice([6, 1])
     )
     await revived_runner.run(revived.choose(
         channel_id=CHANNEL, user_id=ALICE, check_id=choice.check_id, picks=[1]
     ))
+    await revived_runner.run(revived.roll_damage(
+        channel_id=CHANNEL, user_id=ALICE, check_id=choice.check_id
+    ))
     outcome = revived_narrator.seen[-1][1]
     assert outcome["roll_total"] == 7
     assert outcome["player_chose"] == ["Take what you can get: -1d6 damage."]
+    assert outcome["damage"]["rolled"] == 5  # d8 6, -1d6 1
 
 
 # -- the buttons ---------------------------------------------------------------------------
@@ -300,7 +317,7 @@ async def test_a_second_click_says_the_roll_is_made(rig):
 
 async def test_clicking_an_option_resolves_and_clears_the_options(rig):
     director, narrator, runner, transport, dice = rig
-    check_id = await _ask_for_a_roll(rig, move="volley")
+    check_id = await _ask_for_a_roll(rig, move="volley", target="Goblin 1")
     click, pick = _click_client(director, runner)
     dice.queue(3, 2)
     await click(_Interaction(ALICE), check_id)
@@ -312,7 +329,7 @@ async def test_clicking_an_option_resolves_and_clears_the_options(rig):
     alice = _Interaction(ALICE)
     await pick(alice, check_id, [1])
     assert alice.response.edits == [None]  # the options are taken away
-    assert narrator.seen[-1][1]["player_chose"] == ["Take what you can get: -1d6 damage."]
+    assert transport.sent[-1][1] == "**Kethra**, roll your damage (d8 -1d6) against Goblin 1."
 
 
 # -- addressing ---------------------------------------------------------------------------------
@@ -960,3 +977,34 @@ async def test_a_long_option_is_cut_to_fit_a_button():
     from gary.adapters.discord_bot import MAX_LABEL, PickButton
 
     assert len(PickButton("01AB", 0, "x" * 200).item.label) == MAX_LABEL
+
+
+async def test_clicking_roll_damage_lands_the_blow_and_disables_the_button(rig):
+    from gary.adapters.discord_bot import DamageButton, GaryClient
+
+    director, narrator, runner, transport, dice = rig
+    check_id = await _ask_for_a_roll(rig, move="volley", target="Goblin 1")
+    click, _ = _click_client(director, runner)
+    dice.queue(6, 6)
+    await click(_Interaction(ALICE), check_id)
+    assert isinstance(transport.prompts[-1][1], DamagePrompt)
+
+    class _Client:
+        pass
+
+    client = _Client()
+    client.director, client.runner = director, runner
+    client._why_no_roll = GaryClient._why_no_roll.__get__(client, _Client)
+    hit = GaryClient.on_damage.__get__(client, _Client)
+
+    bob = _Interaction(BOB)
+    await hit(bob, check_id)
+    assert bob.response.private == ["That damage roll is **Kethra**'s to make."]
+
+    dice.queue(5)
+    alice = _Interaction(ALICE)
+    await hit(alice, check_id)
+    (view,) = alice.response.edits
+    (button,) = view.children
+    assert isinstance(button, DamageButton) and button.item.disabled
+    assert "Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**." in transport.sent[-2][1]

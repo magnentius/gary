@@ -36,7 +36,16 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   (`PickButton`, `ChooseSelect`); an expired choice resolves with the first options.
 >   Saved d20 checks are skipped on load; old `open_check` calls in history are answered
 >   under their own name.
-> - **Tools.** The model keeps `make_move`, `advance_time`, `give_items`, `take_items`,
+> - **Monsters and damage.** `data/monsters.json` holds the 154 SRD creatures (142 with
+>   stats), extracted by `scripts/extract_dw_monsters.py`; `monsters.py` looks them up
+>   rather than trusting the model, checks homebrew against the monster-making rules, and
+>   numbers instances in state `monsters`. `make_move` aims Hack and Slash and Volley at a
+>   standing instance. A damaging hit holds the move again for a **Roll damage** click
+>   (`DamageButton`); `damage.py` rolls `d`/`b[]`/`w[]` expressions with the option's ±1d6,
+>   applies armor and piercing, and the runner journals each `ChangeHp`. A weak Hack and
+>   Slash rolls the creature's blow back at once; `monster_attacks` is the GM-move version.
+> - **Tools.** The model keeps `make_move`, `add_monsters`, `remove_monsters`,
+>   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >
 > Still accurate: §5's commit-before-the-dice principle (a move and modifier now, not a

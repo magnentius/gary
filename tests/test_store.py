@@ -586,3 +586,46 @@ def test_sheets_survive_a_restart(backend_factory, clock):
     assert CampaignStore(backend=backend_factory(), clock=clock).state()["sheets"] == {
         "Kael": {"name": "Kael"}
     }
+
+
+# -- creatures in the scene -----------------------------------------------------------------
+
+
+def _goblin(hp=3):
+    return {"kind": "Goblin", "hp": hp, "max_hp": 3, "armor": 1, "damage": "d6"}
+
+
+def test_creatures_are_added_hurt_and_removed_and_every_step_undoes(store):
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "",
+                          {"monsters": {"Goblin 1": _goblin(), "Goblin 2": _goblin()}})], reason="ambush")
+    store.apply([Mutation(MutationKind.MONSTER_HP, "Goblin 1", {"hp": -1})], reason="hit")
+    store.apply([Mutation(MutationKind.MONSTERS_REMOVE, "", {"names": ["Goblin 2"]})], reason="fled")
+    assert store.state()["monsters"] == {"Goblin 1": _goblin(-1)}
+
+    store.undo_last()  # Goblin 2 comes back, as it was
+    assert store.state()["monsters"]["Goblin 2"] == _goblin()
+    store.undo_last()  # the blow is taken back
+    assert store.state()["monsters"]["Goblin 1"]["hp"] == 3
+    store.undo_last()  # and the ambush never happened
+    assert store.state()["monsters"] == {}
+
+
+def test_removing_without_names_clears_the_scene_and_undoes_whole(store):
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "",
+                          {"monsters": {"Goblin 1": _goblin(), "Goblin 2": _goblin(0)}})], reason="x")
+    store.apply([Mutation(MutationKind.MONSTERS_REMOVE, "", {})], reason="fight over")
+    assert store.state()["monsters"] == {}
+    store.undo_last()
+    assert set(store.state()["monsters"]) == {"Goblin 1", "Goblin 2"}
+
+
+def test_hurting_a_creature_that_is_not_there_is_refused(store):
+    diff = store.apply([Mutation(MutationKind.MONSTER_HP, "Goblin 9", {"hp": 1})], reason="x")
+    assert not diff.ok and "Goblin 9" in diff.rejected[0][1]
+
+
+def test_the_scene_survives_a_restart(backend_factory, clock):
+    first = CampaignStore(backend=backend_factory(), clock=clock)
+    first.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": _goblin()}})], reason="x")
+    first.apply([Mutation(MutationKind.MONSTER_HP, "Goblin 1", {"hp": 1})], reason="hit")
+    assert CampaignStore(backend=backend_factory(), clock=clock).state()["monsters"]["Goblin 1"]["hp"] == 1

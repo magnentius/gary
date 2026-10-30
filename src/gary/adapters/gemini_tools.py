@@ -31,6 +31,9 @@ TAKE_ITEMS = "take_items"
 RECORD_NOTE = "record_note"
 SET_SCENE = "set_scene"
 UPSERT_NPC = "upsert_npc"
+ADD_MONSTERS = "add_monsters"
+REMOVE_MONSTERS = "remove_monsters"
+MONSTER_ATTACKS = "monster_attacks"
 
 
 def _s(**kw) -> types.Schema:
@@ -69,9 +72,77 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "own stat; omit it."
                     ),
                 ),
+                "target": _s(
+                    type=_STRING,
+                    description=(
+                        "hack_and_slash and volley only: the creature attacked, exactly as "
+                        "the scene lists it ('Goblin 2'). Add it with add_monsters first."
+                    ),
+                ),
                 "stakes": _s(type=_STRING, description="Optional. The danger or what is at risk, for your own later reference."),
             },
             required=["actor", "move"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ADD_MONSTERS,
+        description=(
+            "Put creatures into the scene the moment they appear, before anyone fights "
+            "them. Each becomes a numbered instance with its own HP ('Goblin 1', "
+            "'Goblin 2') that attacks can target and you can see in the state. Dungeon "
+            "World creatures are looked up -- name them and give nothing else. Give hp, "
+            "armor and damage only for a creature of your own; it is checked against the "
+            "rules for making monsters."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "monsters": _s(
+                    type=_ARRAY,
+                    items=_s(
+                        type=_OBJECT,
+                        properties={
+                            "name": _s(type=_STRING, description="e.g. 'Goblin', 'Dwarven Warrior', or your own."),
+                            "count": _s(type=_INTEGER, description="How many. Default 1."),
+                            "hp": _s(type=_INTEGER, description="Your own creature only. Horde 3, group 6, solitary 12."),
+                            "armor": _s(type=_INTEGER, description="Your own creature only. 0-4."),
+                            "damage": _s(type=_STRING, description="Your own creature only, e.g. 'd6', 'd8+2', 'b[2d10]'."),
+                        },
+                        required=["name"],
+                    ),
+                ),
+            },
+            required=["monsters"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=REMOVE_MONSTERS,
+        description=(
+            "Take creatures out of the scene: they fled, the party left, the fight is over. "
+            "A defeated creature stays listed as defeated until you remove it. Omit names "
+            "to clear every creature."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"names": _s(type=_ARRAY, items=_s(type=_STRING), description="Instance names, e.g. 'Goblin 1'.")},
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=MONSTER_ATTACKS,
+        description=(
+            "A creature deals its damage to a character -- the GM move 'deal damage', when "
+            "a player misses or everyone looks to you. Whether it happens is your call; "
+            "how much is not: the rules engine rolls the creature's damage, takes off the "
+            "character's armor, and tells you what landed. Do not use it for the enemy's "
+            "attack on a weak Hack and Slash -- that one is rolled for you already."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "monster": _s(type=_STRING, description="Instance name, e.g. 'Goblin 2'."),
+                "character": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
+            },
+            required=["monster", "character"],
         ),
     ),
     types.FunctionDeclaration(

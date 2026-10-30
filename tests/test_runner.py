@@ -318,3 +318,26 @@ def test_ask_answers_empty_when_the_model_fails_and_stays_silent():
     assert answer == ""
     assert sent == []
     assert runner.stats.narrator_failures == 1
+
+
+async def test_hp_changes_are_journalled_so_they_undo():
+    from gary.fsm import ChangeHp
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: 0.0)
+    store.apply([
+        Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": {"hp": 3, "max_hp": 3}}}),
+        Mutation(MutationKind.SHEET, "Kethra", {"sheet": {"name": "Kethra", "hp": 19, "max_hp": 19}}),
+    ], reason="setup")
+    r = EffectRunner(FakeSender(), EchoNarrator(), store=store)
+
+    await r.run([ChangeHp(CHANNEL, "monster", "Goblin 1", -1),
+                 ChangeHp(CHANNEL, "character", "Kethra", 16)])
+    state = store.state()
+    assert state["monsters"]["Goblin 1"]["hp"] == -1
+    assert state["sheets"]["Kethra"] == {"name": "Kethra", "hp": 16, "max_hp": 19}
+
+    store.undo_last()
+    assert store.state()["sheets"]["Kethra"]["hp"] == 19

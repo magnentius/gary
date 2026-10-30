@@ -27,7 +27,7 @@ import discord
 
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
-from ..fsm import ChoicePrompt, Director, PromptModel, RollPrompt
+from ..fsm import ChoicePrompt, DamagePrompt, Director, PromptModel, RollPrompt
 from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
 from ..ports import EchoNarrator, Narrator
@@ -158,6 +158,39 @@ def choice_view(prompt: ChoicePrompt) -> "discord.ui.View":
     return view
 
 
+class DamageButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:damage:(?P<check_id>[0-9A-Z]+)",
+):
+    """The roller's damage roll, after a hit. A separate click, as the table chose: one
+    to hit, one to see how hard. Survives a restart like the other buttons."""
+
+    def __init__(self, check_id: str, disabled: bool = False) -> None:
+        super().__init__(
+            discord.ui.Button(
+                label="Damage rolled" if disabled else "Roll damage",
+                emoji="⚔️",
+                style=discord.ButtonStyle.secondary if disabled else discord.ButtonStyle.danger,
+                custom_id=f"gary:damage:{check_id}",
+                disabled=disabled,
+            )
+        )
+        self.check_id = check_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "DamageButton":
+        return cls(match["check_id"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_damage(interaction, self.check_id)
+
+
+def damage_view(check_id: str, disabled: bool = False) -> "discord.ui.View":
+    view = discord.ui.View(timeout=None)
+    view.add_item(DamageButton(check_id, disabled=disabled))
+    return view
+
+
 def roll_view(check_id: str, disabled: bool = False) -> "discord.ui.View":
     # timeout=None: a check can wait minutes for its roll, and a View that times out
     # stops answering clicks while the check is still open.
@@ -184,6 +217,8 @@ class DiscordTransport:
             await channel.send(text, view=roll_view(prompt.check_id))
         elif isinstance(prompt, ChoicePrompt):
             await channel.send(text, view=choice_view(prompt))
+        elif isinstance(prompt, DamagePrompt):
+            await channel.send(text, view=damage_view(prompt.check_id))
         else:
             await channel.send(text)
 
@@ -269,7 +304,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect)
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -668,6 +703,25 @@ class GaryClient(discord.Client):
             await interaction.response.edit_message(view=None)
         except discord.HTTPException:
             log.warning("could not clear the choice for %s", check_id)
+        await self.runner.run(effects)
+
+    async def on_damage(self, interaction: "discord.Interaction", check_id: str) -> None:
+        """Roll damage was clicked. Answered like the Roll button: disable it first, then
+        the damage, any blow back, and the narration."""
+        channel_id = interaction.channel_id
+        effects = self.director.roll_damage(
+            channel_id=channel_id, user_id=interaction.user.id, check_id=check_id
+        )
+        if not effects:
+            await interaction.response.send_message(
+                self._why_no_roll(channel_id, check_id, verb="damage roll"), ephemeral=True
+            )
+            return
+
+        try:
+            await interaction.response.edit_message(view=damage_view(check_id, disabled=True))
+        except discord.HTTPException:
+            log.warning("could not disable damage button for %s", check_id)
         await self.runner.run(effects)
 
     def _why_no_roll(self, channel_id: int, check_id: str, verb: str = "roll") -> str:
@@ -1102,6 +1156,7 @@ def build_client(
         freeform_channels=set(settings.freeform_channels),
         players=dict(settings.players),
         sheet_for=lambda actor: (store.state().get("sheets") or {}).get(actor),
+        monsters=lambda: store.state().get("monsters") or {},
     )
 
     if narrator is None:

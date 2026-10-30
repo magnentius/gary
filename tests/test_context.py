@@ -553,3 +553,22 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     assert "Kael — Dwarf Fighter 1, HP 25/25" in rendered
     assert "STR 16 (+2)" in rendered
     assert "- Liriel: carrying nothing" in rendered  # no sheet yet: just the name
+
+
+def test_the_creatures_here_are_shown_with_their_hp():
+    state = empty_state()
+    state["monsters"] = {
+        "Goblin 1": {"hp": 2, "max_hp": 3, "armor": 1, "damage": "d6"},
+        "Goblin 2": {"hp": 0, "max_hp": 3, "armor": 1, "damage": "d6"},
+    }
+    rendered = render_live_state(state)
+    assert "- Creatures here (target by these names):" in rendered
+    assert "Goblin 1 (HP 2/3, armor 1, damage d6)" in rendered
+    assert "Goblin 2 (defeated)" in rendered
+
+
+def test_the_persona_says_creatures_must_be_added_and_damage_never_invented():
+    text = DM_SYSTEM_INSTRUCTION
+    assert "call add_monsters the moment they" in text
+    assert "defeated at 0 HP and not before" in text
+    assert "never invent the damage" in text

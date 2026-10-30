@@ -200,6 +200,8 @@ class CampaignStore:
                         "chosen": list(outcome.chosen),
                         "auto_chosen": outcome.auto_chosen,
                         "enemy_attacks": outcome.enemy_attacks,
+                        "damage": outcome.damage,
+                        "enemy_attack": outcome.enemy_attack,
                     },
                     "inverse": None,
                     "reason": f"{outcome.actor} {outcome.move}",
@@ -591,6 +593,47 @@ def _h_sheet(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_monsters_add(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"monsters": {instance name: record}}. Undone by removing exactly those."""
+    scene = store._state.setdefault("monsters", {})
+    added = dict(m.payload.get("monsters") or {})
+    scene.update(added)
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.MONSTERS_REMOVE, "", {"names": list(added)}),
+        after=list(added),
+    )
+
+
+def _h_monsters_remove(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"names": [...]}, or no names to clear the scene. Undone by putting the
+    same records back, HP and all."""
+    scene = store._state.setdefault("monsters", {})
+    names = m.payload.get("names")
+    gone = {n: scene.pop(n) for n in list(scene if names is None else names) if n in scene}
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": gone}) if gone else None,
+        before=list(gone),
+    )
+
+
+def _h_monster_hp(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the instance name; payload {"hp": int}. HP may go below 0; a
+    creature at 0 or less is defeated."""
+    record = store._state.setdefault("monsters", {}).get(m.target)
+    if record is None:
+        raise StateError(f"no creature named {m.target!r} in this scene")
+    before = int(record["hp"])
+    record["hp"] = int(m.payload["hp"])
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.MONSTER_HP, m.target, {"hp": before}),
+        before=before,
+        after=record["hp"],
+    )
+
+
 def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = store._state.get("setting", "")
     store._state["setting"] = str(m.payload.get("text", ""))
@@ -653,4 +696,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,
+    MutationKind.MONSTERS_ADD: _h_monsters_add,
+    MutationKind.MONSTERS_REMOVE: _h_monsters_remove,
+    MutationKind.MONSTER_HP: _h_monster_hp,
 }

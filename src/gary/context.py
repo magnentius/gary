@@ -21,6 +21,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Sequence
 
+from .monsters import describe as describe_monster
 from .sheets import describe
 from .state.schema import format_world_time
 
@@ -45,6 +46,11 @@ AUTHORITY — this is absolute:
   spot, use up their resources, turn their move back on them, offer an opportunity with
   a cost. When everyone looks to you to see what happens, make a softer one.
 - Address the characters, not the players. Ask questions and use the answers.
+- Creatures exist for the rules only once you add them: call add_monsters the moment they
+  appear, before anyone fights. Hack and Slash and Volley target one by its listed name.
+  Damage and HP are rolled and tracked for you, and the state shows them: a creature is
+  defeated at 0 HP and not before, however the blow reads. When a creature hurts someone
+  as your GM move, call monster_attacks — never invent the damage.
 - NOTHING TRACKS POSITION. There is no map, no distances and no notion of who is next to
   whom. You are the only record of where anyone is standing, so: keep it in the
   scene summary while a fight runs — who is where, what is between them, roughly how
@@ -299,6 +305,12 @@ def render_live_state(state: Dict[str, Any]) -> str:
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
             lines.append(f"    - {who}: {carried}")
+
+    scene = state.get("monsters") or {}
+    if scene:
+        lines.append("- Creatures here (target by these names):")
+        for name, record in scene.items():
+            lines.append(f"    - {describe_monster(name, record)}")
 
     effects = state.get("effects") or []
     if effects:

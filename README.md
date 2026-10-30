@@ -6,8 +6,8 @@ An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice
 enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
-> rolls its own dice when a player clicks **Roll**, and knows the eight basic moves.
-> Special and class moves, bonds, gear and damage to monsters are not built yet — see
+> rolls its own dice when a player clicks **Roll**, knows the eight basic moves, and tracks
+> monsters' HP and damage. Special and class moves, bonds and gear are not built yet — see
 > [what is missing](#what-is-not-built-yet).
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
@@ -392,9 +392,25 @@ Only you can roll your own move or make its choice, and only once: anyone else w
 is told privately whose it is. Buttons keep working across a Gary restart, like the moves
 behind them — even between the dice and the choice.
 
+**Fights have numbers.** When creatures appear, Gary puts them in the scene from the Dungeon
+World bestiary — "Goblin 1, Goblin 2", each with its own HP. Hack and Slash and Volley are
+aimed at one of them. A hit gives you a **Roll damage** button; your class's damage die
+(plus or minus a d6 if your choice said so) goes through its armor, and a weak-hit Hack and
+Slash means it hits you back in the same breath:
+
+```
+Gary   **Thorin**, roll your damage (d6) against Goblin 1.   [⚔️ Roll damage]
+Gary   🎲 **Thorin** damage — d6: 5 → Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**.
+```
+
+A creature is defeated at 0 HP and not before, however the narration reads. When a
+creature hurts you as the GM's move, Gary rolls that too and takes it off your sheet's HP.
+`?dm undo` takes a blow back like any other change.
+
 If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is narrated as
-hesitation or the moment passing — never as a success. If you rolled but never chose, the
-dice stand: Gary takes the first option(s) and says so. `?dm checks` shows what Gary is
+hesitation or the moment passing — never as a success. If you rolled but never chose or
+never rolled damage, the dice stand: Gary takes the first option(s), rolls the damage for
+you, and says so. `?dm checks` shows what Gary is
 waiting on; `?dm cancel` drops your own.
 
 ### What is not built yet
@@ -402,10 +418,11 @@ waiting on; `?dm cancel` drops your own.
 - **Only the eight basic moves.** Hack and Slash, Volley, Defy Danger, Defend, Spout Lore,
   Discern Realities, Parley, Aid or Interfere. No special moves (Last Breath, Make Camp…)
   and no class moves yet.
-- **No damage numbers.** "Deal your damage" and "the enemy attacks" reach the model as
-  settled facts, but nothing tracks monster HP or rolls damage dice yet.
+- **No Last Breath.** A character at 0 HP is down and dying, and the model is told to
+  leave their fate open — the move that decides it is not built yet.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
-  announced but not tracked. **Armor is 0**, because gear is not tracked.
+  announced but not tracked. **Armor is 0**, because gear is not tracked — so characters
+  take every point a creature deals. Ammo is not tracked either.
 
 ### When something goes wrong
 

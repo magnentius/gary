@@ -15,6 +15,7 @@ from google.genai import types
 from gary.adapters import gemini_tools as T
 from gary.adapters.gemini import DEFAULT_MODEL, DEFAULT_SUMMARY_MODEL, GeminiNarrator
 from gary.fsm import ChannelState, Director, PromptModel, SendMessage
+from gary.models import Mutation, MutationKind
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import InMemoryStateBackend
 from gary.state.history import InMemoryHistoryBackend
@@ -551,8 +552,9 @@ async def test_a_history_from_before_moves_is_answered_under_its_own_call(rig):
 def test_every_declaration_is_well_formed():
     for decl in T.DECLARATIONS:
         assert decl.description and len(decl.description) > 20
-        assert decl.parameters.required
-        for name in decl.parameters.required:
+        # remove_monsters alone takes nothing required: no names means "clear the scene".
+        assert decl.parameters.required or decl.name == T.REMOVE_MONSTERS
+        for name in decl.parameters.required or []:
             assert name in decl.parameters.properties, f"{decl.name}: {name} not declared"
 
 
@@ -697,3 +699,74 @@ async def test_the_second_turn_sees_the_first(rig):
     second_call = str(n.client.calls[1]["contents"])
     assert "I ask about crates" in second_call
     assert "Toby nods." in second_call
+
+
+# -- creatures ----------------------------------------------------------------------------------
+
+
+GOBLIN = {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6",
+          "piercing": 0, "ignores_armor": False, "srd": True}
+KETHRA_SHEET = {"name": "Kethra", "class": "Thief", "race": "Halfling", "level": 1, "xp": 0,
+                "stats": {"str": 8, "dex": 16, "con": 13, "int": 12, "wis": 15, "cha": 9},
+                "max_hp": 19, "hp": 19, "damage": "d8", "armor": 1}
+
+
+async def test_add_monsters_looks_creatures_up_and_numbers_them(rig):
+    director, store, _ = rig
+    n = narrator(rig, call_response(T.ADD_MONSTERS, {"monsters": [
+        {"name": "Goblin", "count": 2}, {"name": "Acolyte"},
+    ]}), text_response("They come."))
+    await player(n)
+
+    assert set(store.state()["monsters"]) == {"Goblin 1", "Goblin 2"}
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["added"] == ["Goblin 1 (HP 3/3, armor 1, damage d6)",
+                                    "Goblin 2 (HP 3/3, armor 1, damage d6)"]
+    assert "not something you fight" in fr.response["refused"][0]
+
+
+async def test_remove_monsters_with_names_that_match_nothing_clears_nothing(rig):
+    """An empty match must not read as 'no names' -- which means clear the scene."""
+    director, store, _ = rig
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": GOBLIN}})],
+                reason="x")
+    n = narrator(rig, call_response(T.REMOVE_MONSTERS, {"names": ["the sentry"]}), text_response("."))
+    await player(n)
+
+    assert set(store.state()["monsters"]) == {"Goblin 1"}
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False
+
+
+async def test_remove_monsters_by_name_ignores_case(rig):
+    director, store, _ = rig
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "",
+                          {"monsters": {"Goblin 1": GOBLIN, "Goblin 2": GOBLIN}})], reason="x")
+    n = narrator(rig, call_response(T.REMOVE_MONSTERS, {"names": ["goblin 1"]}), text_response("."))
+    await player(n)
+    assert set(store.state()["monsters"]) == {"Goblin 2"}
+
+
+async def test_monster_attacks_rolls_through_the_director_and_reports_what_landed(clock):
+    from gary.ports import ScriptedDice
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([
+        Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": GOBLIN}}),
+        Mutation(MutationKind.SHEET, "Kethra", {"sheet": KETHRA_SHEET}),
+    ], reason="setup")
+    director = Director(
+        registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+        dice=ScriptedDice([4]),
+        sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
+        monsters=lambda: store.state().get("monsters") or {},
+    )
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.MONSTER_ATTACKS, {"monster": "Goblin 1", "character": "Kethra"}),
+                 text_response("The blade bites."))
+    result = await player(n)
+
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["dealt"] == 3 and fr.response["hp_after"] == 16
+    assert any(isinstance(e, SendMessage) and "Goblin 1** hits **Kethra" in e.text
+               for e in result.effects)

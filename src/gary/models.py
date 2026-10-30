@@ -54,9 +54,11 @@ class PendingCheck:
     anyone rolls, and are never revisited. What each result means is fixed by the move
     itself (moves.py), so nothing the model writes afterwards can change the outcome.
 
-    ``faces`` is empty until the roll. A move whose result gives the player a choice is
-    rolled and then held here, faces filled in, until they choose -- so a restart between
-    the dice and the choice loses neither.
+    ``faces`` is empty until the roll. A move whose result still needs the player -- a
+    choice to make, damage to roll -- is held here after the dice, with ``picks`` filled
+    in once they choose. A restart at any point between loses none of it.
+
+    ``target`` is the creature an attack is aimed at, fixed before the dice like the rest.
     """
 
     check_id: str
@@ -71,6 +73,8 @@ class PendingCheck:
     created_at: float
     expires_at: float
     faces: tuple = ()
+    picks: tuple = ()
+    target: str = ""
 
     @property
     def rolled(self) -> bool:
@@ -98,6 +102,8 @@ class PendingCheck:
             "created_at": self.created_at,
             "expires_at": self.expires_at,
             "faces": list(self.faces),
+            "picks": list(self.picks),
+            "target": self.target,
         }
 
     @classmethod
@@ -123,6 +129,8 @@ class PendingCheck:
             created_at=float(d["created_at"]),
             expires_at=float(d["expires_at"]),
             faces=tuple(int(f) for f in d.get("faces", ())),
+            picks=tuple(int(p) for p in d.get("picks", ())),
+            target=d.get("target", ""),
         )
 
 
@@ -199,6 +207,10 @@ class MoveOutcome:
     chosen: tuple = ()  # the options the player picked, as text
     enemy_attacks: bool = False  # the rules say the enemy attacks: not the model's call
     auto_chosen: bool = False  # the player never chose, so Gary took the first options
+    # What the roller's damage did, and what the enemy's attack back did: see
+    # fsm.Director for the fields. None when there was none.
+    damage: Optional[dict] = None
+    enemy_attack: Optional[dict] = None
 
 
 # --------------------------------------------------------------------------------------
@@ -219,6 +231,9 @@ class MutationKind(str, Enum):
     TIME = "time"
     PLAYER_CHARACTER = "player_character"
     SHEET = "sheet"
+    MONSTERS_ADD = "monsters_add"
+    MONSTERS_REMOVE = "monsters_remove"
+    MONSTER_HP = "monster_hp"
     SETTING = "setting"
     CALENDAR = "calendar"
 

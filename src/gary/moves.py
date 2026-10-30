@@ -41,6 +41,8 @@ class Option:
     text: str
     # Taking this option means the enemy attacks you -- Gary applies it, not the model.
     enemy_attacks: bool = False
+    # Taking this option changes the damage dice: "+1d6" or "-1d6".
+    damage_mod: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -57,6 +59,8 @@ class Band:
     choice: Optional[Choice] = None
     # The rules say the enemy attacks you on this result, whatever anyone prefers.
     enemy_attacks: bool = False
+    # "Deal your damage": the roller rolls their damage die against the target.
+    deals_damage: bool = False
 
 
 @dataclass(frozen=True)
@@ -71,6 +75,11 @@ class Move:
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
+
+    @property
+    def attacks(self) -> bool:
+        """Whether a hit deals damage to someone -- so the move needs a target."""
+        return self.strong.deals_damage or self.weak.deals_damage
 
 
 #: Every basic move misses the same way: the GM makes a move.
@@ -96,25 +105,28 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, (
                 Option("Deal your damage and avoid their attack."),
                 Option("Deal +1d6 damage, but expose yourself to their attack.",
-                       enemy_attacks=True),
+                       enemy_attacks=True, damage_mod="+1d6"),
             )),
+            deals_damage=True,
         ),
         weak=Band(
             "You deal your damage to the enemy and the enemy makes an attack against you.",
             enemy_attacks=True,
+            deals_damage=True,
         ),
         miss=_MISS,
     ),
     Move(
         "volley", "Volley", "take aim and shoot at an enemy at range", "dex",
-        strong=Band("You have a clear shot—deal your damage."),
+        strong=Band("You have a clear shot—deal your damage.", deals_damage=True),
         weak=Band(
             "Choose one (whichever you choose you deal your damage).",
             choice=Choice(1, (
                 Option("Move to get the shot, placing yourself in danger of the GM’s choice."),
-                Option("Take what you can get: -1d6 damage."),
+                Option("Take what you can get: -1d6 damage.", damage_mod="-1d6"),
                 Option("Take several shots, reducing your ammo by one."),
             )),
+            deals_damage=True,
         ),
         miss=_MISS,
     ),

@@ -80,6 +80,7 @@ class PendingCheckRegistry:
         modifier: int,
         stakes: str,
         dice: str,
+        target: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> Tuple[PendingCheck, Optional[PendingCheck]]:
         """Open a check. Returns (new_check, superseded_check_or_None)."""
@@ -95,6 +96,7 @@ class PendingCheckRegistry:
             modifier=modifier,
             stakes=stakes,
             dice=dice,
+            target=target,
             created_at=now,
             expires_at=now + ttl,
         )
@@ -107,14 +109,14 @@ class PendingCheckRegistry:
             self._backend.save(check)
         return check, displaced
 
-    def hold_for_choice(self, check: PendingCheck, faces: tuple) -> PendingCheck:
-        """Record the dice on a move whose result the player must now choose from.
+    def hold(self, check: PendingCheck, **changes) -> PendingCheck:
+        """Keep a rolled move open while it waits on the player again -- for a choice, or
+        for their damage roll -- recording what has happened so far (``faces``, ``picks``).
 
-        The move stays open -- the narration waits on the choice -- with a fresh TTL, so
-        the time spent reading the roll does not eat into the time to choose. Written
-        through like every change, so the dice survive a restart before the choice.
+        A fresh TTL each time, so reading the roll does not eat into the time to act on
+        it. Written through like every change, so nothing is lost to a restart between.
         """
-        held = replace(check, faces=tuple(faces), expires_at=self._clock() + self._ttl)
+        held = replace(check, **changes, expires_at=self._clock() + self._ttl)
         with self._lock:
             self._by_player[(check.channel_id, check.user_id)] = held
         if self._backend is not None:

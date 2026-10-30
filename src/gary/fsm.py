@@ -22,10 +22,11 @@ and their actual roll was then silently dropped.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
-from typing import Callable, Dict, List, Optional, Sequence, Set
+from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
+from . import damage
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, MOVES
 from .ports import Dice, RandomDice
@@ -70,6 +71,13 @@ class ChoicePrompt:
     options: tuple  # option texts, in rules order
 
 
+@dataclass(frozen=True)
+class DamagePrompt:
+    """A Roll damage button for this move's hit."""
+
+    check_id: str
+
+
 # -- effects ------------------------------------------------------------------------------
 
 
@@ -95,6 +103,19 @@ class PromptModel(Effect):
     channel_id: int
     kind: str  # "player_action" | "check_outcome" | "check_expired" | "system_note"
     payload: dict
+
+
+@dataclass(frozen=True)
+class ChangeHp(Effect):
+    """Set a creature's or a character's HP. Journalled by the runner, so it undoes.
+
+    The Director computes the new value from what it read; it writes nothing itself.
+    """
+
+    channel_id: int
+    kind: str  # "monster" | "character"
+    name: str
+    hp: int
 
 
 @dataclass(frozen=True)
@@ -130,6 +151,7 @@ class Director:
         players: Optional[Dict[int, str]] = None,
         dice: Optional[Dice] = None,
         sheet_for: Optional[Callable[[str], Optional[dict]]] = None,
+        monsters: Optional[Callable[[], Dict[str, dict]]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -145,6 +167,9 @@ class Director:
         # None means "no sheets", and every move rolls +0 -- an unconfigured Director
         # still works, which is most of the test suite.
         self._sheet_for = sheet_for
+        # The creatures in the scene, by instance name. Read when an attack is aimed and
+        # when its damage lands. None means none: an unconfigured Director cannot attack.
+        self._monsters = monsters or (lambda: {})
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -233,6 +258,7 @@ class Director:
         move: str,
         stat: str = "",
         stakes: str = "",
+        target: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -274,6 +300,26 @@ class Director:
         else:
             stat = rules.stat
 
+        # An attack lands on a creature someone can see the HP of, or not at all: the
+        # model adds creatures when they appear, so a target it never added is a mistake
+        # to fix, not a creature to invent mid-swing.
+        if rules.attacks:
+            standing = {n: r for n, r in self._monsters().items() if r["hp"] > 0}
+            match = next((n for n in standing if n.lower() == str(target or "").strip().lower()), None)
+            if match is None:
+                listing = ", ".join(sorted(standing)) or "none"
+                return [self._refuse(
+                    channel_id,
+                    f"{rules.name} needs a target from the creatures in this scene. "
+                    f"{'No creature named ' + repr(target) + '. ' if target else ''}"
+                    f"Standing: {listing}.",
+                    "Add the creature with add_monsters first if it is new, then re-issue "
+                    "make_move with its exact name as target.",
+                )]
+            target = match
+        else:
+            target = ""
+
         mod = 0
         if stat != BOND and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
@@ -295,6 +341,7 @@ class Director:
             modifier=mod,
             stakes=stakes,
             dice=MOVE_DICE,
+            target=target,
             ttl_seconds=ttl_seconds,
         )
 
@@ -308,9 +355,10 @@ class Director:
             ))
         rolled_with = "+Bond (not tracked yet, so +0)" if stat == BOND else \
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
+        at = f" at {target}" if target else ""
         effects.append(SendMessage(
             channel_id,
-            f"**{actor}** — {rules.name}, roll {rolled_with}.",
+            f"**{actor}** — {rules.name}{at}, roll {rolled_with}.",
             prompt=RollPrompt(check.check_id),
         ))
         return effects
@@ -336,8 +384,8 @@ class Director:
         attached to. A button left over from a superseded move must not roll its
         replacement, which the player has not seen yet.
 
-        If the result offers a choice, the move is held with its dice and the player is
-        asked to choose; the narration waits. Otherwise it resolves now.
+        If the result still needs the player -- a choice, then damage -- the move is held
+        with its dice and the narration waits. Otherwise it resolves now.
 
         Returns nothing when there is nothing for this player to roll. The adapter says
         so privately; the table does not need to hear it.
@@ -351,10 +399,15 @@ class Director:
             channel_id,
             f"🎲 **{check.actor}** rolls {dice.render()} — {_RESULT[band(dice)]}.",
         )
+        return [rolled, *self._next(channel_id, check, dice)]
+
+    def _next(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Whatever the move needs next, now that its dice have landed."""
         rules = MOVES[check.move].band(band(dice))
-        if rules.choice is not None:
-            held = self.registry.hold_for_choice(check, dice.faces)
-            return [rolled, SendMessage(
+
+        if rules.choice is not None and not check.picks:
+            held = self.registry.hold(check, faces=dice.faces)
+            return [SendMessage(
                 channel_id,
                 # Who picks and where. How many is in the rules text for most moves, so
                 # it is only repeated when there is more than one.
@@ -370,8 +423,19 @@ class Director:
                 ),
             )]
 
+        if rules.deals_damage:
+            held = self.registry.hold(check, faces=dice.faces)
+            die = self._damage_die(check.actor)
+            extra = self._damage_extra(check, dice)
+            return [SendMessage(
+                channel_id,
+                f"**{check.actor}**, roll your damage ({die}{' ' + extra if extra else ''}) "
+                f"against {check.target}.",
+                prompt=DamagePrompt(held.check_id),
+            )]
+
         self.registry.consume(check.check_id)
-        return [rolled, *self._resolved(channel_id, resolve(check, dice))]
+        return self._resolved(channel_id, resolve(check, dice, picks=check.picks))
 
     # -- inbound: the player chooses ---------------------------------------------------
 
@@ -385,7 +449,7 @@ class Director:
         the move allows; anything else rolls nothing back and resolves nothing.
         """
         check = self.registry.for_player(channel_id, user_id)
-        if check is None or not check.rolled or check.check_id != check_id:
+        if check is None or not check.rolled or check.picks or check.check_id != check_id:
             return []
         dice = self._dice_of(check)
         rules = MOVES[check.move].band(band(dice))
@@ -399,12 +463,137 @@ class Director:
         ):
             return []
 
+        chosen = replace(check, picks=tuple(sorted(picks)))
+        said = SendMessage(
+            channel_id,
+            f"**{check.actor}** chooses: "
+            + "; ".join(rules.choice.options[p].text for p in chosen.picks),
+        )
+        return [said, *self._next(channel_id, chosen, dice)]
+
+    # -- inbound: the player rolls damage ----------------------------------------------
+
+    def roll_damage(self, *, channel_id: int, user_id: int, check_id: str) -> List[Effect]:
+        """The roller rolls their damage against their target. Same rules as rolling:
+        only them, only for this move, only once, and only once the move is ready for it.
+
+        If the rules say the enemy attacks back, that lands in the same breath -- Gary
+        rolls the creature's damage against the character -- and then the whole exchange
+        goes to the model as fact.
+        """
+        check = self.registry.for_player(channel_id, user_id)
+        if check is None or check.check_id != check_id or not self._awaits_damage(check):
+            return []
+        return self._land_damage(channel_id, check)
+
+    def _awaits_damage(self, check: PendingCheck) -> bool:
+        if not check.rolled:
+            return False
+        rules = MOVES[check.move].band(band(self._dice_of(check)))
+        return rules.deals_damage and (rules.choice is None or bool(check.picks))
+
+    def _land_damage(
+        self, channel_id: int, check: PendingCheck, auto: bool = False
+    ) -> List[Effect]:
         self.registry.consume(check.check_id)
-        outcome = resolve(check, dice, picks=sorted(picks))
-        return [
-            SendMessage(channel_id, f"**{check.actor}** chooses: " + "; ".join(outcome.chosen)),
-            *self._resolved(channel_id, outcome),
-        ]
+        dice = self._dice_of(check)
+        outcome = resolve(check, dice, picks=check.picks)
+        effects: List[Effect] = []
+
+        hit = damage.roll(self.dice, damage.parse(self._damage_die(check.actor)),
+                          self._damage_extra(check, dice))
+        target = self._monsters().get(check.target)
+        facts: Dict[str, Any] = {"target": check.target, "rolled": hit.total}
+        line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {hit.render()}"
+        if target is None:
+            facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
+            line += f" — {check.target} is gone."
+        else:
+            dealt = damage.through_armor(hit.total, target["armor"])
+            after = int(target["hp"]) - dealt
+            facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
+                         hp_after=max(after, 0), defeated=after <= 0)
+            line += (
+                f" → {check.target}: {dealt} through armor {target['armor']}, "
+                f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else ".")
+            )
+            effects.append(ChangeHp(channel_id, "monster", check.target, after))
+        effects.insert(0, SendMessage(channel_id, line))
+
+        back = None
+        if outcome.enemy_attacks and target is not None:
+            # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
+            # finished it. The rules say both happen, so both do.
+            attack_effects, back = self._attack(channel_id, check.target, target, check.actor)
+            effects.extend(attack_effects)
+
+        outcome = replace(outcome, damage=facts, enemy_attack=back)
+        return [*effects, *self._resolved(channel_id, outcome)]
+
+    def _damage_die(self, actor: str) -> str:
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        return sheet["damage"] if sheet else "d6"
+
+    def _damage_extra(self, check: PendingCheck, dice: Roll) -> Optional[str]:
+        choice = MOVES[check.move].band(band(dice)).choice
+        mods = [choice.options[p].damage_mod for p in check.picks] if choice else []
+        return next((m for m in mods if m), None)
+
+    # -- the GM's side: a creature attacks ---------------------------------------------
+
+    def monster_attacks(
+        self, *, channel_id: int, monster: str, character: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A creature deals its damage to a character -- the GM move "deal damage", on a
+        miss or when everyone looks to the GM.
+
+        Whether it happens is the model's call. How much is not: Gary rolls the creature's
+        damage, takes the character's armor off, and reports the result as fact.
+        Returns (effects, the tool result for the model).
+        """
+        scene = self._monsters()
+        name = next((n for n in scene if n.lower() == str(monster or "").strip().lower()), None)
+        if name is None or scene[name]["hp"] <= 0:
+            standing = ", ".join(sorted(n for n, r in scene.items() if r["hp"] > 0)) or "none"
+            return [], {"ok": False, "error": f"No standing creature named {monster!r}. "
+                                              f"Standing: {standing}."}
+        if self._sheet_for is None or self._sheet_for(character) is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet to "
+                                              "deal damage to."}
+        effects, facts = self._attack(channel_id, name, scene[name], character)
+        return effects, {"ok": True, **facts,
+                         "note": "Rolled and applied by the rules engine. Narrate it as it "
+                                 "landed; do not change the numbers."}
+
+    def _attack(
+        self, channel_id: int, name: str, creature: Dict[str, Any], character: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        sheet = self._sheet_for(character) if self._sheet_for is not None else None
+        hit = damage.roll(self.dice, damage.parse(creature["damage"]))
+        armor = int(sheet["armor"]) if sheet else 0
+        dealt = damage.through_armor(
+            hit.total, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
+        )
+        facts: Dict[str, Any] = {"attacker": name, "character": character,
+                                 "rolled": hit.total, "armor": armor, "dealt": dealt}
+        line = f"🗡️ **{name}** hits **{character}** — {hit.render()}"
+        effects: List[Effect] = []
+        if sheet is not None:
+            after = int(sheet["hp"]) - dealt
+            facts.update(hp_before=sheet["hp"], hp_after=max(after, 0), down=after <= 0)
+            line += (
+                f" → {dealt} through armor {armor}, HP {sheet['hp']} → {max(after, 0)}"
+                + (" — **down**." if after <= 0 else ".")
+            )
+            if after <= 0:
+                facts["dying"] = (
+                    f"{character} is at 0 HP and dying. Last Breath is not built yet: "
+                    "narrate them falling, and leave whether they live open."
+                )
+            effects.append(ChangeHp(channel_id, "character", character, max(after, 0)))
+        return [SendMessage(channel_id, line), *effects], facts
+
+    # -- shared --------------------------------------------------------------------------
 
     def _dice_of(self, check: PendingCheck) -> Roll:
         return Roll(spec=check.dice, faces=check.faces, modifier=check.modifier)
@@ -424,24 +613,16 @@ class Director:
     def sweep(self) -> List[Effect]:
         """Expire stale moves. Called on a timer (ARCHITECTURE.md §4).
 
-        A move nobody rolled lapses: the moment passed. A move that was rolled but whose
-        choice was never made does not -- the dice already landed, and the fiction has to
-        honour them -- so it resolves with the first options, and the table is told.
+        A move nobody rolled lapses: the moment passed. A move that was rolled does not --
+        the dice already landed, and the fiction has to honour them. A choice never made
+        takes the first options; damage never rolled is rolled for them. Either way the
+        table is told.
         """
         effects: List[Effect] = []
         for cancellation in self.registry.sweep_expired():
             check = cancellation.check
             if check.rolled:
-                dice = self._dice_of(check)
-                choice = MOVES[check.move].band(band(dice)).choice
-                outcome = resolve(
-                    check, dice, picks=range(choice.count) if choice else (), auto_chosen=True
-                )
-                effects.append(SendMessage(
-                    check.channel_id,
-                    f"**{check.actor}** didn't choose in time, so: " + "; ".join(outcome.chosen),
-                ))
-                effects.extend(self._resolved(check.channel_id, outcome))
+                effects.extend(self._finish_for_them(check))
                 continue
             effects.append(
                 PromptModel(
@@ -461,6 +642,29 @@ class Director:
             )
         return effects
 
+    def _finish_for_them(self, check: PendingCheck) -> List[Effect]:
+        channel_id = check.channel_id
+        dice = self._dice_of(check)
+        rules = MOVES[check.move].band(band(dice))
+        effects: List[Effect] = []
+        auto_chosen = False
+        if rules.choice is not None and not check.picks:
+            check = replace(check, picks=tuple(range(rules.choice.count)))
+            auto_chosen = True
+            effects.append(SendMessage(
+                channel_id,
+                f"**{check.actor}** didn't choose in time, so: "
+                + "; ".join(rules.choice.options[p].text for p in check.picks),
+            ))
+        if rules.deals_damage:
+            # Consumed by the sweep already; _land_damage consumes again harmlessly.
+            landed = self._land_damage(channel_id, check, auto=True)
+            if auto_chosen:
+                landed = [_auto(e) for e in landed]
+            return effects + landed
+        outcome = resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen)
+        return effects + self._resolved(channel_id, outcome)
+
     def cancel(self, channel_id: int, check_id: str) -> List[Effect]:
         cancellation = self.registry.cancel(check_id, CancelReason.MANUAL)
         if cancellation is None:
@@ -472,3 +676,15 @@ class Director:
 
 
 _RESULT = {"strong": "strong hit", "weak": "weak hit", "miss": "miss"}
+
+
+def _auto(effect: Effect) -> Effect:
+    """Mark an outcome as auto-chosen, in both the record and what the model is told."""
+    if isinstance(effect, RecordOutcome):
+        return replace(effect, outcome=replace(effect.outcome, auto_chosen=True))
+    if isinstance(effect, PromptModel) and effect.kind == "check_outcome":
+        return replace(effect, payload={
+            **effect.payload,
+            "note": "The player did not choose in time, so the first options were taken.",
+        })
+    return effect

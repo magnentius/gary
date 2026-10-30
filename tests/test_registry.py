@@ -97,10 +97,10 @@ def test_restore_after_restart(registry, clock):
     assert fresh.for_player(CHANNEL, ALICE) is not None
 
 
-def test_a_move_held_for_a_choice_keeps_its_dice_and_gets_a_fresh_ttl(registry, clock):
+def test_a_held_move_keeps_its_dice_and_gets_a_fresh_ttl(registry, clock):
     check, _ = open_for(registry, ALICE, "Kethra", ttl=60)
     clock.advance(50)
-    held = registry.hold_for_choice(check, (4, 3))
+    held = registry.hold(check, faces=(4, 3))
 
     assert held.rolled and held.faces == (4, 3)
     assert held.check_id == check.check_id

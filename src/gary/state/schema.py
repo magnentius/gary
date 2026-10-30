@@ -81,6 +81,9 @@ def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
         "players": {},
         # character name -> sheet (see sheets.py). Written whole on creation.
         "sheets": {},
+        # instance name ("Goblin 2") -> record (see monsters.py). The creatures in the
+        # current scene, with their own HP.
+        "monsters": {},
         "notes": [],  # narrative memory, feeds context retrieval
     }
 

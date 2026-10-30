@@ -1,0 +1,4070 @@
+{
+ "attribution": "Dungeon World is the work of Sage LaTorra and Adam Koebel and is licensed under the Creative Commons Attribution 3.0 Unported License (http://creativecommons.org/licenses/by/3.0/). Extracted from https://github.com/Sagelt/Dungeon-World by scripts/extract_dw_monsters.py.",
+ "source_commit": "e67bd51",
+ "monsters": {
+  "ankheg": {
+   "name": "Ankheg",
+   "setting": "Caverns",
+   "tags": [
+    "Group",
+    "Large"
+   ],
+   "attack": "Bite",
+   "damage": "d8+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To undermine",
+   "moves": [
+    "Undermine the ground",
+    "Burst from the earth",
+    "Spray forth acid, eating away at metal and flesh"
+   ]
+  },
+  "cave rat": {
+   "name": "Cave Rat",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Small"
+   ],
+   "attack": "Gnaw",
+   "damage": "d6",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Messy"
+   ],
+   "qualities": [],
+   "instinct": "To devour",
+   "moves": [
+    "Swarm",
+    "Rip something (or someone) apart"
+   ]
+  },
+  "choker": {
+   "name": "Choker",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Stealthy",
+    "Intelligent"
+   ],
+   "attack": "Choke",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 15,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Flexible"
+   ],
+   "instinct": "To deny light",
+   "moves": [
+    "Hold someone, wringing the breath from them",
+    "Fling a held creature"
+   ]
+  },
+  "cloaker": {
+   "name": "Cloaker",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Stealthy"
+   ],
+   "attack": "Constrict",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Looks like a cloak"
+   ],
+   "instinct": "To engulf",
+   "moves": [
+    "Engulf the unsuspecting"
+   ]
+  },
+  "dwarven warrior": {
+   "name": "Dwarven Warrior",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Organized"
+   ],
+   "attack": "Axe",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To defend",
+   "moves": [
+    "Drive them back",
+    "Call up reinforcements"
+   ]
+  },
+  "earth elemental": {
+   "name": "Earth Elemental",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Huge"
+   ],
+   "attack": "Smash",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 27,
+   "armor": 4,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Made of stone"
+   ],
+   "instinct": "To show the strength of earth",
+   "moves": [
+    "Turn the ground into a weapon",
+    "Meld into stone"
+   ]
+  },
+  "fire beetle": {
+   "name": "Fire Beetle",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Small"
+   ],
+   "attack": "Flames",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 3,
+   "armor": 3,
+   "attack_tags": [
+    "Near"
+   ],
+   "qualities": [
+    "Full of flames"
+   ],
+   "instinct": "To enflame",
+   "moves": [
+    "Undermine the ground",
+    "Burst from the earth",
+    "Spray forth flames"
+   ]
+  },
+  "gargoyle": {
+   "name": "Gargoyle",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Stealthy",
+    "Hoarder"
+   ],
+   "attack": "Claw",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To guard",
+   "moves": [
+    "Attack with the element of surprise",
+    "Take to the air",
+    "Blend into stonework"
+   ]
+  },
+  "gelatinous cube": {
+   "name": "Gelatinous Cube",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Stealthy",
+    "Amorphous"
+   ],
+   "attack": "Engulf",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 20,
+   "armor": 1,
+   "attack_tags": [
+    "Hand"
+   ],
+   "qualities": [
+    "Transparent"
+   ],
+   "instinct": "To clean",
+   "moves": [
+    "Fill an apparently empty space",
+    "Dissolve"
+   ]
+  },
+  "goblin": {
+   "name": "Goblin",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Small",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Spear",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To multiply",
+   "moves": [
+    "Charge!",
+    "Call more goblins",
+    "Retreat and return with (many) more"
+   ]
+  },
+  "goblin orkaster": {
+   "name": "Goblin Orkaster",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Small",
+    "Magical",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Acid orb",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [],
+   "instinct": "To tap power beyond their stature",
+   "moves": [
+    "Unleash a poorly understood spell",
+    "Pour forth magical chaos",
+    "Use other goblins for shields"
+   ]
+  },
+  "goliath": {
+   "name": "Goliath",
+   "setting": "Caverns",
+   "tags": [
+    "Group",
+    "Huge",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Mace",
+   "damage": "d8+7",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 14,
+   "armor": 1,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "To retake",
+   "moves": [
+    "Shake the earth",
+    "Retreat, only to come back stronger"
+   ]
+  },
+  "otyugh": {
+   "name": "Otyugh",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Tentacles",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Filth Fever"
+   ],
+   "instinct": "To befoul",
+   "moves": [
+    "Infect someone with filth fever",
+    "Fling someone or something"
+   ]
+  },
+  "maggot-squid": {
+   "name": "Maggot-Squid",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Small"
+   ],
+   "attack": "Chew",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Amphibious",
+    "Paralyzing Tentacles"
+   ],
+   "instinct": "To eat",
+   "moves": [
+    "Paralyze with a touch"
+   ]
+  },
+  "purple worm": {
+   "name": "Purple Worm",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Huge"
+   ],
+   "attack": "Bite",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 2,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To consume",
+   "moves": [
+    "Swallow whole",
+    "Tunnel through stone and earth"
+   ]
+  },
+  "roper": {
+   "name": "Roper",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Stealthy",
+    "Intelligent"
+   ],
+   "attack": "Bite",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Rock-like Flesh"
+   ],
+   "instinct": "To ambush",
+   "moves": [
+    "Ensnare the unsuspecting",
+    "Disarm a foe",
+    "Chew on someone"
+   ]
+  },
+  "rot grub": {
+   "name": "Rot Grub",
+   "setting": "Caverns",
+   "tags": [
+    "Horde",
+    "Tiny"
+   ],
+   "attack": "Burrow",
+   "damage": "d6-2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Hand"
+   ],
+   "qualities": [
+    "Burrow into flesh"
+   ],
+   "instinct": "To infect",
+   "moves": [
+    "Burrow under flesh",
+    "Lay eggs",
+    "Burst forth from an infected creature"
+   ]
+  },
+  "spiderlord": {
+   "name": "Spiderlord",
+   "setting": "Caverns",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Devious",
+    "Intelligent"
+   ],
+   "attack": "Mandibles",
+   "damage": "d8+4",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To weave webs (literal and metaphorical)",
+   "moves": [
+    "Enmesh in webbing",
+    "Put a plot into motion"
+   ]
+  },
+  "troglodyte": {
+   "name": "Troglodyte",
+   "setting": "Caverns",
+   "tags": [
+    "Group",
+    "Organized"
+   ],
+   "attack": "Club",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To prey on civilization",
+   "moves": [
+    "Raid and retreat",
+    "Use scavenged weapons or magic"
+   ]
+  },
+  "aboleth": {
+   "name": "Aboleth",
+   "setting": "Depths",
+   "tags": [
+    "Group",
+    "Huge",
+    "Intelligent"
+   ],
+   "attack": "Tentacle",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 18,
+   "armor": 0,
+   "attack_tags": [
+    "Reach"
+   ],
+   "qualities": [
+    "Telepathy"
+   ],
+   "instinct": "To command",
+   "moves": [
+    "Invade a mind",
+    "Turn minions on them",
+    "Put a plan in motion"
+   ]
+  },
+  "apocalypse dragon": {
+   "name": "Apocalypse Dragon",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Magical",
+    "Divine"
+   ],
+   "attack": "Bite",
+   "damage": "b[2d12]+9",
+   "piercing": 4,
+   "ignores_armor": false,
+   "hp": 26,
+   "armor": 5,
+   "attack_tags": [
+    "Reach",
+    "Forceful",
+    "Messy"
+   ],
+   "qualities": [
+    "Inch-thick metal hide",
+    "Supernatural knowledge",
+    "Wings"
+   ],
+   "instinct": "To end the world",
+   "moves": [
+    "Set a disaster in motion",
+    "Breathe forth the elements",
+    "Act with perfect foresight"
+   ]
+  },
+  "chaos spawn": {
+   "name": "Chaos Spawn",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Amorphous"
+   ],
+   "attack": "Chaotic touch",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 19,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Chaos form"
+   ],
+   "instinct": "To undermine the established order",
+   "moves": [
+    "Rewrite reality",
+    "Unleash chaos from containment"
+   ]
+  },
+  "chuul": {
+   "name": "Chuul",
+   "setting": "Depths",
+   "tags": [
+    "Group",
+    "Large",
+    "Cautious"
+   ],
+   "attack": "Claws",
+   "damage": "d8+1",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [
+    "Amphibious"
+   ],
+   "instinct": "To split",
+   "moves": [
+    "Split something in two with mighty claws",
+    "Retreat into water"
+   ]
+  },
+  "deep elf assassin": {
+   "name": "Deep Elf Assassin",
+   "setting": "Depths",
+   "tags": [
+    "Group",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Poisoned blade",
+   "damage": "d8",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To spite the surface races",
+   "moves": [
+    "Poison them",
+    "Unleash an ancient spell",
+    "Call reinforcements"
+   ]
+  },
+  "deep elf swordmaster": {
+   "name": "Deep Elf Swordmaster",
+   "setting": "Depths",
+   "tags": [
+    "Group",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Barbed blade",
+   "damage": "b[2d8]+2",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To punish unbelievers",
+   "moves": [
+    "Inflict pain beyond measure",
+    "Use the dark to advantage"
+   ]
+  },
+  "deep elf priest": {
+   "name": "Deep Elf Priest",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Divine",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Smite",
+   "damage": "d10+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 14,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Divine connection"
+   ],
+   "instinct": "To pass on divine vengeance",
+   "moves": [
+    "Weave spells of hatred and malice",
+    "Rally the deep elves",
+    "Pass on divine knowledge"
+   ]
+  },
+  "dragon": {
+   "name": "Dragon",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Terrifying",
+    "Cautious",
+    "Hoarder"
+   ],
+   "attack": "Bite",
+   "damage": "b[2d12]+5",
+   "piercing": 4,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 5,
+   "attack_tags": [
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [
+    "Elemental blood",
+    "Wings"
+   ],
+   "instinct": "To rule",
+   "moves": [
+    "Bend an element to its will",
+    "Demand tribute",
+    "Act with disdain"
+   ]
+  },
+  "gray render": {
+   "name": "Gray Render",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Rending claws",
+   "damage": "d10+3",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "To serve",
+   "moves": [
+    "Tear something apart"
+   ]
+  },
+  "magmin": {
+   "name": "Magmin",
+   "setting": "Depths",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized",
+    "Hoarder"
+   ],
+   "attack": "Flaming hammer",
+   "damage": "d6+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Fiery blood"
+   ],
+   "instinct": "To craft",
+   "moves": [
+    "Offer a trade or deal",
+    "Strike with fire or magic",
+    "Provide just the right item, at a price"
+   ]
+  },
+  "minotaur": {
+   "name": "Minotaur",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Axe",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Unerring sense of direction"
+   ],
+   "instinct": "To contain",
+   "moves": [
+    "Confuse them",
+    "Make them lost"
+   ]
+  },
+  "naga": {
+   "name": "Naga",
+   "setting": "Depths",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized",
+    "Hoarder",
+    "Magical"
+   ],
+   "attack": "Bite",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To lead",
+   "moves": [
+    "Send a follower to their death",
+    "Use old magic",
+    "Offer a deal or bargain"
+   ]
+  },
+  "salamander": {
+   "name": "Salamander",
+   "setting": "Depths",
+   "tags": [
+    "Horde",
+    "Large",
+    "Intelligent",
+    "Organized",
+    "Planar"
+   ],
+   "attack": "Flaming spear",
+   "damage": "b[2d6]+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Near"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To consume in flame",
+   "moves": [
+    "Summon elemental fire",
+    "Melt away deception"
+   ]
+  },
+  "bulette": {
+   "name": "Bulette",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Construct"
+   ],
+   "attack": "Bite",
+   "damage": "d10+5",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Forceful"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To devour",
+   "moves": [
+    "Drag prey into rough tunnels",
+    "Burst from the earth",
+    "Swallow whole"
+   ]
+  },
+  "chimera": {
+   "name": "Chimera",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Bite",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To do as commanded",
+   "moves": [
+    "Belch forth flame",
+    "Run them over",
+    "Poison them"
+   ]
+  },
+  "derro": {
+   "name": "Derro",
+   "setting": "Experiments",
+   "tags": [
+    "Horde",
+    "Devious",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Pickaxe",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Telepathy"
+   ],
+   "instinct": "To replace dwarves",
+   "moves": [
+    "Fill a mind with foreign thoughts",
+    "Take control of a beast’s mind"
+   ]
+  },
+  "digester": {
+   "name": "Digester",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Acid",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Digest acid secretion"
+   ],
+   "instinct": "To digest",
+   "moves": [
+    "Eat away at something",
+    "Draw sustenance"
+   ]
+  },
+  "ethereal filcher": {
+   "name": "Ethereal Filcher",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Planar"
+   ],
+   "attack": "Stolen dagger",
+   "damage": "w[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To steal",
+   "moves": [
+    "Take something important to its planar lair",
+    "Retreat to the Ethereal plane",
+    "Use an item from its lair"
+   ]
+  },
+  "ettin": {
+   "name": "Ettin",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Club",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Two heads"
+   ],
+   "instinct": "To smash",
+   "moves": [
+    "Attack two enemies at once",
+    "Defend its creator"
+   ]
+  },
+  "girallon": {
+   "name": "Girallon",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Huge"
+   ],
+   "attack": "Rending hands",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 1,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Many arms"
+   ],
+   "instinct": "To rule",
+   "moves": [
+    "Answer the call of sacrifice",
+    "Drive them from the jungle",
+    "Throw someone"
+   ]
+  },
+  "iron golem": {
+   "name": "Iron Golem",
+   "setting": "Experiments",
+   "tags": [
+    "Group",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Metal fists",
+   "damage": "d8+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Metal"
+   ],
+   "instinct": "To serve",
+   "moves": [
+    "Follow orders implacably",
+    "Use a special tool or adaptation, built-in"
+   ]
+  },
+  "flesh golem": {
+   "name": "Flesh Golem",
+   "setting": "Experiments",
+   "tags": [
+    "Horde"
+   ],
+   "attack": "Miscellaneous Claws and Teeth",
+   "damage": "d6+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Forceful"
+   ],
+   "qualities": [
+    "Many body parts"
+   ],
+   "instinct": "To live",
+   "moves": [
+    "Follow orders",
+    "Detach a body part"
+   ]
+  },
+  "kraken": {
+   "name": "Kraken",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Huge"
+   ],
+   "attack": "Giant tentacles",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 2,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Aquatic"
+   ],
+   "instinct": "To rule the ocean",
+   "moves": [
+    "Drag a person or ship to a watery grave",
+    "Wrap them in tentacles"
+   ]
+  },
+  "manticore": {
+   "name": "Manticore",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Stinger",
+   "damage": "d10+1",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To kill",
+   "moves": [
+    "Poison them",
+    "Rip something apart"
+   ]
+  },
+  "owlbear": {
+   "name": "Owlbear",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Construct"
+   ],
+   "attack": "Claws",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To hunt",
+   "moves": [
+    "Strike from darkness"
+   ]
+  },
+  "pegasus": {
+   "name": "Pegasus",
+   "setting": "Experiments",
+   "tags": [
+    "Group",
+    "Construct"
+   ],
+   "attack": "Sharp hooves",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To carry aloft",
+   "moves": [
+    "Carry a rider into the air",
+    "Give their rider an advantage"
+   ]
+  },
+  "rust monster": {
+   "name": "Rust Monster",
+   "setting": "Experiments",
+   "tags": [
+    "Group",
+    "Construct"
+   ],
+   "attack": "Corrosive touch",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 6,
+   "armor": 3,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Corrosive touch"
+   ],
+   "instinct": "To decay",
+   "moves": [
+    "Turn metal to rust",
+    "Gain strength from consuming metal"
+   ]
+  },
+  "xorn": {
+   "name": "Xorn",
+   "setting": "Experiments",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Maw",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Burrowing"
+   ],
+   "instinct": "To eat",
+   "moves": [
+    "Consume stone",
+    "Give off a burst of light and heat"
+   ]
+  },
+  "acolyte": {
+   "name": "Acolyte",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To serve dutifully",
+   "moves": [
+    "Follow dogma",
+    "Offer eternal reward for mortal deeds"
+   ]
+  },
+  "adventurer": {
+   "name": "Adventurer",
+   "setting": "Folk",
+   "tags": [
+    "Horde",
+    "Intelligent"
+   ],
+   "attack": "Sword",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Endless enthusiasm"
+   ],
+   "instinct": "To adventure or die trying",
+   "moves": [
+    "Go on a fool’s errand",
+    "Act impulsively",
+    "Share tales of past exploits"
+   ]
+  },
+  "bandit": {
+   "name": "Bandit",
+   "setting": "Folk",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Dirk",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To rob",
+   "moves": [
+    "Steal something",
+    "Demand tribute"
+   ]
+  },
+  "bandit king": {
+   "name": "Bandit King",
+   "setting": "Folk",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Trusty knife",
+   "damage": "b[2d10]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To lead",
+   "moves": [
+    "Make a demand",
+    "Extort",
+    "Topple power"
+   ]
+  },
+  "fool": {
+   "name": "Fool",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To mock",
+   "moves": [
+    "Expose injustice",
+    "Play a trick"
+   ]
+  },
+  "guardsman": {
+   "name": "Guardsman",
+   "setting": "Folk",
+   "tags": [
+    "Group",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Spear",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To do as ordered",
+   "moves": [
+    "Uphold the law",
+    "Make a profit"
+   ]
+  },
+  "halfling thief": {
+   "name": "Halfling Thief",
+   "setting": "Folk",
+   "tags": [
+    "Solitary",
+    "Small",
+    "Intelligent",
+    "Stealthy",
+    "Devious"
+   ],
+   "attack": "Dagger",
+   "damage": "w[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To live a life of stolen luxury",
+   "moves": [
+    "Steal",
+    "Put on the appearance of friendship"
+   ]
+  },
+  "hedge wizard": {
+   "name": "Hedge Wizard",
+   "setting": "Folk",
+   "tags": [
+    "Magical"
+   ],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To learn",
+   "moves": [
+    "Cast almost the right spell (for a price)",
+    "Make deals beyond their ken"
+   ]
+  },
+  "high priest": {
+   "name": "High Priest",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To lead",
+   "moves": [
+    "Set down divine law",
+    "Reveal divine secrets",
+    "Commission divine undertakings"
+   ]
+  },
+  "hunter": {
+   "name": "Hunter",
+   "setting": "Folk",
+   "tags": [
+    "Group",
+    "Intelligent"
+   ],
+   "attack": "Ragged bow",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 1,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [],
+   "instinct": "To survive",
+   "moves": [
+    "Bring back news from the wilds",
+    "Slay a beast"
+   ]
+  },
+  "knight": {
+   "name": "Knight",
+   "setting": "Folk",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized",
+    "Cautious"
+   ],
+   "attack": "Sword",
+   "damage": "b[2d10]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 4,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To live by a code",
+   "moves": [
+    "Make a moral stand",
+    "Lead soldiers into battle"
+   ]
+  },
+  "merchant": {
+   "name": "Merchant",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To profit",
+   "moves": [
+    "Propose a business venture",
+    "Offer a “deal”"
+   ]
+  },
+  "noble": {
+   "name": "Noble",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To rule",
+   "moves": [
+    "Issue an order",
+    "Offer a reward"
+   ]
+  },
+  "peasant": {
+   "name": "Peasant",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To get by",
+   "moves": [
+    "Plead for help",
+    "Offer a simple reward and gratitude"
+   ]
+  },
+  "rebel": {
+   "name": "Rebel",
+   "setting": "Folk",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Axe",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To upset order",
+   "moves": [
+    "Die for a cause",
+    "Inspire others"
+   ]
+  },
+  "soldier": {
+   "name": "Soldier",
+   "setting": "Folk",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Spear",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To fight",
+   "moves": [
+    "March into battle",
+    "Fight as one"
+   ]
+  },
+  "spy": {
+   "name": "Spy",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To infiltrate",
+   "moves": [
+    "Report the truth",
+    "Double cross"
+   ]
+  },
+  "tinkerer": {
+   "name": "Tinkerer",
+   "setting": "Folk",
+   "tags": [],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To create",
+   "moves": [
+    "Offer an oddity at a price",
+    "Spin tales of great danger and reward in far-off lands"
+   ]
+  },
+  "formian drone": {
+   "name": "Formian Drone",
+   "setting": "Hordes",
+   "tags": [
+    "Horde",
+    "Organized",
+    "Cautious"
+   ],
+   "attack": "Bite",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 4,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Hive connection",
+    "Insectoid"
+   ],
+   "instinct": "To follow orders",
+   "moves": [
+    "Raise the alarm",
+    "Create value for the hive",
+    "Assimilate"
+   ]
+  },
+  "formian taskmaster": {
+   "name": "Formian Taskmaster",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Spiked whip",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Hive connection",
+    "Insectoid"
+   ],
+   "instinct": "To command",
+   "moves": [
+    "Order drones into battle",
+    "Set great numbers in motion"
+   ]
+  },
+  "formian centurion": {
+   "name": "Formian Centurion",
+   "setting": "Hordes",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Barbed spear",
+   "damage": "b[2d6]+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Hive connection",
+    "Insectoid",
+    "Wings"
+   ],
+   "instinct": "To fight as ordered",
+   "moves": [
+    "Advance as one",
+    "Summon reinforcements",
+    "Give a life for the hive"
+   ]
+  },
+  "formian queen": {
+   "name": "Formian Queen",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Organized",
+    "Intelligent",
+    "Hoarder"
+   ],
+   "attack": "Crushing mandibles",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 24,
+   "armor": 3,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Hive connection",
+    "Insectoid"
+   ],
+   "instinct": "To spread formians",
+   "moves": [
+    "Call every formian it spawned",
+    "Release a half-formed larval mutation",
+    "Organize and issue orders"
+   ]
+  },
+  "gnoll tracker": {
+   "name": "Gnoll Tracker",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Bow",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 1,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Scent-tracker"
+   ],
+   "instinct": "To prey on weakness",
+   "moves": [
+    "Doggedly track prey",
+    "Strike at a moment of weakness"
+   ]
+  },
+  "gnoll emissary": {
+   "name": "Gnoll Emissary",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Divine",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Ceremonial dagger",
+   "damage": "d10+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 18,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Scent"
+   ],
+   "instinct": "To share divine insight",
+   "moves": [
+    "Pass on demonic influence",
+    "Drive the pack into a fervor"
+   ]
+  },
+  "gnoll alpha": {
+   "name": "Gnoll Alpha",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Sword",
+   "damage": "b[2d10]",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Scent"
+   ],
+   "instinct": "To drive the pack",
+   "moves": [
+    "Demand obedience",
+    "Send the pack to hunt"
+   ]
+  },
+  "orc bloodwarrior": {
+   "name": "Orc Bloodwarrior",
+   "setting": "Hordes",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Jagged blade",
+   "damage": "d6+2",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Messy"
+   ],
+   "qualities": [],
+   "instinct": "To fight",
+   "moves": [
+    "Fight with abandon",
+    "Revel in destruction"
+   ]
+  },
+  "orc berserker": {
+   "name": "Orc Berserker",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Divine",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Cleaver",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Mutations"
+   ],
+   "instinct": "To rage",
+   "moves": [
+    "Fly into a frenzy",
+    "Unleash chaos"
+   ]
+  },
+  "orc breaker": {
+   "name": "Orc Breaker",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Hammer",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 16,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "To smash",
+   "moves": [
+    "Destroy armor or protection",
+    "Lay low the mighty"
+   ]
+  },
+  "orc one-eye": {
+   "name": "Orc One-Eye",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Divine",
+    "Magical",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Inflict Wounds",
+   "damage": "d8+2",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 6,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "One eye"
+   ],
+   "instinct": "To hate",
+   "moves": [
+    "Rend flesh with divine magic",
+    "Take an eye",
+    "Make a sacrifice and grow in power"
+   ]
+  },
+  "orc shaman": {
+   "name": "Orc Shaman",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Elemental blast",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Elemental power"
+   ],
+   "instinct": "To strengthen orc-kind",
+   "moves": [
+    "Give protection of earth",
+    "Give power of fire",
+    "Give swiftness of water",
+    "Give clarity of air"
+   ]
+  },
+  "orc slaver": {
+   "name": "Orc Slaver",
+   "setting": "Hordes",
+   "tags": [
+    "Horde",
+    "Stealthy",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Whip",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To take",
+   "moves": [
+    "Take a captive",
+    "Pin someone under a net",
+    "Drug them"
+   ]
+  },
+  "orc shadowhunter": {
+   "name": "Orc Shadowhunter",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Stealthy",
+    "Magical",
+    "Intelligent"
+   ],
+   "attack": "Poisoned dagger",
+   "damage": "d10",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Shadow cloak"
+   ],
+   "instinct": "To kill in darkness",
+   "moves": [
+    "Poison them",
+    "Melt into the shadows",
+    "Cloak them in darkness"
+   ]
+  },
+  "orc warchief": {
+   "name": "Orc Warchief",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Iron Sword of Ages",
+   "damage": "b[2d10]+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "One-Eye blessings",
+    "Shaman blessings",
+    "Divine protection from mortal harm"
+   ],
+   "instinct": "To lead",
+   "moves": [
+    "Start a war",
+    "Make a show of power",
+    "Enrage the tribes"
+   ]
+  },
+  "triton spy": {
+   "name": "Triton Spy",
+   "setting": "Hordes",
+   "tags": [
+    "Solitary",
+    "Stealthy",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Trident",
+   "damage": "w[2d10]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Near"
+   ],
+   "qualities": [
+    "Aquatic"
+   ],
+   "instinct": "To spy on the surface world",
+   "moves": [
+    "Reveal their secrets",
+    "Strike at weakness"
+   ]
+  },
+  "triton tidecaller": {
+   "name": "Triton Tidecaller",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Divine",
+    "Magical",
+    "Intelligent"
+   ],
+   "attack": "Waves",
+   "damage": "d8+2",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 6,
+   "armor": 2,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Aquatic",
+    "Mutations"
+   ],
+   "instinct": "To bring on The Flood",
+   "moves": [
+    "Cast a spell of water and destruction",
+    "Command beasts of the sea",
+    "Reveal divine proclamation"
+   ]
+  },
+  "triton sub-mariner": {
+   "name": "Triton Sub-Mariner",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Harpoon",
+   "damage": "b[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Aquatic"
+   ],
+   "instinct": "To wage war",
+   "moves": [
+    "Lead tritons to battle",
+    "Pull them beneath the waves"
+   ]
+  },
+  "triton noble": {
+   "name": "Triton Noble",
+   "setting": "Hordes",
+   "tags": [
+    "Group",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Trident",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Aquatic"
+   ],
+   "instinct": "To lead",
+   "moves": [
+    "Stir tritons to war",
+    "Call reinforcements"
+   ]
+  },
+  "angel": {
+   "name": "Angel",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Terrifying",
+    "Divine",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Sword of Flames",
+   "damage": "b[2d10]+4",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 18,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Forceful"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To share divine will",
+   "moves": [
+    "Deliver visions and prophecy",
+    "Stir mortals to action",
+    "Expose sin and injustice"
+   ]
+  },
+  "barbed devil": {
+   "name": "Barbed Devil",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Planar",
+    "Terrifying"
+   ],
+   "attack": "Spines",
+   "damage": "d10+3",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [
+    "Spines"
+   ],
+   "instinct": "To rend flesh and spill blood",
+   "moves": [
+    "Impale someone",
+    "Kill indiscriminately"
+   ]
+  },
+  "chain devil": {
+   "name": "Chain Devil",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Planar"
+   ],
+   "attack": "Crush",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [],
+   "instinct": "To capture",
+   "moves": [
+    "Take a captive",
+    "Return to whence it came",
+    "Torture with glee"
+   ]
+  },
+  "concept elemental": {
+   "name": "Concept Elemental",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Planar",
+    "Amorphous"
+   ],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [
+    "Ideal form"
+   ],
+   "instinct": "To perfect its concept",
+   "moves": [
+    "Demonstrate its concept in its purest form"
+   ]
+  },
+  "corrupter": {
+   "name": "Corrupter",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Planar",
+    "Hoarder"
+   ],
+   "attack": "Secret dagger",
+   "damage": "w[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To bargain",
+   "moves": [
+    "Offer a deal with horrible consequences",
+    "Plumb the vaults of hell for a bargaining chip",
+    "Make a show of power"
+   ]
+  },
+  "djinn": {
+   "name": "Djinn",
+   "setting": "Planes",
+   "tags": [
+    "Group",
+    "Large",
+    "Magical"
+   ],
+   "attack": "Flame",
+   "damage": "d8+1",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 14,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Made of flame"
+   ],
+   "instinct": "To burn eternally",
+   "moves": [
+    "Grant power for a price",
+    "Summon the forces of the City of Brass"
+   ]
+  },
+  "hell hound": {
+   "name": "Hell Hound",
+   "setting": "Planes",
+   "tags": [
+    "Group",
+    "Planar",
+    "Organized"
+   ],
+   "attack": "Fiery Bite",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Hide of shadow"
+   ],
+   "instinct": "To pursue",
+   "moves": [
+    "Follow despite all obstacles",
+    "Spew fire",
+    "Summon the forces of hell on their target"
+   ]
+  },
+  "imp": {
+   "name": "Imp",
+   "setting": "Planes",
+   "tags": [
+    "Horde",
+    "Planar",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Flame gout",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Near",
+    "Far"
+   ],
+   "qualities": [],
+   "instinct": "To harass",
+   "moves": [
+    "Send information back to hell",
+    "Cause mischief"
+   ]
+  },
+  "inevitable": {
+   "name": "Inevitable",
+   "setting": "Planes",
+   "tags": [
+    "Group",
+    "Large",
+    "Magical",
+    "Cautious",
+    "Amorphous",
+    "Planar"
+   ],
+   "attack": "Hammer",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 21,
+   "armor": 5,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Made of Order"
+   ],
+   "instinct": "To preserve order",
+   "moves": [
+    "End a spell or effect",
+    "Enforce a law of nature or man",
+    "Give a glimpse of destiny"
+   ]
+  },
+  "larvae": {
+   "name": "Larvae",
+   "setting": "Planes",
+   "tags": [
+    "Horde",
+    "Devious",
+    "Planar",
+    "Intelligent"
+   ],
+   "attack": "Slime",
+   "damage": "w[2d4]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To suffer",
+   "moves": [
+    "Fill them with despair",
+    "Beg for mercy",
+    "Draw evil attention"
+   ]
+  },
+  "nightmare": {
+   "name": "Nightmare",
+   "setting": "Planes",
+   "tags": [
+    "Horde",
+    "Large",
+    "Magical",
+    "Terrifying",
+    "Planar"
+   ],
+   "attack": "Trample",
+   "damage": "d6+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Flame and shadow"
+   ],
+   "instinct": "To ride rampant",
+   "moves": [
+    "Sheath a rider in hellish flame",
+    "Drive them away"
+   ]
+  },
+  "quasit": {
+   "name": "Quasit",
+   "setting": "Planes",
+   "tags": [
+    "Horde",
+    "Planar"
+   ],
+   "attack": "Hellish weaponry",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Adaptable form"
+   ],
+   "instinct": "To serve",
+   "moves": [
+    "Attack with abandon",
+    "Inflict pain"
+   ]
+  },
+  "the tarrasque": {
+   "name": "The Tarrasque",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Planar"
+   ],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [
+    "Impervious"
+   ],
+   "instinct": "To consume",
+   "moves": [
+    "Swallow a person, group, or place whole",
+    "Release a remnant of a long-eaten place from its gullet"
+   ]
+  },
+  "word demon": {
+   "name": "Word Demon",
+   "setting": "Planes",
+   "tags": [
+    "Solitary",
+    "Planar",
+    "Magical"
+   ],
+   "attack": null,
+   "damage": null,
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": null,
+   "armor": null,
+   "attack_tags": [],
+   "qualities": [],
+   "instinct": "To further their word",
+   "moves": [
+    "Cast a spell related to their word",
+    "Bring their word into abundance"
+   ]
+  },
+  "bakunawa": {
+   "name": "Bakunawa",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Intelligent",
+    "Messy",
+    "Forceful"
+   ],
+   "attack": "Bite",
+   "damage": "d10+3",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Amphibious"
+   ],
+   "instinct": "To devour",
+   "moves": [
+    "Lure prey with lies and illusions",
+    "Lash out at light",
+    "Devour"
+   ]
+  },
+  "basilisk": {
+   "name": "Basilisk",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Hoarder"
+   ],
+   "attack": "Bite",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To create new statuary",
+   "moves": [
+    "Turn flesh to stone with a gaze",
+    "Retreat into a maze of stone"
+   ]
+  },
+  "black pudding": {
+   "name": "Black Pudding",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Amorphous"
+   ],
+   "attack": "Corrosive touch",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 15,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Amorphous"
+   ],
+   "instinct": "To dissolve",
+   "moves": [
+    "Eat away metal, flesh, or wood",
+    "Ooze into a troubling place: food, armor, stomach"
+   ]
+  },
+  "coutal": {
+   "name": "Coutal",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Intelligent",
+    "Devious"
+   ],
+   "attack": "Light ray",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Wings",
+    "Halo"
+   ],
+   "instinct": "To cleanse",
+   "moves": [
+    "Pass judgment on a person or place",
+    "Summon divine forces to cleanse",
+    "Offer information in exchange for service"
+   ]
+  },
+  "crocodilian": {
+   "name": "Crocodilian",
+   "setting": "Swamp",
+   "tags": [
+    "Group",
+    "Large"
+   ],
+   "attack": "Bite",
+   "damage": "d8+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Amphibious",
+    "Camouflage"
+   ],
+   "instinct": "To eat",
+   "moves": [
+    "Attack an unsuspecting victim",
+    "Escape into the water",
+    "Hold something tight in its jaws"
+   ]
+  },
+  "doppelgänger": {
+   "name": "Doppelgänger",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Intelligent"
+   ],
+   "attack": "Dagger",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Shapeshifting"
+   ],
+   "instinct": "To infiltrate",
+   "moves": [
+    "Assume the shape of a person whose flesh it’s tasted",
+    "Use another’s identity to advantage",
+    "Leave someone’s reputation shattered"
+   ]
+  },
+  "dragon turtle": {
+   "name": "Dragon Turtle",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Huge",
+    "Cautious"
+   ],
+   "attack": "Bite",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 4,
+   "attack_tags": [
+    "Reach"
+   ],
+   "qualities": [
+    "Shell",
+    "Amphibious"
+   ],
+   "instinct": "To resist change",
+   "moves": [
+    "Move forward implacably",
+    "Bring its full bulk to bear",
+    "Destroy structures and buildings"
+   ]
+  },
+  "dragon whelp": {
+   "name": "Dragon Whelp",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Small",
+    "Intelligent",
+    "Cautious",
+    "Hoarder"
+   ],
+   "attack": "Elemental breath",
+   "damage": "d10+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 3,
+   "attack_tags": [
+    "Close",
+    "Near"
+   ],
+   "qualities": [
+    "Wings",
+    "Elemental Blood"
+   ],
+   "instinct": "To grow in power",
+   "moves": [
+    "Start a lair, form a base of power",
+    "Call on family ties",
+    "Demand oaths of servitude"
+   ]
+  },
+  "ekek": {
+   "name": "Ekek",
+   "setting": "Swamp",
+   "tags": [
+    "Horde"
+   ],
+   "attack": "Talons",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Wing-arms"
+   ],
+   "instinct": "To lash out",
+   "moves": [
+    "Attack from the air",
+    "Carry out the bidding of a more powerful creature"
+   ]
+  },
+  "fire eels": {
+   "name": "Fire Eels",
+   "setting": "Swamp",
+   "tags": [
+    "Horde",
+    "Tiny"
+   ],
+   "attack": "Burning touch",
+   "damage": "d6-2",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Hand"
+   ],
+   "qualities": [
+    "Flammable oil",
+    "aquatic"
+   ],
+   "instinct": "To ignite",
+   "moves": [
+    "Catch someone or something on fire (even underwater)",
+    "Consume burning prey"
+   ]
+  },
+  "frogman": {
+   "name": "Frogman",
+   "setting": "Swamp",
+   "tags": [
+    "Horde",
+    "Small",
+    "Intelligent"
+   ],
+   "attack": "Spear",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Amphibious"
+   ],
+   "instinct": "To wage war",
+   "moves": [
+    "Launch an amphibious assault",
+    "Heal at a prodigious rate"
+   ]
+  },
+  "hydra": {
+   "name": "Hydra",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Bite",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Many heads",
+    "Only killed by a blow to the heart"
+   ],
+   "instinct": "To grow",
+   "moves": [
+    "Attack many enemies at once",
+    "Regenerate a body part (especially a head)"
+   ]
+  },
+  "kobold": {
+   "name": "Kobold",
+   "setting": "Swamp",
+   "tags": [
+    "Horde",
+    "Small",
+    "Stealthy",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Spear",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Dragon connection"
+   ],
+   "instinct": "To serve dragons",
+   "moves": [
+    "Lay a trap",
+    "Call on dragons or draconic allies",
+    "Retreat and regroup"
+   ]
+  },
+  "lizardman": {
+   "name": "Lizardman",
+   "setting": "Swamp",
+   "tags": [
+    "Group",
+    "Stealthy",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Spear",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Amphibious"
+   ],
+   "instinct": "To destroy civilization",
+   "moves": [
+    "Ambush the unsuspecting",
+    "Launch an amphibious assault"
+   ]
+  },
+  "medusa": {
+   "name": "Medusa",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Intelligent",
+    "Hoarder"
+   ],
+   "attack": "Claws",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Look turns you to stone"
+   ],
+   "instinct": "To collect",
+   "moves": [
+    "Turn a body part to stone with a look",
+    "Draw someone’s gaze",
+    "Show hidden terrible beauty"
+   ]
+  },
+  "sahuagin": {
+   "name": "Sahuagin",
+   "setting": "Swamp",
+   "tags": [
+    "Horde",
+    "Intelligent"
+   ],
+   "attack": "Endless teeth",
+   "damage": "d6+4",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Forceful",
+    "Messy"
+   ],
+   "qualities": [
+    "Amphibious"
+   ],
+   "instinct": "To spill blood",
+   "moves": [
+    "Bite off a limb",
+    "Hurl a poisoned spear",
+    "Frenzy at the sight of blood"
+   ]
+  },
+  "sauropod": {
+   "name": "Sauropod",
+   "setting": "Swamp",
+   "tags": [
+    "Group",
+    "Huge",
+    "Cautious"
+   ],
+   "attack": "Trample",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 18,
+   "armor": 4,
+   "attack_tags": [
+    "Reach"
+   ],
+   "qualities": [
+    "Armor plated body"
+   ],
+   "instinct": "To endure",
+   "moves": [
+    "Stampede",
+    "Knock something down",
+    "Unleash a deafening bellow"
+   ]
+  },
+  "swamp shambler": {
+   "name": "Swamp Shambler",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Magical"
+   ],
+   "attack": "Lash",
+   "damage": "d10+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 23,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Swamp form"
+   ],
+   "instinct": "To preserve and create swamps",
+   "moves": [
+    "Call on the swamp itself for aid",
+    "Meld into the swamp",
+    "Reassemble into a new form"
+   ]
+  },
+  "troll": {
+   "name": "Troll",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Large"
+   ],
+   "attack": "Club",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Regeneration"
+   ],
+   "instinct": "To smash",
+   "moves": [
+    "Undo the effects of an attack (unless caused by a weakness, your call)",
+    "Hurl something or someone"
+   ]
+  },
+  "will-o-wisp": {
+   "name": "Will-o-wisp",
+   "setting": "Swamp",
+   "tags": [
+    "Solitary",
+    "Tiny",
+    "Magical"
+   ],
+   "attack": "Ray",
+   "damage": "w[2d8-2]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Near"
+   ],
+   "qualities": [
+    "Body of light"
+   ],
+   "instinct": "To misguide",
+   "moves": [
+    "Lead someone astray",
+    "Clear a path to the worst place possible"
+   ]
+  },
+  "abomination": {
+   "name": "Abomination",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Construct",
+    "Terrifying"
+   ],
+   "attack": "Slam",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Many limbs",
+    "heads",
+    "and so on"
+   ],
+   "instinct": "To end life",
+   "moves": [
+    "Tear flesh apart",
+    "Spill forth putrid guts"
+   ]
+  },
+  "banshee": {
+   "name": "Banshee",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Magical",
+    "Intelligent"
+   ],
+   "attack": "Scream",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 0,
+   "attack_tags": [
+    "Near"
+   ],
+   "qualities": [
+    "Insubstantial"
+   ],
+   "instinct": "To get revenge",
+   "moves": [
+    "Drown out all other sound with a ceaseless scream",
+    "Unleash a skull-splitting noise",
+    "Disappear into the mists"
+   ]
+  },
+  "devourer": {
+   "name": "Devourer",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Large",
+    "Intelligent",
+    "Hoarder"
+   ],
+   "attack": "Smash",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "To feast on souls",
+   "moves": [
+    "Devour or trap dying soul",
+    "Bargain for a soul’s return"
+   ]
+  },
+  "dragonbone": {
+   "name": "Dragonbone",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Huge"
+   ],
+   "attack": "Bite",
+   "damage": "d10+3",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 20,
+   "armor": 2,
+   "attack_tags": [
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [],
+   "instinct": "To serve",
+   "moves": [
+    "Attack unrelentingly"
+   ]
+  },
+  "draugr": {
+   "name": "Draugr",
+   "setting": "Undead",
+   "tags": [
+    "Horde",
+    "Organized"
+   ],
+   "attack": "Rusty sword",
+   "damage": "d6+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Icy touch"
+   ],
+   "instinct": "To take from the living",
+   "moves": [
+    "Freeze flesh",
+    "Call on the unworthy dead"
+   ]
+  },
+  "ghost": {
+   "name": "Ghost",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Devious",
+    "Terrifying"
+   ],
+   "attack": "Phantom touch",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 0,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Insubstantial"
+   ],
+   "instinct": "To haunt",
+   "moves": [
+    "Reveal the terrifying nature of death",
+    "Haunt a place of importance",
+    "Offer information from the other side, at a price"
+   ]
+  },
+  "ghoul": {
+   "name": "Ghoul",
+   "setting": "Undead",
+   "tags": [
+    "Group"
+   ],
+   "attack": "Talons",
+   "damage": "d8",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Messy"
+   ],
+   "qualities": [],
+   "instinct": "To eat",
+   "moves": [
+    "Gnaw off a body part",
+    "Gain the memories of their meal"
+   ]
+  },
+  "lich": {
+   "name": "Lich",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Magical",
+    "Intelligent",
+    "Cautious",
+    "Hoarder",
+    "Construct"
+   ],
+   "attack": "Magical Force",
+   "damage": "d10+3",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 16,
+   "armor": 5,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [],
+   "instinct": "To un-live",
+   "moves": [
+    "Cast a perfected spell of death or destruction",
+    "Set a ritual or great working into motion",
+    "Reveal a preparation or plan already completed"
+   ]
+  },
+  "mohrg": {
+   "name": "Mohrg",
+   "setting": "Undead",
+   "tags": [
+    "Group"
+   ],
+   "attack": "Bite",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To wreak havoc",
+   "moves": [
+    "Rage",
+    "Add to their collection of guts"
+   ]
+  },
+  "mummy": {
+   "name": "Mummy",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Divine",
+    "Hoarder"
+   ],
+   "attack": "Smash",
+   "damage": "d10+2",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To enjoy eternal rest",
+   "moves": [
+    "Curse them",
+    "Wrap them up",
+    "Rise again"
+   ]
+  },
+  "nightwing": {
+   "name": "Nightwing",
+   "setting": "Undead",
+   "tags": [
+    "Horde",
+    "Stealthy"
+   ],
+   "attack": "Rend",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To hunt",
+   "moves": [
+    "Attack from the night sky",
+    "Fly away with prey"
+   ]
+  },
+  "shadow": {
+   "name": "Shadow",
+   "setting": "Undead",
+   "tags": [
+    "Horde",
+    "Large",
+    "Magical",
+    "Construct"
+   ],
+   "attack": "Shadow touch",
+   "damage": "d6+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 11,
+   "armor": 4,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Shadow Form"
+   ],
+   "instinct": "To darken",
+   "moves": [
+    "Snuff out light",
+    "Spawn another shadow from the dead"
+   ]
+  },
+  "sigben": {
+   "name": "Sigben",
+   "setting": "Undead",
+   "tags": [
+    "Horde",
+    "Large",
+    "Construct"
+   ],
+   "attack": "Tail whip",
+   "damage": "d6+1",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 11,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Vampire spawn"
+   ],
+   "instinct": "To disturb",
+   "moves": [
+    "Poison them",
+    "Do a vampire’s bidding"
+   ]
+  },
+  "skeleton": {
+   "name": "Skeleton",
+   "setting": "Undead",
+   "tags": [
+    "Horde"
+   ],
+   "attack": "Slam",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To take the semblance of life",
+   "moves": [
+    "Act out what it did in life",
+    "Snuff out the warmth of life",
+    "Reconstruct from miscellaneous bones"
+   ]
+  },
+  "spectre": {
+   "name": "Spectre",
+   "setting": "Undead",
+   "tags": [
+    "Solitary",
+    "Hoarder"
+   ],
+   "attack": "Withering touch",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Insubstantial"
+   ],
+   "instinct": "To drive life from a place",
+   "moves": [
+    "Turn their haunt against a creature",
+    "Bring the environment to life"
+   ]
+  },
+  "vampire": {
+   "name": "Vampire",
+   "setting": "Undead",
+   "tags": [
+    "Group",
+    "Stealthy",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Supernatural force",
+   "damage": "d8+5",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 2,
+   "attack_tags": [
+    "Close",
+    "Forceful"
+   ],
+   "qualities": [
+    "Changing form",
+    "ancient mind"
+   ],
+   "instinct": "To manipulate",
+   "moves": [
+    "Charm someone",
+    "Feed on their blood",
+    "Retreat to plan again"
+   ]
+  },
+  "wight-wolf": {
+   "name": "Wight-Wolf",
+   "setting": "Undead",
+   "tags": [
+    "Horde",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Pounce",
+   "damage": "d6+1",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 7,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Shadow form"
+   ],
+   "instinct": "To hunt",
+   "moves": [
+    "Encircle prey",
+    "Summon the pack"
+   ]
+  },
+  "zombie": {
+   "name": "Zombie",
+   "setting": "Undead",
+   "tags": [
+    "Horde"
+   ],
+   "attack": "Bite",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 11,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "Braaaaaains",
+   "moves": [
+    "Attack with overwhelming numbers",
+    "Corner them",
+    "Gain strength from the dead, spawn more zombies"
+   ]
+  },
+  "assassin vine": {
+   "name": "Assassin Vine",
+   "setting": "Woods",
+   "tags": [
+    "Solitary",
+    "Stealthy",
+    "Amorphous"
+   ],
+   "attack": "Thorns",
+   "damage": "d10",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 15,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Messy"
+   ],
+   "qualities": [
+    "Plant"
+   ],
+   "instinct": "To grow",
+   "moves": [
+    "Shoot forth new growth",
+    "Attack the unwary"
+   ]
+  },
+  "blink dog": {
+   "name": "Blink Dog",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Small",
+    "Magical",
+    "Organized"
+   ],
+   "attack": "Bite",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 4,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Illusion"
+   ],
+   "instinct": "To hunt",
+   "moves": [
+    "Give the appearance of being somewhere they’re not",
+    "Summon the pack",
+    "Move with amazing speed"
+   ]
+  },
+  "centaur": {
+   "name": "Centaur",
+   "setting": "Woods",
+   "tags": [
+    "Horde",
+    "Large",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Bow",
+   "damage": "d6+2",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 11,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Near"
+   ],
+   "qualities": [
+    "Half-horse",
+    "Half-man"
+   ],
+   "instinct": "To rage",
+   "moves": [
+    "Overrun them",
+    "Fire a perfect bullseye",
+    "Move with unrelenting speed"
+   ]
+  },
+  "chaos ooze": {
+   "name": "Chaos Ooze",
+   "setting": "Woods",
+   "tags": [
+    "Solitary",
+    "Planar",
+    "Terrifying",
+    "Amorphous"
+   ],
+   "attack": "Warping touch",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 23,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Ooze",
+    "Fragments of other planes embedded in it"
+   ],
+   "instinct": "To change",
+   "moves": [
+    "Cause a change in appearance or substance",
+    "Briefly bridge the planes"
+   ]
+  },
+  "cockatrice": {
+   "name": "Cockatrice",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Small",
+    "Hoarder"
+   ],
+   "attack": "Beak",
+   "damage": "d8",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 6,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Stone touch"
+   ],
+   "instinct": "To defend the nest",
+   "moves": [
+    "Start a slow transformation to stone"
+   ]
+  },
+  "dryad": {
+   "name": "Dryad",
+   "setting": "Woods",
+   "tags": [
+    "Solitary",
+    "Magical",
+    "Intelligent",
+    "Devious"
+   ],
+   "attack": "Crushing vines",
+   "damage": "w[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Plant"
+   ],
+   "instinct": "To love nature passionately",
+   "moves": [
+    "Entice a mortal",
+    "Merge into a tree",
+    "Turn nature against them"
+   ]
+  },
+  "eagle lord": {
+   "name": "Eagle Lord",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Large",
+    "Organized",
+    "Intelligent"
+   ],
+   "attack": "Talons",
+   "damage": "b[2d8]+1",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach"
+   ],
+   "qualities": [
+    "Mighty wings"
+   ],
+   "instinct": "To rule the heights",
+   "moves": [
+    "Attack from the sky",
+    "Pull someone into the air",
+    "Call on ancient oaths"
+   ]
+  },
+  "elvish warrior": {
+   "name": "Elvish Warrior",
+   "setting": "Woods",
+   "tags": [
+    "Horde",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Sword",
+   "damage": "b[2d6]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 2,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Sharp sense"
+   ],
+   "instinct": "To seek perfection",
+   "moves": [
+    "Strike at a weak point",
+    "Set ancient plans in motion",
+    "Use the woods to advantage"
+   ]
+  },
+  "elvish high arcanist": {
+   "name": "Elvish High Arcanist",
+   "setting": "Woods",
+   "tags": [
+    "Solitary",
+    "Magical",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Arcane fire",
+   "damage": "d10",
+   "piercing": 0,
+   "ignores_armor": true,
+   "hp": 12,
+   "armor": 0,
+   "attack_tags": [
+    "Near",
+    "Far"
+   ],
+   "qualities": [
+    "Sharp senses"
+   ],
+   "instinct": "To unleash power",
+   "moves": [
+    "Work the magic that nature demands",
+    "Cast forth the elements"
+   ]
+  },
+  "griffin": {
+   "name": "Griffin",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Large",
+    "Organized"
+   ],
+   "attack": "Talons",
+   "damage": "d8+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Wings"
+   ],
+   "instinct": "To serve allies",
+   "moves": [
+    "Judge someone’s worthiness",
+    "Carry an ally aloft",
+    "Strike from above"
+   ]
+  },
+  "hill giant": {
+   "name": "Hill Giant",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Huge",
+    "Intelligent",
+    "Organized"
+   ],
+   "attack": "Thrown rocks",
+   "damage": "d8+3",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Reach",
+    "Near",
+    "Far",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "Ruin everything.",
+   "moves": [
+    "Throw something",
+    "Do something stupid",
+    "Shake the earth"
+   ]
+  },
+  "ogre": {
+   "name": "Ogre",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Large",
+    "Intelligent"
+   ],
+   "attack": "Club",
+   "damage": "d8+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [],
+   "instinct": "To return the world to darker days",
+   "moves": [
+    "Destroy something",
+    "Fly into a rage",
+    "Take something by force"
+   ]
+  },
+  "razor boar": {
+   "name": "Razor Boar",
+   "setting": "Woods",
+   "tags": [
+    "Solitary"
+   ],
+   "attack": "Tusks",
+   "damage": "d10",
+   "piercing": 3,
+   "ignores_armor": false,
+   "hp": 16,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Messy"
+   ],
+   "qualities": [],
+   "instinct": "To shred",
+   "moves": [
+    "Rip them apart",
+    "Rend armor and weapons"
+   ]
+  },
+  "satyr": {
+   "name": "Satyr",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Devious",
+    "Magical",
+    "Hoarder"
+   ],
+   "attack": "Charge",
+   "damage": "w[2d8]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 10,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [
+    "Enchantment"
+   ],
+   "instinct": "To enjoy",
+   "moves": [
+    "Pull others into revelry through magic",
+    "Force gifts upon them",
+    "Play jokes with illusions and tricks"
+   ]
+  },
+  "sprite": {
+   "name": "Sprite",
+   "setting": "Woods",
+   "tags": [
+    "Horde",
+    "Tiny",
+    "Stealthy",
+    "Magical",
+    "Devious",
+    "Intelligent"
+   ],
+   "attack": "Dagger",
+   "damage": "w[2d4]",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 0,
+   "attack_tags": [
+    "Hand"
+   ],
+   "qualities": [
+    "Wings",
+    "Fey Magic"
+   ],
+   "instinct": "To play tricks",
+   "moves": [
+    "Play a trick to expose someone’s true nature",
+    "Confuse their senses",
+    "Craft an illusion"
+   ]
+  },
+  "treant": {
+   "name": "Treant",
+   "setting": "Woods",
+   "tags": [
+    "Group",
+    "Huge",
+    "Intelligent",
+    "Amorphous"
+   ],
+   "attack": "Walloping branches",
+   "damage": "d10+5",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 21,
+   "armor": 4,
+   "attack_tags": [
+    "Reach",
+    "Forceful"
+   ],
+   "qualities": [
+    "Wooden"
+   ],
+   "instinct": "To protect nature",
+   "moves": [
+    "Move with implacable strength",
+    "Set down roots",
+    "Spread old magic"
+   ]
+  },
+  "werewolf": {
+   "name": "Werewolf",
+   "setting": "Woods",
+   "tags": [
+    "Solitary",
+    "Intelligent"
+   ],
+   "attack": "Bite",
+   "damage": "d10+2",
+   "piercing": 1,
+   "ignores_armor": false,
+   "hp": 12,
+   "armor": 1,
+   "attack_tags": [
+    "Close",
+    "Messy"
+   ],
+   "qualities": [
+    "Weak to silver"
+   ],
+   "instinct": "To shed the appearance of civilization",
+   "moves": [
+    "Transform to pass unnoticed as beast or man",
+    "Strike from within",
+    "Hunt like man and beast"
+   ]
+  },
+  "worg": {
+   "name": "Worg",
+   "setting": "Woods",
+   "tags": [
+    "Horde",
+    "Organized"
+   ],
+   "attack": "Bite",
+   "damage": "d6",
+   "piercing": 0,
+   "ignores_armor": false,
+   "hp": 3,
+   "armor": 1,
+   "attack_tags": [
+    "Close"
+   ],
+   "qualities": [],
+   "instinct": "To serve",
+   "moves": [
+    "Carry a rider into battle",
+    "Give its rider an advantage"
+   ]
+  }
+ }
+}
