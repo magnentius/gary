@@ -83,6 +83,8 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
         )
     if outcome.enemy_attack:
         payload["enemy_attack"] = outcome.enemy_attack
+    if outcome.healing:
+        payload["healing"] = {k: v for k, v in outcome.healing.items() if k != "rolled_render"}
     if outcome.band == "miss":
         instruction = (
             "This outcome is final and was determined by the rules engine. It is a miss: "

@@ -323,6 +323,32 @@ class Director:
         else:
             stat = rules.stat
 
+        # A class move is that class's alone: a Fighter cannot Backstab.
+        if rules.classes and self._sheet_for is not None:
+            sheet = self._sheet_for(actor)
+            if sheet is not None and sheet.get("class") not in rules.classes:
+                return [self._refuse(
+                    channel_id,
+                    f"{rules.name} is the {' or '.join(rules.classes)}'s move; {actor} is a "
+                    f"{sheet.get('class', 'character without a class')}.",
+                    "Choose a move this character has -- a basic move, or one listed under "
+                    "their class.",
+                )]
+
+        # A healing move lands on a character with a sheet: the one named, or the mover.
+        if rules.heals_target:
+            wanted = str(target or "").strip() or actor
+            if self._sheet_for is not None:
+                found = self._character(wanted)
+                if found is None:
+                    return [self._refuse(
+                        channel_id,
+                        f"{rules.name} heals a character; {wanted!r} has no character sheet.",
+                        "Re-issue make_move with target set to the character being healed.",
+                    )]
+                wanted = found
+            target = wanted
+
         # An attack lands on a creature someone can see the HP of, or not at all: the
         # model adds creatures when they appear, so a target it never added is a mistake
         # to fix, not a creature to invent mid-swing.
@@ -340,7 +366,7 @@ class Director:
                     "make_move with its exact name as target.",
                 )]
             target = match
-        else:
+        elif not rules.heals_target:
             target = ""
 
         mod = 0
@@ -354,6 +380,12 @@ class Director:
                     "they roll. Do not resolve the action.",
                 )]
             mod = modifier(int(sheet["stats"][stat]))
+            # A precise weapon hacks and slashes with Dex, not Str -- where Dex is better.
+            if rules.key == "hack_and_slash" and "gear" in sheet:
+                weapon = self._weapon(sheet, rules.key)
+                dex = modifier(int(sheet["stats"]["dex"]))
+                if weapon is not None and "precise" in weapon.tags and dex > mod:
+                    stat, mod = "dex", dex
             unable = _unable(actor, sheet)
             if unable:
                 return [self._refuse(
@@ -364,7 +396,7 @@ class Director:
             # as before; `?dm gear` gives it some.
             if rules.attacks and "gear" in sheet and self._weapon(sheet, rules.key) is None:
                 needs = "a near, far or thrown weapon (and ammo, for a bow)" \
-                    if rules.key == "volley" else "a hand, close or reach weapon"
+                    if rules.ranged else "a hand, close or reach weapon"
                 return [self._refuse(
                     channel_id,
                     f"{actor} has nothing to {rules.name} with: it needs {needs}.",
@@ -395,13 +427,23 @@ class Director:
             ))
         rolled_with = "+Bond (not tracked yet, so +0)" if stat == BOND else \
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
-        at = f" at {target}" if target else ""
+        at = (f" on {target}" if rules.heals_target else f" at {target}") if target else ""
         effects.append(SendMessage(
             channel_id,
             f"**{actor}** — {rules.name}{at}, roll {rolled_with}.",
             prompt=RollPrompt(check.check_id),
         ))
         return effects
+
+    def _character(self, name: str) -> Optional[str]:
+        """A character's name as their sheet has it, however the model cased it."""
+        if self._sheet_for is None:
+            return None
+        if self._sheet_for(name) is not None:
+            return name
+        folded = normalize_actor(name)
+        return next((a for a in self.players.values()
+                     if normalize_actor(a) == folded and self._sheet_for(a) is not None), None)
 
     def _refuse(self, channel_id: int, error: str, instruction: str) -> PromptModel:
         return PromptModel(
@@ -493,7 +535,7 @@ class Director:
                 ),
             )]
 
-        if rules.deals_damage:
+        if self._deals_damage(check, dice):
             held = self.registry.hold(check, faces=dice.faces)
             die, _, weapon = self._damage_die(check)
             extra = self._damage_extra(check, dice)
@@ -506,12 +548,14 @@ class Director:
             )]
 
         self.registry.consume(check.check_id)
-        outcome = resolve(check, dice, picks=check.picks)
+        outcome = replace(resolve(check, dice, picks=check.picks), healing=self._healing(check, dice))
         return [*self._consequences(channel_id, outcome), *self._resolved(channel_id, outcome)]
 
     def _consequences(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
-        """What a rules-triggered move does to the sheet, beyond being narrated."""
+        """What a move does to the sheet, beyond being narrated."""
         name = outcome.actor
+        if outcome.healing:
+            return self._heal(channel_id, outcome)
         if outcome.move != "last_breath":
             return []
         took_bargain = outcome.chosen[:1] == (MOVES["last_breath"].weak.choice.options[0].text,)
@@ -529,6 +573,49 @@ class Director:
             SendMessage(channel_id, f"**{name}** is marked as Death's own."),
             UpdateSheet(channel_id, name, {"deaths_mark": True}),
         ]
+
+    def _heal(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
+        """Apply a healing move's roll: to the target, and -- Lay on Hands on a 7-9 -- the
+        same damage onto the healer, who may fall for it."""
+        facts = outcome.healing
+        effects: List[Effect] = [
+            SendMessage(channel_id, f"✨ **{outcome.actor}** heals **{facts['target']}** — "
+                                    f"{facts['rolled_render']} → {facts['healed']} healed, HP "
+                                    f"{facts['hp_after']}/{facts['max_hp']}."),
+            UpdateSheet(channel_id, facts["target"], {"hp": facts["hp_after"]}),
+        ]
+        if facts.get("transferred"):
+            sheet = self._sheet_for(outcome.actor) if self._sheet_for is not None else None
+            if sheet is not None:
+                after = max(0, int(sheet["hp"]) - facts["transferred"])
+                effects += [
+                    SendMessage(channel_id, f"…and the wound passes to **{outcome.actor}**: "
+                                            f"{facts['transferred']} damage, HP {after}/{sheet['max_hp']}."),
+                    UpdateSheet(channel_id, outcome.actor, {"hp": after}),
+                ]
+                if after <= 0:
+                    effects.extend(self._trigger(channel_id, outcome.actor, "last_breath"))
+        return effects
+
+    def _healing(self, check: PendingCheck, dice: Roll) -> Optional[Dict[str, Any]]:
+        """Roll a healing move's dice now, if its result or the player's pick heals."""
+        rules = MOVES[check.move].band(band(dice))
+        picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
+        spec = rules.heals or next((o.heals for o in picked if o.heals), None)
+        if not spec or self._sheet_for is None:
+            return None
+        patient = self._sheet_for(check.target or check.actor)
+        if patient is None or patient.get("dead"):
+            return None
+        roll = self.dice.roll(spec)
+        healed = max(0, min(roll.total, int(patient["max_hp"]) - int(patient["hp"])))
+        facts: Dict[str, Any] = {
+            "target": patient["name"], "rolled": roll.total, "rolled_render": f"{spec}: {roll.render()}",
+            "healed": healed, "hp_after": int(patient["hp"]) + healed, "max_hp": patient["max_hp"],
+        }
+        if rules.heal_transfers:
+            facts["transferred"] = healed
+        return facts
 
     # -- the rules trigger a move ------------------------------------------------------
 
@@ -611,8 +698,15 @@ class Director:
     def _awaits_damage(self, check: PendingCheck) -> bool:
         if not check.rolled:
             return False
-        rules = MOVES[check.move].band(band(self._dice_of(check)))
-        return rules.deals_damage and (rules.choice is None or bool(check.picks))
+        dice = self._dice_of(check)
+        rules = MOVES[check.move].band(band(dice))
+        return self._deals_damage(check, dice) and (rules.choice is None or bool(check.picks))
+
+    def _deals_damage(self, check: PendingCheck, dice: Roll) -> bool:
+        """The result deals damage, or an option the player picked does (Backstab)."""
+        rules = MOVES[check.move].band(band(dice))
+        picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
+        return rules.deals_damage or any(o.deals_damage for o in picked)
 
     def _land_damage(
         self, channel_id: int, check: PendingCheck, auto: bool = False
@@ -658,7 +752,7 @@ class Director:
         return [*effects, *self._resolved(channel_id, outcome), *dying]
 
     def _weapon(self, sheet: Dict[str, Any], move: str):
-        return weapon_for(sheet.get("gear") or [], ranged=move == "volley",
+        return weapon_for(sheet.get("gear") or [], ranged=MOVES[move].ranged,
                           ammo=int(sheet.get("ammo", 0)))
 
     def _damage_die(self, check: PendingCheck) -> Tuple[str, int, str]:
@@ -671,12 +765,16 @@ class Director:
         if not sheet:
             return "d6", 0, ""
         die = sheet["damage"]
+        # Halfling Thief: "When you attack with a ranged weapon, deal +2 damage."
+        knack = 2 if (MOVES[check.move].ranged and sheet.get("class") == "Thief"
+                      and sheet.get("race") == "Halfling") else 0
         weapon = self._weapon(sheet, check.move) if "gear" in sheet else None
-        if weapon is None:
-            return die, 0, ""
         spec = damage.parse(die)
-        boosted = damage.DamageSpec(spec.sides, spec.mode, spec.modifier + weapon.damage)
-        return str(boosted), weapon.piercing, weapon.name
+        bonus = knack + (weapon.damage if weapon is not None else 0)
+        boosted = str(damage.DamageSpec(spec.sides, spec.mode, spec.modifier + bonus)) if bonus else die
+        if weapon is None:
+            return boosted, 0, ""
+        return boosted, weapon.piercing, weapon.name
 
     def _spend_ammo(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         choice = MOVES[check.move].band(band(dice)).choice
@@ -891,10 +989,17 @@ class Director:
         effects: List[Effect] = []
         lines = [f"🏕️ The party makes camp — {reason}"]
         report: Dict[str, Any] = {}
+        # Halfling Druid: "When you make camp, you and your allies heal +1d6."
+        songs = None
+        if not approaches and any(s.get("class") == "Druid" and s.get("race") == "Halfling"
+                                  for _, s in party):
+            songs = self.dice.roll("1d6")
+            lines.append(f"A halfling's healing song carries over the camp: +{songs.total} to all healing.")
         for actor, sheet in party:
             changes: Dict[str, Any] = {}
             fed = True
-            if "gear" in sheet:  # sheets made before gear do not count rations
+            sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
+            if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
                 have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
                 fed = have > 0
                 if fed:
@@ -903,7 +1008,8 @@ class Director:
             if "rations" in changes:
                 entry["rations_left"] = changes["rations"]
             if fed and not approaches:
-                healed = min(int(sheet["max_hp"]) - int(sheet["hp"]), int(sheet["max_hp"]) // 2)
+                healed = min(int(sheet["max_hp"]) - int(sheet["hp"]),
+                             int(sheet["max_hp"]) // 2 + (songs.total if songs else 0))
                 changes["hp"] = int(sheet["hp"]) + healed
                 entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
                 lines.append(

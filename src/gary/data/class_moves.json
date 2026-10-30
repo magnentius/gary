@@ -1,0 +1,212 @@
+{
+ "attribution": "Dungeon World is the work of Sage LaTorra and Adam Koebel and is licensed under the Creative Commons Attribution 3.0 Unported License (http://creativecommons.org/licenses/by/3.0/). Extracted from https://github.com/Sagelt/Dungeon-World by scripts/extract_dw_class_moves.py.",
+ "source_commit": "e67bd51",
+ "classes": {
+  "bard": {
+   "race": {
+    "Elf": "When you enter an important location (your call) you can ask the GM for one fact from the history of that location.",
+    "Human": "When you first enter a civilized settlement someone who respects the custom of hospitality to minstrels will take you in as their guest."
+   },
+   "starting": [
+    {
+     "name": "Arcane Art",
+     "text": "When you weave a performance into a basic spell, choose an ally and an effect:\n• Heal 1d8 damage\n• +1d4 forward to damage\n• Their mind is shaken clear of one enchantment\n• The next time someone successfully assists the target with aid, they get +2 instead of +1\nThen roll+Cha. ✴On a 10+, the ally gets the selected effect. ✴On a 7-9, your spell still works, but you draw unwanted attention or your magic reverberates to other targets affecting them as well, GM’s choice."
+    },
+    {
+     "name": "Bardic Lore",
+     "text": "Choose an area of expertise:\n• Spells and Magicks\n• The Dead and Undead\n• Grand Histories of the Known World\n• A Bestiary of Creatures Unusual\n• The Planar Spheres\n• Legends of Heroes Past\n• Gods and Their Servants\nWhen you first encounter an important creature, location, or item (your call) covered by your bardic lore you can ask the GM any one question about it; the GM will answer truthfully. The GM may then ask you what tale, song, or legend you heard that information in."
+    },
+    {
+     "name": "Charming and Open",
+     "text": "When you speak frankly with someone, you can ask their player a question from the list below. They must answer it truthfully, then they may ask you a question from the list (which you must answer truthfully).\n• Whom do you serve?\n• What do you wish I would do?\n• How can I get you to ______?\n• What are you really feeling right now?\n• What do you most desire?"
+    },
+    {
+     "name": "A Port in the Storm",
+     "text": "When you return to a civilized settlement you’ve visited before, tell the GM when you were last here. They’ll tell you how it’s changed since then."
+    }
+   ]
+  },
+  "cleric": {
+   "race": {
+    "Dwarf": "You are one with stone. When you commune you are also granted a special version of Words of the Unspeaking as a rote which only works on stone.",
+    "Human": "Your faith is diverse. Choose one wizard spell. You can cast and be granted that spell as if it was a cleric spell."
+   },
+   "starting": [
+    {
+     "name": "Deity",
+     "text": "You serve and worship some deity or power which grants you spells. Give your god a name (maybe Helferth, Sucellus, Zorica or Krugon the Bleak) and choose your deity’s domain:\n• Healing and Restoration\n• Bloody Conquest\n• Civilization\n• Knowledge and Hidden Things\n• The Downtrodden and Forgotten\n• What Lies Beneath\nChoose one precept of your religion:\n• Your religion preaches the sanctity of suffering, add Petition: Suffering\n• Your religion is cultish and insular, add Petition: Gaining Secrets\n• Your religion has important sacrificial rites, add Petition: Offering\n• Your religion believes in trial by combat, add Petition: Personal Victory"
+    },
+    {
+     "name": "Divine Guidance",
+     "text": "When you petition your deity according to the precept of your religion, you are granted some useful knowledge or boon related to your deity’s domain. The GM will tell you what."
+    },
+    {
+     "name": "Turn Undead",
+     "text": "When you hold your holy symbol aloft and call on your deity for protection, roll+Wis. ✴On a 7+, so long as you continue to pray and brandish your holy symbol, no undead may come within reach of you. ✴On a 10+, you also momentarily daze intelligent undead and cause mindless undead to flee. Aggression breaks the effects and they are able to act as normal. Intelligent undead may still find ways to harry you from afar. They’re clever like that."
+    },
+    {
+     "name": "Commune",
+     "text": "When you spend uninterrupted time (an hour or so) in quiet communion with your deity, you:\n• Lose any spells already granted to you.\n• Are granted new spells of your choice whose total levels don’t exceed your own level+1, and none of which is a higher level than your own level.\n• Prepare all of your rotes, which never count against your limit."
+    },
+    {
+     "name": "Cast a Spell",
+     "text": "When you unleash a spell granted to you by your deity, roll+Wis. ✴On a 10+, the spell is successfully cast and your deity does not revoke the spell, so you may cast it again. ✴On a 7–9, the spell is cast, but choose one:\n• You draw unwelcome attention or put yourself in a spot. The GM will tell you how.\n• Your casting distances you from your deity—take -1 ongoing to cast a spell until the next time you commune.\n• After you cast it, the spell is revoked by your deity. You cannot cast the spell again until you commune and have it granted to you.\nNote that maintaining spells with ongoing effects will sometimes cause a penalty to your roll to cast a spell."
+    }
+   ]
+  },
+  "druid": {
+   "race": {
+    "Elf": "The sap of the elder trees flows within you. In addition to any other attunements, the Great Forest is always considered your land.",
+    "Human": "As your people learned to bind animals to field and farm, so too are you bound to them. You may always take the shape of any domesticated animal, in addition to your normal options.",
+    "Halfling": "You sing the healing songs of spring and brook. When you make camp, you and your allies heal +1d6."
+   },
+   "starting": [
+    {
+     "name": "Born of the Soil",
+     "text": "You learned your magic in a place whose spirits are strong and ancient and they’ve marked you as one of their own. No matter where you go, they live within you and allow you to take their shape. Choose one of the following. It is the land to which you are attuned—when shapeshifting you may take the shape of any animal who might live in your Land.\n• The Great Forests\n• The Whispering Plains\n• The Vast Desert\n• The Stinking Mire\n• The River Delta\n• The Depths of the Earth\n• The Sapphire Islands\n• The Open Sea\n• The Towering Mountains\n• The Frozen North\n• The Blasted Wasteland\nChose a tell—a physical attribute that marks you as born of the soil—that reflects the spirit of your land. It may be an animal feature like antlers or leopard’s spots or something more general: hair like leaves or eyes of glittering crystal. Your tell remains no matter what shape you take."
+    },
+    {
+     "name": "By Nature Sustained",
+     "text": "You don’t need to eat or drink. If a move tells you to mark off a ration just ignore it."
+    },
+    {
+     "name": "Spirit Tongue",
+     "text": "The grunts, barks, chirps, and calls of the creatures of the wild are as language to you. You can understand any animal native to your land or akin to one whose essence you have studied."
+    },
+    {
+     "name": "Shapeshifter",
+     "text": "When you call upon the spirits to change your shape, roll+Wis. ✴On a 10+ hold 3. ✴On a 7–9 hold 2. ✴On a miss hold 1 in addition to whatever the GM says.\nYou may take on the physical form of any species whose essence you have studied or who lives in your land: you and your possessions meld into a perfect copy of the species’ form. You have any innate abilities and weaknesses of the form: claws, wings, gills, breathing water instead of air. You still use your normal stats but some moves may be harder to trigger—a housecat will find it hard to do battle with an ogre. The GM will also tell you one or more moves associated with your new form. Spend 1 hold to make that move. Once you’re out of hold, you return to your natural form. At any time, you may spend all your hold and revert to your natural form."
+    },
+    {
+     "name": "Studied Essence",
+     "text": "When you spend time in contemplation of an animal spirit, you may add its species to those you can assume using shapeshifting."
+    }
+   ]
+  },
+  "fighter": {
+   "race": {
+    "Dwarf": "When you share a drink with someone, you may parley with them using CON instead of CHA.",
+    "Elf": "Choose one weapon—you can always treat weapons of that type as if they had the precise tag.",
+    "Halfling": "When you defy danger and use your small size to your advantage, take +1.",
+    "Human": "Once per battle you may reroll a single damage roll (yours or someone else’s)."
+   },
+   "starting": [
+    {
+     "name": "Bend Bars, Lift Gates",
+     "text": "When you use pure strength to destroy an inanimate obstacle, roll+Str. ✴On a 10+, choose 3. ✴On a 7-9 choose 2.\n• It doesn’t take a very long time\n• Nothing of value is damaged\n• It doesn’t make an inordinate amount of noise\n• You can fix the thing again without a lot of effort"
+    },
+    {
+     "name": "Armored",
+     "text": "You ignore the clumsy tag on armor you wear."
+    },
+    {
+     "name": "Signature Weapon",
+     "text": "This is your weapon. There are many like it, but this one is yours. Your weapon is your best friend. It is your life. You master it as you master your life. Your weapon, without you, is useless. Without your weapon, you are useless. You must wield your weapon true.\nChoose a base description, all are 2 weight:\n• Sword\n• Axe\n• Hammer\n• Spear\n• Flail\n• Fists\nChoose the range that best fits your weapon:\n• Hand\n• Close\n• Reach\nChoose two enhancements:\n• Hooks and spikes. +1 damage, but +1 weight.\n• Sharp. +2 piercing.\n• Perfectly weighted. Add precise.\n• Serrated edges. +1 damage.\n• Glows in the presence of one type of creature, your choice.\n• Huge. Add messy and forceful.\n• Versatile. Choose an additional range.\n• Well-crafted. -1 weight.\nChoose a look:\n• Ancient\n• Unblemished\n• Ornate\n• Blood-stained\n• Sinister"
+    }
+   ]
+  },
+  "paladin": {
+   "race": {
+    "Human": "When you pray for guidance, even for a moment, and ask, “What here is evil?” the GM will tell you, honestly."
+   },
+   "starting": [
+    {
+     "name": "Lay on Hands (Cha)",
+     "text": "When you touch someone, skin to skin, and pray for their well-being , roll+CHA. ✴On a 10+ you heal 1d8 damage or remove one disease. ✴On a 7–9, they are healed, but the damage or disease is transferred to you."
+    },
+    {
+     "name": "Armored",
+     "text": "You ignore the clumsy tag on armor you wear."
+    },
+    {
+     "name": "I Am the Law",
+     "text": "When you give an NPC an order based on your divine authority, roll+Cha. ✴On a 7+, they choose one:\n• Do what you say\n• Back away cautiously, then flee\n• Attack you\n✴On a 10+, you also take +1 forward against them. ✴On a miss, they do as they please and you take -1 forward against them."
+    },
+    {
+     "name": "Quest",
+     "text": "When you dedicate yourself to a mission through prayer and ritual cleansing, state what you set out to do:\n• Slay _______, a great blight on the land\n• Defend _______ from the iniquities that beset them\n• Discover the truth of _______\nThen choose up to two boons:\n• An unwavering sense of direction to _______.\n• Invulnerability to _______ (e.g., edged weapons, fire, enchantment, etc.)\n• A mark of divine authority\n• Senses that pierce lies\n• A voice that transcends language\n• A freedom from hunger, thirst, and sleep\nThe GM will then tell you what vow or vows is required of you to maintain your blessing:\n• Honor (forbidden: cowardly tactics and tricks)\n• Temperance (forbidden: gluttony in food, drink, and pleasure of the flesh)\n• Piety (required: observance of daily holy services)\n• Valor (forbidden: suffering an evil creature to live)\n• Truth (forbidden: lies)\n• Hospitality (required: comfort to those in need, no matter who they are)"
+    }
+   ]
+  },
+  "ranger": {
+   "race": {
+    "Elf": "When you undertake a perilous journey through wilderness whatever job you take you succeed as if you rolled a 10+.",
+    "Human": "When you make camp in a dungeon or city, you don’t need to consume a ration."
+   },
+   "starting": [
+    {
+     "name": "Hunt and Track (Wis)",
+     "text": "When you follow a trail of clues left behind by passing creatures, roll+WIS. ✴On a 7+, you follow the creature’s trail until there’s a significant change in its direction or mode of travel. ✴On a 10+, you also choose 1:\n• Gain a useful bit of information about your quarry, the GM will tell you what\n• Determine what caused the trail to end"
+    },
+    {
+     "name": "Called Shot",
+     "text": "When you attack a defenseless or surprised enemy at range, you can choose to deal your damage or name your target and roll+DEX.\n• Head ✴10+: As 7–9, plus your damage ✴7-9: They do nothing but stand and drool for a few moments.\n• Arms ✴10+: As 7-9, plus your damage ✴7-9: They drop anything they’re holding.\n• Legs ✴10+: As 7-9, plus your damage ✴7-9: They’re hobbled and slow moving."
+    },
+    {
+     "name": "Animal Companion",
+     "text": "You have a supernatural connection with a loyal animal. You can’t talk to it per se but it always acts as you wish it to. Name your animal companion and choose a species:\nWolf, cougar, bear, eagle, dog, hawk, cat, owl, pigeon, rat, mule\nChoose a base:\n• Ferocity +2, Cunning +1, 1 Armor, Instinct +1\n• Ferocity +2, Cunning +2, 0 Armor, Instinct +1\n• Ferocity +1, Cunning +2, 1 Armor, Instinct +1\n• Ferocity +3, Cunning +1, 1 Armor, Instinct +2\nChoose as many strengths as its ferocity:\nFast, burly, huge, calm, adaptable, quick reflexes, tireless, camouflage, ferocious, intimidating, keen senses, stealthy\nYour animal companion is trained to fight humanoids. Choose as many additional trainings as its cunning:\nHunt, search, scout, guard, fight monsters, perform, labor, travel\nChoose as many weaknesses as its instinct:\nFlighty, savage, slow, broken, frightening, forgetful, stubborn, lame"
+    },
+    {
+     "name": "Command",
+     "text": "When you work with your animal companion on something it’s trained in…\n• …and you attack the same target, add its ferocity to your damage\n• …and you track, add its cunning to your roll\n• …and you take damage, add its armor to your armor\n• …and you discern realities, add its cunning to your roll\n• …and you parley, add its cunning to your roll\n• …and someone interferes with you, add its instinct to their roll"
+    }
+   ]
+  },
+  "thief": {
+   "race": {
+    "Halfling": "When you attack with a ranged weapon, deal +2 damage.",
+    "Human": "You are a professional. When you spout lore or discern realities about criminal activities, take +1."
+   },
+   "starting": [
+    {
+     "name": "Trap Expert",
+     "text": "When you spend a moment to survey a dangerous area, roll+DEX. ✴On a 10+, hold 3. ✴On a 7–9, hold 1. Spend your hold as you walk through the area to ask these questions:\n• Is there a trap here and if so, what activates it?\n• What does the trap do when activated?\n• What else is hidden here?"
+    },
+    {
+     "name": "Tricks of the Trade",
+     "text": "When you pick locks or pockets or disable traps, roll+DEX. ✴On a 10+, you do it, no problem. ✴On a 7–9, you still do it, but the GM will offer you two options between suspicion, danger, or cost."
+    },
+    {
+     "name": "Backstab",
+     "text": "When you attack a surprised or defenseless enemy with a melee weapon, you can choose to deal your damage or roll+DEX. ✴On a 10+ choose two. ✴On a 7–9 choose one.\n• You don’t get into melee with them\n• You deal your damage+1d6\n• You create an advantage, +1 forward to you or an ally acting on it\n• Reduce their armor by 1 until they repair it"
+    },
+    {
+     "name": "Flexible Morals",
+     "text": "When someone tries to detect your alignment you can tell them any alignment you like."
+    },
+    {
+     "name": "Poisoner",
+     "text": "You’ve mastered the care and use of a poison. Choose a poison from the list below; that poison is no longer dangerous for you to use. You also start with three uses of the poison you choose. Whenever you have time to gather materials and a safe place to brew you can make three uses of the poison you choose for free. Note that some poisons are applied, meaning you have to carefully apply it to the target or something they eat or drink. Touch poisons just need to touch the target, they can even be used on the blade of a weapon.\n• Oil of Tagit (applied): The target falls into a light sleep\n• Bloodweed (touch): The target deals -1d4 damage ongoing until cured\n• Goldenroot (applied): The target treats the next creature they see as a trusted ally, until proved otherwise\n• Serpent’s Tears (touch): Anyone dealing damage to the target rolls twice and takes the better result."
+    }
+   ]
+  },
+  "wizard": {
+   "race": {
+    "Elf": "Magic is as natural as breath to you. Detect Magic is a cantrip for you.",
+    "Human": "Choose one cleric spell. You can cast it as if it was a wizard spell."
+   },
+   "starting": [
+    {
+     "name": "Spellbook",
+     "text": "You have mastered several spells and inscribed them in your spellbook. You start out with three first level spells in your spellbook as well as the cantrips. Whenever you gain a level, you add a new spell of your level or lower to your spellbook. You spellbook is 1 weight."
+    },
+    {
+     "name": "Prepare Spells",
+     "text": "When you spend uninterrupted time (an hour or so) in quiet contemplation of your spellbook, you:\n• Lose any spells you already have prepared\n• Prepare new spells of your choice from your spellbook whose total levels don’t exceed your own level+1.\n• Prepare your cantrips which never count against your limit."
+    },
+    {
+     "name": "Cast a Spell (Int)",
+     "text": "When you release a spell you’ve prepared, roll+Int. ✴On a 10+, the spell is successfully cast and you do not forget the spell—you may cast it again later. ✴On a 7-9, the spell is cast, but choose one:\n• You draw unwelcome attention or put yourself in a spot. The GM will tell you how.\n• The spell disturbs the fabric of reality as it is cast—take -1 ongoing to cast a spell until the next time you Prepare Spells.\n• After it is cast, the spell is forgotten. You cannot cast the spell again until you prepare spells.\nNote that maintaining spells with ongoing effects will sometimes cause a penalty to your roll to cast a spell."
+    },
+    {
+     "name": "Spell Defense",
+     "text": "You may end any ongoing spell immediately and use the energy of its dissipation to deflect an oncoming attack. The spell ends and you subtract its level from the damage done to you."
+    },
+    {
+     "name": "Ritual",
+     "text": "When you draw on a place of power to create a magical effect, tell the GM what you’re trying to achieve. Ritual effects are always possible, but the GM will give you one to four of the following conditions:\n• It’s going to take days/weeks/months\n• First you must ____\n• You’ll need help from ____\n• It will require a lot of money\n• The best you can do is a lesser version, unreliable and limited\n• You and your allies will risk danger from ____\n• You’ll have to disenchant ____ to do it"
+    }
+   ]
+  }
+ }
+}

@@ -42,6 +42,7 @@ from ..context import (
 )
 from ..fsm import Director
 from .. import healing, trade
+from ..class_moves import render as render_class_moves
 from ..fsm import SendMessage
 from ..models import Mutation, MutationKind
 from ..monsters import describe as describe_monster, prepare as prepare_monsters
@@ -198,6 +199,9 @@ class GeminiNarrator:
         """Layers 1-3. Rebuilt every call; layer 4 is the contents list."""
         state = self._store.state()
         blocks = [DM_SYSTEM_INSTRUCTION, render_live_state(state)]
+        moves = render_class_moves(state.get("sheets") or {})
+        if moves:
+            blocks.append(moves)
 
         subjects = list((state.get("party") or {}).keys())
         location = (state.get("scene") or {}).get("location")

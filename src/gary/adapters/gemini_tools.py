@@ -60,7 +60,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "only which move the fiction triggered and, for Defy Danger, which stat their "
             "approach uses. After calling this, STOP. Do not describe the result. The "
             "player rolls, and the result comes back to you as fact to narrate.\n"
-            + "\n".join(f"- {m.key}: when you {m.trigger}" for m in MOVES.values() if m.callable)
+            + "\n".join(f"- {m.key}: when you {m.trigger}"
+                        for m in MOVES.values() if m.callable and not m.classes)
+            + "\nClass moves -- only a character of that class has them:\n"
+            + "\n".join(f"- {m.key} ({'/'.join(m.classes)}): when you {m.trigger}"
+                        for m in MOVES.values() if m.callable and m.classes)
         ),
         parameters=_s(
             type=_OBJECT,
@@ -80,8 +84,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "target": _s(
                     type=_STRING,
                     description=(
-                        "hack_and_slash and volley only: the creature attacked, exactly as "
-                        "the scene lists it ('Goblin 2'). Add it with add_monsters first."
+                        "For an attack (hack_and_slash, volley, backstab, called_shot): the "
+                        "creature, exactly as the scene lists it ('Goblin 2') -- add it with "
+                        "add_monsters first. For lay_on_hands or arcane_art: the character "
+                        "helped. Omit otherwise."
                     ),
                 ),
                 "stakes": _s(type=_STRING, description="Optional. The danger or what is at risk, for your own later reference."),

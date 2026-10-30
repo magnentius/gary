@@ -530,7 +530,8 @@ def test_make_move_description_tells_the_model_to_stop_and_lists_every_trigger()
     assert "stop" in text
     assert "decide nothing about the outcome" in text
     for move in MOVES.values():
-        listed = f"- {move.key}: when you {move.trigger}" in decl.description
+        owner = f" ({'/'.join(move.classes)})" if move.classes else ""
+        listed = f"- {move.key}{owner}: when you {move.trigger}" in decl.description
         assert listed == move.callable, move.key  # Last Breath and Take Watch are not the model's
     assert list(decl.parameters.properties["move"].enum) == sorted(
         k for k, m in MOVES.items() if m.callable
@@ -926,3 +927,16 @@ async def test_bandages_mid_fight_are_refused_back_to_the_model(clock):
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response["ok"] is False and "creatures are still standing" in fr.response["error"]
     assert store.state()["sheets"]["Thorin"]["hp"] == 2
+
+
+async def test_the_partys_class_moves_reach_the_model_every_turn(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {**KETHRA_SHEET, "class": "Thief",
+                                                                  "race": "Halfling"}})], reason="x")
+    director = Director(registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL})
+    n = narrator((director, store, InMemoryHistoryBackend()), text_response("ok"))
+    await player(n)
+    system = n.client.calls[0]["config"].system_instruction
+    block = next(b for b in system if b.startswith("THE PARTY'S CLASS MOVES"))
+    assert "- Backstab: call make_move with move=backstab." in block
+    assert "- Halfling (Thief): When you attack with a ranged weapon, deal +2 damage." in block

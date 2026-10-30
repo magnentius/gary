@@ -6,7 +6,8 @@ An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice
 enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
-> rolls its own dice when a player clicks **Roll**, knows the eight basic moves, and tracks
+> rolls its own dice when a player clicks **Roll**, knows the eight basic moves and each
+> class's starting moves (not yet spells), and tracks
 > monsters' HP and damage, and characters carry their class's starting gear. Special and
 > class moves and bonds are not built yet — see
 > [what is missing](#what-is-not-built-yet).
@@ -451,6 +452,13 @@ waiting on; `?dm cancel` drops your own.
 - **Only the eight basic moves.** Hack and Slash, Volley, Defy Danger, Defend, Spout Lore,
   Discern Realities, Parley, Aid or Interfere. No special moves (Last Breath, Make Camp…)
   and no class moves yet.
+- **Class moves: starting moves only, and no spells yet.** Rolled class moves work —
+  Turn Undead, Lay on Hands, I Am the Law, Hunt and Track, Called Shot, Trap Expert,
+  Tricks of the Trade, Backstab, Bend Bars, Arcane Art — for that class alone. The rest
+  are shown to the GM to honour in the story. Spells (Cleric, Wizard), Shapeshifter and
+  the Animal Companion are not playable yet; nor are choices made at creation (a
+  Cleric's deity, a Bard's lore). Called Shot and Arcane Art pick their effect after the
+  roll rather than before.
 - **Only Last Breath, Take Watch and Make Camp of the special moves.** No Recover,
   Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is

@@ -119,7 +119,7 @@ def test_aid_rolls_plus_zero_because_bonds_are_not_tracked(director, registry):
 
 
 def test_an_unknown_move_goes_back_to_the_model(director):
-    (note,) = prompts_in(make_move(director, "backstab"))
+    (note,) = prompts_in(make_move(director, "fireball"))
     assert note.kind == "system_note" and "hack_and_slash" in note.payload["error"]
 
 
@@ -1028,3 +1028,133 @@ def test_a_rest_must_say_where_and_why_it_is_safe(director, scene):
     _camp_party(director)
     effects, facts = director.make_camp(channel_id=CHANNEL, reason="   ")
     assert effects == [] and "why it is safe" in facts["error"]
+
+
+# -- class moves ----------------------------------------------------------------------------
+
+
+def _sheets(director):
+    """The fixture's sheets, to add or change characters in place."""
+    return director._sheet_for.__self__
+
+
+def _thief(director, user_id=ALICE, **extra):
+    _sheets(director)["Kethra"].update({"class": "Thief", "race": "Human", **extra})
+    director.set_player_character(user_id, "Kethra")
+
+
+def test_a_class_move_is_that_classes_alone(director):
+    _sheets(director)["Dorn"]["class"] = "Fighter"
+    (note,) = prompts_in(make_move(director, "backstab", actor="Dorn", user_id=BOB, target="Goblin 1"))
+    assert "Backstab is the Thief's move; Dorn is a Fighter." in note.payload["error"]
+
+
+def test_a_class_move_rolls_like_any_other(director, registry, dice):
+    _sheets(director)["Kethra"]["class"] = "Cleric"
+    (ask,) = sends_in(make_move(director, "turn_undead"))
+    assert ask.text == "**Kethra** — Turn Undead, roll +Wis +1."
+    dice.queue(4, 4)
+    (prompt,) = prompts_in(roll(director))
+    assert "no undead may come within reach" in prompt.payload["what_it_means"]
+
+
+def test_backstab_deals_damage_only_if_the_thief_picks_it(director, registry, dice):
+    _thief(director)
+    make_move(director, "backstab", target="Goblin 1")
+    dice.queue(5, 5)
+    (_, ask) = sends_in(roll(director))
+    assert ask.prompt.count == 2
+    check_id = only_check(registry).check_id
+    effects = choose(director, check_id, [1, 3])  # +1d6 damage, reduce armor
+    assert isinstance(sends_in(effects)[-1].prompt, DamagePrompt)
+    assert "(d8 +1d6)" in sends_in(effects)[-1].text
+
+
+def test_backstab_without_the_damage_pick_resolves_at_once(director, registry, dice):
+    _thief(director)
+    make_move(director, "backstab", target="Goblin 1")
+    dice.queue(5, 5)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [0, 2])
+    assert prompts_in(effects) and not any(s.prompt for s in sends_in(effects))
+
+
+def test_called_shot_needs_something_that_shoots_and_a_target(director):
+    from gary.gear import SHORT_SWORD
+
+    _sheets(director)["Kethra"]["class"] = "Ranger"
+    _geared(director, "Kethra", [SHORT_SWORD])
+    (note,) = prompts_in(make_move(director, "called_shot", target="Goblin 1"))
+    assert "near, far or thrown" in note.payload["error"]
+
+
+def test_lay_on_hands_heals_the_named_ally(director, registry, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Dorn"].update({"class": "Paladin", "hp": 25})
+    _sheets(director)["Kethra"]["hp"] = 10
+    director.set_player_character(BOB, "Dorn")
+    director.set_player_character(ALICE, "Kethra")  # as ?dm new would have
+    (ask,) = sends_in(make_move(director, "lay_on_hands", actor="Dorn", user_id=BOB, target="kethra"))
+    assert ask.text.startswith("**Dorn** — Lay on Hands on Kethra, roll +Cha")
+    dice.queue(5, 5, 6)  # strong, then the 1d8
+    effects = roll(director, user_id=BOB)
+    assert UpdateSheet(CHANNEL, "Kethra", {"hp": 16}) in effects
+    assert prompts_in(effects)[0].payload["healing"]["healed"] == 6
+
+
+def test_lay_on_hands_on_a_7_to_9_moves_the_wound_onto_the_paladin(director, registry, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Dorn"].update({"class": "Paladin", "hp": 4})
+    _sheets(director)["Kethra"]["hp"] = 10
+    director.set_player_character(BOB, "Dorn")
+    make_move(director, "lay_on_hands", actor="Dorn", user_id=BOB, target="Kethra")
+    dice.queue(3, 3, 6)  # CHA 13 +1: 7, weak; heals 6
+    effects = roll(director, user_id=BOB)
+    assert UpdateSheet(CHANNEL, "Kethra", {"hp": 16}) in effects
+    assert UpdateSheet(CHANNEL, "Dorn", {"hp": 0}) in effects  # 4 - 6, floored
+    assert sends_in(effects)[-1].text == "**Dorn** — Last Breath, roll +nothing."
+
+
+def test_arcane_art_heals_only_if_that_effect_is_picked(director, registry, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Kethra"].update({"class": "Bard", "hp": 19})
+    _sheets(director)["Dorn"]["hp"] = 10
+    make_move(director, "arcane_art", target="Dorn")
+    dice.queue(5, 5)
+    roll(director)
+    dice.queue(5)
+    effects = choose(director, only_check(registry).check_id, [0])
+    assert UpdateSheet(CHANNEL, "Dorn", {"hp": 15}) in effects
+
+
+def test_a_precise_weapon_hacks_with_dex(director, registry):
+    from gary.gear import RAPIER
+
+    _geared(director, "Kethra", [RAPIER])  # STR 8 (-1), DEX 16 (+2)
+    (ask,) = sends_in(make_move(director, "hack_and_slash"))
+    assert ask.text == "**Kethra** — Hack and Slash at Goblin 1, roll +Dex +2."
+    assert only_check(registry).stat == "dex"
+
+
+def test_a_halfling_thief_deals_2_more_at_range(director, registry, dice):
+    from gary.gear import ARROWS, HUNTERS_BOW
+
+    _thief(director, race="Halfling")
+    _geared(director, "Kethra", [HUNTERS_BOW, ARROWS])
+    make_move(director, "volley")
+    dice.queue(6, 6)
+    assert "(d8+2, Hunter's bow)" in sends_in(roll(director))[-1].text
+
+
+def test_a_druid_needs_no_ration_and_a_halfling_druid_sings_the_camp_healthy(director, scene, dice):
+    scene.clear()
+    _camp_party(director)
+    _sheets(director)["Dorn"].update({"class": "Druid", "race": "Halfling", "gear": [], "rations": 0})
+    dice.queue(3)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert facts["party"]["Dorn"]["ate"] is True  # By Nature Sustained
+    assert facts["party"]["Kethra"]["healed"] == 9 + 3  # half of 19, plus the song
+    assert "healing song" in sends_in(effects)[0].text

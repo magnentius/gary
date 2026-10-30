@@ -211,6 +211,7 @@ class MoveOutcome:
     # fsm.Director for the fields. None when there was none.
     damage: Optional[dict] = None
     enemy_attack: Optional[dict] = None
+    healing: Optional[dict] = None  # a healing move's roll and what it healed
 
 
 # --------------------------------------------------------------------------------------

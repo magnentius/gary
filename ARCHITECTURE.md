@@ -71,6 +71,14 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   10 and is gone; bandages heal someone else 4 and poultices anyone 7, spending counted
 >   uses, and both are slow -- refused while creatures stand. `use_item` journals user and
 >   patient in one apply. Kit items named with a count ("2 healing potions") are split.
+> - **Class starting moves.** `class_moves.py` sorts each class's starting and race moves
+>   (text extracted verbatim by `scripts/extract_dw_class_moves.py`) into rolled, narrative
+>   and not-yet. Rolled ones are `Move`s with `classes=`, refused to any other class;
+>   options can deal damage (Backstab) or heal (Arcane Art), results can heal and transfer
+>   (Lay on Hands, rolled in the Director, applied by `UpdateSheet`). The rest reach the
+>   model every turn as a "class moves" block. Wired number tweaks: precise weapons hack
+>   with Dex, Halfling Thief +2 ranged, Druids need no ration, a Halfling Druid adds 1d6 at
+>   camp. Spells, Shapeshifter and the Animal Companion are next.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.

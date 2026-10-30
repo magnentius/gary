@@ -202,6 +202,7 @@ class CampaignStore:
                         "enemy_attacks": outcome.enemy_attacks,
                         "damage": outcome.damage,
                         "enemy_attack": outcome.enemy_attack,
+                        "healing": outcome.healing,
                     },
                     "inverse": None,
                     "reason": f"{outcome.actor} {outcome.move}",

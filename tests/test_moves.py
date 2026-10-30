@@ -9,7 +9,7 @@ from gary.sheets import STATS
 
 
 def test_the_eight_basic_moves_and_their_stats():
-    assert {k: m.stat for k, m in MOVES.items() if m.callable} == {
+    assert {k: m.stat for k, m in MOVES.items() if m.callable and not m.classes} == {
         "hack_and_slash": "str", "volley": "dex", "defy_danger": ANY, "defend": "con",
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,

@@ -48,6 +48,11 @@ class Option:
     damage_mod: Optional[str] = None
     # Taking this option spends one ammo.
     spends_ammo: bool = False
+    # Taking this option deals your damage, on a move whose result alone does not
+    # (Backstab's "you deal your damage+1d6").
+    deals_damage: bool = False
+    # Taking this option heals the move's target by these dice (Arcane Art's 1d8).
+    heals: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -66,6 +71,10 @@ class Band:
     enemy_attacks: bool = False
     # "Deal your damage": the roller rolls their damage die against the target.
     deals_damage: bool = False
+    # Heals the move's target by these dice (Lay on Hands' 1d8)...
+    heals: Optional[str] = None
+    # ...and moves that much damage onto the roller (Lay on Hands, 7-9).
+    heal_transfers: bool = False
 
 
 @dataclass(frozen=True)
@@ -80,14 +89,23 @@ class Move:
     # False for a move the rules trigger themselves -- Last Breath at 0 HP, Take Watch
     # when something approaches the camp -- so the model cannot call it by hand.
     callable: bool = True
+    # The classes that have this move; empty means everyone (the basic moves).
+    classes: Tuple[str, ...] = ()
+    # An attack made at range: needs a near, far or thrown weapon, not a melee one.
+    ranged: bool = False
+    # Heals a character named as the target, rather than hurting a creature.
+    heals_target: bool = False
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
 
     @property
     def attacks(self) -> bool:
-        """Whether a hit deals damage to someone -- so the move needs a target."""
-        return self.strong.deals_damage or self.weak.deals_damage
+        """Whether a hit can deal damage to someone -- so the move needs a target."""
+        return any(
+            b.deals_damage or any(o.deals_damage for o in (b.choice.options if b.choice else ()))
+            for b in (self.strong, self.weak)
+        )
 
 
 #: Every basic move misses the same way: the GM makes a move.
@@ -103,6 +121,37 @@ _DISCERN = (
 )
 
 _AID = (Option("Help them: they take +1."), Option("Hinder them: they take -2."))
+
+# Called Shot names its target before the roll in the book. Here it is picked after: the
+# effects are the same at every result, so seeing the dice first buys nothing.
+_CALLED = (
+    Option("Head: they do nothing but stand and drool for a few moments."),
+    Option("Arms: they drop anything they're holding."),
+    Option("Legs: they're hobbled and slow moving."),
+)
+
+_BACKSTAB = (
+    Option("You don't get into melee with them."),
+    Option("You deal your damage+1d6.", deals_damage=True, damage_mod="+1d6"),
+    Option("You create an advantage, +1 forward to you or an ally acting on it."),
+    Option("Reduce their armor by 1 until they repair it."),
+)
+
+_BEND_BARS = (
+    Option("It doesn't take a very long time."),
+    Option("Nothing of value is damaged."),
+    Option("It doesn't make an inordinate amount of noise."),
+    Option("You can fix the thing again without a lot of effort."),
+)
+
+# Arcane Art chooses its effect before the roll in the book; picked after, for the same
+# reason as Called Shot.
+_ARCANE_ART = (
+    Option("Heal 1d8 damage.", heals="1d8"),
+    Option("+1d4 forward to damage."),
+    Option("Their mind is shaken clear of one enchantment."),
+    Option("Next time someone aids them successfully, it's +2 instead of +1."),
+)
 
 MOVES: Dict[str, Move] = {m.key: m for m in (
     Move(
@@ -125,7 +174,7 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         miss=_MISS,
     ),
     Move(
-        "volley", "Volley", "take aim and shoot at an enemy at range", "dex",
+        "volley", "Volley", "take aim and shoot at an enemy at range", "dex", ranged=True,
         strong=Band("You have a clear shot—deal your damage.", deals_damage=True),
         weak=Band(
             "Choose one (whichever you choose you deal your damage).",
@@ -237,5 +286,113 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         ),
         miss=Band("Whatever lurks outside the campfire's light has the drop on you."),
         callable=False,
+    ),
+    # -- class starting moves ------------------------------------------------------------
+    Move(
+        "turn_undead", "Turn Undead",
+        "hold your holy symbol aloft and call on your deity for protection", "wis",
+        strong=Band(
+            "So long as you continue to pray and brandish your holy symbol, no undead may come "
+            "within reach of you, and you momentarily daze intelligent undead and cause "
+            "mindless undead to flee. Aggression breaks the effects and they are able to act "
+            "as normal. Intelligent undead may still find ways to harry you from afar."
+        ),
+        weak=Band(
+            "So long as you continue to pray and brandish your holy symbol, no undead may come "
+            "within reach of you. Aggression breaks the effect."
+        ),
+        miss=_MISS, classes=("Cleric",),
+    ),
+    Move(
+        "lay_on_hands", "Lay on Hands",
+        "touch someone, skin to skin, and pray for their well-being", "cha",
+        strong=Band("You heal 1d8 damage (or remove one disease).", heals="1d8"),
+        weak=Band("They are healed, but the damage is transferred to you.",
+                  heals="1d8", heal_transfers=True),
+        miss=_MISS, classes=("Paladin",), heals_target=True,
+    ),
+    Move(
+        "i_am_the_law", "I Am the Law",
+        "give an NPC an order based on your divine authority", "cha",
+        strong=Band(
+            "They choose one: do what you say, back away cautiously then flee, or attack you. "
+            "You also take +1 forward against them."
+        ),
+        weak=Band("They choose one: do what you say, back away cautiously then flee, or attack you."),
+        miss=Band("They do as they please and you take -1 forward against them."),
+        classes=("Paladin",),
+    ),
+    Move(
+        "hunt_and_track", "Hunt and Track",
+        "follow a trail of clues left behind by passing creatures", "wis",
+        strong=Band(
+            "You follow the creature's trail until there's a significant change in its "
+            "direction or mode of travel, and you choose 1.",
+            choice=Choice(1, (
+                Option("Gain a useful bit of information about your quarry."),
+                Option("Determine what caused the trail to end."),
+            )),
+        ),
+        weak=Band(
+            "You follow the creature's trail until there's a significant change in its "
+            "direction or mode of travel."
+        ),
+        miss=_MISS, classes=("Ranger",),
+    ),
+    Move(
+        "called_shot", "Called Shot",
+        "attack a defenseless or surprised enemy at range, and name your target", "dex",
+        strong=Band(
+            "Your shot lands where you named, and you deal your damage.",
+            choice=Choice(1, _CALLED), deals_damage=True,
+        ),
+        weak=Band("Your shot lands where you named.", choice=Choice(1, _CALLED)),
+        miss=_MISS, classes=("Ranger",), ranged=True,
+    ),
+    Move(
+        "trap_expert", "Trap Expert", "spend a moment to survey a dangerous area", "dex",
+        strong=Band(
+            "Hold 3. Spend your hold as you walk through the area to ask: Is there a trap here "
+            "and if so, what activates it? What does the trap do when activated? What else is "
+            "hidden here?"
+        ),
+        weak=Band(
+            "Hold 1. Spend it as you walk through the area to ask: Is there a trap here and if "
+            "so, what activates it? What does the trap do when activated? What else is hidden "
+            "here?"
+        ),
+        miss=_MISS, classes=("Thief",),
+    ),
+    Move(
+        "tricks_of_the_trade", "Tricks of the Trade", "pick locks or pockets or disable traps",
+        "dex",
+        strong=Band("You do it, no problem."),
+        weak=Band("You still do it, but the GM will offer you two options between suspicion, "
+                  "danger, or cost."),
+        miss=_MISS, classes=("Thief",),
+    ),
+    Move(
+        "backstab", "Backstab",
+        "attack a surprised or defenseless enemy with a melee weapon", "dex",
+        strong=Band("Choose two.", choice=Choice(2, _BACKSTAB)),
+        weak=Band("Choose one.", choice=Choice(1, _BACKSTAB)),
+        miss=_MISS, classes=("Thief",),
+    ),
+    Move(
+        "bend_bars", "Bend Bars, Lift Gates",
+        "use pure strength to destroy an inanimate obstacle", "str",
+        strong=Band("Choose 3.", choice=Choice(3, _BEND_BARS)),
+        weak=Band("Choose 2.", choice=Choice(2, _BEND_BARS)),
+        miss=_MISS, classes=("Fighter",),
+    ),
+    Move(
+        "arcane_art", "Arcane Art", "weave a performance into a basic spell for an ally", "cha",
+        strong=Band("The ally gets the selected effect.", choice=Choice(1, _ARCANE_ART)),
+        weak=Band(
+            "Your spell still works, but you draw unwanted attention or your magic "
+            "reverberates to other targets affecting them as well, GM's choice.",
+            choice=Choice(1, _ARCANE_ART),
+        ),
+        miss=_MISS, classes=("Bard",), heals_target=True,
     ),
 )}
