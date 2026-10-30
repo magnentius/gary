@@ -1004,9 +1004,9 @@ class Director:
         facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
                      hp_after=max(after, 0), defeated=after <= 0,
                      severity=damage.severity(dealt, target.get("max_hp", target["hp"]), after))
-        armor = "ignoring armor" if ignores_armor else f"through armor {target['armor']}"
-        said = (f" → {name}: {dealt} {armor}, HP {target['hp']} → {max(after, 0)}"
-                + (" — **defeated**." if after <= 0 else "."))
+        armor = "ignores armor" if ignores_armor else f"armor {target['armor']}"
+        said = (f" → **{name}** takes {_damage_words(dealt)} ({armor}), "
+                f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else "."))
         return [ChangeHp(channel_id, "monster", name, after)], facts, said
 
     def _weapon(self, sheet: Dict[str, Any], move: str):
@@ -1085,7 +1085,9 @@ class Director:
             effects.extend(self._trigger(channel_id, character, "last_breath"))
         return effects, {"ok": True, **facts,
                          "note": "Rolled and applied by the rules engine. Narrate it as it "
-                                 "landed, as bad as its severity and no worse or better; do "
+                                 "landed, as bad as its severity and no worse or better, and "
+                                 "say how much damage it was and the HP left in plain words "
+                                 "(\"4 damage -- you're at 14\"); do "
                                  "not change the numbers."}
 
     def _attack(
@@ -1105,8 +1107,12 @@ class Director:
             after = int(sheet["hp"]) - dealt
             facts.update(hp_before=sheet["hp"], hp_after=max(after, 0), down=after <= 0,
                          severity=damage.severity(dealt, sheet.get("max_hp", sheet["hp"]), after))
-            line += (
-                f" → {dealt} through armor {armor}, HP {sheet['hp']} → {max(after, 0)}"
+            # The amount first, in words: "d6: 5 → 4 through armor 1" left the table to work
+            # out that 4 was the damage.
+            shield = "ignores armor" if creature.get("ignores_armor") else f"armor {armor}"
+            line = (
+                f"🗡️ **{name}** hits **{character}** for {_damage_words(dealt)} "
+                f"({hit.render()}, {shield}) — HP {sheet['hp']} → {max(after, 0)}"
                 + (" — **down**." if after <= 0 else ".")
             )
             if after <= 0:
@@ -1392,6 +1398,10 @@ def _auto(effect: Effect) -> Effect:
             "note": "The player did not choose in time, so the first options were taken.",
         })
     return effect
+
+
+def _damage_words(dealt: int) -> str:
+    return "**no damage**" if dealt <= 0 else f"**{dealt} damage**"
 
 
 def _and(names) -> str:

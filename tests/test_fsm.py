@@ -280,7 +280,7 @@ def test_choosing_then_rolling_damage_resolves_with_both(director, registry, dic
     dice.queue(7, 2)  # d8 7, then the -1d6: 2 -> 5, through armor 1 -> 4
     effects = roll_damage(director, check_id)
     assert sends_in(effects)[0].text == (
-        "🎲 **Kethra** damage — d8 -1d6: 7 - 2 = 5 → Goblin 1: 4 through armor 1, "
+        "🎲 **Kethra** damage — d8 -1d6: 7 - 2 = 5 → **Goblin 1** takes **4 damage** (armor 1), "
         "HP 3 → 0 — **defeated**."
     )
     assert ChangeHp(CHANNEL, "monster", "Goblin 1", -1) in effects
@@ -350,9 +350,9 @@ def test_a_strong_hack_and_slash_trades_an_attack_for_the_extra_d6(director, reg
     dice.queue(6, 4, 5)  # d10 6, +1d6 4 = 10, armor 1 -> 9; goblin's d6 hits back for 5
     effects = roll_damage(director, check_id, user_id=BOB)
     texts = [e.text for e in sends_in(effects)]
-    assert texts[0] == ("🎲 **Dorn** damage — d10 +1d6: 6 + 4 = 10 → Goblin 1: 9 through "
-                        "armor 1, HP 20 → 11.")
-    assert texts[1] == "🗡️ **Goblin 1** hits **Dorn** — d6: 5 → 5 through armor 0, HP 25 → 20."
+    assert texts[0] == ("🎲 **Dorn** damage — d10 +1d6: 6 + 4 = 10 → **Goblin 1** takes "
+                        "**9 damage** (armor 1), HP 20 → 11.")
+    assert texts[1] == "🗡️ **Goblin 1** hits **Dorn** for **5 damage** (d6: 5, armor 0) — HP 25 → 20."
     assert ChangeHp(CHANNEL, "character", "Dorn", 20) in effects
     (prompt,) = prompts_in(effects)
     assert "enemy makes an attack" in prompt.payload["enemy_attacks"]
@@ -637,7 +637,7 @@ def test_a_creature_attack_is_rolled_and_applied_by_the_rules(director, dice):
     dice.queue(4)  # goblin d6: 4, Kethra's armor 1 -> 3
     effects, facts = director.monster_attacks(channel_id=CHANNEL, monster="goblin 1", character="Kethra")
     assert sends_in(effects)[0].text == (
-        "🗡️ **Goblin 1** hits **Kethra** — d6: 4 → 3 through armor 1, HP 19 → 16."
+        "🗡️ **Goblin 1** hits **Kethra** for **3 damage** (d6: 4, armor 1) — HP 19 → 16."
     )
     assert ChangeHp(CHANNEL, "character", "Kethra", 16) in effects
     assert facts["ok"] and facts["dealt"] == 3 and facts["hp_after"] == 16
@@ -730,7 +730,7 @@ def test_a_weapons_damage_and_piercing_go_into_the_roll(director, registry, dice
 
     dice.queue(5)  # d10 5 +1 = 6, through armor 2 -> 4
     effects = roll_damage(director, only_check(registry).check_id, user_id=BOB)
-    assert "d10+1: 5 +1 = 6 → Goblin 1: 4 through armor 2" in sends_in(effects)[0].text
+    assert "d10+1: 5 +1 = 6 → **Goblin 1** takes **4 damage** (armor 2)" in sends_in(effects)[0].text
 
 
 def test_piercing_cuts_through_armor(director, registry, dice, scene):
@@ -744,7 +744,7 @@ def test_piercing_cuts_through_armor(director, registry, dice, scene):
     choose(director, only_check(registry).check_id, [0], user_id=BOB)
     dice.queue(5)  # d10 5, armor 2 less 1 piercing -> 4
     effects = roll_damage(director, only_check(registry).check_id, user_id=BOB)
-    assert "Goblin 1: 4 through armor 2" in sends_in(effects)[0].text
+    assert "**Goblin 1** takes **4 damage** (armor 2)" in sends_in(effects)[0].text
 
 
 def test_taking_several_shots_spends_one_ammo(director, registry, dice):

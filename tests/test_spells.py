@@ -260,7 +260,7 @@ def test_magic_missile_asks_for_damage_and_armor_applies(director, dice, registr
     dice.queue(3, 2)
     effects = director.roll_damage(channel_id=CHANNEL, user_id=BOB, check_id=only_check(registry).check_id)
     assert ChangeHp(CHANNEL, "monster", "Goblin 1", 3) in effects  # 5 - armor 1
-    assert "2d4: 3 + 2 = 5 → Goblin 1: 4 through armor 1" in texts(effects)[0]
+    assert "2d4: 3 + 2 = 5 → **Goblin 1** takes **4 damage** (armor 1)" in texts(effects)[0]
 
 
 def test_fireball_hits_every_creature_named_and_ignores_armor(director, dice, registry, sheets, scene):

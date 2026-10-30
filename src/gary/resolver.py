@@ -103,7 +103,9 @@ def outcome_for_model(outcome: MoveOutcome) -> dict:
             instruction += (
                 " The damage and HP are exact: a creature that is not defeated is still "
                 "fighting, however the blow reads, and one that is defeated is done. "
-                "Describe each wound as bad as its severity says, no worse or better."
+                "Describe each wound as bad as its severity says, no worse or better, "
+                "and say in plain words how much damage it was and the HP left (\"4 damage "
+                "-- you're at 14\"): the table reads the fight from your narration."
             )
     payload["instruction"] = instruction
     return payload

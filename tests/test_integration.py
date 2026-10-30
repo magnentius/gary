@@ -1007,7 +1007,7 @@ async def test_clicking_roll_damage_lands_the_blow_and_disables_the_button(rig):
     (view,) = alice.response.edits
     (button,) = view.children
     assert isinstance(button, DamageButton) and button.item.disabled
-    assert "Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**." in transport.sent[-2][1]
+    assert "**Goblin 1** takes **4 damage** (armor 1), HP 3 → 0 — **defeated**." in transport.sent[-2][1]
 
 
 # -- spells -----------------------------------------------------------------------------------
