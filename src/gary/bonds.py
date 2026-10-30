@@ -64,3 +64,9 @@ def remove(sheet: Dict[str, Any], index: int) -> Dict[str, Any]:
         raise SheetError("There is no such bond.")
     del bonds[index]
     return {**sheet, "bonds": bonds}
+
+
+def resolve(sheet: Dict[str, Any], line: str) -> Dict[str, Any]:
+    """The sheet without the bond on this line: resolved at End of Session, to be
+    rewritten. Unchanged if it is no longer there."""
+    return {**sheet, "bonds": [b for b in sheet.get("bonds") or () if b["line"] != line]}

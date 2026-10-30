@@ -1102,7 +1102,7 @@ def test_end_of_session_toggles_answers_and_awards_once():
 
     awarded, edits, private = [], [], []
 
-    async def award(yeses, fulfilled):
+    async def award(yeses, fulfilled, resolved):
         awarded.append((yeses, fulfilled))
         return f"+{yeses} XP"
 
@@ -1261,3 +1261,72 @@ def test_saving_bonds_keeps_everything_else_as_it_is_now():
     assert sheets["Thorin"]["hp"] == 9  # the fight's damage stays
     assert sheets["Thorin"]["bonds"][0]["with"] == "Eva"
     assert sent == ["🤝 **Thorin** — Bonds — I am working on converting Eva to my faith."]
+
+
+def test_a_resolved_bond_needs_the_companion_and_is_worth_xp():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+    from gary.adapters.session import EndOfSession
+
+    bond = {"line": "___ has insulted my deity; I do not trust them.", "with": "Eva"}
+    awarded, channel_posts, private = [], [], []
+
+    async def award(yeses, fulfilled, resolved):
+        awarded.append(resolved)
+        return "ok"
+
+    class _Channel:
+        async def send(self, text, view=None):
+            channel_posts.append((text, view))
+
+    class _Resp:
+        async def edit_message(self, content=None, view=None):
+            pass
+
+        async def send_message(self, text, ephemeral=False, view=None):
+            private.append(text)
+
+    def click(user_id):
+        return type("I", (), {"response": _Resp(), "user": type("U", (), {"id": user_id})(),
+                              "channel": _Channel()})()
+
+    async def run():
+        view = EndOfSession(award, {}, {ALICE: "Thorin", BOB: "Eva"}, {"Thorin": [bond], "Eva": []})
+        await view._on_resolve(click(BOB))
+        assert private[-1] == "You have no bonds to resolve."
+        await view.ask_companion(_Channel(), "Thorin", bond)
+        text, agree = channel_posts[-1]
+        assert text.startswith("**Thorin** feels this bond is resolved: “Eva has insulted my deity")
+        await agree.children[0].callback(click(ALICE))  # not Thorin's to agree to
+        assert private[-1] == "That's Eva's player to say."
+        await agree.children[0].callback(click(BOB))
+        assert "🤝 Thorin resolves “Eva has insulted my deity; I do not trust them.”" in view.prompt()
+        await view._on_resolve(click(ALICE))
+        assert private[-1] == "You have resolved a bond this session already."
+        await view._on_award(click(ALICE))
+
+    asyncio.run(run())
+    assert awarded == [{"Thorin": bond["line"]}]
+
+    sheets = {"Thorin": {**_THORIN, "xp": 0, "bonds": [bond]}, "Eva": {**_THORIN, "name": "Eva", "xp": 0}}
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            for m in mutations:
+                sheets[m.target] = m.payload["sheet"]
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Client:
+        store = _Store()
+        settings = type("S", (), {"command_prefix": "?dm "})()
+        director = type("D", (), {"players": {ALICE: "Thorin", BOB: "Eva"}})()
+
+    end = GaryClient._end_session.__get__(_Client(), _Client)
+    said = asyncio.run(end(1, set(), {"Thorin": bond["line"]}))
+    assert said == ("⭐ End of session — **Eva** +1 (1/8 XP); **Thorin** +2 (2/8 XP). "
+                    "Thorin: write a new bond with `?dm bonds`.")
+    assert sheets["Thorin"]["bonds"] == []

@@ -375,8 +375,10 @@ narrates from the spell's text.
 **XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
 When you wrap up, run `?dm endsession`: anyone can flip the three questions (learned
 something important, overcame a notable enemy, looted a memorable treasure), and each
-player ticks whether their own character acted on their alignment (only they can). Award
-XP gives everyone 1 XP per yes, plus 1 to each who ticked. `?dm sheet` shows XP against what you need
+player ticks whether their own character acted on their alignment (only they can). A
+player can also **Resolve a bond**: pick it privately, and the companion it names gets an
+Agree button only their player can press. Award XP gives everyone 1 XP per yes, plus 1 for
+alignment and 1 for a resolved bond — which is cleared, so write a new one with `?dm bonds`. `?dm sheet` shows XP against what you need
 (level + 7).
 
 **Level Up.** With enough XP, run `?dm levelup` — refused while creatures stand or a move is
@@ -499,8 +501,8 @@ waiting on; `?dm cancel` drops your own.
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
 - **Only Last Breath, Take Watch, Make Camp, End of Session and Level Up of the special
-  moves.** No Recover or Undertake a Perilous Journey yet. End of Session asks only the three
-  group questions and alignment; resolving a bond for XP is not built yet.
+  moves.** No Recover or Undertake a Perilous Journey yet. End of Session covers the three
+  group questions, alignment and bonds.
 - **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
   them from their text. A move that names another ("choose one spell", a move from another

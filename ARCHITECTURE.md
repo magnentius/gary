@@ -111,7 +111,9 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 > - **Alignment.** A `Draft` step (`choose_alignment`, from the extracted class list) and
 >   `?dm alignment` (`AlignmentForm`, saving only `alignment`). `EndOfSession` takes each
 >   aligned character's owner and lets only them toggle "acted on alignment"; the award is
->   +1 per yes to all, +1 more to each who ticked, in one apply.
+>   +1 per yes to all, +1 more to each who ticked, in one apply. Resolve a bond: the player
+>   picks one privately, the view posts an Agree button only the companion's owner can
+>   press, and on Award the bond is cleared (`bonds.resolve`) with +1 XP.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.

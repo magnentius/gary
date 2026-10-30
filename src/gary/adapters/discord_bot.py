@@ -757,18 +757,28 @@ class GaryClient(discord.Client):
         picker = SpellPicker(sheet, lambda i, changes: self._finish_spells(actor, changes, channel_id))
         await interaction.response.send_message(picker.prompt(), view=picker, ephemeral=True)
 
-    async def _end_session(self, yeses: int, fulfilled: frozenset = frozenset()) -> Optional[str]:
-        """Everyone at the table marks XP for each "yes", and those who acted on their
-        alignment one more. One apply for the party."""
+    async def _end_session(
+        self, yeses: int, fulfilled: frozenset = frozenset(), resolved: Optional[dict] = None
+    ) -> Optional[str]:
+        """Everyone at the table marks XP for each "yes", those who acted on their alignment
+        one more, and those who resolved a bond one more, the bond cleared to be rewritten.
+        One apply for the party."""
+        resolved = resolved or {}
         sheets = self.store.state().get("sheets") or {}
         party = [sheets[a] for a in sorted(set(self.director.players.values()))
                  if a in sheets and not sheets[a].get("dead")]
         if not party:
             return "Nobody at the table has a character sheet."
-        gains = {s["name"]: yeses + (1 if s["name"] in fulfilled else 0) for s in party}
+        gains = {s["name"]: yeses + (s["name"] in fulfilled) + (s["name"] in resolved) for s in party}
         if not any(gains.values()):
             return "No XP this session."
-        updated = [{**s, "xp": int(s.get("xp", 0)) + gains[s["name"]]} for s in party if gains[s["name"]]]
+        updated = []
+        for s in party:
+            if not gains[s["name"]]:
+                continue
+            if s["name"] in resolved:
+                s = bonds.resolve(s, resolved[s["name"]])
+            updated.append({**s, "xp": int(s.get("xp", 0)) + gains[s["name"]]})
         diff = self.store.apply(
             [Mutation(MutationKind.SHEET, s["name"], {"sheet": s}) for s in updated],
             reason=f"end of session: +{yeses} XP each, alignment for {sorted(fulfilled) or 'nobody'}",
@@ -777,6 +787,8 @@ class GaryClient(discord.Client):
             return None
         line = "⭐ End of session — " + "; ".join(
             f"**{s['name']}** +{gains[s['name']]} ({xp_line(s)})" for s in updated) + "."
+        if resolved:
+            line += f" {', '.join(sorted(resolved))}: write a new bond with `{self.settings.command_prefix}bonds`."
         if any(int(s["xp"]) >= xp_needed(s) for s in updated):
             line += LEVEL_UP_HINT
         return line
@@ -1191,8 +1203,13 @@ class GaryClient(discord.Client):
             sheets = self.store.state().get("sheets") or {}
             aligned = {actor: uid for uid, actor in sorted(self.director.players.items(), key=lambda p: p[1])
                        if actor in sheets and sheets[actor].get("alignment") and not sheets[actor].get("dead")}
-            view = EndOfSession(lambda yeses, fulfilled: self._end_session(yeses, fulfilled), aligned)
-            await message.channel.send(view.prompt(), view=view)
+            living = {uid: a for uid, a in self.director.players.items()
+                      if a in sheets and not sheets[a].get("dead")}
+            view = EndOfSession(
+                lambda yeses, fulfilled, resolved: self._end_session(yeses, fulfilled, resolved),
+                aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
+            )
+            view.message = await message.channel.send(view.prompt(), view=view)
             return
 
         if command == "alignment":
