@@ -139,12 +139,12 @@ def test_an_incomplete_draft_will_not_build_and_says_what_is_missing():
 
 
 def test_the_description_can_leave_the_name_off():
-    assert describe(fighter().build(), with_name=False).startswith("Dwarf Fighter 1, HP 25/25")
+    assert describe(fighter().build(), with_name=False).startswith("Dwarf Fighter 1 (0/8 XP), HP 25/25")
 
 
 def test_the_description_shows_scores_and_modifiers():
     line = describe(fighter().build())
-    assert line.startswith("Kael — Dwarf Fighter 1, HP 25/25, armor 1, damage d10")
+    assert line.startswith("Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25, armor 1, damage d10")
     assert "STR 16 (+2)" in line and "INT 8 (-1)" in line
     assert line.endswith("wields Signature sword (close, +1 damage, 2 piercing) · rations 5 · 22 coins")
 

@@ -1090,3 +1090,69 @@ def test_choosing_spells_is_the_owners_and_saves_once():
 
     asyncio.run(on_spells(interaction(ALICE), ALICE))
     assert private[-1][0].startswith("Your spells are chosen.")
+
+
+# -- end of session ---------------------------------------------------------------------------
+
+
+def test_end_of_session_toggles_answers_and_awards_once():
+    import asyncio
+
+    from gary.adapters.session import EndOfSession
+
+    awarded, edits, private = [], [], []
+
+    async def award(yeses):
+        awarded.append(yeses)
+        return f"+{yeses} XP"
+
+    class _Resp:
+        async def edit_message(self, content=None, view=None):
+            edits.append((content, view))
+
+        async def send_message(self, text, ephemeral=False):
+            private.append(text)
+
+    def click():
+        return type("I", (), {"response": _Resp()})()
+
+    async def run():
+        view = EndOfSession(award)
+        await view.children[0].callback(click())
+        await view.children[2].callback(click())
+        assert view.children[3].label == "Award 2 XP"
+        assert "✅ Did we learn something new" in edits[-1][0]
+        await view.children[3].callback(click())
+        await view._on_award(click())
+
+    asyncio.run(run())
+    assert awarded == [2]
+    assert edits[-1][0].endswith("+2 XP") and edits[-1][1] is None
+    assert private == ["XP is already awarded."]
+
+
+def test_end_session_gives_everyone_at_the_table_the_xp():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    sheets = {"Thorin": {**_THORIN, "xp": 3}, "Gone": {**_THORIN, "name": "Gone", "dead": True}}
+    applied = []
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            applied.append(mutations)
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Client:
+        store = _Store()
+        director = type("D", (), {"players": {ALICE: "Thorin", BOB: "Gone"}})()
+
+    end = GaryClient._end_session.__get__(_Client(), _Client)
+    assert asyncio.run(end(2)) == "⭐ +2 XP each — **Thorin** 5/8 XP."
+    ((mutation,),) = applied
+    assert mutation.payload["sheet"]["xp"] == 5
+    assert asyncio.run(end(0)) == "No XP from the questions this session."

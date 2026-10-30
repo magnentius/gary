@@ -37,9 +37,10 @@ from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
-from ..sheets import carrying_line, describe
+from ..sheets import carrying_line, describe, xp_line
 from .. import spells
 from .creator import GearButton, StartButton
+from .session import EndOfSession
 from .spellbook import SpellPicker
 from .routing import Route, route_message
 from .runner import EffectRunner
@@ -275,6 +276,7 @@ __At the table__
 `{p}sheet` — your character's sheet
 `{p}gear` — choose starting gear for a character made before gear existed
 `{p}spells` — a Cleric's or Wizard's spells, and choosing them the first time
+`{p}endsession` — the end-of-session questions; the table answers, everyone gets the XP
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -749,6 +751,24 @@ class GaryClient(discord.Client):
         picker = SpellPicker(sheet, lambda i, changes: self._finish_spells(actor, changes, channel_id))
         await interaction.response.send_message(picker.prompt(), view=picker, ephemeral=True)
 
+    async def _end_session(self, yeses: int) -> Optional[str]:
+        """Everyone at the table marks XP for each "yes". One apply for the party."""
+        sheets = self.store.state().get("sheets") or {}
+        party = [sheets[a] for a in sorted(set(self.director.players.values()))
+                 if a in sheets and not sheets[a].get("dead")]
+        if not party:
+            return "Nobody at the table has a character sheet."
+        if yeses == 0:
+            return "No XP from the questions this session."
+        updated = [{**s, "xp": int(s.get("xp", 0)) + yeses} for s in party]
+        diff = self.store.apply(
+            [Mutation(MutationKind.SHEET, s["name"], {"sheet": s}) for s in updated],
+            reason=f"end of session: +{yeses} XP each",
+        )
+        if not diff.ok:
+            return None
+        return f"⭐ +{yeses} XP each — " + "; ".join(f"**{s['name']}** {xp_line(s)}" for s in updated) + "."
+
     async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:
         """Store chosen spells. Checked again here: the form was opened from a sheet that
         may since have chosen already, in another window."""
@@ -1087,6 +1107,11 @@ class GaryClient(discord.Client):
                 return
             extra = [line for line in (carrying_line(sheet), spells.describe(sheet)) if line]
             await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
+            return
+
+        if command == "endsession":
+            view = EndOfSession(lambda yeses: self._end_session(yeses))
+            await message.channel.send(view.prompt(), view=view)
             return
 
         if command == "spells":

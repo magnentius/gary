@@ -330,6 +330,18 @@ def carrying_line(sheet: Dict[str, Any]) -> str:
     return "Carrying: " + (", ".join(shown) if shown else "nothing") + "."
 
 
+def xp_needed(sheet: Dict[str, Any]) -> int:
+    """Level Up: "When you have downtime and you have XP equal to (or greater than) your
+    current level+7"."""
+    return int(sheet.get("level", 1)) + 7
+
+
+def xp_line(sheet: Dict[str, Any]) -> str:
+    """"5/8 XP", or "8/8 XP, ready to level up"."""
+    xp, needed = int(sheet.get("xp", 0)), xp_needed(sheet)
+    return f"{xp}/{needed} XP" + (", ready to level up" if xp >= needed else "")
+
+
 def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     """One line for the table and for the model: who, what, and the numbers rolls use.
 
@@ -341,7 +353,7 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     )
     who = f"{sheet['name']} — " if with_name else ""
     line = (
-        f"{who}{sheet['race']} {sheet['class']} {sheet['level']}, "
+        f"{who}{sheet['race']} {sheet['class']} {sheet['level']} ({xp_line(sheet)}), "
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}, "
         f"damage {sheet['damage']} · {stats}"
     )

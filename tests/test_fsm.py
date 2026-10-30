@@ -1158,3 +1158,32 @@ def test_a_druid_needs_no_ration_and_a_halfling_druid_sings_the_camp_healthy(dir
     assert facts["party"]["Dorn"]["ate"] is True  # By Nature Sustained
     assert facts["party"]["Kethra"]["healed"] == 9 + 3  # half of 19, plus the song
     assert "healing song" in sends_in(effects)[0].text
+
+
+# -- XP --------------------------------------------------------------------------------------
+
+
+def test_a_miss_marks_xp(director, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Kethra"].update(level=1, xp=4)
+    make_move(director, "defy_danger", stat="dex")
+    dice.queue(1, 2)
+    effects = roll(director)
+    assert UpdateSheet(CHANNEL, "Kethra", {"xp": 5}) in effects
+    assert "**Kethra** marks XP — 5/8 XP." in [e.text for e in sends_in(effects)]
+
+
+def test_a_hit_marks_no_xp(director, dice):
+    from gary.fsm import UpdateSheet
+
+    make_move(director, "defy_danger", stat="dex")
+    dice.queue(5, 5)
+    assert not [e for e in roll(director) if isinstance(e, UpdateSheet)]
+
+
+def test_enough_xp_says_ready_to_level_up(director, dice):
+    _sheets(director)["Kethra"].update(level=1, xp=7)
+    make_move(director, "defy_danger", stat="dex")
+    dice.queue(1, 1)
+    assert "**Kethra** marks XP — 8/8 XP, ready to level up." in [e.text for e in sends_in(roll(director))]

@@ -554,7 +554,7 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     state["players"] = {"111": "Kael", "222": "Liriel"}
     state["sheets"] = {"Kael": d.build()}
     rendered = render_live_state(state)
-    assert "Kael — Dwarf Fighter 1, HP 25/25, armor 3" in rendered
+    assert "Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25, armor 3" in rendered
     assert "STR 16 (+2)" in rendered
     assert "wields Signature axe (close, +1 damage, messy, forceful)" in rendered
     assert "- Liriel: carrying nothing" in rendered  # no sheet yet: just the name

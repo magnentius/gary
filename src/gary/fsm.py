@@ -33,7 +33,7 @@ from .moves import ANY, BOND, CASTER, MOVES, NOTHING
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
-from .sheets import STAT_NAMES, STATS, modifier
+from .sheets import STAT_NAMES, STATS, modifier, xp_line
 
 #: Every move rolls this.
 MOVE_DICE = "2d6"
@@ -1131,8 +1131,23 @@ class Director:
         # to one that happens to be waiting -- someone else's, perhaps.
         kind = "check_outcome" if MOVES[outcome.move].callable else "rules_event"
         return [
+            *self._mark_xp(channel_id, outcome),
             RecordOutcome(channel_id=channel_id, outcome=outcome),
             PromptModel(channel_id=channel_id, kind=kind, payload=outcome_for_model(outcome)),
+        ]
+
+    def _mark_xp(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
+        """"Whenever you roll a 6-, mark XP." Every roll, every move -- the misses are how a
+        character learns."""
+        if outcome.band != "miss" or self._sheet_for is None:
+            return []
+        sheet = self._sheet_for(outcome.actor)
+        if sheet is None or sheet.get("dead"):
+            return []
+        xp = int(sheet.get("xp", 0)) + 1
+        return [
+            SendMessage(channel_id, f"**{outcome.actor}** marks XP — {xp_line({**sheet, 'xp': xp})}."),
+            UpdateSheet(channel_id, outcome.actor, {"xp": xp}),
         ]
 
     # -- housekeeping ------------------------------------------------------------------

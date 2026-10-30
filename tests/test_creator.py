@@ -117,7 +117,7 @@ async def test_the_form_walks_class_race_stats_name_then_asks_to_confirm():
     await make_kael(view)
 
     assert view.prompt().endswith("Create this character?")
-    assert "Kael — Dwarf Fighter 1, HP 25/25" in view.prompt()
+    assert "Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25" in view.prompt()
 
     done = await press(view, "Create character")
     (sheet,) = finished
@@ -235,7 +235,7 @@ async def test_saving_stores_the_sheet_claims_it_and_tells_the_table(table):
     assert state["sheets"]["Kael"] == sheet
     assert state["players"] == {str(ALICE): "Kael"}
     assert director.players == {ALICE: "Kael"}  # checks for Kael are Alice's to roll
-    assert sent == ["**Kael** joins the party — Dwarf Fighter 1, HP 25/25, armor 1, "
+    assert sent == ["**Kael** joins the party — Dwarf Fighter 1 (0/8 XP), HP 25/25, armor 1, "
                     "damage d10 · STR 16 (+2) DEX 13 (+1) CON 15 (+1) INT 8 (-1) "
                     "WIS 12 (+0) CHA 9 (+0) · wields Signature sword (close, +1 damage, "
                     "2 piercing) · rations 5 · 22 coins"]
@@ -321,7 +321,7 @@ async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
 
     await save(_Interaction(ALICE), await _kael_sheet(), CHANNEL)
     await dispatch(msg("?dm sheet"))
-    assert sent[-1].startswith("Kael — Dwarf Fighter 1, HP 25/25")
+    assert sent[-1].startswith("Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25")
     assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Dungeon rations" in sent[-1]
     assert "2 × Healing Potion" in sent[-1]
 
@@ -372,7 +372,7 @@ async def test_dm_gear_posts_a_button_and_saving_journals_the_sheet(table):
 
     await view.finish(None, with_gear(THORIN, [CHAINMAIL]))
     assert store.state()["sheets"]["Thorin"]["armor"] == 1
-    assert sent[-1].startswith("**Thorin** gears up — Dwarf Cleric 1, HP 18/21, armor 1")
+    assert sent[-1].startswith("**Thorin** gears up — Dwarf Cleric 1 (0/8 XP), HP 18/21, armor 1")
     store.undo_last()
     assert "gear" not in store.state()["sheets"]["Thorin"]
 
