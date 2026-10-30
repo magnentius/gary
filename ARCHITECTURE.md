@@ -78,8 +78,20 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   (Lay on Hands, rolled in the Director, applied by `UpdateSheet`). The rest reach the
 >   model every turn as a "class moves" block. Wired number tweaks: precise weapons hack
 >   with Dex, Halfling Thief +2 ranged, Druids need no ration, a Halfling Druid adds 1d6 at
->   camp. Spells, Shapeshifter and the Animal Companion are next.
-> - **Tools.** The model keeps `make_move`, `make_camp`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
+>   camp. Shapeshifter and the Animal Companion are next.
+> - **Spells.** `spells.py` reads both lists (`data/spells.json`, 63 spells,
+>   `scripts/extract_dw_spells.py`) and holds the caster's state on the sheet: spellbook,
+>   borrowed spell, prepared/granted `spells`, `lost`, `cast_penalty`, `ongoing`,
+>   `preparing`. Penalty, forbids-casting and lasts-until-you-cast are read from each
+>   spell's text; healing and damage dice are hand-written in `_RULES`. `cast_a_spell` is
+>   one move (stat `CASTER`: Wis or Int by class) whose spell is fixed on the
+>   `PendingCheck` with the target, before the dice. A hit `casts`; the 7-9 options carry
+>   `casting_penalty`/`loses_spell`; damage spells go through the Roll damage button (area
+>   spells hit each named creature). `prepare_spells` is guarded like `make_camp`, clears
+>   the old spells and posts a durable `SpellsButton`; the choice is a private
+>   `SpellPicker` driven by `spells.Preparation`, saved as one `SHEET` mutation.
+>   `end_spell` takes one off the ongoing list.
+> - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >

@@ -27,7 +27,7 @@ import discord
 
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
-from ..fsm import ChoicePrompt, DamagePrompt, Director, PromptModel, RollPrompt
+from ..fsm import ChoicePrompt, DamagePrompt, Director, PromptModel, RollPrompt, SpellsPrompt
 from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
 from ..ports import EchoNarrator, Narrator
@@ -38,7 +38,9 @@ from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..sheets import carrying_line, describe
+from .. import spells
 from .creator import GearButton, StartButton
+from .spellbook import SpellPicker
 from .routing import Route, route_message
 from .runner import EffectRunner
 from .sender import ChannelSender
@@ -185,6 +187,37 @@ class DamageButton(
         await interaction.client.on_damage(interaction, self.check_id)
 
 
+class SpellsButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:spells:(?P<user_id>\d+)",
+):
+    """Choose spells: opens the private spell form for this player's caster. Durable like
+    the other buttons -- an hour of prayer survives a restart -- and whether there is
+    anything to choose is the sheet's to say, not the button's."""
+
+    def __init__(self, user_id: int) -> None:
+        super().__init__(
+            discord.ui.Button(
+                label="Choose spells", emoji="📖", style=discord.ButtonStyle.primary,
+                custom_id=f"gary:spells:{user_id}",
+            )
+        )
+        self.user_id = user_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "SpellsButton":
+        return cls(int(match["user_id"]))
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_spells(interaction, self.user_id)
+
+
+def spells_view(user_id: int) -> "discord.ui.View":
+    view = discord.ui.View(timeout=None)
+    view.add_item(SpellsButton(user_id))
+    return view
+
+
 def damage_view(check_id: str, disabled: bool = False) -> "discord.ui.View":
     view = discord.ui.View(timeout=None)
     view.add_item(DamageButton(check_id, disabled=disabled))
@@ -219,6 +252,8 @@ class DiscordTransport:
             await channel.send(text, view=choice_view(prompt))
         elif isinstance(prompt, DamagePrompt):
             await channel.send(text, view=damage_view(prompt.check_id))
+        elif isinstance(prompt, SpellsPrompt):
+            await channel.send(text, view=spells_view(prompt.user_id))
         else:
             await channel.send(text)
 
@@ -239,6 +274,7 @@ __At the table__
 `{p}new` — make a character (a private form; it is yours to roll for)
 `{p}sheet` — your character's sheet
 `{p}gear` — choose starting gear for a character made before gear existed
+`{p}spells` — a Cleric's or Wizard's spells, and choosing them the first time
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -305,7 +341,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton)
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -683,6 +719,50 @@ class GaryClient(discord.Client):
             return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
         self.director.set_player_character(user_id, name)
         await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet, with_name=False)}")
+        if spells.needs_setup(sheet):
+            await self._offer_spells(channel_id, user_id, name)
+        return None
+
+    async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
+        channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
+        await channel.send(f"**{actor}**, choose your spells:", view=spells_view(user_id))
+
+    async def on_spells(self, interaction: "discord.Interaction", owner_id: int) -> None:
+        """Choose spells was clicked. Only its owner, and only when there is something to
+        choose: after Commune or Prepare Spells, or a caster's first time."""
+        if interaction.user.id != owner_id:
+            await interaction.response.send_message("Those spells are someone else's to choose.", ephemeral=True)
+            return
+        actor = self.director.players.get(owner_id)
+        sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+        if sheet is None or spells.caster_class(sheet) is None:
+            await interaction.response.send_message("You have no spellcaster to choose for.", ephemeral=True)
+            return
+        if not (sheet.get("preparing") or spells.needs_setup(sheet)):
+            cls = spells.caster_class(sheet)
+            await interaction.response.send_message(
+                f"Your spells are chosen. New ones come with {spells.PREPARE_NAMES[cls]} — an "
+                "undisturbed hour, in the story.", ephemeral=True,
+            )
+            return
+        channel_id = interaction.channel_id
+        picker = SpellPicker(sheet, lambda i, changes: self._finish_spells(actor, changes, channel_id))
+        await interaction.response.send_message(picker.prompt(), view=picker, ephemeral=True)
+
+    async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:
+        """Store chosen spells. Checked again here: the form was opened from a sheet that
+        may since have chosen already, in another window."""
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None or not (sheet.get("preparing") or spells.needs_setup(sheet)):
+            return "Those spells were already chosen."
+        diff = self.store.apply(
+            [Mutation(MutationKind.SHEET, actor, {"sheet": {**sheet, **changes}})],
+            reason=f"{actor} chooses spells",
+        )
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        word = "is granted" if spells.caster_class(sheet) == "cleric" else "prepares"
+        await self.sender.send(channel_id, f"📖 **{actor}** {word} {', '.join(changes['spells'])}.")
         return None
 
     async def on_choose(
@@ -1005,8 +1085,22 @@ class GaryClient(discord.Client):
             if sheet is None:
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
-            carrying = carrying_line(sheet)
-            await self.sender.send(channel_id, describe(sheet) + (f"\n{carrying}" if carrying else ""))
+            extra = [line for line in (carrying_line(sheet), spells.describe(sheet)) if line]
+            await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
+            return
+
+        if command == "spells":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            if spells.caster_class(sheet) is None:
+                await self.sender.send(channel_id, f"**{actor}** casts no spells.")
+                return
+            await self.sender.send(channel_id, f"**{actor}** — {spells.describe(sheet)}")
+            if sheet.get("preparing") or spells.needs_setup(sheet):
+                await self._offer_spells(channel_id, message.author.id, actor)
             return
 
         if command == "playing":

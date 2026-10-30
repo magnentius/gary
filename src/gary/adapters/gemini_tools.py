@@ -39,6 +39,8 @@ GIVE_COINS = "give_coins"
 BUY = "buy"
 SELL = "sell"
 USE_ITEM = "use_item"
+PREPARE_SPELLS = "prepare_spells"
+END_SPELL = "end_spell"
 
 
 def _s(**kw) -> types.Schema:
@@ -87,7 +89,16 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "For an attack (hack_and_slash, volley, backstab, called_shot): the "
                         "creature, exactly as the scene lists it ('Goblin 2') -- add it with "
                         "add_monsters first. For lay_on_hands or arcane_art: the character "
-                        "helped. Omit otherwise."
+                        "helped. For cast_a_spell: the creature a damaging spell hits (for "
+                        "Fireball every creature caught in it, comma-separated), or the "
+                        "character a healing spell or Bless is cast on. Omit otherwise."
+                    ),
+                ),
+                "spell": _s(
+                    type=_STRING,
+                    description=(
+                        "cast_a_spell only: the spell, exactly as the caster's spell list in "
+                        "the state names it. Only a spell they have now can be cast."
                     ),
                 ),
                 "stakes": _s(type=_STRING, description="Optional. The danger or what is at risk, for your own later reference."),
@@ -176,6 +187,42 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "watch": _s(type=_STRING, description="Who is on watch, if something approaches."),
             },
             required=["reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=PREPARE_SPELLS,
+        description=(
+            "A Cleric communes with their deity, or a Wizard studies their spellbook to "
+            "prepare spells: an hour or so of uninterrupted quiet. The spells they held are "
+            "gone, the 7-9 penalties and lost spells reset, and their player chooses new ones "
+            "privately; the clock moves an hour. Only when the hour truly is quiet: not "
+            "mid-fight, not with something hunting them. Call it when the player says their "
+            "character prays or studies -- they cannot cast spells they do not have."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING, description="The Cleric or Wizard, as the party roster names them."),
+                "reason": _s(type=_STRING, description="Where they spend the hour and why it is undisturbed. Shown to the table."),
+            },
+            required=["character", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=END_SPELL,
+        description=(
+            "An ongoing spell ends: the caster dismisses it, or the fiction breaks it "
+            "(Charm Person's target is hurt, the invisible ally attacks, the battle Bless was "
+            "cast for is over). Ongoing spells are listed in the state; while they run they "
+            "cost the caster -1 to cast, so end them when they end."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING, description="Who cast it."),
+                "spell": _s(type=_STRING, description="The spell, as the state lists it."),
+            },
+            required=["character", "spell"],
         ),
     ),
     types.FunctionDeclaration(

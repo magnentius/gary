@@ -23,10 +23,12 @@ from typing import Dict, Optional, Tuple
 
 #: Sentinel stats. ANY: the player's approach picks one of the six (Defy Danger). BOND:
 #: rolled +Bond with the character helped, which nothing tracks yet, so it rolls +0.
-#: NOTHING: "just roll, +nothing" (Last Breath).
+#: NOTHING: "just roll, +nothing" (Last Breath). CASTER: the caster's casting stat --
+#: Wis for a Cleric, Int for a Wizard.
 ANY = "any"
 BOND = "bond"
 NOTHING = "nothing"
+CASTER = "caster"
 
 STRONG, WEAK, MISS = "strong", "weak", "miss"
 
@@ -53,6 +55,9 @@ class Option:
     deals_damage: bool = False
     # Taking this option heals the move's target by these dice (Arcane Art's 1d8).
     heals: Optional[str] = None
+    # Cast a Spell, 7-9: "take -1 ongoing to cast a spell", or the spell is lost.
+    casting_penalty: bool = False
+    loses_spell: bool = False
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,8 @@ class Band:
     heals: Optional[str] = None
     # ...and moves that much damage onto the roller (Lay on Hands, 7-9).
     heal_transfers: bool = False
+    # The spell named takes effect (Cast a Spell, on a hit).
+    casts: bool = False
 
 
 @dataclass(frozen=True)
@@ -82,7 +89,7 @@ class Move:
     key: str
     name: str
     trigger: str
-    stat: str  # one of sheets.STATS, ANY, BOND or NOTHING
+    stat: str  # one of sheets.STATS, ANY, BOND, NOTHING or CASTER
     strong: Band
     weak: Band
     miss: Band
@@ -151,6 +158,16 @@ _ARCANE_ART = (
     Option("+1d4 forward to damage."),
     Option("Their mind is shaken clear of one enchantment."),
     Option("Next time someone aids them successfully, it's +2 instead of +1."),
+)
+
+# The Cleric's and the Wizard's 7-9 differ only in their words ("your casting distances
+# you from your deity", "the spell disturbs the fabric of reality"), so they share these.
+_CAST = (
+    Option("Draw unwelcome attention or put yourself in a spot. The GM will tell you how."),
+    Option("Take -1 ongoing to cast a spell until you next commune or prepare spells.",
+           casting_penalty=True),
+    Option("The spell is lost: you cannot cast it again until you next commune or prepare.",
+           loses_spell=True),
 )
 
 MOVES: Dict[str, Move] = {m.key: m for m in (
@@ -394,5 +411,14 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, _ARCANE_ART),
         ),
         miss=_MISS, classes=("Bard",), heals_target=True,
+    ),
+    Move(
+        "cast_a_spell", "Cast a Spell",
+        "unleash a spell granted by your deity (Cleric, +Wis) or release a spell you've "
+        "prepared (Wizard, +Int)", CASTER,
+        strong=Band("The spell is successfully cast, and you keep it: you may cast it again.",
+                    casts=True),
+        weak=Band("The spell is cast, but choose one.", choice=Choice(1, _CAST), casts=True),
+        miss=_MISS, classes=("Cleric", "Wizard"),
     ),
 )}

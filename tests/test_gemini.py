@@ -940,3 +940,56 @@ async def test_the_partys_class_moves_reach_the_model_every_turn(clock):
     block = next(b for b in system if b.startswith("THE PARTY'S CLASS MOVES"))
     assert "- Backstab: call make_move with move=backstab." in block
     assert "- Halfling (Thief): When you attack with a ranged weapon, deal +2 damage." in block
+
+
+# -- spells -----------------------------------------------------------------------------------
+
+
+def _caster(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+        **KETHRA_SHEET, "class": "Cleric", "race": "Human", "level": 1,
+        "spells": ["Bless"], "lost": [], "cast_penalty": 0}})], reason="setup")
+    director = Director(
+        registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+        players={ALICE: "Kethra"},
+        sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
+    )
+    return store, director
+
+
+async def test_make_move_carries_the_spell_to_the_director(clock):
+    store, director = _caster(clock)
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.MAKE_MOVE, {"actor": "Kethra", "move": "cast_a_spell",
+                                             "spell": "Bless", "target": "Kethra"}))
+    await player(n, "I call on my god to bless me")
+    (check,) = director.registry.open_checks(CHANNEL)
+    assert (check.move, check.spell, check.target) == ("cast_a_spell", "Bless", "Kethra")
+
+
+async def test_prepare_spells_forgets_offers_the_choice_and_moves_the_clock_an_hour(clock):
+    from gary.fsm import SpellsPrompt
+
+    store, director = _caster(clock)
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.PREPARE_SPELLS, {"character": "Kethra", "reason": "the quiet shrine"}),
+                 text_response("Candles gutter."))
+    result = await player(n, "I pray")
+    assert store.state()["world_minutes"] == 60
+    assert any(getattr(e, "prompt", None) == SpellsPrompt(ALICE, "Kethra") for e in result.effects)
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is True
+
+
+async def test_end_spell_goes_through_the_director(clock):
+    store, director = _caster(clock)
+    sheet = store.state()["sheets"]["Kethra"]
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+        **sheet, "ongoing": [{"spell": "Bless", "target": "Kethra"}]}})], reason="setup")
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.END_SPELL, {"character": "Kethra", "spell": "Bless"}),
+                 text_response("The light fades."))
+    await player(n, "the fight is over")
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response == {"ok": True, "ended": "Bless"}

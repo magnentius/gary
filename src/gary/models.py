@@ -59,6 +59,8 @@ class PendingCheck:
     in once they choose. A restart at any point between loses none of it.
 
     ``target`` is the creature an attack is aimed at, fixed before the dice like the rest.
+    ``spell`` is the spell being cast, for Cast a Spell -- fixed as early, so the model
+    cannot pick a bigger one once the dice are good.
     """
 
     check_id: str
@@ -75,6 +77,7 @@ class PendingCheck:
     faces: tuple = ()
     picks: tuple = ()
     target: str = ""
+    spell: str = ""
 
     @property
     def rolled(self) -> bool:
@@ -104,6 +107,7 @@ class PendingCheck:
             "faces": list(self.faces),
             "picks": list(self.picks),
             "target": self.target,
+            "spell": self.spell,
         }
 
     @classmethod
@@ -131,6 +135,7 @@ class PendingCheck:
             faces=tuple(int(f) for f in d.get("faces", ())),
             picks=tuple(int(p) for p in d.get("picks", ())),
             target=d.get("target", ""),
+            spell=d.get("spell", ""),
         )
 
 
@@ -212,6 +217,7 @@ class MoveOutcome:
     damage: Optional[dict] = None
     enemy_attack: Optional[dict] = None
     healing: Optional[dict] = None  # a healing move's roll and what it healed
+    spell: Optional[dict] = None  # Cast a Spell: the spell, and what became of it
 
 
 # --------------------------------------------------------------------------------------

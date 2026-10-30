@@ -26,10 +26,10 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import damage
+from . import damage, spells
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
-from .moves import ANY, BOND, MOVES, NOTHING
+from .moves import ANY, BOND, CASTER, MOVES, NOTHING
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
@@ -77,6 +77,15 @@ class DamagePrompt:
     """A Roll damage button for this move's hit."""
 
     check_id: str
+
+
+@dataclass(frozen=True)
+class SpellsPrompt:
+    """A Choose spells button, for this player's caster: after Commune or Prepare
+    Spells, or for a caster who has never chosen any."""
+
+    user_id: int
+    actor: str
 
 
 # -- effects ------------------------------------------------------------------------------
@@ -279,6 +288,7 @@ class Director:
         stat: str = "",
         stakes: str = "",
         target: str = "",
+        spell: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -335,6 +345,9 @@ class Director:
                     "their class.",
                 )]
 
+        if rules.stat == CASTER:
+            return self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
+
         # A healing move lands on a character with a sheet: the one named, or the mover.
         if rules.heals_target:
             wanted = str(target or "").strip() or actor
@@ -369,7 +382,7 @@ class Director:
         elif not rules.heals_target:
             target = ""
 
-        mod = 0
+        mod, notes = 0, []
         if stat != BOND and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if sheet is None:
@@ -404,16 +417,30 @@ class Director:
                     "carry. Do not resolve the attack.",
                 )]
 
+        if self._blessed(actor):
+            mod += 1
+            notes.append("+1 Bless")
+        at = (f" on {target}" if rules.heals_target else f" at {target}") if target else ""
+        return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
+                          ttl_seconds, f"{rules.name}{at}", notes)
+
+    def _open(
+        self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
+        stakes: str, target: str, ttl_seconds: Optional[float], what: str,
+        notes: Sequence[str] = (), spell: str = "",
+    ) -> List[Effect]:
+        """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
             channel_id=channel_id,
             user_id=user_id,
             actor=actor,
-            move=rules.key,
+            move=move,
             stat=stat,
             modifier=mod,
             stakes=stakes,
             dice=MOVE_DICE,
             target=target,
+            spell=spell,
             ttl_seconds=ttl_seconds,
         )
 
@@ -427,13 +454,120 @@ class Director:
             ))
         rolled_with = "+Bond (not tracked yet, so +0)" if stat == BOND else \
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
-        at = (f" on {target}" if rules.heals_target else f" at {target}") if target else ""
+        if notes:
+            rolled_with += f" ({', '.join(notes)})"
         effects.append(SendMessage(
             channel_id,
-            f"**{actor}** — {rules.name}{at}, roll {rolled_with}.",
+            f"**{actor}** — {what}, roll {rolled_with}.",
             prompt=RollPrompt(check.check_id),
         ))
         return effects
+
+    def _open_cast(
+        self, channel_id: int, user_id: int, actor: str, name: str, target: str, stakes: str,
+        ttl_seconds: Optional[float],
+    ) -> List[Effect]:
+        """Cast a Spell: only a spell the caster has now, at what it costs them to cast.
+
+        The spell is fixed with the move, before the dice, like a target: the model
+        cannot swap Magic Missile for Fireball once it sees a 10.
+        """
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        if sheet is None:
+            return [self._refuse(
+                channel_id, f"{actor} has no character sheet, so there is no spell to cast.",
+                "Tell the player, in a sentence, to make one with `?dm new` first.",
+            )]
+        unable = _unable(actor, sheet)
+        if unable:
+            return [self._refuse(channel_id, unable,
+                                 "They cannot act. Narrate around them, or ask what someone else does.")]
+        have = spells.castable(sheet)
+        listing = ", ".join(s.name for s in have) or "none"
+        spell = next((s for s in have if s.name.lower() == str(name or "").strip().lower()), None)
+        if spell is None:
+            known = spells.find(sheet, name) if name else None
+            if not name:
+                why = "Cast a Spell needs the spell being cast."
+            elif known is not None and known.name.lower() in {n.lower() for n in sheet.get("lost") or ()}:
+                why = (f"{actor} has lost {known.name} until they next "
+                       f"{spells.PREPARE_NAMES[spells.caster_class(sheet)].lower()}.")
+            elif known is not None:
+                why = f"{actor} does not have {known.name} prepared."
+            else:
+                why = f"{actor} has no spell called {name!r}."
+            setup = " They have not chosen spells yet: tell them `?dm spells`." \
+                if spells.needs_setup(sheet) else ""
+            return [self._refuse(
+                channel_id, f"{why} They can cast: {listing}.{setup}",
+                "Re-issue make_move with spell set to one of these, or narrate that they "
+                "cannot.",
+            )]
+        blocked = spells.blocking(sheet)
+        if blocked is not None:
+            return [self._refuse(
+                channel_id, f"While {blocked.name} lasts, {actor} cannot cast a spell.",
+                f"If they let {blocked.name} go, call end_spell first. Otherwise narrate "
+                "that they cannot.",
+            )]
+
+        if spell.target == "creature":
+            standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
+            wanted = [t.strip() for t in str(target or "").split(",") if t.strip()]
+            if not spell.area:
+                wanted = wanted[:1]
+            missing = [t for t in wanted if t.lower() not in standing]
+            if not wanted or missing:
+                return [self._refuse(
+                    channel_id,
+                    f"{spell.name} needs {'its targets' if spell.area else 'a target'} from the "
+                    f"creatures in this scene. "
+                    f"{'No creature named ' + repr(missing[0]) + '. ' if missing else ''}"
+                    f"Standing: {', '.join(sorted(standing.values())) or 'none'}.",
+                    "Add the creature with add_monsters first if it is new, then re-issue "
+                    "make_move with target set to its exact name"
+                    + (" -- for Fireball, every creature caught in it, comma-separated." if spell.area else "."),
+                )]
+            target = ", ".join(dict.fromkeys(standing[t.lower()] for t in wanted))
+        elif spell.target == "character":
+            found = self._character(str(target or "").strip() or actor)
+            if found is None:
+                return [self._refuse(
+                    channel_id, f"{spell.name} needs a character; {target!r} has no character sheet.",
+                    "Re-issue make_move with target set to the character.",
+                )]
+            target = found
+        else:
+            target = ""
+
+        stat = "wis" if spells.caster_class(sheet) == "cleric" else "int"
+        mod = modifier(int(sheet["stats"][stat]))
+        penalty, notes = spells.casting_modifier(sheet)
+        mod += penalty
+        if self._blessed(actor):
+            mod += 1
+            notes.append("+1 Bless")
+        on = f" on {target}" if spell.target == "character" else f" at {target}" if target else ""
+        return self._open(channel_id, user_id, actor, "cast_a_spell", stat, mod, stakes, target,
+                          ttl_seconds, f"Cast a Spell: {spell.name}{on}", notes, spell=spell.name)
+
+    def _party(self) -> List[Tuple[str, Dict[str, Any]]]:
+        """Every character at the table with a sheet, living."""
+        out = []
+        for actor in sorted(set(self.players.values())):
+            sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+            if sheet is not None and not sheet.get("dead"):
+                out.append((actor, sheet))
+        return out
+
+    def _blessed(self, actor: str) -> bool:
+        """Bless: "+1 ongoing so long as battle continues" -- while creatures stand."""
+        if not any(r["hp"] > 0 for r in self._monsters().values()):
+            return False
+        return any(
+            s.name == spells.BLESS and normalize_actor(t) == normalize_actor(actor)
+            for _, sheet in self._party() for s, t in spells.running(sheet)
+        )
 
     def _character(self, name: str) -> Optional[str]:
         """A character's name as their sheet has it, however the model cased it."""
@@ -538,7 +672,8 @@ class Director:
         if self._deals_damage(check, dice):
             held = self.registry.hold(check, faces=dice.faces)
             die, _, weapon = self._damage_die(check)
-            extra = self._damage_extra(check, dice)
+            extra = " ".join(x for x in (self._damage_extra(check, dice),
+                                         "+1d4 Magic Weapon" if self._magic_weapon(check) else None) if x)
             with_what = f", {weapon}" if weapon else ""
             return [SendMessage(
                 channel_id,
@@ -548,8 +683,83 @@ class Director:
             )]
 
         self.registry.consume(check.check_id)
-        outcome = replace(resolve(check, dice, picks=check.picks), healing=self._healing(check, dice))
-        return [*self._consequences(channel_id, outcome), *self._resolved(channel_id, outcome)]
+        return self._settle(channel_id, check, dice)
+
+    def _settle(self, channel_id: int, check: PendingCheck, dice: Roll, auto_chosen: bool = False) -> List[Effect]:
+        """Resolve a move that deals no damage: heal, cast, and tell the model."""
+        cast, spell = self._cast(channel_id, check, dice)
+        outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
+                          healing=self._healing(check, dice), spell=spell)
+        return [*self._consequences(channel_id, outcome), *cast, *self._resolved(channel_id, outcome)]
+
+    def _spell_of(self, check: PendingCheck) -> Optional["spells.Spell"]:
+        if not check.spell or self._sheet_for is None:
+            return None
+        sheet = self._sheet_for(check.actor)
+        return spells.find(sheet, check.spell) if sheet is not None else None
+
+    def _cast(self, channel_id: int, check: PendingCheck, dice: Roll) -> Tuple[List[Effect], Optional[Dict[str, Any]]]:
+        """What casting did to the caster's sheet, and the facts for the model.
+
+        On a hit the spell goes off: one that lasts goes on their ongoing list, and any
+        that last only until they cast again end. On a 7-9 the player's pick may cost a
+        -1 ongoing to cast, or the spell itself. On a miss nothing is cast.
+        """
+        spell = self._spell_of(check)
+        if spell is None:
+            return [], None
+        rules = MOVES[check.move].band(band(dice))
+        facts: Dict[str, Any] = {"name": spell.name, "text": spell.text}
+        if check.target:
+            facts["target"] = check.target
+        if not rules.casts:
+            facts["cast"] = False
+            facts["note"] = "The spell does not take effect."
+            return [], facts
+        facts["cast"] = True
+        sheet = self._sheet_for(check.actor)
+        changes: Dict[str, Any] = {}
+        lines: List[str] = []
+        before = list(sheet.get("ongoing") or [])
+        ended = [s.name for s, _ in spells.running(sheet) if s.ends_when_casting]
+        ongoing = [e for e in before if e.get("spell") not in ended]
+        if ended:
+            facts["ended"] = ended
+            lines.append(f"{_and(ended)} ends, as {check.actor} casts again.")
+        if spell.lasts:
+            ongoing.append({"spell": spell.name, "target": check.target})
+            facts["ongoing"] = True
+            lines.append(f"{spell.name} lasts{' on ' + check.target if check.target else ''}"
+                         + (" — -1 to cast while it does." if spell.penalty else
+                            " — no casting while it does." if spell.blocks_casting else "."))
+        if ongoing != before:
+            changes["ongoing"] = ongoing
+        picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
+        if any(o.casting_penalty for o in picked):
+            changes["cast_penalty"] = int(sheet.get("cast_penalty", 0)) + 1
+            facts["cast_penalty"] = changes["cast_penalty"]
+            lines.append(f"{check.actor} takes -1 ongoing to cast.")
+        if any(o.loses_spell for o in picked):
+            changes["lost"] = [*(sheet.get("lost") or []), spell.name]
+            facts["lost"] = True
+            lines.append(f"{check.actor} loses {spell.name} until they next "
+                         f"{spells.PREPARE_NAMES[spells.caster_class(sheet)].lower()}.")
+        facts["note"] = ("The spell takes effect as its text says. Any healing or damage in it "
+                         "has been rolled and applied; narrate the rest.")
+        effects: List[Effect] = []
+        if lines:
+            effects.append(SendMessage(channel_id, "✨ " + " ".join(lines)))
+        if changes:
+            effects.append(UpdateSheet(channel_id, check.actor, changes))
+        return effects, facts
+
+    def _magic_weapon(self, check: PendingCheck) -> bool:
+        """Magic Weapon: "The weapon you hold while casting does +1d4 damage." The caster's
+        weapon attacks only -- not their spells."""
+        if check.spell or self._sheet_for is None:
+            return False
+        sheet = self._sheet_for(check.actor)
+        return sheet is not None and any(s.name == spells.MAGIC_WEAPON for s, _ in spells.running(sheet))
 
     def _consequences(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
         """What a move does to the sheet, beyond being narrated."""
@@ -602,15 +812,24 @@ class Director:
         rules = MOVES[check.move].band(band(dice))
         picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
         spec = rules.heals or next((o.heals for o in picked if o.heals), None)
+        spell = self._spell_of(check) if rules.casts else None
+        if spell is not None:
+            spec = spell.heals
         if not spec or self._sheet_for is None:
             return None
         patient = self._sheet_for(check.target or check.actor)
         if patient is None or patient.get("dead"):
             return None
-        roll = self.dice.roll(spec)
-        healed = max(0, min(roll.total, int(patient["max_hp"]) - int(patient["hp"])))
+        if spec == "max_hp":
+            # Heal: "...heal their damage a number of points up to your maximum HP."
+            amount = int(self._sheet_for(check.actor)["max_hp"])
+            roll, render = None, f"up to {amount}"
+        else:
+            roll = self.dice.roll(spec)
+            amount, render = roll.total, f"{spec}: {roll.render()}"
+        healed = max(0, min(amount, int(patient["max_hp"]) - int(patient["hp"])))
         facts: Dict[str, Any] = {
-            "target": patient["name"], "rolled": roll.total, "rolled_render": f"{spec}: {roll.render()}",
+            "target": patient["name"], "rolled": amount, "rolled_render": render,
             "healed": healed, "hp_after": int(patient["hp"]) + healed, "max_hp": patient["max_hp"],
         }
         if rules.heal_transfers:
@@ -705,6 +924,9 @@ class Director:
     def _deals_damage(self, check: PendingCheck, dice: Roll) -> bool:
         """The result deals damage, or an option the player picked does (Backstab)."""
         rules = MOVES[check.move].band(band(dice))
+        if rules.casts:
+            spell = self._spell_of(check)
+            return spell is not None and spell.damage is not None
         picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
         return rules.deals_damage or any(o.deals_damage for o in picked)
 
@@ -717,39 +939,75 @@ class Director:
         effects: List[Effect] = []
 
         die, piercing, _ = self._damage_die(check)
-        hit = damage.roll(self.dice, damage.parse(die), self._damage_extra(check, dice))
-        target = self._monsters().get(check.target)
-        facts: Dict[str, Any] = {"target": check.target, "rolled": hit.total}
-        line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {hit.render()}"
-        if target is None:
-            facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
-            line += f" — {check.target} is gone."
+        spell = self._spell_of(check)
+        if spell is not None:
+            rolled = self.dice.roll(spell.damage)
+            total, shown, ignores = rolled.total, f"{spell.damage}: {rolled.render()}", spell.ignores_armor
         else:
-            dealt = damage.through_armor(hit.total, target["armor"], piercing)
-            after = int(target["hp"]) - dealt
-            facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
-                         hp_after=max(after, 0), defeated=after <= 0,
-                         severity=damage.severity(dealt, target.get("max_hp", target["hp"]), after))
-            line += (
-                f" → {check.target}: {dealt} through armor {target['armor']}, "
-                f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else ".")
-            )
-            effects.append(ChangeHp(channel_id, "monster", check.target, after))
+            hit = damage.roll(self.dice, damage.parse(die), self._damage_extra(check, dice))
+            total, shown, ignores = hit.total, hit.render(), False
+            if self._magic_weapon(check):
+                bonus = self.dice.roll("1d4").total
+                total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
+        line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {shown}"
+        hits = []
+        for name in check.target.split(", ") if spell is not None and spell.area else [check.target]:
+            hurt, facts, said = self._hurt(channel_id, name, total, piercing, ignores)
+            effects.extend(hurt)
+            hits.append(facts)
+            line += said
+        facts = hits[0] if len(hits) == 1 else {"rolled": total, "targets": hits}
         effects.insert(0, SendMessage(channel_id, line))
 
         effects.extend(self._spend_ammo(channel_id, check, dice))
+        cast, spell_facts = self._cast(channel_id, check, dice)
+        effects.extend(cast)
+        dying: List[Effect] = []
+        if spell is not None and spell.self_damage:
+            # Harm: "...and 1d6 damage to yourself. This damage ignores armor."
+            sheet = self._sheet_for(check.actor)
+            cost = self.dice.roll(spell.self_damage)
+            after = max(0, int(sheet["hp"]) - cost.total)
+            spell_facts["self_damage"] = {"rolled": cost.total, "hp_after": after}
+            effects += [
+                SendMessage(channel_id, f"…and the wrath burns **{check.actor}** too — "
+                                        f"{spell.self_damage}: {cost.render()}, HP {after}/{sheet['max_hp']}."),
+                ChangeHp(channel_id, "character", check.actor, after),
+            ]
+            if after <= 0:
+                dying = self._trigger(channel_id, check.actor, "last_breath")
 
         back = None
+        target = self._monsters().get(check.target)  # as it stood before this blow
         if outcome.enemy_attacks and target is not None:
             # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
             # finished it. The rules say both happen, so both do.
             attack_effects, back = self._attack(channel_id, check.target, target, check.actor)
             effects.extend(attack_effects)
 
-        outcome = replace(outcome, damage=facts, enemy_attack=back)
-        dying = self._trigger(channel_id, check.actor, "last_breath") \
-            if back and back.get("down") else []
+        outcome = replace(outcome, damage=facts, enemy_attack=back, spell=spell_facts)
+        if back and back.get("down"):
+            dying = self._trigger(channel_id, check.actor, "last_breath")
         return [*effects, *self._resolved(channel_id, outcome), *dying]
+
+    def _hurt(
+        self, channel_id: int, name: str, total: int, piercing: int, ignores_armor: bool
+    ) -> Tuple[List[Effect], Dict[str, Any], str]:
+        """Damage landing on one creature: (effects, facts for the model, the line's tail)."""
+        target = self._monsters().get(name)
+        facts: Dict[str, Any] = {"target": name, "rolled": total}
+        if target is None:
+            facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
+            return [], facts, f" — {name} is gone."
+        dealt = damage.through_armor(total, target["armor"], piercing, ignores_armor)
+        after = int(target["hp"]) - dealt
+        facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
+                     hp_after=max(after, 0), defeated=after <= 0,
+                     severity=damage.severity(dealt, target.get("max_hp", target["hp"]), after))
+        armor = "ignoring armor" if ignores_armor else f"through armor {target['armor']}"
+        said = (f" → {name}: {dealt} {armor}, HP {target['hp']} → {max(after, 0)}"
+                + (" — **defeated**." if after <= 0 else "."))
+        return [ChangeHp(channel_id, "monster", name, after)], facts, said
 
     def _weapon(self, sheet: Dict[str, Any], move: str):
         return weapon_for(sheet.get("gear") or [], ranged=MOVES[move].ranged,
@@ -761,6 +1019,9 @@ class Director:
         The class's die, plus the weapon's +damage, with its piercing. A sheet with no
         gear -- made before gear existed -- rolls the bare class die, as it always did.
         """
+        spell = self._spell_of(check)
+        if spell is not None and spell.damage:
+            return spell.damage, 0, spell.name + (", ignores armor" if spell.ignores_armor else "")
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet:
             return "d6", 0, ""
@@ -928,14 +1189,13 @@ class Director:
                 f"**{check.actor}** didn't choose in time, so: "
                 + "; ".join(rules.choice.options[p].text for p in check.picks),
             ))
-        if rules.deals_damage:
+        if self._deals_damage(check, dice):
             # Consumed by the sweep already; _land_damage consumes again harmlessly.
             landed = self._land_damage(channel_id, check, auto=True)
             if auto_chosen:
                 landed = [_auto(e) for e in landed]
             return effects + landed
-        outcome = resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen)
-        return effects + self._consequences(channel_id, outcome) + self._resolved(channel_id, outcome)
+        return effects + self._settle(channel_id, check, dice, auto_chosen=auto_chosen)
 
     # -- Make Camp -------------------------------------------------------------------------
 
@@ -954,27 +1214,16 @@ class Director:
         rolled. What the rules cannot see (a chase, a storm at sea) is the model's to
         judge, so it must say where and why it is safe: ``reason``, shown to the table.
         """
-        standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
-        if standing:
-            return [], {"ok": False, "error": (
-                f"You can't settle in to rest with {_and(standing)} still standing. Finish "
-                "the fight, or remove them with remove_monsters if they have truly gone."
-            )}
-        pending = list(self.registry.open_checks(channel_id))
-        if pending:
-            what = _and(f"{c.actor}'s {MOVES[c.move].name}" for c in pending)
-            return [], {"ok": False, "error": f"Not while {what} is still to be resolved."}
+        unsettled = self._unsettled(channel_id, "settle in to rest")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
         reason = " ".join(str(reason or "").split())
         if not reason:
             return [], {"ok": False, "error": (
                 "Say where the party rests and why it is safe enough to sleep (reason). If "
                 "it is not safe, tell them so, or let them try and set something_approaches."
             )}
-        party = []
-        for actor in sorted(set(self.players.values())):
-            sheet = self._sheet_for(actor) if self._sheet_for is not None else None
-            if sheet is not None and not sheet.get("dead"):
-                party.append((actor, sheet))
+        party = self._party()
         if not party:
             return [], {"ok": False, "error": "Nobody at the table has a character sheet."}
 
@@ -1038,6 +1287,87 @@ class Director:
             facts["note"] = ("The night passes. The world clock has moved eight hours for the "
                              "whole party; do not advance it again.")
         return effects, facts
+
+    def _unsettled(self, channel_id: int, doing: str) -> str:
+        """Why the party cannot take an hour or a night out, or "" if it can: creatures
+        still standing, or anyone mid-move -- above all a Last Breath not yet rolled."""
+        standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
+        if standing:
+            return (f"You can't {doing} with {_and(standing)} still standing. Finish the "
+                    "fight, or remove them with remove_monsters if they have truly gone.")
+        pending = list(self.registry.open_checks(channel_id))
+        if pending:
+            what = _and(f"{c.actor}'s {MOVES[c.move].name}" for c in pending)
+            return f"Not while {what} is still to be resolved."
+        return ""
+
+    # -- Commune, Prepare Spells, and ending a spell --------------------------------------
+
+    def prepare_spells(
+        self, *, channel_id: int, character: str, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A Cleric communes or a Wizard prepares spells: "uninterrupted time (an hour or
+        so)". The spells they had are gone now; which they take instead is the player's
+        choice, made privately with the Choose spells button this posts.
+
+        Guarded like Make Camp: an hour of prayer is no more possible mid-fight than a
+        night's sleep, and the model must say why this hour is quiet.
+        """
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        cls = spells.caster_class(sheet)
+        if cls is None:
+            return [], {"ok": False, "error": f"{actor} is a {sheet.get('class')}, and casts no spells."}
+        unable = _unable(actor, sheet)
+        if unable:
+            return [], {"ok": False, "error": unable}
+        doing = "commune" if cls == "cleric" else "prepare spells"
+        unsettled = self._unsettled(channel_id, doing)
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": (
+                f"Say where {actor} spends the hour and why it is uninterrupted (reason)."
+            )}
+        user_id = next((uid for uid, a in self.players.items()
+                        if normalize_actor(a) == normalize_actor(actor)), 0)
+        verb = "communes with their deity" if cls == "cleric" else "studies their spellbook"
+        return [
+            UpdateSheet(channel_id, actor, spells.forgetting()),
+            SendMessage(
+                channel_id,
+                f"🕯️ **{actor}** {verb} — {reason}\nThe spells they held are gone. "
+                f"**{actor}**, choose what you take instead:",
+                prompt=SpellsPrompt(user_id, actor),
+            ),
+        ], {"ok": True, "note": (
+            f"An hour passes. {actor}'s player is choosing their spells privately; the "
+            "state will show them. Narrate the hour, briefly, and move on."
+        )}
+
+    def end_spell(
+        self, *, channel_id: int, character: str, spell: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """An ongoing spell ends: dismissed, broken (Charm Person when its target is hurt,
+        Invisibility when they attack), or its battle over (Bless)."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        before = list(sheet.get("ongoing") or [])
+        folded = str(spell or "").strip().lower()
+        kept = [e for e in before if e.get("spell", "").lower() != folded]
+        if len(kept) == len(before):
+            running = ", ".join(e["spell"] for e in before) or "none"
+            return [], {"ok": False, "error": f"{actor} has no {spell!r} running. Ongoing: {running}."}
+        name = next(e["spell"] for e in before if e.get("spell", "").lower() == folded)
+        return [
+            SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
+            UpdateSheet(channel_id, actor, {"ongoing": kept}),
+        ], {"ok": True, "ended": name}
 
     def cancel(self, channel_id: int, check_id: str) -> List[Effect]:
         cancellation = self.registry.cancel(check_id, CancelReason.MANUAL)

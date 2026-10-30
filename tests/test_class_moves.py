@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gary.class_moves import NARRATIVE, NOT_YET, ROLLED, TEXTS, _KINDS, moves_of, render
+from gary.class_moves import NARRATIVE, NOT_YET, PREPARE, ROLLED, TEXTS, _KINDS, moves_of, render
 from gary.moves import MOVES
 
 
@@ -18,8 +18,8 @@ def test_every_mapped_move_exists_and_belongs_to_its_class():
         names = [m["name"] for m in TEXTS[cls]["starting"]]
         for name, key in mapping.items():
             assert name in names, (cls, name)
-            if key != NOT_YET:
-                assert MOVES[key].classes == (cls.title(),), key
+            if key not in (NOT_YET, PREPARE):
+                assert cls.title() in MOVES[key].classes, key
 
 
 def test_a_dwarf_cleric_has_their_race_move_then_their_class_moves():
@@ -28,7 +28,9 @@ def test_a_dwarf_cleric_has_their_race_move_then_their_class_moves():
     kinds = {m["name"]: m["kind"] for m in moves}
     assert kinds["Turn Undead"] == ROLLED
     assert kinds["Divine Guidance"] == NARRATIVE
-    assert kinds["Cast a Spell"] == NOT_YET
+    assert kinds["Cast a Spell"] == ROLLED
+    assert kinds["Commune"] == PREPARE
+    assert {m["name"]: m["kind"] for m in moves_of("Druid", "Elf")}["Shapeshifter"] == NOT_YET
 
 
 def test_the_model_sees_how_to_roll_what_is_rolled_and_the_text_of_the_rest():
@@ -36,7 +38,17 @@ def test_the_model_sees_how_to_roll_what_is_rolled_and_the_text_of_the_rest():
     assert "- Thorin (Dwarf Cleric):" in block
     assert "- Turn Undead: call make_move with move=turn_undead." in block
     assert "- Divine Guidance: When you petition your deity" in block
-    assert "- Cast a Spell: not yet playable" in block
+    assert "- Cast a Spell: call make_move with move=cast_a_spell." in block
+    assert "- Commune: when they spend an undisturbed hour at it, call prepare_spells." in block
+
+
+def test_the_model_sees_the_spells_a_caster_can_cast_with_their_text():
+    block = render({"Thorin": {"class": "Cleric", "race": "Dwarf", "level": 1,
+                               "spells": ["Bless"], "lost": ["Light"]}})
+    assert "Spells Thorin can cast now (make_move cast_a_spell, spell=…):" in block
+    assert "- Bless (level 1, ongoing): Your deity smiles upon a combatant" in block
+    assert "- Sanctify (rote):" in block
+    assert "Light (rote)" not in block  # lost until they commune
 
 
 def test_the_dead_and_the_classless_are_left_out():

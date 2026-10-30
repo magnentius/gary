@@ -1008,3 +1008,85 @@ async def test_clicking_roll_damage_lands_the_blow_and_disables_the_button(rig):
     (button,) = view.children
     assert isinstance(button, DamageButton) and button.item.disabled
     assert "Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**." in transport.sent[-2][1]
+
+
+# -- spells -----------------------------------------------------------------------------------
+
+_THORIN = {"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 1, "hp": 20, "max_hp": 20,
+           "stats": {"str": 12, "dex": 8, "con": 15, "int": 9, "wis": 16, "cha": 13},
+           "armor": 2, "damage": "d6"}
+
+
+def test_dm_spells_shows_them_and_offers_the_choice_to_a_caster_who_never_chose():
+    import asyncio
+
+    sent, offered = [], []
+    Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": {"Thorin": dict(_THORIN)}}, sent)
+    client.director = type("D", (), {"players": {11: "Thorin"}})()
+
+    async def offer(channel_id, user_id, actor):
+        offered.append((user_id, actor))
+
+    client._offer_spells = offer
+    asyncio.run(dispatch(Msg("?dm spells")))
+    assert sent == ["**Thorin** — Spells — Granted: none · rotes: Light, Sanctify, Guidance, "
+                    "Words of the Unspeaking (stone)."]
+    assert offered == [(11, "Thorin")]
+
+
+def test_choosing_spells_is_the_owners_and_saves_once():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+    from gary.adapters.spellbook import SpellPicker
+
+    sheets = {"Thorin": {**_THORIN, "preparing": True, "spells": []}}
+    saved, sent, private = [], [], []
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            for m in mutations:
+                sheets[m.target] = m.payload["sheet"]
+                saved.append(m.payload["sheet"])
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Client:
+        store, sender = _Store(), _Sender()
+        director = type("D", (), {"players": {ALICE: "Thorin"}})()
+
+    class _Resp:
+        async def send_message(self, text, view=None, ephemeral=False):
+            assert ephemeral
+            private.append((text, view))
+
+    def interaction(user_id):
+        i = type("I", (), {})()
+        i.user, i.channel_id, i.response = type("U", (), {"id": user_id})(), CHANNEL, _Resp()
+        return i
+
+    client = _Client()
+    on_spells = GaryClient.on_spells.__get__(client, _Client)
+    client._finish_spells = GaryClient._finish_spells.__get__(client, _Client)
+
+    asyncio.run(on_spells(interaction(BOB), ALICE))
+    assert private[-1][0] == "Those spells are someone else's to choose."
+
+    asyncio.run(on_spells(interaction(ALICE), ALICE))
+    text, picker = private[-1]
+    assert isinstance(picker, SpellPicker) and "**Commune**" in text
+
+    changes = {"spells": ["Bless"], "lost": [], "cast_penalty": 0, "preparing": False}
+    assert asyncio.run(client._finish_spells("Thorin", changes, CHANNEL)) is None
+    assert saved[-1]["spells"] == ["Bless"] and saved[-1]["preparing"] is False
+    assert sent == ["📖 **Thorin** is granted Bless."]
+    assert asyncio.run(client._finish_spells("Thorin", changes, CHANNEL)) == "Those spells were already chosen."
+
+    asyncio.run(on_spells(interaction(ALICE), ALICE))
+    assert private[-1][0].startswith("Your spells are chosen.")

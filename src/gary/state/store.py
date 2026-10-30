@@ -203,6 +203,7 @@ class CampaignStore:
                         "damage": outcome.damage,
                         "enemy_attack": outcome.enemy_attack,
                         "healing": outcome.healing,
+                        "spell": outcome.spell,
                     },
                     "inverse": None,
                     "reason": f"{outcome.actor} {outcome.move}",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from gary.moves import ANY, BOND, MOVES, band_of
+from gary.moves import ANY, BOND, CASTER, MOVES, band_of
 from gary.sheets import STATS
 
 
@@ -14,7 +14,7 @@ def test_the_eight_basic_moves_and_their_stats():
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,
     }
-    assert all(m.stat in (*STATS, ANY, BOND, "nothing") for m in MOVES.values())
+    assert all(m.stat in (*STATS, ANY, BOND, CASTER, "nothing") for m in MOVES.values())
     assert {k for k, m in MOVES.items() if not m.callable} == {"last_breath", "take_watch"}
 
 

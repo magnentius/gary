@@ -6,9 +6,11 @@ Three kinds:
 - **Narrative** -- no roll, or a rule Gary does not track. The model is shown the book's
   text every turn so it honours the move ("ask their player a question… they must answer
   truthfully").
-- **Not yet** -- spells, shapeshifting and the animal companion, which are whole systems
-  of their own. Shown with a note, so the model narrates around them rather than inventing
-  how they work.
+- **Spells** -- Commune and Prepare Spells are the prepare_spells tool; Cast a Spell is
+  rolled. The caster's spells are listed with their text (spells.py).
+- **Not yet** -- shapeshifting and the animal companion, which are whole systems of their
+  own. Shown with a note, so the model narrates around them rather than inventing how
+  they work.
 
 A few narrative moves also have a number Gary applies where it already runs the rules:
 By Nature Sustained (no ration at camp), the Halfling Druid's +1d6 at camp, the Halfling
@@ -24,9 +26,11 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from . import spells
+
 _DATA = Path(__file__).parent / "data" / "class_moves.json"
 
-ROLLED, NARRATIVE, NOT_YET = "rolled", "narrative", "not yet"
+ROLLED, NARRATIVE, NOT_YET, PREPARE = "rolled", "narrative", "not yet", "prepare"
 
 
 def _load() -> Dict[str, Dict[str, Any]]:
@@ -45,7 +49,7 @@ TEXTS = _load()
 #: narrative.
 _KINDS: Dict[str, Dict[str, str]] = {
     "bard": {"Arcane Art": "arcane_art"},
-    "cleric": {"Turn Undead": "turn_undead", "Commune": NOT_YET, "Cast a Spell": NOT_YET},
+    "cleric": {"Turn Undead": "turn_undead", "Commune": PREPARE, "Cast a Spell": "cast_a_spell"},
     "druid": {"Shapeshifter": NOT_YET, "Studied Essence": NOT_YET},
     "fighter": {"Bend Bars, Lift Gates": "bend_bars"},
     "paladin": {"Lay on Hands (Cha)": "lay_on_hands", "I Am the Law": "i_am_the_law"},
@@ -53,7 +57,7 @@ _KINDS: Dict[str, Dict[str, str]] = {
                "Animal Companion": NOT_YET, "Command": NOT_YET},
     "thief": {"Trap Expert": "trap_expert", "Tricks of the Trade": "tricks_of_the_trade",
               "Backstab": "backstab"},
-    "wizard": {"Spellbook": NOT_YET, "Prepare Spells": NOT_YET, "Cast a Spell (Int)": NOT_YET},
+    "wizard": {"Prepare Spells": PREPARE, "Cast a Spell (Int)": "cast_a_spell"},
 }
 
 
@@ -72,8 +76,8 @@ def moves_of(class_name: str, race: str) -> List[Dict[str, Any]]:
                     "kind": NARRATIVE, "key": None})
     for move in book["starting"]:
         mapped = _KINDS.get(cls, {}).get(move["name"])
-        if mapped == NOT_YET:
-            kind, key = NOT_YET, None
+        if mapped in (NOT_YET, PREPARE):
+            kind, key = mapped, None
         elif mapped:
             kind, key = ROLLED, mapped
         else:
@@ -101,6 +105,9 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
         for m in moves:
             if m["kind"] == ROLLED:
                 lines.append(f"    - {m['name']}: call make_move with move={m['key']}.")
+            elif m["kind"] == PREPARE:
+                lines.append(f"    - {m['name']}: when they spend an undisturbed hour at it, "
+                             "call prepare_spells.")
             elif m["kind"] == NOT_YET:
                 lines.append(
                     f"    - {m['name']}: not yet playable through the rules engine. If they "
@@ -110,6 +117,13 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             else:
                 text = m["text"].replace("\n", " ")
                 lines.append(f"    - {m['name']}: {text}")
+        if spells.caster_class(sheet):
+            have = spells.castable(sheet)
+            lines.append(f"    - Spells {actor} can cast now (make_move cast_a_spell, spell=…):"
+                         + ("" if have else " none."))
+            for spell in have:
+                text = spell.text.replace("\n", " ")
+                lines.append(f"        - {spell.label()}: {text}")
     return "\n".join(lines) if len(lines) > 1 else ""
 
 

@@ -6,8 +6,8 @@ An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice
 enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
-> rolls its own dice when a player clicks **Roll**, knows the eight basic moves and each
-> class's starting moves (not yet spells), and tracks
+> rolls its own dice when a player clicks **Roll**, knows the eight basic moves, each
+> class's starting moves and Cleric and Wizard spells, and tracks
 > monsters' HP and damage, and characters carry their class's starting gear. Special and
 > class moves and bonds are not built yet — see
 > [what is missing](#what-is-not-built-yet).
@@ -346,7 +346,23 @@ gear. Gear does real work: your best armor plus a shield is your armor; a weapon
 and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
 and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
 spends ammo. A character made before gear existed runs `?dm gear` once to pick theirs.
-Alignment, bonds and class moves are not tracked yet.
+Alignment and bonds are not tracked yet.
+
+**Spells.** A new Cleric or Wizard gets a **Choose spells** button after joining: a Wizard
+fills their spellbook (three first-level spells), a Human picks one spell from the other
+class's list, and both choose what they hold — total levels up to level + 1. Rotes and
+cantrips come free. A caster made before spells existed runs `?dm spells` for the same
+button; `?dm spells` and `?dm sheet` show what you hold, what's lost and what's running.
+New spells come only with an undisturbed hour in the story — say your character prays or
+studies, and the GM calls Commune or Prepare Spells (refused mid-fight, like camp), which
+clears your spells and posts the button again. Casting is a move: +Wis for a Cleric, +Int
+for a Wizard, only a spell you hold. On a 7–9 you choose attention, −1 ongoing to cast
+until you next prepare, or losing the spell until then. Each running ongoing spell costs −1
+to cast (Invisibility, Dominate and Mimic forbid casting) until the GM ends it. Gary rolls
+what spells do to numbers: Cure Wounds heal, Magic Missile and Fireball (every creature
+named, ignoring armor) and Harm (which burns you too) deal damage, Bless gives its target
++1 while creatures stand, Magic Weapon adds 1d4 to the caster's weapon. The rest the GM
+narrates from the spell's text.
 
 ### Talk to Gary
 
@@ -449,16 +465,18 @@ waiting on; `?dm cancel` drops your own.
 
 ### What is not built yet
 
-- **Only the eight basic moves.** Hack and Slash, Volley, Defy Danger, Defend, Spout Lore,
-  Discern Realities, Parley, Aid or Interfere. No special moves (Last Breath, Make Camp…)
-  and no class moves yet.
-- **Class moves: starting moves only, and no spells yet.** Rolled class moves work —
+- **Class moves: starting moves only.** Rolled class moves work —
   Turn Undead, Lay on Hands, I Am the Law, Hunt and Track, Called Shot, Trap Expert,
-  Tricks of the Trade, Backstab, Bend Bars, Arcane Art — for that class alone. The rest
-  are shown to the GM to honour in the story. Spells (Cleric, Wizard), Shapeshifter and
-  the Animal Companion are not playable yet; nor are choices made at creation (a
-  Cleric's deity, a Bard's lore). Called Shot and Arcane Art pick their effect after the
-  roll rather than before.
+  Tricks of the Trade, Backstab, Bend Bars, Arcane Art, Cast a Spell — for that class
+  alone. The rest are shown to the GM to honour in the story. Shapeshifter and the Animal
+  Companion are not playable yet; nor are choices made at creation (a Cleric's deity, a
+  Bard's lore). Called Shot and Arcane Art pick their effect after the roll rather than
+  before.
+- **Spells, as far as the numbers go.** Sanctuary's +1d4 healing, Bless ending with the
+  battle and spells' own conditions (Charm Person broken by damage) are the GM's to
+  apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
+  1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
+  Fireball hits several creatures.
 - **Only Last Breath, Take Watch and Make Camp of the special moves.** No Recover,
   Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
@@ -589,6 +607,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
+| `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
 | `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |

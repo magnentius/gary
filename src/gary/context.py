@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from .monsters import describe as describe_monster
 from .sheets import describe
+from .spells import describe as describe_spells
 from .state.schema import format_world_time
 
 DEFAULT_RECENT_TURNS = 30
@@ -52,6 +53,10 @@ AUTHORITY — this is absolute:
   defeated at 0 HP and not before, however the blow reads. When a creature hurts someone
   as your GM move, call monster_attacks — never invent the damage. Every hit comes with a
   severity (a graze, a solid hit, a serious wound…): describe the wound at that size.
+- Clerics and Wizards cast only the spells the state lists for them: make_move
+  cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
+  When one prays or studies for an undisturbed hour, call prepare_spells; their player
+  chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
 - NOTHING TRACKS POSITION. There is no map, no distances and no notion of who is next to
   whom. You are the only record of where anyone is standing, so: keep it in the
   scene summary while a fight runs — who is where, what is between them, roughly how
@@ -319,6 +324,9 @@ def render_live_state(state: Dict[str, Any]) -> str:
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
             lines.append(f"    - {who}: {carried}")
+            magic = describe_spells(sheets[actor]) if actor in sheets else ""
+            if magic:
+                lines.append(f"      {magic}")
 
     scene = state.get("monsters") or {}
     if scene:

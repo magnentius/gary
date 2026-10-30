@@ -379,6 +379,26 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.PREPARE_SPELLS, T.END_SPELL):
+                if name == T.PREPARE_SPELLS:
+                    spell_effects, result = self._director.prepare_spells(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        reason=str(args.get("reason", "") or ""),
+                    )
+                    if result.get("ok"):
+                        try:
+                            self._store.advance_time(60, reason=f"{args.get('character')} prepares spells")
+                        except StateError as exc:
+                            result["clock"] = str(exc)
+                else:
+                    spell_effects, result = self._director.end_spell(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        spell=str(args.get("spell", "")),
+                    )
+                effects.extend(spell_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.MONSTER_ATTACKS:
                 attack_effects, result = self._director.monster_attacks(
                     channel_id=channel_id,
@@ -416,6 +436,7 @@ class GeminiNarrator:
             stat=str(args.get("stat", "") or ""),
             stakes=str(args.get("stakes", "")),
             target=str(args.get("target", "") or ""),
+            spell=str(args.get("spell", "") or ""),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
