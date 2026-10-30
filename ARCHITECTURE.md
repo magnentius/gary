@@ -103,6 +103,11 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   `Director.unsettled` (the camp guard) and opens an in-memory `LevelUpForm`; the save
 >   rechecks readiness and downtime. Advanced moves reach the model as text in the class
 >   moves block; none are wired to numbers yet.
+> - **Bonds.** Bond lines and alignments are extracted with the class moves. `bonds.py`
+>   keeps `[{"line", "with"}]` on the sheet, each class line once, companions only;
+>   `?dm bonds` opens an in-memory `BondsForm` whose save writes only `bonds` onto the
+>   current sheet. Aid or Interfere (`helps_target`) needs another character as target and
+>   rolls +Bond = bonds with them.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.

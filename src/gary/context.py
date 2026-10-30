@@ -23,6 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from .monsters import describe as describe_monster
 from .sheets import describe
+from .bonds import describe as describe_bonds
 from .spells import describe as describe_spells
 from .state.schema import format_world_time
 
@@ -324,9 +325,10 @@ def render_live_state(state: Dict[str, Any]) -> str:
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
             lines.append(f"    - {who}: {carried}")
-            magic = describe_spells(sheets[actor]) if actor in sheets else ""
-            if magic:
-                lines.append(f"      {magic}")
+            for extra in ((describe_spells(sheets[actor]), describe_bonds(sheets[actor]))
+                          if actor in sheets else ()):
+                if extra:
+                    lines.append(f"      {extra}")
 
     scene = state.get("monsters") or {}
     if scene:

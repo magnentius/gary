@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from typing import Dict, Optional, Tuple
 
 #: Sentinel stats. ANY: the player's approach picks one of the six (Defy Danger). BOND:
-#: rolled +Bond with the character helped, which nothing tracks yet, so it rolls +0.
+#: rolled +Bond with the character helped -- how many bonds the roller has with them.
 #: NOTHING: "just roll, +nothing" (Last Breath). CASTER: the caster's casting stat --
 #: Wis for a Cleric, Int for a Wizard.
 ANY = "any"
@@ -102,6 +102,8 @@ class Move:
     ranged: bool = False
     # Heals a character named as the target, rather than hurting a creature.
     heals_target: bool = False
+    # Acts on another character named as the target (Aid or Interfere).
+    helps_target: bool = False
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
@@ -266,7 +268,7 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         miss=_MISS,
     ),
     Move(
-        "aid_or_interfere", "Aid or Interfere", "help or hinder someone", BOND,
+        "aid_or_interfere", "Aid or Interfere", "help or hinder someone", BOND, helps_target=True,
         strong=Band("They take +1 or -2, your choice.", choice=Choice(1, _AID)),
         weak=Band(
             "They take +1 or -2, your choice — and you expose yourself to danger, "

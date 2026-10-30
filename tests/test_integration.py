@@ -1212,3 +1212,48 @@ def test_a_level_is_saved_once():
     assert sheets["Thorin"]["level"] == 2 and sheets["Thorin"]["xp"] == 0
     assert sent[-1].startswith("⭐ **Thorin** reaches level 2 — Serenity. Dwarf Cleric 2 (0/9 XP)")
     assert asyncio.run(finish(levelled, CHANNEL)) == "That level was already taken."
+
+
+# -- bonds ------------------------------------------------------------------------------------
+
+
+def test_dm_bonds_needs_a_companion():
+    import asyncio
+
+    sent = []
+    Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": {"Thorin": dict(_THORIN)}}, sent)
+    client.director = type("D", (), {"players": {11: "Thorin"}})()
+    asyncio.run(dispatch(Msg("?dm bonds")))
+    assert "nobody else at the table has a character yet" in sent[-1]
+
+
+def test_saving_bonds_keeps_everything_else_as_it_is_now():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    sheets = {"Thorin": {**_THORIN, "hp": 9}}
+    sent = []
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            for m in mutations:
+                sheets[m.target] = m.payload["sheet"]
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Client:
+        store, sender = _Store(), _Sender()
+
+    finish = GaryClient._finish_bonds.__get__(_Client(), _Client)
+    edited = {**_THORIN, "hp": 20, "bonds": [{"line": "I am working on converting ___ to my faith.", "with": "Eva"}]}
+    assert asyncio.run(finish(edited, CHANNEL)) is None
+    assert sheets["Thorin"]["hp"] == 9  # the fight's damage stays
+    assert sheets["Thorin"]["bonds"][0]["with"] == "Eva"
+    assert sent == ["🤝 **Thorin** — Bonds — I am working on converting Eva to my faith."]

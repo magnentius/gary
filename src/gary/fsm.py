@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import damage, spells
+from . import bonds, damage, spells
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, MOVES, NOTHING
@@ -379,10 +379,38 @@ class Director:
                     "make_move with its exact name as target.",
                 )]
             target = match
+        elif rules.helps_target:
+            # Aid or Interfere is with someone: +Bond counts the bonds with them.
+            wanted = str(target or "").strip()
+            if self._sheet_for is not None:
+                found = self._character(wanted) if wanted else None
+                if found is None or normalize_actor(found) == normalize_actor(actor):
+                    others = ", ".join(sorted(a for a in self.players.values()
+                                              if normalize_actor(a) != normalize_actor(actor))) or "none"
+                    return [self._refuse(
+                        channel_id,
+                        f"{rules.name} needs the character being helped or hindered. "
+                        f"{'No other character named ' + repr(wanted) + '. ' if wanted else ''}"
+                        f"At the table: {others}.",
+                        "Re-issue make_move with target set to that character, or if they help "
+                        "no one at the table, narrate it without a move.",
+                    )]
+                wanted = found
+            target = wanted
         elif not rules.heals_target:
             target = ""
 
         mod, notes = 0, []
+        if stat == BOND and self._sheet_for is not None:
+            sheet = self._sheet_for(actor)
+            if sheet is not None:
+                unable = _unable(actor, sheet)
+                if unable:
+                    return [self._refuse(
+                        channel_id, unable,
+                        "They cannot act. Narrate around them, or ask what someone else does.",
+                    )]
+                mod = bonds.bond_with(sheet, target)
         if stat != BOND and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if sheet is None:
@@ -420,7 +448,8 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
-        at = (f" on {target}" if rules.heals_target else f" at {target}") if target else ""
+        at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
+              else f" at {target}") if target else ""
         return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                           ttl_seconds, f"{rules.name}{at}", notes)
 
@@ -452,7 +481,7 @@ class Director:
                 channel_id,
                 f"(Superseding {displaced.actor}'s pending {MOVES[displaced.move].name}.)",
             ))
-        rolled_with = "+Bond (not tracked yet, so +0)" if stat == BOND else \
+        rolled_with = f"+Bond {mod:+d}" if stat == BOND else \
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
         if notes:
             rolled_with += f" ({', '.join(notes)})"

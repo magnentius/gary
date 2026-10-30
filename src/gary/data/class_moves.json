@@ -166,7 +166,20 @@
      "replaces": "",
      "text": "Get one move from another class. Treat your level as one lower for choosing the move."
     }
-   ]
+   ],
+   "bonds": [
+    "This is not my first adventure with ___.",
+    "I sang stories of ___ long before I ever met them in person.",
+    "___ is often the butt of my jokes.",
+    "I am writing a ballad about the adventures of ___.",
+    "___ trusted me with a secret.",
+    "___ does not trust me, and for good reason."
+   ],
+   "alignments": {
+    "Good": "Perform your art to aid someone else.",
+    "Neutral": "Avoid a conflict or defuse a tense situation.",
+    "Chaotic": "Spur others to significant and unplanned decisive action."
+   }
   },
   "cleric": {
    "race": {
@@ -343,7 +356,18 @@
      "replaces": "",
      "text": "Get one move from another class. Treat your level as one lower for choosing the move."
     }
-   ]
+   ],
+   "bonds": [
+    "___ has insulted my deity; I do not trust them.",
+    "___ is a good and faithful person; I trust them implicitly.",
+    "___ is in constant danger, I will keep them safe.",
+    "I am working on converting ___ to my faith."
+   ],
+   "alignments": {
+    "Good": "Endanger yourself to heal another.",
+    "Lawful": "Endanger yourself following the precepts of your church or god.",
+    "Evil": "Harm another to prove the superiority of your church or god."
+   }
   },
   "druid": {
    "race": {
@@ -507,7 +531,18 @@
      "replaces": "",
      "text": "When you are under open skies when the sun rises the GM will ask you what the weather will be that day. Tell them whatever you like, it comes to pass."
     }
-   ]
+   ],
+   "bonds": [
+    "___ smells more like prey than a hunter.",
+    "The spirits spoke to me of a great danger that follows ___.",
+    "I have showed ___ a secret rite of the Land.",
+    "___ has tasted my blood and I theirs. We are bound by it."
+   ],
+   "alignments": {
+    "Chaotic": "Destroy a symbol of civilization.",
+    "Good": "Help something or someone grow.",
+    "Neutral": "Eliminate an unnatural menace."
+   }
   },
   "fighter": {
    "race": {
@@ -664,7 +699,18 @@
      "replaces": "",
      "text": "When you hack and slash on a 12+ you deal your damage, avoid their attack, and impress, dismay, or frighten your enemy."
     }
-   ]
+   ],
+   "bonds": [
+    "___ owes me their life, whether they admit it or not.",
+    "I have sworn to protect ___.",
+    "I worry about the ability of ___ to survive in the dungeon.",
+    "___ is soft, but I will make them hard like me."
+   ],
+   "alignments": {
+    "Good": "Defend those weaker than you.",
+    "Neutral": "Defeat a worthy opponent.",
+    "Evil": "Kill a defenseless or surrendered enemy."
+   }
   },
   "paladin": {
    "race": {
@@ -829,7 +875,17 @@
      "replaces": "",
      "text": "When you quest you choose three boons instead of two."
     }
-   ]
+   ],
+   "bonds": [
+    "___’s misguided behavior endangers their very soul!",
+    "___ has stood by me in battle and can be trusted completely.",
+    "I respect the beliefs of ___ but hope they will someday see the true way.",
+    "___ is a brave soul, I have much to learn from them."
+   ],
+   "alignments": {
+    "Lawful": "Deny mercy to a criminal or unbeliever.",
+    "Good": "Endanger yourself to protect someone weaker than you."
+   }
   },
   "ranger": {
    "race": {
@@ -995,7 +1051,18 @@
      "replaces": "",
      "text": "Your animal companion is a monster, not an animal. Describe it. Give it +2 ferocity and +1 instinct, plus a new training."
     }
-   ]
+   ],
+   "bonds": [
+    "I have guided ___ before and they owe me for it.",
+    "___ is a friend of nature, so I will be their friend as well.",
+    "___ has no respect for nature, so I have no respect for them.",
+    "___ does not understand life in the wild, so I will teach them."
+   ],
+   "alignments": {
+    "Chaotic": "Free someone from literal or figurative bonds.",
+    "Good": "Endanger yourself to combat an unnatural threat.",
+    "Neutral": "Help an animal or spirit of the wild."
+   }
   },
   "thief": {
    "race": {
@@ -1151,7 +1218,18 @@
      "replaces": "",
      "text": "When you take time to make a plan to steal something, name the thing you want to steal and ask the GM these questions. When acting on the answers you and your allies take +1 forward.\n• Who will notice it’s missing?\n• What’s its most powerful defense?\n• Who will come after it?\n• Who else wants it?"
     }
-   ]
+   ],
+   "bonds": [
+    "I stole something from ___.",
+    "___ has my back when things go wrong.",
+    "___ knows incriminating details about me.",
+    "___ and I have a con running."
+   ],
+   "alignments": {
+    "Chaotic": "Leap into danger without a plan.",
+    "Neutral": "Avoid detection or infiltrate a location.",
+    "Evil": "Shift danger or blame from yourself to someone else."
+   }
   },
   "wizard": {
    "race": {
@@ -1321,7 +1399,17 @@
      "replaces": "",
      "text": "When you have time, arcane materials, and a safe space, you can create your own place of power. Describe to the GM what kind of power it is and how you’re binding it to this place, the GM will tell you one kind of creature that will have an interest in your workings."
     }
-   ]
+   ],
+   "bonds": [
+    "___ will play an important role in the events to come. I have foreseen it!",
+    "___ is keeping an important secret from me.",
+    "___ is woefully misinformed about the world; I will teach them all that I can."
+   ],
+   "alignments": {
+    "Good": "Use magic to directly aid another.",
+    "Neutral": "Discover something about a magical mystery.",
+    "Evil": "Use magic to cause terror and fear."
+   }
   }
  }
 }

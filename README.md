@@ -346,7 +346,13 @@ gear. Gear does real work: your best armor plus a shield is your armor; a weapon
 and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
 and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
 spends ammo. A character made before gear existed runs `?dm gear` once to pick theirs.
-Alignment and bonds are not tracked yet.
+Alignment is not tracked yet.
+
+**Bonds.** Once there's another character at the table, run `?dm bonds`: a private form
+offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
+the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
+Aid or Interfere names who you help or hinder and rolls +Bond — the number of bonds you
+have with them. `?dm sheet` shows your bonds, and the GM sees them.
 
 **Spells.** A new Cleric or Wizard gets a **Choose spells** button after joining: a Wizard
 fills their spellbook (three first-level spells), a Human picks one spell from the other
@@ -491,12 +497,12 @@ waiting on; `?dm cancel` drops your own.
   Fireball hits several creatures.
 - **Only Last Breath, Take Watch, Make Camp, End of Session and Level Up of the special
   moves.** No Recover or Undertake a Perilous Journey yet. End of Session asks only the three
-  group questions; bond and alignment XP wait on bonds and alignment.
+  group questions; bond and alignment XP are not awarded yet.
 - **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
   them from their text. A move that names another ("choose one spell", a move from another
   class) is recorded without that second choice — tell the GM which.
-- **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
+- **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
   weight and load are not tracked. Debilities are not tracked, so a potion always heals
   rather than curing one, and antitoxin does nothing yet. There are no magic items yet.
@@ -625,6 +631,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |
 | `?dm levelup` | Spend XP on a level in downtime: a private form for a stat, an advanced move and (Wizards) a spell. |
 | `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |

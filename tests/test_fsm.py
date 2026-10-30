@@ -112,10 +112,33 @@ def test_defy_danger_without_a_stat_goes_back_to_the_model(director):
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
-def test_aid_rolls_plus_zero_because_bonds_are_not_tracked(director, registry):
-    (send,) = sends_in(make_move(director, "aid_or_interfere"))
-    assert "+Bond (not tracked yet, so +0)" in send.text
-    assert only_check(registry).modifier == 0
+def test_aid_rolls_plus_bond_with_the_character_helped(director, registry):
+    director.set_player_character(ALICE, "Kethra")
+    director.set_player_character(BOB, "Dorn")
+    _sheets(director)["Kethra"]["bonds"] = [
+        {"line": "I stole something from ___.", "with": "Dorn"},
+        {"line": "___ has my back when things go wrong.", "with": "Dorn"},
+    ]
+    (send,) = sends_in(make_move(director, "aid_or_interfere", target="dorn"))
+    assert send.text == "**Kethra** — Aid or Interfere with Dorn, roll +Bond +2."
+    assert only_check(registry).modifier == 2 and only_check(registry).target == "Dorn"
+
+
+def test_aid_with_no_bonds_rolls_plus_zero(director, registry):
+    director.set_player_character(ALICE, "Kethra")
+    director.set_player_character(BOB, "Dorn")
+    (send,) = sends_in(make_move(director, "aid_or_interfere", target="Dorn"))
+    assert "+Bond +0" in send.text
+
+
+def test_aid_needs_another_character(director):
+    director.set_player_character(ALICE, "Kethra")
+    director.set_player_character(BOB, "Dorn")
+    (note,) = prompts_in(make_move(director, "aid_or_interfere"))
+    assert "needs the character being helped" in note.payload["error"]
+    assert "At the table: Dorn." in note.payload["error"]
+    (note,) = prompts_in(make_move(director, "aid_or_interfere", target="Kethra"))
+    assert "needs the character being helped" in note.payload["error"]
 
 
 def test_an_unknown_move_goes_back_to_the_model(director):

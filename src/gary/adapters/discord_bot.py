@@ -39,8 +39,9 @@ from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, carrying_line, describe, xp_line, xp_needed
-from .. import spells
+from .. import bonds, spells
 from .creator import GearButton, StartButton
+from .bonds_form import BondsForm
 from .levelup import LevelUpForm
 from .session import EndOfSession
 from .spellbook import SpellPicker
@@ -280,6 +281,7 @@ __At the table__
 `{p}spells` — a Cleric's or Wizard's spells, and choosing them the first time
 `{p}endsession` — the end-of-session questions; the table answers, everyone gets the XP
 `{p}levelup` — spend your XP on a level, in downtime (a private form)
+`{p}bonds` — write your bonds with the other characters (a private form)
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -775,6 +777,22 @@ class GaryClient(discord.Client):
             line += LEVEL_UP_HINT
         return line
 
+    async def _finish_bonds(self, edited: dict, channel_id: int) -> Optional[str]:
+        """Store bonds. Only the bonds: anything else on the sheet may have changed since the
+        form opened -- HP in a fight, say -- and must not be put back."""
+        actor = edited["name"]
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None:
+            return f"{actor} has no sheet any more."
+        diff = self.store.apply(
+            [Mutation(MutationKind.SHEET, actor, {"sheet": {**sheet, "bonds": edited.get("bonds") or []}})],
+            reason=f"{actor} writes their bonds",
+        )
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        await self.sender.send(channel_id, f"🤝 **{actor}** — {bonds.describe(edited) or 'no bonds.'}")
+        return None
+
     async def _finish_level_up(self, levelled: dict, channel_id: int) -> Optional[str]:
         """Store a level gained. Checked again: XP could have been spent from another
         window, or a fight started, since the form opened."""
@@ -1130,13 +1148,42 @@ class GaryClient(discord.Client):
             if sheet is None:
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
-            extra = [line for line in (carrying_line(sheet), spells.describe(sheet)) if line]
+            extra = [line for line in (carrying_line(sheet), spells.describe(sheet), bonds.describe(sheet)) if line]
             await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
             return
 
         if command == "endsession":
             view = EndOfSession(lambda yeses: self._end_session(yeses))
             await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "bonds":
+            actor = self.director.players.get(message.author.id)
+            sheets = self.store.state().get("sheets") or {}
+            sheet = sheets.get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            companions = sorted(a for a in set(self.director.players.values())
+                                if a != actor and a in sheets and not sheets[a].get("dead"))
+            if not companions:
+                await self.sender.send(channel_id, "Bonds are with your companions, and nobody else at "
+                                                   "the table has a character yet.")
+                return
+            form = BondsForm(sheet, companions, lambda edited: self._finish_bonds(edited, channel_id))
+            view = discord.ui.View(timeout=form.timeout)
+            button = discord.ui.Button(label="Write bonds", emoji="🤝", style=discord.ButtonStyle.primary)
+            owner = message.author.id
+
+            async def open_form(interaction: "discord.Interaction") -> None:
+                if interaction.user.id != owner:
+                    await interaction.response.send_message(f"These are {actor}'s.", ephemeral=True)
+                    return
+                await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
+
+            button.callback = open_form
+            view.add_item(button)
+            await message.channel.send(f"**{actor}** — your bonds:", view=view)
             return
 
         if command == "levelup":

@@ -1,4 +1,4 @@
-"""Extract every class's starting, race and advanced moves into
+"""Extract every class's starting, race and advanced moves, bonds and alignments into
 src/gary/data/class_moves.json.
 
 Verbatim text from the authors' InDesign XML (github.com/Sagelt/Dungeon-World): each move
@@ -6,7 +6,9 @@ is an h3 (MoveName) inside the class's `racialmoves` or `startingmoves` div, fol
 paragraphs and list items until the next h3. Advanced moves are the same, in the
 `moves` div: an Instructions paragraph ("When you gain a level from 6–10…") starts the
 second tier, and a Requirement paragraph ("Requires: Chosen One", "Replaces: Empower")
-says what a move needs or supersedes.
+says what a move needs or supersedes. Bonds are the paragraphs of the `bonds` div (`bond`
+in Ranger.xml) after its instruction, each with a blank for a companion's name; the blank's
+length varies, so it is written as ___. Alignments are h3/paragraph pairs in `alignment`.
 
     python scripts/extract_dw_class_moves.py ~/github/Dungeon-World
 
@@ -76,8 +78,28 @@ def _advanced(div) -> list:
     return moves
 
 
+def _bonds(div) -> list:
+    lines = [_text(p) for p in div.iter("p") if p.get(AID + "pstyle") is None]
+    return [re.sub(r"_{3,}", "___", line) for line in lines]
+
+
+def _alignments(div) -> dict:
+    out, name = {}, None
+    for el in div.iter():
+        if el.tag == "h3":
+            name = _text(el)
+        elif el.tag == "p" and name is not None:
+            out[name] = _text(el)
+            name = None
+    return out
+
+
 def extract(path: Path) -> dict:
     root = ET.parse(path).getroot()
+    bonds = next((el for el in root.iter() if el.get("id") in ("bonds", "bond")), None)
+    alignment = next((el for el in root.iter() if el.get("id") == "alignment"), None)
+    if bonds is None or alignment is None:
+        raise SystemExit(f"{path.name}: no bonds or alignment")
     divs = {el.get("id"): el for el in root.iter() if el.get("id") in ("racialmoves", "startingmoves", "moves")}
     missing = {"racialmoves", "startingmoves", "moves"} - set(divs)
     if missing:
@@ -92,7 +114,11 @@ def extract(path: Path) -> dict:
     unknown = [m["name"] for m in advanced if set(m) - {"name", "tier", "requires", "replaces", "text"}]
     if unknown:
         raise SystemExit(f"{path.name}: unexpected requirement on {unknown}")
-    return {"race": races, "starting": starting, "advanced": advanced}
+    bond_lines, alignments = _bonds(bonds), _alignments(alignment)
+    if not bond_lines or any(line.count("___") != 1 for line in bond_lines) or not alignments:
+        raise SystemExit(f"{path.name}: unreadable bonds {bond_lines} or alignments {alignments}")
+    return {"race": races, "starting": starting, "advanced": advanced,
+            "bonds": bond_lines, "alignments": alignments}
 
 
 def main(checkout: str) -> None:
