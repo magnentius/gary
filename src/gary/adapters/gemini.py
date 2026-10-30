@@ -379,6 +379,18 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.USE_POISON, T.BREW_POISON):
+                character = str(args.get("character", ""))
+                if name == T.USE_POISON:
+                    poison_effects, result = self._director.use_poison(
+                        channel_id=channel_id, character=character, target=str(args.get("target", "") or ""))
+                else:
+                    poison_effects, result = self._director.brew_poison(
+                        channel_id=channel_id, character=character, reason=str(args.get("reason", "") or ""))
+                effects.extend(poison_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.FORM_MOVES, T.SPEND_HOLD):
                 character = str(args.get("character", ""))
                 if name == T.FORM_MOVES:

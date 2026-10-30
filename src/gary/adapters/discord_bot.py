@@ -39,8 +39,8 @@ from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
-from .. import bonds, companion as companions, spells
-from .creator import AlignmentForm, GearButton, StartButton
+from .. import bonds, choices, companion as companions, spells
+from .creator import AlignmentForm, ChoicesForm, GearButton, StartButton
 from .bonds_form import BondsForm
 from .companion_form import CompanionForm
 from .levelup import LevelUpForm
@@ -285,6 +285,7 @@ __At the table__
 `{p}bonds` — write your bonds with the other characters (a private form)
 `{p}alignment` — choose your alignment, for a character made before alignments existed
 `{p}companion` — a Ranger's animal companion (a private form)
+`{p}choices` — your class's creation choices (deity, land, lore, poison…), for a character made before them
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -815,6 +816,18 @@ class GaryClient(discord.Client):
         view.add_item(button)
         await message.channel.send(text, view=view)
 
+    async def _finish_choices(self, actor: str, made: dict, channel_id: int) -> Optional[str]:
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None:
+            return f"{actor} has no sheet any more."
+        updated = choices.on_sheet(sheet, made)
+        diff = self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": updated})],
+                                reason=f"{actor} makes their class's choices")
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        await self.sender.send(channel_id, f"📜 **{actor}** — {choices.describe(updated)}.")
+        return None
+
     async def _finish_companion(self, actor: str, pet: dict, channel_id: int) -> Optional[str]:
         sheet = (self.store.state().get("sheets") or {}).get(actor)
         if sheet is None:
@@ -1210,10 +1223,13 @@ class GaryClient(discord.Client):
             if sheet is None:
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
-            extra = [line for line in (alignment_line(sheet), carrying_line(sheet), spells.describe(sheet),
+            extra = [line for line in (alignment_line(sheet), choices.describe(sheet), carrying_line(sheet),
+                                       spells.describe(sheet),
                                        companions.describe(sheet), bonds.describe(sheet)) if line]
             if not sheet.get("alignment"):
                 extra.append(f"No alignment yet: `{prefix}alignment` chooses one.")
+            if choices.missing(sheet):
+                extra.append(f"Your class's choices aren't made yet: `{prefix}choices`.")
             await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
             return
 
@@ -1228,6 +1244,20 @@ class GaryClient(discord.Client):
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
             )
             view.message = await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "choices":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            if not choices.missing(sheet):
+                await self.sender.send(channel_id, f"**{actor}** — {choices.describe(sheet) or 'nothing to choose'}.")
+                return
+            form = ChoicesForm(sheet, lambda made: self._finish_choices(actor, made, channel_id))
+            await self._private_button(message, f"**{actor}** — your class's choices:", "Choose",
+                                       "📜", form, form.prompt())
             return
 
         if command == "companion":

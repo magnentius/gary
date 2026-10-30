@@ -138,6 +138,8 @@ class CharacterCreator(discord.ui.View):
         elif d.alignment is None and self._sheet is None:
             lines.append("Choose your alignment — you mark XP at the end of a session when you "
                          "have acted on it.")
+        elif self._sheet is None and d.class_choices().step() is not None:
+            lines.append(d.class_choices().step().prompt)
         elif d.name is None:
             lines.append("Name your character.")
         else:
@@ -224,6 +226,11 @@ class CharacterCreator(discord.ui.View):
                                        for a, t in d.alignments().items()], self._on_alignment)
             return
 
+        step = d.class_choices().step() if self._sheet is None else None
+        if step is not None:
+            add_choice_step(self, step, lambda value: self._apply_choice(value))
+            return
+
         if d.name is None:
             self._button("Name your character", self._on_name, style=discord.ButtonStyle.primary)
             self._button("Start gear over", self._on_reset_gear)
@@ -301,6 +308,10 @@ class CharacterCreator(discord.ui.View):
             interaction, lambda: self.draft.choose_signature_enhancements([int(v) for v in values])
         )
 
+    async def _apply_choice(self, value: str):
+        """For add_choice_step: returns a coroutine function taking the interaction."""
+        return lambda interaction: self._apply(interaction, lambda: self.draft.choose_class_choice(value))
+
     async def _on_alignment(self, interaction, value: str) -> None:
         await self._apply(interaction, lambda: self.draft.choose_alignment(value))
 
@@ -357,6 +368,90 @@ class AlignmentForm(discord.ui.View):
     @staticmethod
     def prompt() -> str:
         return "Choose your alignment — you mark XP at the end of a session when you have acted on it."
+
+
+def add_choice_step(view: "discord.ui.View", step, choose) -> None:
+    """One creation choice on ``view``: a dropdown for a list, a button and a text box for
+    something written (a god's name, a tell). ``choose(value)`` is awaited and returns a
+    handler taking the interaction."""
+    if step.written:
+        button = discord.ui.Button(label="Write it", style=discord.ButtonStyle.primary)
+
+        async def open_modal(interaction: "discord.Interaction") -> None:
+            await interaction.response.send_modal(ChoiceModal(step.prompt, choose))
+
+        button.callback = open_modal
+        view.add_item(button)
+        return
+    select = discord.ui.Select(placeholder=step.prompt[:150], options=[
+        discord.SelectOption(label=o[:100], value=o[:100], description=(d or None) and d[:100])
+        for o, d in zip(step.options, step.descriptions or ("",) * len(step.options))])
+
+    async def chosen(interaction: "discord.Interaction") -> None:
+        handler = await choose(select.values[0])
+        await handler(interaction)
+
+    select.callback = chosen
+    view.add_item(select)
+
+
+class ChoiceModal(discord.ui.Modal, title="Your choice"):
+    answer = discord.ui.TextInput(label="Answer", max_length=MAX_NAME_CHARS * 2)
+
+    def __init__(self, prompt: str, choose) -> None:
+        super().__init__(timeout=FORM_TIMEOUT_SECONDS)
+        self.answer.label = prompt[:45]
+        self._choose = choose
+
+    async def on_submit(self, interaction: "discord.Interaction") -> None:
+        handler = await self._choose(self.answer.value)
+        await handler(interaction)
+
+
+class ChoicesForm(discord.ui.View):
+    """`?dm choices`: the class's creation choices for a character made before them.
+    Private; the save writes only the choices (and a Thief's starting poison)."""
+
+    def __init__(self, sheet: dict, finish: Callable[[dict], Awaitable[Optional[str]]]) -> None:
+        from ..choices import Choices
+
+        super().__init__(timeout=FORM_TIMEOUT_SECONDS)
+        self._finish = finish
+        self.choices = Choices(sheet["class"], sheet.get("race", ""), sheet.get("choices"))
+        self._build()
+
+    def prompt(self, error: Optional[str] = None) -> str:
+        step = self.choices.step()
+        lines = [f"⚠️ {error}"] if error else []
+        lines.append(step.prompt if step else "All chosen.")
+        return "\n".join(lines)
+
+    def _build(self) -> None:
+        self.clear_items()
+        step = self.choices.step()
+        if step is not None:
+            add_choice_step(self, step, self._choose)
+
+    async def _choose(self, value: str):
+        async def handle(interaction: "discord.Interaction") -> None:
+            try:
+                self.choices.choose(value)
+            except SheetError as exc:
+                self._build()
+                await interaction.response.edit_message(content=self.prompt(str(exc)), view=self)
+                return
+            if self.choices.complete:
+                error = await self._finish(self.choices.made)
+                if error:
+                    await interaction.response.edit_message(content=f"⚠️ {error}", view=self)
+                    return
+                self.stop()
+                await interaction.response.edit_message(content="✅ Chosen.", view=None)
+                return
+            self._build()
+            await interaction.response.edit_message(content=self.prompt(), view=self)
+
+        return handle
 
 
 class NameModal(discord.ui.Modal, title="Name your character"):

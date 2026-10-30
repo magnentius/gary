@@ -20,6 +20,7 @@ def fighter(name="Kael", order=("str", "con", "dex", "wis", "cha")) -> Draft:
     d.choose_signature_range("close")
     d.choose_signature_enhancements([1, 3])  # sharp, serrated
     d.choose_alignment("Good")
+    d.choose_class_choice("Ancient")  # the signature weapon's look
     d.choose_name(name)
     return d
 
@@ -135,7 +136,7 @@ def test_names_are_tidied():
 def test_an_incomplete_draft_will_not_build_and_says_what_is_missing():
     d = Draft()
     d.choose_class("fighter")
-    with pytest.raises(SheetError, match="a race, stats, gear, an alignment, a name"):
+    with pytest.raises(SheetError, match="a race, stats, gear, an alignment, your class's choices, a name"):
         d.build()
 
 

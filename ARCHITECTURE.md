@@ -355,9 +355,12 @@ die, armor, level, XP, alignment, gear, coin, rations, ammo — and, by class, s
 companion, shape; bonds. `?dm new` opens a private form (`adapters/creator.py`) driving a
 `Draft` that refuses at every step what the rules forbid: class, race, the
 16/15/13/12/9/8 array one score at a time, starting gear from the class's lists (the
-Fighter's signature weapon in full), alignment, name. Creating a character also claims it
+Fighter's signature weapon in full), alignment, the class's own choices (`choices.py`:
+a Cleric's god, domain and precept; a Druid's land and tell; a Bard's lore; a Thief's
+poison; a Fighter's weapon look and an Elf's precise weapon type, read from the move
+texts), name. Creating a character also claims it
 for the creator, in the same apply. Older sheets get the missing parts without a remake:
-`?dm gear`, `?dm spells`, `?dm alignment`, `?dm companion`.
+`?dm gear`, `?dm spells`, `?dm alignment`, `?dm choices`, `?dm companion`.
 
 Every form is **private** (ephemeral), opened from a public button only its owner can use,
 and held in memory: a half-made choice is cheap to start again. Each save writes only what
@@ -731,7 +734,8 @@ mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
-- **Magic and forms:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`.
+- **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
+  `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
 - **World:** `advance_time`, `set_scene`, `upsert_npc`, `record_note`.
 
@@ -757,6 +761,7 @@ src/gary/
   spells.py        spell lists, caster state, Preparation                           §6.6
   companion.py     animal companion and Command                                     §6.7
   levelling.py     Level Up                                                         §6.8
+  choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
   bonds.py         bonds and +Bond                                                  §6.8
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
   ports.py         Narrator / transport / Dice seams, EchoNarrator, ScriptedDice    §12.2
@@ -774,7 +779,7 @@ src/gary/
     sender.py      2000-char splitting + per-channel pacing                         §10
     runner.py      performs Effects; bounds model recursion                         §12.2
     discord_bot.py discord.py glue, buttons, ?dm commands, sweep loop               §5.3
-    creator.py     ?dm new / gear / alignment forms                                 §6.3
+    creator.py     ?dm new / gear / alignment / choices forms                       §6.3
     spellbook.py   Choose spells                                                    §6.6
     companion_form.py  ?dm companion                                                §6.7
     levelup.py     ?dm levelup                                                      §6.8
@@ -800,9 +805,10 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    the model keeps.
 4. **Advanced moves are text, not rules.** None change a number yet (Divine Protection's
    armor, Serenity's casting penalty); the model honours them or does not. Choices inside a
-   move (Chosen One's spell, Multiclass Dabbler's move) are not recorded. Creation-time
-   choices (a Druid's land, a Cleric's deity, a Bard's lore, a Thief's poison) are not
-   recorded either.
+   move (Chosen One's spell, Multiclass Dabbler's move) are not recorded. Of the creation
+   choices only the Elf's precise weapon and the Thief's poison uses are wired; a deity's
+   petition, a Druid's land and a Bard's lore are the model's to honour, and poison effects
+   are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend's hold, debilities and antitoxin, Recover,
    Undertake a Perilous Journey, weight and load, magic items; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several

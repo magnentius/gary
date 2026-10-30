@@ -43,6 +43,8 @@ PREPARE_SPELLS = "prepare_spells"
 END_SPELL = "end_spell"
 FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
+USE_POISON = "use_poison"
+BREW_POISON = "brew_poison"
 
 
 def _s(**kw) -> types.Schema:
@@ -269,6 +271,31 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "revert": _s(type=types.Type.BOOLEAN, description="True to spend all hold and turn back."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=USE_POISON,
+        description=(
+            "A Thief uses the poison they mastered (the state shows which, and how many uses "
+            "are left): spends one and returns what it does. No roll -- getting it onto the "
+            "target may be a move of its own (Backstab, Defy Danger)."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "target": _s(type=_STRING, description="Who or what it is used on.")},
+            required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=BREW_POISON,
+        description=(
+            "A Thief with time to gather materials and a safe place brews three more uses of "
+            "their poison. Not mid-fight; say where and why it is safe."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "reason": _s(type=_STRING)},
+            required=["character", "reason"],
         ),
     ),
     types.FunctionDeclaration(

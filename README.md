@@ -350,6 +350,13 @@ spends ammo. A character made before gear existed runs `?dm gear` once to pick t
 ("Good: endanger yourself to heal another"); a character made before that runs
 `?dm alignment`. The GM sees it.
 
+**Class choices.** `?dm new` also asks what your class decides: a Cleric names their god
+and picks a domain and precept, a Druid their land and tell, a Bard their lore, a Thief
+their poison (three uses to start), a Fighter their weapon's look — and an Elf Fighter a
+weapon type that is always precise, so it hacks and slashes with Dex. A character made
+before runs `?dm choices`. The GM sees them all; a Thief's poison is spent with each use
+and brewed three at a time somewhere quiet.
+
 **Animal Companion.** A Ranger runs `?dm companion` (Gary reminds them after `?dm new`): a
 private form for species, base, strengths, trainings and weaknesses — as many as its
 numbers say — and a name. When you work with it ("Fang and I go for the goblin"), the GM
@@ -506,10 +513,11 @@ waiting on; `?dm cancel` drops your own.
 - **Class moves: starting moves only.** Rolled class moves work —
   Turn Undead, Lay on Hands, I Am the Law, Hunt and Track, Called Shot, Trap Expert,
   Tricks of the Trade, Backstab, Bend Bars, Arcane Art, Cast a Spell — for that class
-  alone. The rest are shown to the GM to honour in the story. Not yet: choices made at
-  creation (a Cleric's deity, a
-  Bard's lore). Called Shot and Arcane Art pick their effect after the roll rather than
-  before.
+  alone. The rest are shown to the GM to honour in the story. Called Shot and Arcane Art
+  pick their effect after the roll rather than before. Of the creation choices only the
+  Elf Fighter's precise weapon and the Thief's poison uses do rules work; the rest (a
+  Cleric's deity and petition, a Druid's land, a Bard's lore) are the GM's to honour, and
+  the poisons' effects are narrated, not tracked on creatures.
 - **Spells, as far as the numbers go.** Sanctuary's +1d4 healing, Bless ending with the
   battle and spells' own conditions (Charm Person broken by damage) are the GM's to
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
@@ -651,6 +659,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm choices` | Your class's creation choices, for a character made before them. |
 | `?dm companion` | A Ranger's animal companion: a private form, or shows the one you have. |
 | `?dm alignment` | Choose your alignment, for a character made before alignments existed. |
 | `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |

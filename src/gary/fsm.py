@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import bonds, companion as companions, damage, spells
+from . import bonds, choices, companion as companions, damage, spells
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, MOVES, NOTHING
@@ -436,7 +436,9 @@ class Director:
             if rules.key == "hack_and_slash" and "gear" in sheet:
                 weapon = self._weapon(sheet, rules.key)
                 dex = modifier(int(sheet["stats"]["dex"]))
-                if weapon is not None and "precise" in weapon.tags and dex > mod:
+                precise = weapon is not None and ("precise" in weapon.tags
+                                                  or choices.precise_for(sheet, weapon.name))
+                if precise and dex > mod:
                     stat, mod = "dex", dex
             unable = _unable(actor, sheet)
             if unable:
@@ -761,9 +763,12 @@ class Director:
         shape = {"form": check.target, "hold": hold, "moves": []}
         facts = {**shape, "instruction": (
             f"Describe {check.actor} becoming a {check.target}: its innate abilities and "
-            f"weaknesses are theirs, though they keep their own stats. Then name one to three "
-            f"moves this form can make and record them with form_moves. Each use of one costs "
-            f"1 hold (spend_hold); at 0 they return to their natural form."
+            f"weaknesses are theirs, though they keep their own stats. "
+            + (f"Their land is {land}: an animal that might live there is theirs to take. "
+               if (land := ((self._sheet_for(check.actor) or {}).get("choices") or {}).get("land")) else "")
+            + "Then name one to three "
+            "moves this form can make and record them with form_moves. Each use of one costs "
+            "1 hold (spend_hold); at 0 they return to their natural form."
             + (" It is a miss: make a GM move as well." if band(dice) == "miss" else "")
         )}
         return [
@@ -1489,6 +1494,52 @@ class Director:
             SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
         ], {"ok": True, "ended": name}
+
+    # -- the Thief's poison -------------------------------------------------------------------
+
+    def use_poison(self, *, channel_id: int, character: str, target: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """Poisoner: a use of the poison they mastered, which is "no longer dangerous for you
+        to use". What it does is the poison's text; the model narrates it."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        name = (sheet.get("choices") or {}).get("poison")
+        if not name:
+            return [], {"ok": False, "error": f"{actor} has mastered no poison."}
+        left = int(sheet.get("poison_uses", 0))
+        if left <= 0:
+            return [], {"ok": False, "error": (f"{actor} has no {name} left. They can brew more with "
+                                               "time and a safe place (brew_poison).")}
+        on = f" on {target}" if target else ""
+        return [
+            SendMessage(channel_id, f"🧪 **{actor}** uses {name}{on} — {left - 1} uses left."),
+            UpdateSheet(channel_id, actor, {"poison_uses": left - 1}),
+        ], {"ok": True, "poison": name, "effect": choices.poison_text(name), "uses_left": left - 1,
+            "note": "Applied poisons must reach the target or what they eat or drink; touch poisons "
+                    "need only touch, a blade will do. Narrate the effect as written."}
+
+    def brew_poison(self, *, channel_id: int, character: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """"Whenever you have time to gather materials and a safe place to brew you can make
+        three uses of the poison you choose for free." Guarded like camp."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        name = (sheet.get("choices") or {}).get("poison")
+        if not name:
+            return [], {"ok": False, "error": f"{actor} has mastered no poison."}
+        unsettled = self.unsettled(channel_id, "brew poison")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say where they brew and why it is safe (reason)."}
+        uses = int(sheet.get("poison_uses", 0)) + choices.POISON_BATCH
+        return [
+            SendMessage(channel_id, f"🧪 **{actor}** brews {name} — {reason}. {uses} uses."),
+            UpdateSheet(channel_id, actor, {"poison_uses": uses}),
+        ], {"ok": True, "poison": name, "uses": uses}
 
     # -- Shapeshifter's form ------------------------------------------------------------------
 

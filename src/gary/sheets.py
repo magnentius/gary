@@ -90,6 +90,8 @@ class Draft:
     signature_ranges: List[str] = field(default_factory=list)
     signature_enhancements: Tuple[int, ...] = ()
     alignment: Optional[str] = None
+    # The class's creation choices (choices.py): deity, land, lore, poison...
+    choices: Dict[str, str] = field(default_factory=dict)
 
     def choose_class(self, class_key: str) -> None:
         key = str(class_key or "").strip().lower()
@@ -99,6 +101,7 @@ class Draft:
             self.race = None  # races differ by class
             self.reset_gear()  # and so does gear
             self.alignment = None  # and alignments
+            self.choices = {}  # and what each class chooses
         self.class_key = key
 
     def races(self) -> List[str]:
@@ -112,6 +115,8 @@ class Draft:
                 f"A {CLASSES[self.class_key]['name']} can be "
                 f"{', '.join(self.races())} — not {race}."
             )
+        if race != self.race:
+            self.choices = {}  # an Elf Fighter chooses a precise weapon; others do not
         self.race = race
 
     def unassigned_scores(self) -> List[int]:
@@ -249,6 +254,17 @@ class Draft:
             raise SheetError(f"Choose one of {', '.join(self.alignments())}.")
         self.alignment = alignment
 
+    def class_choices(self):
+        from .choices import Choices  # choices -> class_moves; imported late to keep sheets light
+
+        return Choices(CLASSES[self.class_key]["name"] if self.class_key else "", self.race or "",
+                       self.choices)
+
+    def choose_class_choice(self, value: str) -> None:
+        choices = self.class_choices()
+        choices.choose(value)
+        self.choices = choices.made
+
     def choose_name(self, name: str) -> None:
         name = " ".join(str(name or "").split())
         if not name:
@@ -261,6 +277,7 @@ class Draft:
     def complete(self) -> bool:
         return (
             bool(self.class_key and self.race and self.name and self.alignment)
+            and self.class_choices().complete
             and not self.unassigned_stats()
             and self.gear_complete
         )
@@ -273,13 +290,16 @@ class Draft:
                     ("a class", self.class_key), ("a race", self.race),
                     ("stats", not self.unassigned_stats()),
                     ("gear", self.gear_complete), ("an alignment", self.alignment),
+                    ("your class's choices", self.class_key and self.class_choices().complete),
                     ("a name", self.name),
                 ) if not done
             ]
             raise SheetError("Still needs " + ", ".join(missing) + ".")
         cls = CLASSES[self.class_key]
         max_hp = int(cls["base_hp"]) + self.stats["con"]
-        return {
+        from .choices import on_sheet
+
+        return on_sheet({
             "name": self.name,
             "class": cls["name"],
             "race": self.race,
@@ -291,7 +311,7 @@ class Draft:
             "damage": cls["damage"],
             "alignment": self.alignment,
             **with_gear({}, self.gear_items()),
-        }
+        }, self.choices)
 
 
 def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
