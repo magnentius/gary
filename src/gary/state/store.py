@@ -23,7 +23,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from ..models import (
     AppliedMutation,
-    CheckOutcome,
+    MoveOutcome,
     Mutation,
     MutationKind,
     StateDiff,
@@ -143,7 +143,7 @@ class CampaignStore:
         The roster goes as well. An earlier version kept it, on the grounds that who is
         playing whom is table setup rather than fiction; a reset that leaves anything
         behind is a reset with an exception to remember, and forgetting `?dm playing`
-        after one is loud (the boot warning, and open_check refusing an unknown actor)
+        after one is loud (the boot warning, and make_move refusing an unknown actor)
         rather than silent.
 
         **Order matters, and only one order is safe.** Truncate first, snapshot last.
@@ -173,13 +173,13 @@ class CampaignStore:
             reason="campaign calendar anchored",
         )
 
-    def record_check_outcome(self, outcome: "CheckOutcome") -> None:
-        """Journal a resolved check.
+    def record_check_outcome(self, outcome: "MoveOutcome") -> None:
+        """Journal a resolved move.
 
-        Not a mutation: resolving a check changes no campaign state by itself. It is
+        Not a mutation: resolving a move changes no campaign state by itself. It is
         recorded because it is the one thing the whole design exists to make trustworthy
-        -- a DC fixed before the dice and compared by arithmetic -- and without this
-        there is no evidence afterwards that it happened that way. Auditing what the
+        -- a move and modifier fixed before the dice, resolved by its band -- and without
+        this there is no evidence afterwards that it happened that way. Auditing what the
         model did to a campaign rests entirely on this record.
         """
         with self._lock:
@@ -187,22 +187,22 @@ class CampaignStore:
                 {
                     "entry_id": new_id(self._clock()),
                     "at": self._clock(),
-                    "kind": "check_outcome",
+                    "kind": "move_outcome",
                     "target": outcome.actor,
                     "payload": {
                         "check_id": outcome.check_id,
-                        "kind": outcome.kind.value,
-                        "key": outcome.key,
-                        "dc": outcome.dc,
-                        "total": outcome.total,
-                        "natural": outcome.natural,
+                        "move": outcome.move,
+                        "stat": outcome.stat,
+                        "modifier": outcome.modifier,
                         "faces": list(outcome.faces),
-                        "margin": outcome.margin,
-                        "succeeded": outcome.succeeded,
-                        "consequence": outcome.consequence,
+                        "total": outcome.total,
+                        "band": outcome.band,
+                        "chosen": list(outcome.chosen),
+                        "auto_chosen": outcome.auto_chosen,
+                        "enemy_attacks": outcome.enemy_attacks,
                     },
                     "inverse": None,
-                    "reason": f"{outcome.actor} {outcome.kind.value} {outcome.key}",
+                    "reason": f"{outcome.actor} {outcome.move}",
                 }
             )
 
@@ -219,8 +219,8 @@ class CampaignStore:
             # handler would replay those campaigns straight through their own reset.
             self._state = empty_state()
             return
-        if kind == "check_outcome":
-            # History, not state. Replaying it must change nothing -- the campaign is
+        if kind in ("check_outcome", "move_outcome"):
+            # History, not state. check_outcome is the d20 record from before moves. Replaying it must change nothing -- the campaign is
             # whatever the consequences made it, and those are journalled separately as
             # their own mutations.
             return

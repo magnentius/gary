@@ -7,7 +7,7 @@ Two properties worth stating outright, because both are failure modes that only 
 mid-session:
 
 * **Depth is bounded.** Narrating can produce more effects — the model calls
-  ``open_check``, which asks a player to roll. Without a bound, a model that keeps opening
+  ``make_move``, which asks a player to roll. Without a bound, a model that keeps opening
   checks in response to its own output loops until the quota runs out. The bound is
   small and exceeding it is logged loudly, because it means the model is misbehaving.
 * **A narrator failure never silences the channel.** If the model errors or returns
@@ -90,10 +90,8 @@ class EffectRunner:
         log.warning("no handler for effect %r", type(effect).__name__)
 
     async def _send(self, effect: SendMessage) -> None:
-        if effect.roll_check_id is not None:
-            await self._sender.send(
-                effect.channel_id, effect.text, roll_check_id=effect.roll_check_id
-            )
+        if effect.prompt is not None:
+            await self._sender.send(effect.channel_id, effect.text, prompt=effect.prompt)
         else:
             await self._sender.send(effect.channel_id, effect.text)
         self.stats.sent += 1
@@ -150,7 +148,7 @@ class EffectRunner:
         # morning, and only then posted what the table had to do about it.
         #
         # Only SendMessage is hoisted. The rest keep their place, because effects may
-        # include a PromptModel (an open_check rejection returns one) and running that
+        # include a PromptModel (a make_move rejection returns one) and running that
         # early would emit a nested turn's narration ahead of this one's.
         posts = [e for e in result.effects if isinstance(e, SendMessage)]
         rest = [e for e in result.effects if not isinstance(e, SendMessage)]

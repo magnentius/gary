@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from gary.models import CheckKind, PendingCheck
+from gary.models import PendingCheck
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import (
     CheckBackend,
@@ -119,19 +119,17 @@ def check_backend_factory(request, tmp_path):
     return lambda: shared
 
 
-def make_check(check_id="01ABC", user_id=ALICE, dc=15) -> PendingCheck:
+def make_check(check_id="01ABC", user_id=ALICE, modifier=1) -> PendingCheck:
     return PendingCheck(
         check_id=check_id,
         channel_id=CHANNEL,
         user_id=user_id,
         actor="Kethra",
-        kind=CheckKind.CHECK,
-        key="sleight_of_hand",
-        dc=dc,
-        on_success="The tumblers give.",
-        on_failure="The pick snaps.",
+        move="defy_danger",
+        stat="dex",
+        modifier=modifier,
         stakes="the guard next door",
-        dice="1d20",
+        dice="2d6",
         created_at=1000.0,
         expires_at=1180.0,
     )
@@ -146,15 +144,29 @@ def test_check_round_trips_completely(check_backend_factory):
     assert restored == original
 
 
-def test_a_check_saved_before_avrae_was_removed_still_loads():
-    """Those carry the Avrae command where the dice now go. Its DC is what matters."""
-    saved = make_check().to_dict()
-    del saved["dice"]
-    saved["command"] = '!check "sleight of hand"'
+def test_a_held_move_round_trips_with_its_dice():
+    """Rolled, waiting on the player's choice: a restart must not lose the dice."""
+    from dataclasses import replace
 
-    restored = PendingCheck.from_dict(saved)
-    assert restored.dc == 15
-    assert restored.dice == "1d20"
+    held = replace(make_check(), faces=(4, 3))
+    assert PendingCheck.from_dict(held.to_dict()) == held
+
+
+def test_a_d20_check_from_before_moves_is_skipped_not_fatal(tmp_path):
+    """Saved with a DC and no move, so there is nothing to resolve it as. It lapses in
+    minutes anyway; it must not stop a restart, or cost anyone else their pending move."""
+    import json
+
+    good = make_check("01GOOD").to_dict()
+    legacy = {
+        "check_id": "01OLD", "channel_id": CHANNEL, "user_id": 222, "actor": "Dorn",
+        "kind": "check", "key": "stealth", "dc": 15, "on_success": "a", "on_failure": "b",
+        "stakes": "", "command": "!check stealth", "created_at": 0.0, "expires_at": 180.0,
+    }
+    path = tmp_path / "checks.json"
+    path.write_text(json.dumps({"01GOOD": good, "01OLD": legacy}))
+
+    assert [c.check_id for c in FileCheckBackend(path).load_all()] == ["01GOOD"]
 
 
 def test_removed_checks_do_not_come_back(check_backend_factory):
@@ -188,9 +200,8 @@ def test_pending_check_survives_a_process_restart(check_backend_factory, clock):
     """
     first = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
     check, _ = first.open(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        key="stealth", dc=17, on_success="unseen", on_failure="spotted",
-        stakes="", dice="1d20",
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", move="defy_danger",
+        stat="dex", modifier=2, stakes="", dice="2d6",
     )
 
     # ... process restarts ...
@@ -199,16 +210,15 @@ def test_pending_check_survives_a_process_restart(check_backend_factory, clock):
     matched = revived.for_player(CHANNEL, ALICE)
     assert matched is not None
     assert matched.check_id == check.check_id
-    assert matched.dc == 17
-    assert matched.on_success == "unseen"
+    assert matched.modifier == 2
+    assert matched.move == "defy_danger"
 
 
 def test_resolved_check_does_not_survive_a_restart(check_backend_factory, clock):
     first = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
     check, _ = first.open(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        key="stealth", dc=17, on_success="a", on_failure="b",
-        stakes="", dice="1d20",
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", move="defy_danger",
+        stat="dex", modifier=2, stakes="", dice="2d6",
     )
     first.consume(check.check_id)
 
@@ -220,11 +230,11 @@ def test_superseded_check_is_evicted_from_storage(check_backend_factory, clock):
     """One check per player -- the displaced one must not linger in the backend."""
     reg = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
     kw = dict(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        dc=10, on_success="a", on_failure="b", stakes="", dice="1d20",
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra",
+        stat="dex", modifier=2, stakes="", dice="2d6",
     )
-    reg.open(key="stealth", **kw)
-    second, displaced = reg.open(key="perception", **kw)
+    reg.open(move="defy_danger", **kw)
+    second, displaced = reg.open(move="discern_realities", **kw)
     assert displaced is not None
 
     stored = check_backend_factory().load_all()
@@ -234,9 +244,9 @@ def test_superseded_check_is_evicted_from_storage(check_backend_factory, clock):
 def test_expired_check_is_evicted_from_storage(check_backend_factory, clock):
     reg = PendingCheckRegistry(clock=clock, backend=check_backend_factory())
     reg.open(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        key="stealth", dc=10, on_success="a", on_failure="b", stakes="",
-        dice="1d20", ttl_seconds=60,
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", move="defy_danger",
+        stat="dex", modifier=0, stakes="",
+        dice="2d6", ttl_seconds=60,
     )
     clock.advance(61)
     reg.sweep_expired()
@@ -248,9 +258,9 @@ def test_registry_without_a_backend_still_works(clock):
     """Persistence is opt-in; the core must not require it."""
     reg = PendingCheckRegistry(clock=clock)
     reg.open(
-        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", kind=CheckKind.CHECK,
-        key="stealth", dc=10, on_success="a", on_failure="b", stakes="",
-        dice="1d20",
+        channel_id=CHANNEL, user_id=ALICE, actor="Kethra", move="defy_danger",
+        stat="dex", modifier=0, stakes="",
+        dice="2d6",
     )
     assert reg.has_open(CHANNEL)
 

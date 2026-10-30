@@ -119,10 +119,7 @@ async def player(n, text="I try to pick the lock"):
     )
 
 
-OPEN_ARGS = dict(
-    actor="Kethra", kind="check", key="sleight of hand", dc=15,
-    on_success="The tumblers give.", on_failure="The pick snaps.",
-)
+MOVE_ARGS = dict(actor="Kethra", move="defy_danger", stat="dex")
 
 
 # -- plain narration ----------------------------------------------------------------------------
@@ -142,7 +139,7 @@ async def test_system_instruction_carries_layers_one_to_three(rig):
     await player(n)
 
     system = n.client.calls[0]["config"].system_instruction
-    assert "You do NOT decide whether a roll succeeded" in system[0]
+    assert "You do NOT decide whether a move succeeded" in system[0]
     assert "authoritative" in system[1].lower()  # live state, rebuilt per call
 
 
@@ -174,29 +171,28 @@ async def test_player_text_is_attributed_and_sanitised(rig):
     assert "I look around" in part.text
 
 
-# -- open_check is a deferred call ----------------------------------------------------------------
+# -- make_move is a deferred call -----------------------------------------------------------------
 
 
-async def test_open_check_routes_through_the_director(rig):
+async def test_make_move_routes_through_the_director(rig):
     director, _, _ = rig
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS, text="You crouch by the lock."))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS, text="You crouch by the lock."))
     result = await player(n)
 
     assert result.text == "You crouch by the lock."
-    assert any(isinstance(e, SendMessage) and "roll for sleight of hand" in e.text
+    assert any(isinstance(e, SendMessage) and "Defy Danger, roll +Dex" in e.text
                for e in result.effects)
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
     (check,) = list(director.registry.open_checks(CHANNEL))
-    assert check.dc == 15
-    assert check.on_success == "The tumblers give."
+    assert (check.move, check.stat) == ("defy_danger", "dex")
 
 
 async def test_with_no_roster_the_check_belongs_to_whoever_spoke(rig):
     """At a table nobody has set up, the person acting is the person who rolls. Before
     this the check went to user 0 -- which no click can ever come from."""
     director, _, _ = rig
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS))
     await player(n)
 
     (check,) = list(director.registry.open_checks(CHANNEL))
@@ -207,7 +203,7 @@ async def test_the_roster_decides_who_rolls_not_the_speaker(rig):
     """Bob describing Kethra's lockpicking does not make it Bob's roll."""
     director, _, _ = rig
     director.set_player_character(ALICE, "Kethra")
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS))
     await n.narrate(
         channel_id=CHANNEL,
         kind="player_action",
@@ -219,11 +215,11 @@ async def test_the_roster_decides_who_rolls_not_the_speaker(rig):
     assert check.user_id == ALICE
 
 
-async def test_turn_stops_at_open_check(rig):
+async def test_turn_stops_at_make_move(rig):
     """The model must not keep going after asking for a roll."""
     n = narrator(
         rig,
-        call_response(T.OPEN_CHECK, OPEN_ARGS),
+        call_response(T.MAKE_MOVE, MOVE_ARGS),
         text_response("...and the door swings open!"),  # must never be requested
     )
     result = await player(n)
@@ -232,28 +228,28 @@ async def test_turn_stops_at_open_check(rig):
     assert "swings open" not in result.text
 
 
-async def test_open_check_call_is_left_unanswered(rig):
+async def test_make_move_call_is_left_unanswered(rig):
     """It is answered later, by the roll outcome. That is the whole mechanism."""
     _, _, history = rig
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS))
     await player(n)
 
     turns, _ = history.load(CHANNEL)
     assert turns[-1]["role"] == "model"
-    assert turns[-1]["parts"][-1]["function_call"]["name"] == T.OPEN_CHECK
+    assert turns[-1]["parts"][-1]["function_call"]["name"] == T.MAKE_MOVE
 
 
 async def test_outcome_arrives_as_the_function_response_to_that_call(rig):
     """§9.1: trust rides on the transport, not on a string in the payload."""
     _, _, history = rig
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS), text_response("The lock gives."))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS), text_response("The lock gives."))
     await player(n)
 
     result = await n.narrate(
         channel_id=CHANNEL,
         kind="check_outcome",
-        payload={"succeeded": True, "roll_total": 20, "dc": 15,
-                 "established_consequence": "The tumblers give."},
+        payload={"result": "10+ (strong hit)", "roll_total": 10,
+                 "what_it_means": "You do what you set out to."},
     )
     assert result.text == "The lock gives."
 
@@ -261,20 +257,20 @@ async def test_outcome_arrives_as_the_function_response_to_that_call(rig):
     part = sent.parts[0]
     assert sent.role == "user"
     assert part.function_response is not None
-    assert part.function_response.name == T.OPEN_CHECK
-    assert part.function_response.response["succeeded"] is True
+    assert part.function_response.name == T.MAKE_MOVE
+    assert part.function_response.response["result"] == "10+ (strong hit)"
     # Never delivered as prose the model could mistake for a player's claim.
     assert part.text is None
 
 
 async def test_expiry_answers_the_same_call_as_not_attempted(rig):
-    n = narrator(rig, call_response(T.OPEN_CHECK, OPEN_ARGS), text_response("The moment passes."))
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS), text_response("The moment passes."))
     await player(n)
     await n.narrate(channel_id=CHANNEL, kind="check_expired",
-                    payload={"actor": "Kethra", "key": "sleight_of_hand"})
+                    payload={"actor": "Kethra", "move": "Defy Danger"})
 
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
-    assert fr.name == T.OPEN_CHECK
+    assert fr.name == T.MAKE_MOVE
     assert fr.response["attempted"] is False
     assert "Do not resolve" in fr.response["instruction"]
 
@@ -284,7 +280,7 @@ async def test_outcome_without_a_pending_call_falls_back_to_text(rig):
     n = narrator(rig, text_response("Somehow, it opens."))
     result = await n.narrate(
         channel_id=CHANNEL, kind="check_outcome",
-        payload={"succeeded": True, "roll_total": 20, "dc": 15},
+        payload={"result": "10+ (strong hit)", "roll_total": 10},
     )
     assert result.text == "Somehow, it opens."
 
@@ -293,9 +289,9 @@ async def test_outcome_without_a_pending_call_falls_back_to_text(rig):
     assert "RULES ENGINE RESULT" in part.text
 
 
-async def test_missing_key_becomes_a_retryable_system_note(rig):
-    """A check with nothing to test never reaches the channel; the model is told to fix it."""
-    n = narrator(rig, call_response(T.OPEN_CHECK, {**OPEN_ARGS, "key": ""}))
+async def test_a_bad_move_becomes_a_retryable_system_note(rig):
+    """Defy Danger with no stat never reaches the channel; the model is told to fix it."""
+    n = narrator(rig, call_response(T.MAKE_MOVE, {**MOVE_ARGS, "stat": ""}))
     result = await player(n)
 
     assert not any(isinstance(e, SendMessage) for e in result.effects)
@@ -523,13 +519,33 @@ async def test_summarisation_failure_does_not_break_the_turn(rig):
 # -- tool declarations --------------------------------------------------------------------------------
 
 
-def test_open_check_description_tells_the_model_to_stop():
-    """Belt and braces with the system instruction, at the point of use."""
-    decl = next(d for d in T.DECLARATIONS if d.name == T.OPEN_CHECK)
+def test_make_move_description_tells_the_model_to_stop_and_lists_every_trigger():
+    """Belt and braces with the system instruction, at the point of use -- where the model
+    is choosing which move the fiction triggered."""
+    from gary.moves import MOVES
+
+    decl = next(d for d in T.DECLARATIONS if d.name == T.MAKE_MOVE)
     text = decl.description.lower()
     assert "stop" in text
-    assert "before any dice" in text
-    assert "cannot be changed" in text
+    assert "decide nothing about the outcome" in text
+    for move in MOVES.values():
+        assert f"- {move.key}: when you {move.trigger}" in decl.description
+    assert list(decl.parameters.properties["move"].enum) == sorted(MOVES)
+
+
+async def test_a_history_from_before_moves_is_answered_under_its_own_call(rig):
+    """A channel whose history ends on an unanswered open_check: Gemini rejects a response
+    whose name does not match its call, so the answer goes back as open_check."""
+    _, _, history = rig
+    history.save_turns(CHANNEL, [
+        {"role": "user", "parts": [{"text": "I pick the lock"}]},
+        {"role": "model", "parts": [{"function_call": {"name": "open_check", "args": {}}}]},
+    ])
+    n = narrator(rig, text_response("The moment passes."))
+    await n.narrate(channel_id=CHANNEL, kind="check_expired", payload={"actor": "Kethra"})
+
+    fr = n.client.calls[0]["contents"][-1].parts[0].function_response
+    assert fr.name == "open_check"
 
 
 def test_every_declaration_is_well_formed():
@@ -541,7 +557,7 @@ def test_every_declaration_is_well_formed():
 
 
 async def test_automatic_function_calling_is_disabled(rig):
-    """The SDK's own loop would answer open_check immediately instead of deferring it."""
+    """The SDK's own loop would answer make_move immediately instead of deferring it."""
     n = narrator(rig, text_response("ok"))
     await player(n)
     assert n.client.calls[0]["config"].automatic_function_calling.disable is True

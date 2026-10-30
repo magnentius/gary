@@ -77,7 +77,7 @@ def empty_state(epoch_date: Optional[str] = None) -> Dict[str, Any]:
         "quests": {},  # quest_id -> {"title": str, "status": str, "notes": [str]}
         "npcs": {},  # npc_id -> {"name": str, "disposition": int, "notes": [str]}
         # discord user id (as str -- JSON object keys are strings) -> character name.
-        # What lets open_check name a character someone is actually playing.
+        # What lets make_move name a character someone is actually playing.
         "players": {},
         # character name -> sheet (see sheets.py). Written whole on creation.
         "sheets": {},

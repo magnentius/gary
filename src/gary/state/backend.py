@@ -33,7 +33,7 @@ try:  # Protocol is 3.8+, but runtime_checkable helps tests assert conformance.
 except ImportError:  # pragma: no cover
     from typing_extensions import Protocol, runtime_checkable  # type: ignore
 
-from ..models import PendingCheck
+from ..models import PendingCheck, restorable
 
 
 # ---------------------------------------------------------------------------------------
@@ -130,7 +130,7 @@ class InMemoryCheckBackend:
         self._checks.pop(check_id, None)
 
     def load_all(self) -> List[PendingCheck]:
-        return [PendingCheck.from_dict(d) for d in self._checks.values()]
+        return restorable(self._checks.values())
 
 
 # ---------------------------------------------------------------------------------------
@@ -257,4 +257,4 @@ class FileCheckBackend:
                 atomic_write_json(self.path, checks)
 
     def load_all(self) -> List[PendingCheck]:
-        return [PendingCheck.from_dict(d) for d in self._read().values()]
+        return restorable(self._read().values())

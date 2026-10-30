@@ -27,7 +27,8 @@ import discord
 
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
-from ..fsm import Director, PromptModel
+from ..fsm import ChoicePrompt, Director, PromptModel, RollPrompt
+from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
 from ..ports import EchoNarrator, Narrator
 from ..registry import PendingCheckRegistry
@@ -80,6 +81,83 @@ class RollButton(
         await interaction.client.on_roll(interaction, self.check_id)
 
 
+#: Discord's limit on a button label.
+MAX_LABEL = 80
+
+
+class PickButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:pick:(?P<check_id>[0-9A-Z]+):(?P<index>\d+)",
+):
+    """One option of a pick-one choice. Like RollButton, it survives a restart: the
+    check and the option ride in the custom id, and a held move survives one too."""
+
+    def __init__(self, check_id: str, index: int, label: str = "") -> None:
+        if len(label) > MAX_LABEL:
+            label = label[: MAX_LABEL - 1] + "…"
+        super().__init__(
+            discord.ui.Button(
+                label=label or f"Option {index + 1}",
+                style=discord.ButtonStyle.primary,
+                custom_id=f"gary:pick:{check_id}:{index}",
+            )
+        )
+        self.check_id = check_id
+        self.index = index
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "PickButton":
+        return cls(match["check_id"], int(match["index"]))
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_choose(interaction, self.check_id, [self.index])
+
+
+class ChooseSelect(
+    discord.ui.DynamicItem[discord.ui.Select],
+    template=r"gary:choose:(?P<check_id>[0-9A-Z]+):(?P<move>[a-z_]+):(?P<band>strong|weak|miss)",
+):
+    """A pick-several choice -- Discern Realities' three questions. A dropdown that takes
+    exactly ``count``, because three buttons toggled on and off is a worse way to say
+    the same thing. The move and band ride in the custom id so the options can be rebuilt
+    after a restart; Discord sends the picks themselves."""
+
+    def __init__(self, check_id: str, move: str, band: str) -> None:
+        choice = MOVES[move].band(band).choice
+        super().__init__(
+            discord.ui.Select(
+                placeholder=f"Choose {choice.count}",
+                min_values=choice.count,
+                max_values=choice.count,
+                options=[
+                    discord.SelectOption(label=o.text[:100], value=str(i))
+                    for i, o in enumerate(choice.options)
+                ],
+                custom_id=f"gary:choose:{check_id}:{move}:{band}",
+            )
+        )
+        self.check_id = check_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "ChooseSelect":
+        return cls(match["check_id"], match["move"], match["band"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_choose(
+            interaction, self.check_id, [int(v) for v in self.item.values]
+        )
+
+
+def choice_view(prompt: ChoicePrompt) -> "discord.ui.View":
+    view = discord.ui.View(timeout=None)
+    if prompt.count == 1:
+        for i, text in enumerate(prompt.options):
+            view.add_item(PickButton(prompt.check_id, i, text))
+    else:
+        view.add_item(ChooseSelect(prompt.check_id, prompt.move, prompt.band))
+    return view
+
+
 def roll_view(check_id: str, disabled: bool = False) -> "discord.ui.View":
     # timeout=None: a check can wait minutes for its roll, and a View that times out
     # stops answering clicks while the check is still open.
@@ -94,9 +172,7 @@ class DiscordTransport:
     def __init__(self, client: "discord.Client") -> None:
         self._client = client
 
-    async def send(
-        self, channel_id: int, text: str, roll_check_id: Optional[str] = None
-    ) -> None:
+    async def send(self, channel_id: int, text: str, prompt: Optional[object] = None) -> None:
         channel = self._client.get_channel(channel_id)
         if channel is None:
             try:
@@ -104,8 +180,10 @@ class DiscordTransport:
             except discord.HTTPException:
                 log.error("cannot reach channel %d; dropping message", channel_id)
                 return
-        if roll_check_id is not None:
-            await channel.send(text, view=roll_view(roll_check_id))
+        if isinstance(prompt, RollPrompt):
+            await channel.send(text, view=roll_view(prompt.check_id))
+        elif isinstance(prompt, ChoicePrompt):
+            await channel.send(text, view=choice_view(prompt))
         else:
             await channel.send(text)
 
@@ -191,7 +269,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton)
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -571,14 +649,35 @@ class GaryClient(discord.Client):
         await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet)}")
         return None
 
-    def _why_no_roll(self, channel_id: int, check_id: str) -> str:
+    async def on_choose(
+        self, interaction: "discord.Interaction", check_id: str, picks: List[int]
+    ) -> None:
+        """An option was picked after a roll. Answered the same way as a roll: first by
+        taking the options away, then with the choice and the narration."""
+        channel_id = interaction.channel_id
+        effects = self.director.choose(
+            channel_id=channel_id, user_id=interaction.user.id, check_id=check_id, picks=picks
+        )
+        if not effects:
+            await interaction.response.send_message(
+                self._why_no_roll(channel_id, check_id, verb="choice"), ephemeral=True
+            )
+            return
+
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            log.warning("could not clear the choice for %s", check_id)
+        await self.runner.run(effects)
+
+    def _why_no_roll(self, channel_id: int, check_id: str, verb: str = "roll") -> str:
         pending = next(
             (c for c in self.director.registry.open_checks(channel_id) if c.check_id == check_id),
             None,
         )
         if pending is not None:
-            return f"That roll is **{pending.actor}**'s to make."
-        return "That roll has already been made, has expired, or was replaced by a newer one."
+            return f"That {verb} is **{pending.actor}**'s to make."
+        return f"That {verb} has already been made, has expired, or was replaced by a newer one."
 
     def _addressed_directly(self, message: "discord.Message") -> bool:
         """Was Gary mentioned -- as the user, or as his own managed role?
@@ -867,7 +966,7 @@ class GaryClient(discord.Client):
             else:
                 self.director.registry.cancel(mine[0].check_id, CancelReason.MANUAL)
                 await self.sender.send(
-                    channel_id, f"Cancelled {mine[0].actor}'s {mine[0].kind.value}."
+                    channel_id, f"Cancelled {mine[0].actor}'s {MOVES[mine[0].move].name}."
                 )
 
         elif command == "checks":
@@ -877,8 +976,9 @@ class GaryClient(discord.Client):
             else:
                 now = self.clock()
                 lines = [
-                    f"- **{c.actor}** {c.kind.value} {c.key} — {c.dice} "
-                    f"({max(0, int(c.expires_at - now))}s left)"
+                    f"- **{c.actor}** {MOVES[c.move].name} — "
+                    + ("rolled, waiting on a choice" if c.rolled else "waiting on the roll")
+                    + f" ({max(0, int(c.expires_at - now))}s left)"
                     for c in open_checks
                 ]
                 await self.sender.send(channel_id, "\n".join(lines))
@@ -1001,6 +1101,7 @@ def build_client(
         game_channels=set(settings.game_channels),
         freeform_channels=set(settings.freeform_channels),
         players=dict(settings.players),
+        sheet_for=lambda actor: (store.state().get("sheets") or {}).get(actor),
     )
 
     if narrator is None:

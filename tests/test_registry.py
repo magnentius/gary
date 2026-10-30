@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-from gary.models import CancelReason, CheckKind
+from gary.models import CancelReason
 
 CHANNEL = 555
 ALICE = 111
 BOB = 222
 
 
-def open_for(registry, user_id, actor, key="stealth", dc=15, ttl=None):
+def open_for(registry, user_id, actor, move="defy_danger", modifier=0, ttl=None):
     return registry.open(
         channel_id=CHANNEL,
         user_id=user_id,
         actor=actor,
-        kind=CheckKind.CHECK,
-        key=key,
-        dc=dc,
-        on_success="ok",
-        on_failure="no",
+        move=move,
+        stat="dex",
+        modifier=modifier,
         stakes="",
-        dice="1d20",
+        dice="2d6",
         ttl_seconds=ttl,
     )
 
@@ -43,8 +41,8 @@ def test_another_player_cannot_reach_it(registry):
 
 def test_two_players_sharing_a_character_name_stay_apart(registry):
     """The case name matching could not resolve (§14 (6)): attribution is by user now."""
-    alice_check, _ = open_for(registry, ALICE, "Kethra", dc=10)
-    bob_check, _ = open_for(registry, BOB, "Kethra", dc=25)
+    alice_check, _ = open_for(registry, ALICE, "Kethra", modifier=2)
+    bob_check, _ = open_for(registry, BOB, "Kethra", modifier=-1)
     assert registry.for_player(CHANNEL, ALICE).check_id == alice_check.check_id
     assert registry.for_player(CHANNEL, BOB).check_id == bob_check.check_id
 
@@ -57,7 +55,7 @@ def test_other_channels_are_isolated(registry):
 def test_second_check_supersedes_first(registry):
     first, displaced = open_for(registry, ALICE, "Kethra")
     assert displaced is None
-    second, displaced = open_for(registry, ALICE, "Kethra", key="perception")
+    second, displaced = open_for(registry, ALICE, "Kethra", move="discern_realities")
     assert displaced is not None and displaced.check_id == first.check_id
     assert list(registry.open_checks(CHANNEL)) == [second]
 
@@ -97,3 +95,14 @@ def test_restore_after_restart(registry, clock):
     assert not fresh.has_open(CHANNEL)
     fresh.restore([check])
     assert fresh.for_player(CHANNEL, ALICE) is not None
+
+
+def test_a_move_held_for_a_choice_keeps_its_dice_and_gets_a_fresh_ttl(registry, clock):
+    check, _ = open_for(registry, ALICE, "Kethra", ttl=60)
+    clock.advance(50)
+    held = registry.hold_for_choice(check, (4, 3))
+
+    assert held.rolled and held.faces == (4, 3)
+    assert held.check_id == check.check_id
+    clock.advance(30)  # past the original TTL; within the fresh one
+    assert registry.for_player(CHANNEL, ALICE) == held

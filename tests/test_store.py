@@ -276,46 +276,47 @@ def test_player_character_is_persisted_and_undoable(store):
     assert store.state()["players"] == {"111": "Kethra"}
 
 
-def test_check_outcomes_are_journalled_but_change_no_state(store):
-    """The DC-before-the-dice guarantee needs evidence it held, after the fact."""
-    from gary.models import CheckKind, CheckOutcome
+def _volley(check_id="c1", actor="Caspian Varr"):
+    from gary.models import MoveOutcome
 
-    before = store.state()
-    store.record_check_outcome(
-        CheckOutcome(
-            check_id="c1", actor="Caspian Varr", kind=CheckKind.CHECK,
-            key="sleight_of_hand", total=19, dc=15, margin=4, succeeded=True,
-            consequence="The latch releases.", natural=20, faces=(20,),
-        )
+    return MoveOutcome(
+        check_id=check_id, actor=actor, move="volley", stat="dex", modifier=2,
+        faces=(3, 2), total=7, band="weak", text="Choose one.",
+        chosen=("Take what you can get: -1d6 damage.",),
     )
+
+
+def test_move_outcomes_are_journalled_but_change_no_state(store):
+    """The commit-before-the-dice guarantee needs evidence it held, after the fact."""
+    before = store.state()
+    store.record_check_outcome(_volley())
     assert store.state() == before  # history, not state
 
     entry = store.journal()[-1]
-    assert entry["kind"] == "check_outcome"
+    assert entry["kind"] == "move_outcome"
     assert entry["target"] == "Caspian Varr"
-    assert entry["payload"]["dc"] == 15
-    assert entry["payload"]["total"] == 19
-    assert entry["payload"]["natural"] == 20
-    assert entry["payload"]["faces"] == [20]
-    assert entry["payload"]["succeeded"] is True
+    assert entry["payload"]["move"] == "volley"
+    assert (entry["payload"]["modifier"], entry["payload"]["faces"]) == (2, [3, 2])
+    assert (entry["payload"]["total"], entry["payload"]["band"]) == (7, "weak")
+    assert entry["payload"]["chosen"] == ["Take what you can get: -1d6 damage."]
 
 
-def test_replaying_a_check_outcome_is_a_no_op(backend_factory, clock):
-    """Recovery is snapshot + replay; an outcome entry must not resurrect anything."""
-    from gary.models import CheckKind, CheckOutcome
-
+def test_replaying_an_outcome_is_a_no_op(backend_factory, clock):
+    """Recovery is snapshot + replay; an outcome entry must not resurrect anything --
+    including the d20 check_outcome entries journalled before moves."""
     first = CampaignStore(backend=backend_factory(), clock=clock)
     first.apply([gold("Kethra", 50)], reason="found coin")
-    first.record_check_outcome(
-        CheckOutcome(check_id="c1", actor="Kethra", kind=CheckKind.CHECK, key="stealth",
-                     total=8, dc=15, margin=-7, succeeded=False, consequence="Seen.",
-                     natural=8)
-    )
+    first.record_check_outcome(_volley(actor="Kethra"))
+    first._append_journal({
+        "entry_id": "old", "at": clock(), "kind": "check_outcome", "target": "Kethra",
+        "payload": {"dc": 15, "total": 8, "succeeded": False}, "inverse": None,
+        "reason": "a d20 check",
+    })
     expected = first.state()
 
     reopened = CampaignStore(backend=backend_factory(), clock=clock)
     assert reopened.state() == expected
-    assert reopened.journal()[-1]["kind"] == "check_outcome"
+    assert [e["kind"] for e in reopened.journal()[-2:]] == ["move_outcome", "check_outcome"]
 
 
 def test_reset_clears_everything_including_the_roster(store):

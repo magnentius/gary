@@ -5,7 +5,7 @@ and returns prose plus whatever effects those calls produced.
 
 The one non-obvious idea here is how a check's result gets back to the model.
 
-**A check is a deferred function call.** When the model calls ``open_check``, the call is
+**A move is a deferred function call.** When the model calls ``make_move``, the call is
 *deliberately left unanswered*. Gary asks the player to roll and the turn ends with that
 call still open. Minutes later the player rolls, and the outcome is delivered as the
 ``function_response`` to that original call. This is not a trick — it is exactly what
@@ -41,7 +41,7 @@ from ..context import (
     render_memory,
 )
 from ..fsm import Director
-from ..models import CheckKind, Mutation, MutationKind
+from ..models import Mutation, MutationKind
 from ..registry import normalize_actor
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -271,16 +271,18 @@ class GeminiNarrator:
                 ),
             }
 
-        # The deferred answer, if an open_check call is genuinely waiting for one.
-        if _awaits_open_check(history):
+        # The deferred answer, if a move call is genuinely waiting for one. Answered under
+        # the name it was called by: a history from before moves ends on open_check.
+        waiting = _awaiting_move(history)
+        if waiting:
             return types.Content(
                 role="user",
-                parts=[types.Part.from_function_response(name=T.OPEN_CHECK, response=response)],
+                parts=[types.Part.from_function_response(name=waiting, response=response)],
             )
 
         # History was trimmed past the call, or something arrived out of order. Fall back
         # to text rather than emitting an unpaired function_response, which Gemini rejects.
-        log.info("no open_check awaiting a response; delivering %s as text", kind)
+        log.info("no move awaiting a response; delivering %s as text", kind)
         return types.Content(
             role="user",
             parts=[types.Part.from_text(text="RULES ENGINE RESULT: " + json.dumps(response))],
@@ -310,7 +312,7 @@ class GeminiNarrator:
 
             deferred, responses = self._dispatch(channel_id, calls, effects)
             if deferred:
-                # open_check was called. The turn ends here with that call unanswered;
+                # make_move was called. The turn ends here with that call unanswered;
                 # the roll outcome will answer it. Anything the model wanted to do after
                 # asking for a check is exactly what it must not do yet.
                 break
@@ -333,10 +335,10 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
-            if name == T.OPEN_CHECK:
-                effects.extend(self._open_check(channel_id, args))
+            if name == T.MAKE_MOVE:
+                effects.extend(self._make_move(channel_id, args))
                 if len(calls) > 1:
-                    log.warning("open_check issued alongside %d other call(s); skipping them", len(calls) - 1)
+                    log.warning("make_move issued alongside %d other call(s); skipping them", len(calls) - 1)
                 return True, responses
 
             try:
@@ -349,22 +351,15 @@ class GeminiNarrator:
 
         return False, responses
 
-    def _open_check(self, channel_id: int, args: Dict[str, Any]) -> List[Any]:
+    def _make_move(self, channel_id: int, args: Dict[str, Any]) -> List[Any]:
         """Route the model's request through the Director, which owns the decision."""
-        try:
-            kind = CheckKind(str(args.get("kind", "check")).lower())
-        except ValueError:
-            kind = CheckKind.CHECK
-
-        return self._director.open_check(
+        actor = str(args.get("actor", ""))
+        return self._director.open_move(
             channel_id=channel_id,
-            user_id=self._user_id_for(channel_id, str(args.get("actor", ""))),
-            actor=str(args.get("actor", "")),
-            kind=kind,
-            key=str(args.get("key", "")),
-            dc=int(args.get("dc", 10)),
-            on_success=str(args.get("on_success", "")),
-            on_failure=str(args.get("on_failure", "")),
+            user_id=self._user_id_for(channel_id, actor),
+            actor=actor,
+            move=str(args.get("move", "")),
+            stat=str(args.get("stat", "") or ""),
             stakes=str(args.get("stakes", "")),
         )
 
@@ -453,7 +448,7 @@ class GeminiNarrator:
             system_instruction=system_instruction,
             tools=T.tool_config(),
             temperature=self._temperature,
-            # We dispatch calls ourselves: open_check must go through the Director, and
+            # We dispatch calls ourselves: make_move must go through the Director, and
             # the SDK's automatic loop would answer it immediately rather than deferring.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         )
@@ -549,17 +544,18 @@ def _parts_of(response: Any) -> List[types.Part]:
     return list(getattr(content, "parts", None) or [])
 
 
-def _awaits_open_check(history: Sequence[Dict[str, Any]]) -> bool:
-    """True when the most recent turn is a model turn that called open_check."""
+def _awaiting_move(history: Sequence[Dict[str, Any]]) -> str:
+    """The name of the move call the most recent model turn left open, or ""."""
     if not history:
-        return False
+        return ""
     last = history[-1]
     if last.get("role") != "model":
-        return False
-    return any(
-        (part.get("function_call") or {}).get("name") == T.OPEN_CHECK
-        for part in last.get("parts", [])
-    )
+        return ""
+    for part in last.get("parts", []):
+        name = (part.get("function_call") or {}).get("name")
+        if name in (T.MAKE_MOVE, T.LEGACY_OPEN_CHECK):
+            return name
+    return ""
 
 
 def _diff_result(diff) -> Dict[str, Any]:

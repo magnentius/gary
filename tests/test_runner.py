@@ -9,7 +9,7 @@ from __future__ import annotations
 import pytest
 
 from gary.adapters.runner import STALL_MESSAGE, EffectRunner
-from gary.fsm import PromptModel, SendMessage
+from gary.fsm import PromptModel, RollPrompt, SendMessage
 from gary.ports import EchoNarrator, NarrationResult
 
 CHANNEL = 555
@@ -20,10 +20,10 @@ class FakeSender:
         self.sent = []
         self.buttons = []
 
-    async def send(self, channel_id: int, text: str, roll_check_id=None) -> None:
+    async def send(self, channel_id: int, text: str, prompt=None) -> None:
         self.sent.append((channel_id, text))
-        if roll_check_id is not None:
-            self.buttons.append((text, roll_check_id))
+        if prompt is not None:
+            self.buttons.append((text, prompt))
 
 
 class ScriptedNarrator:
@@ -58,8 +58,9 @@ async def test_send_message_reaches_the_channel():
 
 async def test_a_roll_request_keeps_its_button():
     sender = FakeSender()
-    await runner(sender).run([SendMessage(CHANNEL, "**Kethra** — roll", roll_check_id="C1")])
-    assert sender.buttons == [("**Kethra** — roll", "C1")]
+    prompt = RollPrompt("C1")
+    await runner(sender).run([SendMessage(CHANNEL, "**Kethra** — roll", prompt=prompt)])
+    assert sender.buttons == [("**Kethra** — roll", prompt)]
 
 
 async def test_a_hoisted_roll_request_keeps_its_button_too():
@@ -67,10 +68,10 @@ async def test_a_hoisted_roll_request_keeps_its_button_too():
     sender = FakeSender()
     narrator = ScriptedNarrator(NarrationResult(
         text="You crouch by the lock.",
-        effects=[SendMessage(CHANNEL, "**Kethra** — roll", roll_check_id="C1")],
+        effects=[SendMessage(CHANNEL, "**Kethra** — roll", prompt=RollPrompt("C1"))],
     ))
     await runner(sender, narrator).run([PromptModel(CHANNEL, "player_action", {})])
-    assert sender.buttons == [("**Kethra** — roll", "C1")]
+    assert sender.buttons == [("**Kethra** — roll", RollPrompt("C1"))]
 
 
 async def test_unknown_effect_type_is_logged_not_fatal():
@@ -187,7 +188,7 @@ async def test_bounded_nesting_completes_normally():
 
 
 async def test_echo_narrator_reports_outcomes_without_a_model():
-    """Lets the whole Discord path be proven against live Avrae with no API key."""
+    """Lets the whole Discord path be proven with no API key."""
     sender = FakeSender()
     await runner(sender, EchoNarrator()).run(
         [
@@ -195,18 +196,19 @@ async def test_echo_narrator_reports_outcomes_without_a_model():
                 CHANNEL,
                 "check_outcome",
                 {
-                    "succeeded": True,
                     "actor": "Kethra",
-                    "roll_total": 17,
-                    "dc": 15,
-                    "established_consequence": "The tumblers give.",
+                    "move": "Volley",
+                    "result": "7-9 (weak hit)",
+                    "what_it_means": "Choose one.",
+                    "player_chose": ["Take what you can get: -1d6 damage."],
                 },
             )
         ]
     )
-    text = sender.sent[0][1]
-    assert "SUCCESS" in text and "17" in text and "15" in text
-    assert "The tumblers give." in text
+    assert sender.sent[0][1] == (
+        "[7-9 (weak hit)] Kethra, Volley: Choose one.\n"
+        "Chose: Take what you can get: -1d6 damage."
+    )
 
 
 @pytest.mark.asyncio

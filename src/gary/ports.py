@@ -25,7 +25,7 @@ class NarrationResult:
     """What a narrator produced.
 
     ``effects`` exists because narrating is not always the end of a turn: the model may
-    call ``open_check``, which the LLM adapter routes through the Director and which
+    call ``make_move``, which the LLM adapter routes through the Director and which
     yields further effects (asking the player to roll). Returning them rather than
     performing them keeps the decision inside the core.
     """
@@ -57,13 +57,12 @@ class Narrator(Protocol):
 class MessageTransport(Protocol):
     """Sends text to a channel. Implemented by the Discord adapter.
 
-    ``roll_check_id``, when given, asks for a Roll button for that check under the text.
-    Passed only when set, so a transport with nothing to attach need not accept it.
+    ``prompt``, when given, is something for a player to click under the text -- an
+    ``fsm.RollPrompt`` or ``fsm.ChoicePrompt``. Passed only when set, so a transport with
+    nothing to attach need not accept it.
     """
 
-    async def send(
-        self, channel_id: int, text: str, roll_check_id: Optional[str] = None
-    ) -> None: ...
+    async def send(self, channel_id: int, text: str, prompt: Optional[object] = None) -> None: ...
 
 
 @runtime_checkable
@@ -154,17 +153,17 @@ class EchoNarrator:
         self.calls.append({"channel_id": channel_id, "kind": kind, "payload": payload})
 
         if kind == "check_outcome":
-            verdict = "SUCCESS" if payload.get("succeeded") else "FAILURE"
+            chose = payload.get("player_chose")
             return NarrationResult(
                 text=(
-                    f"[{verdict}] {payload.get('actor')} rolled "
-                    f"{payload.get('roll_total')} against DC {payload.get('dc')}.\n"
-                    f"{payload.get('established_consequence', '')}"
+                    f"[{payload.get('result')}] {payload.get('actor')}, "
+                    f"{payload.get('move')}: {payload.get('what_it_means', '')}"
+                    + (f"\nChose: {'; '.join(chose)}" if chose else "")
                 )
             )
         if kind == "check_expired":
             return NarrationResult(
-                text=f"[expired] {payload.get('actor')}'s {payload.get('key')} check lapsed."
+                text=f"[expired] {payload.get('actor')}'s {payload.get('move')} lapsed."
             )
         if kind == "system_note":
             return NarrationResult(text=f"[system] {payload.get('error', '')}")

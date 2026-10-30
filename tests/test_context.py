@@ -172,9 +172,10 @@ def test_persona_and_live_state_are_never_trimmed():
 def test_authority_rules_are_actually_in_the_persona():
     """These sentences are the mitigation for the design's central failure mode."""
     lowered = DM_SYSTEM_INSTRUCTION.lower()
-    assert "do not decide whether a roll succeeded" in lowered
-    assert "open_check" in lowered
+    assert "do not decide whether a move succeeded" in lowered
+    assert "make_move" in lowered
     assert "never roll or invent a number yourself" in lowered
+    assert "on a miss, make a gm move" in lowered
 
 
 def test_notes_are_filtered_to_present_subjects():
@@ -195,8 +196,8 @@ def test_persona_asks_the_model_to_persist_what_it_establishes():
     assert "set_scene" in text
     assert "record_note" in text
     assert "advance_time" in text
-    # and must not invite tool calls in the same turn as open_check, which are discarded
-    assert "alongside open_check" in text
+    # and must not invite tool calls in the same turn as make_move, which are discarded
+    assert "alongside make_move" in text
 
 
 def test_persona_keeps_bookkeeping_away_from_players():

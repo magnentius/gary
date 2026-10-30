@@ -1,8 +1,9 @@
 """End-to-end through every layer except the Gateway socket itself.
 
-Player speaks → Director → open_check → player asked to roll → player rolls → Gary rolls
-the dice → resolve → narrate. The unit tests prove each piece; this proves they are wired
-to each other, which is where a system like this usually breaks.
+Player speaks → Director → make_move → player asked to roll → player clicks Roll → Gary
+rolls the dice → band → (player chooses) → narrate. The unit tests prove each piece;
+this proves they are wired to each other, which is where a system like this usually
+breaks.
 
 Only Discord's transport is faked, and the dice are scripted. The registry does real
 attribution and the resolver does real arithmetic.
@@ -16,8 +17,7 @@ import pytest
 
 from gary.adapters.runner import EffectRunner
 from gary.adapters.sender import ChannelSender
-from gary.fsm import ChannelState, Director
-from gary.models import CheckKind
+from gary.fsm import ChannelState, ChoicePrompt, Director, RollPrompt
 from gary.ports import EchoNarrator, NarrationResult, ScriptedDice
 from gary.registry import PendingCheckRegistry
 from gary.state.backend import FileCheckBackend
@@ -26,60 +26,68 @@ CHANNEL = 555
 ALICE = 111
 BOB = 222
 
+KETHRA = {"name": "Kethra", "stats": {"str": 8, "dex": 16, "con": 13, "int": 12, "wis": 15, "cha": 9}}
+
 
 class FakeTransport:
     def __init__(self) -> None:
         self.sent = []
-        self.buttons = []  # (text, check_id) for each message that carried a Roll button
+        self.prompts = []  # (text, prompt) for each message that carried something to click
 
-    async def send(self, channel_id: int, text: str, roll_check_id=None) -> None:
+    async def send(self, channel_id: int, text: str, prompt=None) -> None:
         self.sent.append((channel_id, text))
-        if roll_check_id is not None:
-            self.buttons.append((text, roll_check_id))
+        if prompt is not None:
+            self.prompts.append((text, prompt))
 
 
 class DirectorNarrator:
     """Stands in for the Gemini adapter.
 
     Its only job here is what the real one will do: translate a decision to call
-    ``open_check`` into a Director call, and return the resulting effects.
+    ``make_move`` into a Director call, and return the resulting effects.
     """
 
     def __init__(self, director: Director) -> None:
         self.director = director
-        self.open_next = None
+        self.move_next = None
         self.seen = []
 
     async def narrate(self, *, channel_id, kind, payload):
         self.seen.append((kind, payload))
-        if kind == "player_action" and self.open_next is not None:
-            spec, self.open_next = self.open_next, None
+        if kind == "player_action" and self.move_next is not None:
+            spec, self.move_next = self.move_next, None
             return NarrationResult(
-                text="You crouch by the lock, picks in hand.",
-                effects=self.director.open_check(
+                text="You draw and loose in one motion.",
+                effects=self.director.open_move(
                     channel_id=channel_id, user_id=payload["speaker_user_id"], **spec
                 ),
             )
         if kind == "check_outcome":
-            return NarrationResult(text=payload["established_consequence"])
+            return NarrationResult(text=f"[{payload['result']}] {payload['what_it_means']}")
         return NarrationResult(text="...")
+
+
+def build(clock, path, dice):
+    registry = PendingCheckRegistry(clock=clock, backend=FileCheckBackend(path))
+    director = Director(
+        registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+        sheet_for={"Kethra": KETHRA}.get,
+    )
+    narrator = DirectorNarrator(director)
+    transport = FakeTransport()
+    runner = EffectRunner(
+        ChannelSender(transport, interval_seconds=0.0, clock=lambda: 0.0), narrator, max_depth=4
+    )
+    return director, narrator, runner, transport
 
 
 @pytest.fixture
 def rig(clock, tmp_path):
     dice = ScriptedDice()
-    registry = PendingCheckRegistry(
-        clock=clock, backend=FileCheckBackend(tmp_path / "checks.json")
-    )
-    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice)
-    narrator = DirectorNarrator(director)
-    transport = FakeTransport()
-    sender = ChannelSender(transport, interval_seconds=0.0, clock=lambda: 0.0)
-    runner = EffectRunner(sender, narrator, max_depth=4)
-    return director, narrator, runner, transport, dice
+    return (*build(clock, tmp_path / "checks.json", dice), dice)
 
 
-async def declare(director, runner, content="I try to pick the lock", user_id=ALICE):
+async def declare(director, runner, content="I shoot the warden", user_id=ALICE):
     await runner.run(
         director.on_player_message(
             channel_id=CHANNEL, user_id=user_id, display_name="Alice",
@@ -88,68 +96,57 @@ async def declare(director, runner, content="I try to pick the lock", user_id=AL
     )
 
 
-async def test_full_turn_from_declaration_to_narrated_outcome(rig):
+async def test_full_turn_from_move_to_narrated_outcome(rig):
     director, narrator, runner, transport, dice = rig
+    narrator.move_next = dict(actor="Kethra", move="defy_danger", stat="dex")
 
-    narrator.open_next = dict(
-        actor="Kethra",
-        kind=CheckKind.CHECK,
-        key="sleight of hand",
-        dc=15,
-        on_success="The tumblers give. The door swings inward.",
-        on_failure="The pick snaps.",
-    )
-
-    # 1. Player declares a risky action.
-    await declare(director, runner)
-
+    # 1. Player acts; the model calls the move.
+    await declare(director, runner, "I dive under the falling portcullis")
     assert director.state(CHANNEL) is ChannelState.AWAITING_ROLL
     # Posted ahead of the narration it belongs to, not after it -- with the button.
-    assert transport.sent[0][1] == "**Kethra** — roll for sleight of hand (check)."
-    ((text, check_id),) = transport.buttons
-    assert text == transport.sent[0][1]
+    assert transport.sent[0][1] == "**Kethra** — Defy Danger, roll +Dex +2."
+    ((_, prompt),) = transport.prompts
+    assert isinstance(prompt, RollPrompt)
 
-    # 2. The player clicks Roll. 20 vs DC 15.
-    dice.queue(20)
-    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=check_id))
+    # 2. The player clicks Roll. 4 + 4 + 2 = 10.
+    dice.queue(4, 4)
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=prompt.check_id))
 
-    # 3. The outcome was decided by arithmetic and handed to the model as fact.
-    kinds = [k for k, _ in narrator.seen]
-    assert kinds == ["player_action", "check_outcome"]
-    outcome = narrator.seen[-1][1]
-    assert outcome["succeeded"] is True
-    assert outcome["dc"] == 15 and outcome["roll_total"] == 20
-
+    # 3. The band was decided by arithmetic and handed to the model as fact.
+    assert [k for k, _ in narrator.seen] == ["player_action", "check_outcome"]
+    assert narrator.seen[-1][1]["result"] == "10+ (strong hit)"
     assert [t for _, t in transport.sent[-2:]] == [
-        "🎲 **Kethra** rolls 20.",
-        "The tumblers give. The door swings inward.",
+        "🎲 **Kethra** rolls 4 + 4 +2 = 10 — strong hit.",
+        "[10+ (strong hit)] You do what you set out to, the threat doesn’t come to bear.",
     ]
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
-async def test_failed_roll_narrates_the_committed_failure_line(rig):
+async def test_a_weak_volley_waits_for_the_players_choice_then_narrates_it(rig):
     director, narrator, runner, transport, dice = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="sleight of hand", dc=25,
-        on_success="The tumblers give.", on_failure="The pick snaps.",
-    )
+    narrator.move_next = dict(actor="Kethra", move="volley")
+    await declare(director, runner)
+    ((_, roll_prompt),) = transport.prompts
 
-    await declare(director, runner, "I pick the lock")
-    dice.queue(20)  # 20 vs DC 25
-    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
+    dice.queue(3, 2)  # 7: weak hit
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE, check_id=roll_prompt.check_id))
+    assert [k for k, _ in narrator.seen] == ["player_action"]  # nothing narrated yet
+    (_, choice) = transport.prompts[-1]
+    assert isinstance(choice, ChoicePrompt) and choice.count == 1
 
-    assert narrator.seen[-1][1]["succeeded"] is False
-    assert transport.sent[-1][1] == "The pick snaps."
+    await runner.run(director.choose(
+        channel_id=CHANNEL, user_id=ALICE, check_id=choice.check_id, picks=[2]
+    ))
+    outcome = narrator.seen[-1][1]
+    assert outcome["player_chose"] == ["Take several shots, reducing your ammo by one."]
+    assert director.state(CHANNEL) is ChannelState.IDLE
 
 
 async def test_someone_elses_roll_costs_nothing(rig):
-    """Bob asking to roll Alice's check: no dice, no model call, no message."""
+    """Bob asking to roll Alice's move: no dice, no model call, no message."""
     director, narrator, runner, transport, dice = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
-        on_success="unseen", on_failure="spotted",
-    )
-    await declare(director, runner, "I sneak")
+    narrator.move_next = dict(actor="Kethra", move="volley")
+    await declare(director, runner)
     before = (list(transport.sent), runner.stats.narrated)
 
     await runner.run(director.roll(channel_id=CHANNEL, user_id=BOB))
@@ -161,11 +158,8 @@ async def test_someone_elses_roll_costs_nothing(rig):
 
 async def test_expiry_narrates_a_pivot(rig, clock):
     director, narrator, runner, transport, _ = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
-        on_success="unseen", on_failure="spotted", ttl_seconds=60,
-    )
-    await declare(director, runner, "I sneak")
+    narrator.move_next = dict(actor="Kethra", move="volley", ttl_seconds=60)
+    await declare(director, runner)
 
     clock.advance(61)
     await runner.run(director.sweep())
@@ -174,41 +168,45 @@ async def test_expiry_narrates_a_pivot(rig, clock):
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
-async def test_a_restart_mid_check_still_resolves(rig, clock, tmp_path):
+async def test_a_restart_mid_move_still_resolves(rig, clock, tmp_path):
     """Gary dies after asking for the roll and before the player makes it."""
     director, narrator, runner, transport, _ = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="sleight of hand", dc=15,
-        on_success="The tumblers give.", on_failure="The pick snaps.",
-    )
-    await declare(director, runner, "I pick the lock")
+    narrator.move_next = dict(actor="Kethra", move="defy_danger", stat="dex")
+    await declare(director, runner)
 
     # ... process restarts: everything below is rebuilt from storage ...
-    revived_dice = ScriptedDice([20])
-    revived_registry = PendingCheckRegistry(
-        clock=clock, backend=FileCheckBackend(tmp_path / "checks.json")
+    revived, revived_narrator, revived_runner, revived_transport = build(
+        clock, tmp_path / "checks.json", ScriptedDice([4, 4])
     )
-    revived_director = Director(
-        registry=revived_registry, clock=clock, game_channels={CHANNEL}, dice=revived_dice
-    )
-    revived_narrator = DirectorNarrator(revived_director)
-    revived_transport = FakeTransport()
-    revived_runner = EffectRunner(
-        ChannelSender(revived_transport, interval_seconds=0.0, clock=lambda: 0.0),
-        revived_narrator,
-    )
+    assert revived.state(CHANNEL) is ChannelState.AWAITING_ROLL
 
-    assert revived_director.state(CHANNEL) is ChannelState.AWAITING_ROLL
-
-    await revived_runner.run(revived_director.roll(channel_id=CHANNEL, user_id=ALICE))
+    await revived_runner.run(revived.roll(channel_id=CHANNEL, user_id=ALICE))
 
     outcome = revived_narrator.seen[-1][1]
-    assert outcome["succeeded"] is True
-    assert outcome["dc"] == 15  # the DC committed before the crash
-    assert revived_transport.sent[-1][1] == "The tumblers give."
+    assert outcome["roll_total"] == 10  # the +2 committed before the crash
+    assert outcome["result"] == "10+ (strong hit)"
 
 
-# -- the Roll button -------------------------------------------------------------------------
+async def test_a_restart_between_the_dice_and_the_choice_loses_neither(rig, clock, tmp_path):
+    director, narrator, runner, transport, dice = rig
+    narrator.move_next = dict(actor="Kethra", move="volley")
+    await declare(director, runner)
+    dice.queue(3, 2)
+    await runner.run(director.roll(channel_id=CHANNEL, user_id=ALICE))
+    (_, choice) = transport.prompts[-1]
+
+    revived, revived_narrator, revived_runner, _ = build(
+        clock, tmp_path / "checks.json", ScriptedDice()
+    )
+    await revived_runner.run(revived.choose(
+        channel_id=CHANNEL, user_id=ALICE, check_id=choice.check_id, picks=[1]
+    ))
+    outcome = revived_narrator.seen[-1][1]
+    assert outcome["roll_total"] == 7
+    assert outcome["player_chose"] == ["Take what you can get: -1d6 damage."]
+
+
+# -- the buttons ---------------------------------------------------------------------------
 
 
 class _Response:
@@ -240,26 +238,26 @@ def _click_client(director, runner):
     client = _Client()
     client.director, client.runner = director, runner
     client._why_no_roll = GaryClient._why_no_roll.__get__(client, _Client)
-    return GaryClient.on_roll.__get__(client, _Client)
-
-
-async def _ask_for_a_roll(rig):
-    director, narrator, runner, transport, dice = rig
-    narrator.open_next = dict(
-        actor="Kethra", kind=CheckKind.CHECK, key="stealth", dc=15,
-        on_success="Unseen.", on_failure="Spotted.",
+    return (
+        GaryClient.on_roll.__get__(client, _Client),
+        GaryClient.on_choose.__get__(client, _Client),
     )
-    await declare(director, runner, "I sneak")
-    ((_, check_id),) = transport.buttons
-    return check_id
+
+
+async def _ask_for_a_roll(rig, move="defy_danger", **kw):
+    director, narrator, runner, transport, dice = rig
+    narrator.move_next = dict(actor="Kethra", move=move, **kw)
+    await declare(director, runner)
+    ((_, prompt),) = transport.prompts
+    return prompt.check_id
 
 
 async def test_clicking_roll_rolls_narrates_and_disables_the_button(rig):
     director, narrator, runner, transport, dice = rig
-    check_id = await _ask_for_a_roll(rig)
-    click = _click_client(director, runner)
+    check_id = await _ask_for_a_roll(rig, stat="dex")
+    click, _ = _click_client(director, runner)
 
-    dice.queue(18)
+    dice.queue(5, 5)
     interaction = _Interaction(ALICE)
     await click(interaction, check_id)
 
@@ -268,14 +266,13 @@ async def test_clicking_roll_rolls_narrates_and_disables_the_button(rig):
     (button,) = view.children
     assert button.item.disabled and button.custom_id == f"gary:roll:{check_id}"
     assert interaction.response.private == []
-    # Then the dice and the narration, in front of everyone.
-    assert [t for _, t in transport.sent[-2:]] == ["🎲 **Kethra** rolls 18.", "Unseen."]
+    assert transport.sent[-2][1] == "🎲 **Kethra** rolls 5 + 5 +2 = 12 — strong hit."
 
 
 async def test_someone_elses_click_is_answered_privately_and_rolls_nothing(rig):
     director, narrator, runner, transport, dice = rig
-    check_id = await _ask_for_a_roll(rig)
-    click = _click_client(director, runner)
+    check_id = await _ask_for_a_roll(rig, stat="dex")
+    click, _ = _click_client(director, runner)
     before = list(transport.sent)
 
     interaction = _Interaction(BOB)
@@ -289,9 +286,9 @@ async def test_someone_elses_click_is_answered_privately_and_rolls_nothing(rig):
 
 async def test_a_second_click_says_the_roll_is_made(rig):
     director, narrator, runner, transport, dice = rig
-    check_id = await _ask_for_a_roll(rig)
-    click = _click_client(director, runner)
-    dice.queue(18)
+    check_id = await _ask_for_a_roll(rig, stat="dex")
+    click, _ = _click_client(director, runner)
+    dice.queue(5, 5)
     await click(_Interaction(ALICE), check_id)
 
     again = _Interaction(ALICE)
@@ -299,6 +296,23 @@ async def test_a_second_click_says_the_roll_is_made(rig):
 
     assert "already been made" in again.response.private[0]
     assert len(dice.rolls) == 1
+
+
+async def test_clicking_an_option_resolves_and_clears_the_options(rig):
+    director, narrator, runner, transport, dice = rig
+    check_id = await _ask_for_a_roll(rig, move="volley")
+    click, pick = _click_client(director, runner)
+    dice.queue(3, 2)
+    await click(_Interaction(ALICE), check_id)
+
+    bob = _Interaction(BOB)
+    await pick(bob, check_id, [1])
+    assert bob.response.private == ["That choice is **Kethra**'s to make."]
+
+    alice = _Interaction(ALICE)
+    await pick(alice, check_id, [1])
+    assert alice.response.edits == [None]  # the options are taken away
+    assert narrator.seen[-1][1]["player_chose"] == ["Take what you can get: -1d6 damage."]
 
 
 # -- addressing ---------------------------------------------------------------------------------
@@ -898,3 +912,51 @@ def test_writing_a_scene_by_hand_forgets_the_rejects_too():
     )
     assert client._pending_proposals == {}
     assert client._declined_proposals == {}
+
+
+# -- how prompts are drawn -------------------------------------------------------------------
+
+
+async def test_a_pick_one_choice_is_a_button_per_option_in_rules_order():
+    from gary.adapters.discord_bot import PickButton, choice_view
+
+    view = choice_view(ChoicePrompt("01AB", "volley", "weak", 1, ("a", "b", "c")))
+    assert [type(i) for i in view.children] == [PickButton] * 3
+    assert [i.custom_id for i in view.children] == [f"gary:pick:01AB:{n}" for n in range(3)]
+    assert [i.item.label for i in view.children] == ["a", "b", "c"]
+    assert view.timeout is None  # a choice can wait as long as its move can
+
+
+async def test_a_pick_several_choice_is_one_dropdown_that_takes_exactly_that_many():
+    from gary.adapters.discord_bot import ChooseSelect, choice_view
+    from gary.moves import MOVES
+
+    options = tuple(o.text for o in MOVES["discern_realities"].strong.choice.options)
+    view = choice_view(ChoicePrompt("01AB", "discern_realities", "strong", 3, options))
+    (select,) = view.children
+    assert isinstance(select, ChooseSelect)
+    assert (select.item.min_values, select.item.max_values) == (3, 3)
+    assert [o.label for o in select.item.options] == list(options)
+    assert select.custom_id == "gary:choose:01AB:discern_realities:strong"
+
+
+async def test_choice_items_rebuild_from_their_custom_ids_after_a_restart():
+    import re
+
+    from gary.adapters.discord_bot import ChooseSelect, PickButton
+
+    pick = re.fullmatch(PickButton.__discord_ui_compiled_template__, "gary:pick:01AB:2")
+    rebuilt = await PickButton.from_custom_id(None, None, pick)
+    assert (rebuilt.check_id, rebuilt.index) == ("01AB", 2)
+
+    choose = re.fullmatch(
+        ChooseSelect.__discord_ui_compiled_template__, "gary:choose:01AB:discern_realities:weak"
+    )
+    rebuilt = await ChooseSelect.from_custom_id(None, None, choose)
+    assert rebuilt.check_id == "01AB" and rebuilt.item.max_values == 1
+
+
+async def test_a_long_option_is_cut_to_fit_a_button():
+    from gary.adapters.discord_bot import MAX_LABEL, PickButton
+
+    assert len(PickButton("01AB", 0, "x" * 200).item.label) == MAX_LABEL

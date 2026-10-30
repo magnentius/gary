@@ -1,19 +1,22 @@
 """Core domain types.
 
 Every type here is frozen. The system's central invariant (ARCHITECTURE.md §5) is that a
-check's DC and consequences are fixed *before* the player rolls; immutability is how
-that is enforced at the type level rather than by convention.
+move and its modifier are fixed *before* the player rolls; immutability is how that is
+enforced at the type level rather than by convention.
 
 Nothing in this module imports Discord or Gemini.
 """
 
 from __future__ import annotations
 
+import logging
 import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Optional
+
+_log = logging.getLogger("gary.models")
 
 # --------------------------------------------------------------------------------------
 # Identifiers
@@ -39,37 +42,39 @@ def new_id(now: Optional[float] = None) -> str:
 
 
 # --------------------------------------------------------------------------------------
-# Checks
+# Moves
 # --------------------------------------------------------------------------------------
-
-
-class CheckKind(str, Enum):
-    CHECK = "check"
-    SAVE = "save"
 
 
 @dataclass(frozen=True)
 class PendingCheck:
-    """A check that has been declared and is awaiting the player's roll.
+    """A move that has been triggered and is awaiting the player's roll.
 
-    ``dc``, ``on_success`` and ``on_failure`` are set by the model at declaration time
-    and are never revisited. The model is not consulted again about whether the roll
-    succeeded -- see resolver.resolve.
+    The move, the stat and its modifier are fixed when the model calls the move, before
+    anyone rolls, and are never revisited. What each result means is fixed by the move
+    itself (moves.py), so nothing the model writes afterwards can change the outcome.
+
+    ``faces`` is empty until the roll. A move whose result gives the player a choice is
+    rolled and then held here, faces filled in, until they choose -- so a restart between
+    the dice and the choice loses neither.
     """
 
     check_id: str
     channel_id: int
     user_id: int
     actor: str  # character name, as the model and the table know them
-    kind: CheckKind
-    key: str  # canonical snake_case skill/save key, or an attack name
-    dc: int
-    on_success: str
-    on_failure: str
+    move: str  # key into moves.MOVES
+    stat: str  # the stat rolled, or moves.BOND
+    modifier: int  # the stat's modifier from the sheet, fixed at declaration
     stakes: str
-    dice: str  # what Gary rolls when the player rolls, e.g. "1d20"
+    dice: str  # what Gary rolls when the player rolls, e.g. "2d6"
     created_at: float
     expires_at: float
+    faces: tuple = ()
+
+    @property
+    def rolled(self) -> bool:
+        return bool(self.faces)
 
     def is_expired(self, now: float) -> bool:
         return now >= self.expires_at
@@ -77,44 +82,63 @@ class PendingCheck:
     def to_dict(self) -> dict:
         """Serialised for durable storage.
 
-        Pending checks must outlive the process: a DC committed before a roll is
-        worthless if a restart between the command and the dice loses it.
+        Pending moves must outlive the process: a modifier committed before a roll is
+        worthless if a restart between the request and the dice loses it.
         """
         return {
             "check_id": self.check_id,
             "channel_id": self.channel_id,
             "user_id": self.user_id,
             "actor": self.actor,
-            "kind": self.kind.value,
-            "key": self.key,
-            "dc": self.dc,
-            "on_success": self.on_success,
-            "on_failure": self.on_failure,
+            "move": self.move,
+            "stat": self.stat,
+            "modifier": self.modifier,
             "stakes": self.stakes,
             "dice": self.dice,
             "created_at": self.created_at,
             "expires_at": self.expires_at,
+            "faces": list(self.faces),
         }
 
     @classmethod
     def from_dict(cls, d: dict) -> "PendingCheck":
+        """Raises ValueError for a check saved before moves replaced d20 checks.
+
+        Those carry a DC and no move, so there is nothing to resolve them as. They lapse
+        after minutes anyway; the loaders skip them (``restorable``) rather than refuse
+        to boot.
+        """
+        if "move" not in d:
+            raise ValueError("a d20 check from before moves; it cannot be resolved as a move")
         return cls(
             check_id=d["check_id"],
             channel_id=int(d["channel_id"]),
             user_id=int(d["user_id"]),
             actor=d["actor"],
-            kind=CheckKind(d["kind"]),
-            key=d["key"],
-            dc=int(d["dc"]),
-            on_success=d["on_success"],
-            on_failure=d["on_failure"],
+            move=d["move"],
+            stat=d["stat"],
+            modifier=int(d["modifier"]),
             stakes=d.get("stakes", ""),
-            # Checks persisted before Avrae was removed carry "command" instead. Any
-            # still pending after the upgrade were d20 checks, so they roll as one.
-            dice=d.get("dice", "1d20"),
+            dice=d.get("dice", "2d6"),
             created_at=float(d["created_at"]),
             expires_at=float(d["expires_at"]),
+            faces=tuple(int(f) for f in d.get("faces", ())),
         )
+
+
+def restorable(dicts) -> list:
+    """Every saved check that can still be resolved, skipping any that cannot.
+
+    One unreadable entry must not cost every other player their pending roll, or stop a
+    restart outright.
+    """
+    out = []
+    for d in dicts:
+        try:
+            out.append(PendingCheck.from_dict(d))
+        except (KeyError, TypeError, ValueError) as exc:
+            _log.warning("skipping saved check %s: %s", d.get("check_id", "?"), exc)
+    return out
 
 
 class CancelReason(str, Enum):
@@ -156,8 +180,8 @@ class Roll:
 
 
 @dataclass(frozen=True)
-class CheckOutcome:
-    """The result of comparing a roll against a persisted DC.
+class MoveOutcome:
+    """What a move came to: the band the dice landed in, and what it means.
 
     Handed to the model as a structured tool result, never as prose. The model narrates
     this; it does not evaluate it.
@@ -165,23 +189,16 @@ class CheckOutcome:
 
     check_id: str
     actor: str
-    kind: CheckKind
-    key: str
+    move: str  # key into moves.MOVES
+    stat: str
+    modifier: int
+    faces: tuple
     total: int
-    dc: int
-    margin: int
-    succeeded: bool
-    consequence: str  # the pre-written on_success/on_failure line, chosen by arithmetic
-    natural: Optional[int] = None
-    faces: tuple = ()
-
-    @property
-    def critical_success(self) -> bool:
-        return self.natural == 20
-
-    @property
-    def critical_failure(self) -> bool:
-        return self.natural == 1
+    band: str  # moves.STRONG | WEAK | MISS
+    text: str  # the band's rules text, verbatim
+    chosen: tuple = ()  # the options the player picked, as text
+    enemy_attacks: bool = False  # the rules say the enemy attacks: not the model's call
+    auto_chosen: bool = False  # the player never chose, so Gary took the first options
 
 
 # --------------------------------------------------------------------------------------

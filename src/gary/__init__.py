@@ -6,8 +6,7 @@ Adapters live outside it.
 """
 
 from .models import (
-    CheckKind,
-    CheckOutcome,
+    MoveOutcome,
     Mutation,
     MutationKind,
     PendingCheck,
@@ -18,10 +17,9 @@ from .resolver import resolve
 from .fsm import ChannelState, Director
 
 __all__ = [
-    "CheckKind",
-    "CheckOutcome",
     "ChannelState",
     "Director",
+    "MoveOutcome",
     "Mutation",
     "MutationKind",
     "PendingCheck",

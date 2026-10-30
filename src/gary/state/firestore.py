@@ -54,7 +54,7 @@ import json
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..models import PendingCheck
+from ..models import PendingCheck, restorable
 
 log = logging.getLogger("gary.firestore")
 
@@ -183,10 +183,10 @@ class FirestoreCheckBackend:
         self._checks.document(check_id).delete()
 
     def load_all(self) -> List[PendingCheck]:
-        out: List[PendingCheck] = []
+        raws = []
         for doc in self._checks.stream():
             data = doc.to_dict() or {}
             raw = data.get("check_json")
             if raw is not None:
-                out.append(PendingCheck.from_dict(json.loads(raw)))
-        return out
+                raws.append(json.loads(raw))
+        return restorable(raws)

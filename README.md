@@ -5,10 +5,10 @@
 An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice and
 enforces the maths, and a local state server owns the persistent world.
 
-> **This branch (`dungeon-world`) is mid-migration.** Avrae and the D&D 5e rules support
-> are gone, and Gary rolls its own dice when a player clicks **Roll**. Dungeon World moves
-> and character sheets are not built yet, so checks are a plain d20 against a DC with no
-> modifiers.
+> **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
+> rolls its own dice when a player clicks **Roll**, and knows the eight basic moves.
+> Special and class moves, bonds, gear and damage to monsters are not built yet — see
+> [what is missing](#what-is-not-built-yet).
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
@@ -356,30 +356,56 @@ He answers when:
 @Gary  I want a look at what the wardens are guarding, without them seeing me.
 ```
 
-Gary narrates, decides a check is needed, and asks you to roll:
+Gary decides your action triggers a move and asks you to roll:
 
 ```
-Gary   **Caspian Varr** — roll for stealth (check).   [🎲 Roll]
+Gary   **Caspian Varr** — Defy Danger, roll +Dex +2.   [🎲 Roll]
        The reeds are chest-high and the mist is with you, but the nearer warden keeps
        turning back towards the road…
 ```
 
-You click **Roll**. Gary rolls the dice where everyone can see them, compares against the
-DC **it persisted before you rolled**, and narrates the consequence it committed to in
-advance:
+You click **Roll**. Gary rolls 2d6 plus the stat from your sheet where everyone can see
+it. The move fixed what each result means before you rolled — 10+ a strong hit, 7–9 a
+weak hit, 6 or less a miss — and Gary narrates that:
 
 ```
-Gary   🎲 **Caspian Varr** rolls 17.
-Gary   You are past them before the tide sounds again…
+Gary   🎲 **Caspian Varr** rolls 4 + 3 +2 = 9 — weak hit.
+Gary   You make the far bank, but a stone turns under your boot. The warden's head comes
+       round. Do you freeze, or run for the willows?
 ```
 
-Only you can roll your own check, and only once: anyone else who clicks is told privately
-whose roll it is, and the button greys out to **Rolled** once it is taken. Buttons keep
-working across a Gary restart, like the checks behind them.
+On a miss, Gary makes a GM move: something goes wrong, as hard as the fiction allows.
 
-If nobody rolls, the check expires after `GARY_CHECK_TTL` (default 180s) and is narrated
-as hesitation or the moment passing — never as a success. `?dm checks` shows what Gary is
+**Some results are yours to choose from.** A weak-hit Volley, a strong-hit Hack and
+Slash, Discern Realities and Aid or Interfere all offer options. Gary posts them as
+buttons, or as one dropdown when you pick several (Discern Realities' three questions),
+and waits for you before narrating:
+
+```
+Gary   🎲 **Liriel** rolls 3 + 2 +2 = 7 — weak hit.
+       Choose one (whichever you choose you deal your damage).
+       **Liriel**, choose one.
+       [Move to get the shot…] [Take what you can get: -1d6 damage.] [Take several shots…]
+```
+
+Only you can roll your own move or make its choice, and only once: anyone else who clicks
+is told privately whose it is. Buttons keep working across a Gary restart, like the moves
+behind them — even between the dice and the choice.
+
+If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is narrated as
+hesitation or the moment passing — never as a success. If you rolled but never chose, the
+dice stand: Gary takes the first option(s) and says so. `?dm checks` shows what Gary is
 waiting on; `?dm cancel` drops your own.
+
+### What is not built yet
+
+- **Only the eight basic moves.** Hack and Slash, Volley, Defy Danger, Defend, Spout Lore,
+  Discern Realities, Parley, Aid or Interfere. No special moves (Last Breath, Make Camp…)
+  and no class moves yet.
+- **No damage numbers.** "Deal your damage" and "the enemy attacks" reach the model as
+  settled facts, but nothing tracks monster HP or rolls damage dice yet.
+- **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
+  announced but not tracked. **Armor is 0**, because gear is not tracked.
 
 ### When something goes wrong
 

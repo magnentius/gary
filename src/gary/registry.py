@@ -12,10 +12,10 @@ Time is injected so expiry is testable without sleeping.
 from __future__ import annotations
 
 import threading
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
 
-from .models import CancelReason, CheckKind, PendingCheck, new_id
+from .models import CancelReason, PendingCheck, new_id
 
 if TYPE_CHECKING:  # pragma: no cover
     from .state.backend import CheckBackend
@@ -55,7 +55,7 @@ class PendingCheckRegistry:
         """``backend`` makes open checks durable.
 
         Without it, a restart between "roll for it" and the player rolling loses the
-        DC that was committed before the dice -- which is exactly the guarantee the whole
+        move that was committed before the dice -- which is exactly the guarantee the whole
         design exists to provide. The in-memory index is kept for lookup speed; the
         backend is written through on every change.
         """
@@ -75,11 +75,9 @@ class PendingCheckRegistry:
         channel_id: int,
         user_id: int,
         actor: str,
-        kind: CheckKind,
-        key: str,
-        dc: int,
-        on_success: str,
-        on_failure: str,
+        move: str,
+        stat: str,
+        modifier: int,
         stakes: str,
         dice: str,
         ttl_seconds: Optional[float] = None,
@@ -92,11 +90,9 @@ class PendingCheckRegistry:
             channel_id=channel_id,
             user_id=user_id,
             actor=actor,
-            kind=kind,
-            key=key,
-            dc=dc,
-            on_success=on_success,
-            on_failure=on_failure,
+            move=move,
+            stat=stat,
+            modifier=modifier,
             stakes=stakes,
             dice=dice,
             created_at=now,
@@ -110,6 +106,20 @@ class PendingCheckRegistry:
                 self._backend.remove(displaced.check_id)
             self._backend.save(check)
         return check, displaced
+
+    def hold_for_choice(self, check: PendingCheck, faces: tuple) -> PendingCheck:
+        """Record the dice on a move whose result the player must now choose from.
+
+        The move stays open -- the narration waits on the choice -- with a fresh TTL, so
+        the time spent reading the roll does not eat into the time to choose. Written
+        through like every change, so the dice survive a restart before the choice.
+        """
+        held = replace(check, faces=tuple(faces), expires_at=self._clock() + self._ttl)
+        with self._lock:
+            self._by_player[(check.channel_id, check.user_id)] = held
+        if self._backend is not None:
+            self._backend.save(held)
+        return held
 
     def cancel(self, check_id: str, reason: CancelReason = CancelReason.MANUAL) -> Optional[Cancellation]:
         with self._lock:

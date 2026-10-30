@@ -10,7 +10,7 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 > - **Gary rolls.** A `Dice` port (`ports.py`: `RandomDice` in production, `ScriptedDice` in
 >   tests) is the only source of randomness. The player whose check it is asks Gary to roll
 >   (`Director.roll`, keyed by Discord user id); Gary posts the dice face by face and
->   resolves against the DC committed beforehand. The request to roll carries a Discord
+>   resolves by the move's band. The request to roll carries a Discord
 >   **Roll** button (`RollButton`, a `DynamicItem` whose custom id holds the check id, so it
 >   survives restarts); a click from anyone else is answered privately, and a button left
 >   over from a superseded check rolls nothing.
@@ -27,10 +27,20 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   Sagelt's XML by `scripts/extract_dw_classes.py`), the 16/15/13/12/9/8 array, a name.
 >   Max HP is class base + Constitution score. Creating a character also claims it.
 >   Sheets hold what rolls need; alignment, gear, bonds and moves are not tracked yet.
-> - **Tools.** The model keeps `open_check`, `advance_time`, `give_items`, `take_items`,
+> - **Moves replace checks and DCs.** `moves.py` holds the eight basic moves, hand-written
+>   from Sagelt's `Moves.xml`: stat, band text, and the player's choices with which ones
+>   make the enemy attack. The model calls `make_move(actor, move, stat?)`; the Director
+>   fixes the stat and the sheet's modifier before the dice, rolls 2d6 on the click, and
+>   bands it (10+/7–9/6−). Where the band offers a choice, the move is held with its dice
+>   (`registry.hold_for_choice`, durable) and the roller picks from buttons or a dropdown
+>   (`PickButton`, `ChooseSelect`); an expired choice resolves with the first options.
+>   Saved d20 checks are skipped on load; old `open_check` calls in history are answered
+>   under their own name.
+> - **Tools.** The model keeps `make_move`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >
-> Still accurate: §5's commit-before-the-dice protocol and §5.2 resolution, §7's store,
+> Still accurate: §5's commit-before-the-dice principle (a move and modifier now, not a
+> DC; §5.2's DC arithmetic is replaced by bands), §7's store,
 > journal and backends, §8 context assembly, §9.1 prompt injection, §10 reliability, §11
 > deployment, §12.4 the deferred function call. Sections 1, 3, 4 (Mode B), 6, 13 and most
 > of 14 describe the Avrae design and will be rewritten with the Dungeon World design.

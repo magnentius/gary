@@ -123,9 +123,7 @@ class ChannelSender:
             self._locks[channel_id] = asyncio.Lock()
         return self._locks[channel_id]
 
-    async def send(
-        self, channel_id: int, text: str, roll_check_id: Optional[str] = None
-    ) -> None:
+    async def send(self, channel_id: int, text: str, prompt: Optional[object] = None) -> None:
         parts = split_message(text, self._limit)
         if not parts:
             return
@@ -135,9 +133,9 @@ class ChannelSender:
         async with self._lock(channel_id):
             for i, part in enumerate(parts):
                 await self._wait_turn(channel_id)
-                # The button goes under the last part, where the request ends.
-                if roll_check_id is not None and i == len(parts) - 1:
-                    await self._transport.send(channel_id, part, roll_check_id=roll_check_id)
+                # Anything to click goes under the last part, where the request ends.
+                if prompt is not None and i == len(parts) - 1:
+                    await self._transport.send(channel_id, part, prompt=prompt)
                 else:
                     await self._transport.send(channel_id, part)
                 self._last_sent[channel_id] = self._clock()

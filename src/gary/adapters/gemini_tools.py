@@ -8,9 +8,9 @@ more reliable with flat, typed parameters than with an array of free-form nested
 and every narrow tool can carry its own bounds, its own description, and its own failure
 message. Each one maps to store mutations internally, so the store API is unchanged.
 
-``open_check`` is the important one, and its description does a job the system instruction
+``make_move`` is the important one, and its description does a job the system instruction
 alone does not reliably do: it tells the model, at the point of use, that calling this
-means stopping.
+means stopping -- and lists every move's trigger where the model is choosing one.
 """
 
 from __future__ import annotations
@@ -19,7 +19,12 @@ from typing import Any, Dict, List
 
 from google.genai import types
 
-OPEN_CHECK = "open_check"
+from ..moves import MOVES
+from ..sheets import STATS
+
+MAKE_MOVE = "make_move"
+#: The tool moves replaced. Histories written before still hold unanswered calls to it.
+LEGACY_OPEN_CHECK = "open_check"
 ADVANCE_TIME = "advance_time"
 GIVE_ITEMS = "give_items"
 TAKE_ITEMS = "take_items"
@@ -40,38 +45,33 @@ _OBJECT = types.Type.OBJECT
 
 DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
-        name=OPEN_CHECK,
+        name=MAKE_MOVE,
         description=(
-            "Require a dice roll. Call this the moment an action could fail and the "
-            "failure would matter. You MUST supply the DC and BOTH outcomes now, before "
-            "any dice are rolled -- they are recorded and cannot be changed afterwards. "
-            "After calling this, STOP. Do not describe the result. The rules engine "
-            "resolves the roll and will hand you the outcome as fact to narrate."
+            "A player's action triggers a move: call this, the moment it does. The move "
+            "fixes what every result means, so you decide nothing about the outcome -- "
+            "only which move the fiction triggered and, for Defy Danger, which stat their "
+            "approach uses. After calling this, STOP. Do not describe the result. The "
+            "player rolls, and the result comes back to you as fact to narrate.\n"
+            + "\n".join(f"- {m.key}: when you {m.trigger}" for m in MOVES.values())
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
                 "actor": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
-                "kind": _s(type=_STRING, enum=["check", "save"]),
-                "key": _s(
+                "move": _s(type=_STRING, enum=sorted(MOVES)),
+                "stat": _s(
                     type=_STRING,
+                    enum=list(STATS),
                     description=(
-                        "Skill (e.g. 'sleight of hand', 'stealth'), or ability for a save "
-                        "(e.g. 'dexterity')."
+                        "Defy Danger only: str powering through, dex getting out of the "
+                        "way or acting fast, con enduring, int quick thinking, wis mental "
+                        "fortitude, cha charm and social grace. Every other move has its "
+                        "own stat; omit it."
                     ),
                 ),
-                "dc": _s(type=_INTEGER, description="Difficulty class. 10 easy, 15 moderate, 20 hard."),
-                "on_success": _s(type=_STRING, description="What happens if they succeed. One or two sentences."),
-                "on_failure": _s(
-                    type=_STRING,
-                    description=(
-                        "What happens if they fail. Must be a real consequence, not "
-                        "'nothing happens' -- if failure costs nothing, do not call this."
-                    ),
-                ),
-                "stakes": _s(type=_STRING, description="Optional. What is at risk, for your own later reference."),
+                "stakes": _s(type=_STRING, description="Optional. The danger or what is at risk, for your own later reference."),
             },
-            required=["actor", "kind", "key", "dc", "on_success", "on_failure"],
+            required=["actor", "move"],
         ),
     ),
     types.FunctionDeclaration(
