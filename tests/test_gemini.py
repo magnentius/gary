@@ -555,8 +555,9 @@ async def test_a_history_from_before_moves_is_answered_under_its_own_call(rig):
 def test_every_declaration_is_well_formed():
     for decl in T.DECLARATIONS:
         assert decl.description and len(decl.description) > 20
-        # remove_monsters alone takes nothing required: no names means "clear the scene".
-        assert decl.parameters.required or decl.name == T.REMOVE_MONSTERS
+        # These take nothing required: no names means "clear the scene", and a quiet
+        # night needs no watch.
+        assert decl.parameters.required or decl.name in (T.REMOVE_MONSTERS, T.MAKE_CAMP)
         for name in decl.parameters.required or []:
             assert name in decl.parameters.properties, f"{decl.name}: {name} not declared"
 
@@ -773,3 +774,52 @@ async def test_monster_attacks_rolls_through_the_director_and_reports_what_lande
     assert fr.response["dealt"] == 3 and fr.response["hp_after"] == 16
     assert any(isinstance(e, SendMessage) and "Goblin 1** hits **Kethra" in e.text
                for e in result.effects)
+
+
+# -- rules events and camp ---------------------------------------------------------------------
+
+
+async def test_a_rules_event_is_never_the_answer_to_a_waiting_move(rig):
+    """Thorin's Last Breath must not answer Kethra's pending make_move call."""
+    n = narrator(rig, call_response(T.MAKE_MOVE, MOVE_ARGS), text_response("Death leans close."))
+    await player(n)  # leaves a make_move call waiting
+    await n.narrate(channel_id=CHANNEL, kind="rules_event",
+                    payload={"event": "Last Breath", "actor": "Thorin"})
+
+    part = n.client.calls[1]["contents"][-1].parts[0]
+    assert part.function_response is None
+    assert part.text.startswith("RULES ENGINE: ")
+
+
+async def test_make_camp_heals_through_the_director_and_moves_the_clock_once(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {**KETHRA_SHEET, "hp": 5}})],
+                reason="setup")
+    director = Director(
+        registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+        players={ALICE: "Kethra"},
+        sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
+    )
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.MAKE_CAMP, {}), text_response("Dawn comes grey."))
+    result = await player(n)
+
+    assert store.state()["world_minutes"] == 480
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["party"]["Kethra"]["healed"] == 9
+    assert any("The party makes camp" in getattr(e, "text", "") for e in result.effects)
+
+
+async def test_an_interrupted_camp_does_not_move_the_clock(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": KETHRA_SHEET})], reason="setup")
+    director = Director(
+        registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+        players={ALICE: "Kethra"},
+        sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
+    )
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.MAKE_CAMP, {"something_approaches": True, "watch": "Kethra"}),
+                 text_response("A twig snaps."))
+    await player(n)
+    assert store.state()["world_minutes"] == 0

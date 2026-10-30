@@ -261,6 +261,14 @@ class GeminiNarrator:
                 ))],
             )
 
+        if kind == "rules_event":
+            # Never a deferred answer: the rules triggered this move, not a make_move call,
+            # so a call that happens to be waiting -- another player's -- is not its.
+            return types.Content(
+                role="user",
+                parts=[types.Part.from_text(text="RULES ENGINE: " + json.dumps(payload))],
+            )
+
         response = dict(payload)
         if kind == "check_expired":
             response = {
@@ -335,6 +343,22 @@ class GeminiNarrator:
         for call in calls:
             name = call.name
             args = dict(call.args or {})
+
+            if name == T.MAKE_CAMP:
+                camp_effects, result = self._director.make_camp(
+                    channel_id=channel_id,
+                    approaches=bool(args.get("something_approaches")),
+                    watcher=str(args.get("watch", "") or ""),
+                )
+                if result.get("ok") and not args.get("something_approaches"):
+                    try:
+                        # Once for the party: a rest is per character, the night is not.
+                        self._store.advance_time(480, reason="the party makes camp")
+                    except StateError as exc:
+                        result["clock"] = str(exc)
+                effects.extend(camp_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
 
             if name == T.MONSTER_ATTACKS:
                 attack_effects, result = self._director.monster_attacks(

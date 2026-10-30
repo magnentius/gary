@@ -218,12 +218,11 @@ def test_persona_specifies_scene_summaries_as_standing_state():
     assert "time of day" in text.lower()
 
 
-def test_rest_duration_is_pinned_and_applied_once():
-    """advance_time never fired across two live scenes: "meaningful time" gave the model
-    nothing to calibrate against. A rest is per-character but the clock is per-world, so
-    the persona pins the duration and says it is advanced once for the party."""
-    assert "a night's rest 480" in DM_SYSTEM_INSTRUCTION
-    assert "once for the whole party" in DM_SYSTEM_INSTRUCTION
+def test_a_nights_rest_is_make_camp_called_once():
+    """A rest is per-character but the clock is per-world: four sleepers, one night. The
+    persona sends rest to make_camp, which moves the clock once for everyone."""
+    assert "call\n  make_camp ONCE" in DM_SYSTEM_INSTRUCTION
+    assert "only one night however many people sleep" in DM_SYSTEM_INSTRUCTION
 
 
 def test_persona_stays_a_small_fraction_of_the_budget():

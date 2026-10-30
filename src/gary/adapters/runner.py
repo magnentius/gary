@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass
 from typing import Sequence
 
-from ..fsm import ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo
+from ..fsm import ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo, UpdateSheet
 from ..models import Mutation, MutationKind
 from ..ports import Narrator, NarrationResult
 
@@ -78,6 +78,10 @@ class EffectRunner:
 
         if isinstance(effect, ChangeHp):
             self._change_hp(effect)
+            return
+
+        if isinstance(effect, UpdateSheet):
+            self._update_sheet(effect.name, dict(effect.changes), f"{effect.name}: {sorted(effect.changes)}")
             return
 
         if isinstance(effect, SpendAmmo):

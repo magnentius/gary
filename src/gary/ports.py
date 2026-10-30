@@ -152,7 +152,7 @@ class EchoNarrator:
     ) -> NarrationResult:
         self.calls.append({"channel_id": channel_id, "kind": kind, "payload": payload})
 
-        if kind == "check_outcome":
+        if kind in ("check_outcome", "rules_event"):
             chose = payload.get("player_chose")
             return NarrationResult(
                 text=(

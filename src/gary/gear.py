@@ -35,6 +35,7 @@ class Item:
     ammo: int = 0  # ammo this item provides (arrows, throwing daggers)
     needs_ammo: bool = False  # bows and throwing daggers fire nothing without it
     weight: int = 0
+    rations: int = 0  # ration uses this item provides; Make Camp eats one
 
     @property
     def ranges(self) -> Tuple[str, ...]:
@@ -49,13 +50,15 @@ class Item:
         return {**asdict(self), "tags": list(self.tags)}
 
 
-def _i(name, *tags, armor=0, shield=0, damage=0, piercing=0, ammo=0, needs_ammo=False, weight=0):
-    return Item(name, tuple(tags), armor, shield, damage, piercing, ammo, needs_ammo, weight)
+def _i(name, *tags, armor=0, shield=0, damage=0, piercing=0, ammo=0, needs_ammo=False,
+       weight=0, rations=0):
+    return Item(name, tuple(tags), armor, shield, damage, piercing, ammo, needs_ammo, weight,
+                rations)
 
 
 # -- the catalog: every item a class can start with ---------------------------------------
 
-RATIONS = _i("Dungeon rations", "5 uses", weight=1)
+RATIONS = _i("Dungeon rations", "5 uses", weight=1, rations=5)
 LEATHER = _i("Leather armor", "1 armor", armor=1, weight=1)
 CHAINMAIL = _i("Chainmail", "1 armor", armor=1, weight=1)
 SCALE = _i("Scale armor", "2 armor", armor=2, weight=3)
@@ -278,5 +281,18 @@ def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int) -> Optio
     return max(usable, key=lambda i: (i.damage, i.piercing), default=None)
 
 
+def rations_of(gear: Sequence[Dict[str, Any]]) -> int:
+    """Ration uses carried. Gear saved before rations were counted has no "rations"
+    field, so those items are read as the catalog has them -- "Dungeon rations" is 5."""
+    return sum(
+        int(g["rations"]) if "rations" in g else _CATALOG.get(g.get("name", ""), Item("")).rations
+        for g in gear
+    )
+
+
 def ammo_of(gear: Sequence[Dict[str, Any]]) -> int:
     return sum(i.ammo for i in items_of(gear))
+
+
+#: Every catalog item by name, for reading gear saved before a field existed.
+_CATALOG: Dict[str, Item] = {v.name: v for v in list(globals().values()) if isinstance(v, Item)}

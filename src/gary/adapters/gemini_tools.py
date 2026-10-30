@@ -34,6 +34,7 @@ UPSERT_NPC = "upsert_npc"
 ADD_MONSTERS = "add_monsters"
 REMOVE_MONSTERS = "remove_monsters"
 MONSTER_ATTACKS = "monster_attacks"
+MAKE_CAMP = "make_camp"
 
 
 def _s(**kw) -> types.Schema:
@@ -143,6 +144,24 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "character": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
             },
             required=["monster", "character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=MAKE_CAMP,
+        description=(
+            "The party settles in to rest for the night. Call it ONCE for everyone. Each "
+            "character eats a ration; if the night is quiet, everyone who ate heals half "
+            "their max HP and the clock moves eight hours. Whether something approaches in "
+            "the night is your call, as dangerous as the place is: if it does, name who is "
+            "on watch -- they roll Take Watch, nobody heals, and you narrate what came "
+            "once the roll is in."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "something_approaches": _s(type=types.Type.BOOLEAN, description="True if something comes in the night."),
+                "watch": _s(type=_STRING, description="Who is on watch, if something approaches."),
+            },
         ),
     ),
     types.FunctionDeclaration(

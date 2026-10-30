@@ -775,3 +775,205 @@ def test_other_volley_choices_spend_no_ammo(director, registry, dice):
     choose(director, check_id, [1])  # -1d6 damage instead
     dice.queue(4, 1)
     assert not [e for e in roll_damage(director, check_id) if isinstance(e, SpendAmmo)]
+
+
+# -- Last Breath ----------------------------------------------------------------------------
+
+
+def _drop(director, dice, name="Kethra", user_id=ALICE, scene=None):
+    """A creature brings a character to 0; returns the effects."""
+    director.set_player_character(user_id, name)
+    scene["Ogre 1"] = {**goblin(), "kind": "Ogre", "damage": "d10+30"}
+    dice.queue(5)
+    effects, _ = director.monster_attacks(channel_id=CHANNEL, monster="Ogre 1", character=name)
+    director._sheet_for(name)["hp"] = 0  # what the runner's ChangeHp does
+    return effects
+
+
+def test_falling_to_zero_asks_that_player_to_roll_last_breath(director, registry, dice, scene):
+    effects = _drop(director, dice, scene=scene)
+    ask = sends_in(effects)[-1]
+    assert ask.text == "**Kethra** — Last Breath, roll +nothing."
+    check = only_check(registry)
+    assert (check.move, check.user_id, check.modifier) == ("last_breath", ALICE, 0)
+    assert ask.prompt == RollPrompt(check.check_id)
+
+
+def test_last_breath_strong_cheats_death_at_1_hp(director, registry, dice, scene):
+    from gary.fsm import UpdateSheet
+
+    _drop(director, dice, scene=scene)
+    dice.queue(5, 5)
+    effects = roll(director)
+    assert UpdateSheet(CHANNEL, "Kethra", {"hp": 1}) in effects
+    (prompt,) = prompts_in(effects)
+    assert prompt.kind == "rules_event"  # never the answer to someone's pending make_move
+    assert prompt.payload["result"] == "10+ (strong hit)"
+
+
+def test_last_breath_weak_has_death_name_the_price_before_the_choice(director, registry, dice, scene):
+    _drop(director, dice, scene=scene)
+    dice.queue(4, 4)
+    effects = roll(director)
+    kinds = [type(e).__name__ for e in effects]
+    assert kinds == ["SendMessage", "PromptModel", "SendMessage"]  # dice, the bargain, the buttons
+    bargain = prompts_in(effects)[0]
+    assert bargain.kind == "rules_event" and "specific bargain" in bargain.payload["instruction"]
+    assert "Do NOT decide whether they take it" in bargain.payload["instruction"]
+    buttons = sends_in(effects)[-1].prompt
+    assert buttons.options == ("Take Death's bargain, and stabilize.",
+                               "Refuse, and pass beyond the Black Gates.")
+    assert only_check(registry).rolled  # waiting on the answer
+
+
+def test_taking_the_bargain_stabilizes_at_1_hp(director, registry, dice, scene):
+    from gary.fsm import UpdateSheet
+
+    _drop(director, dice, scene=scene)
+    dice.queue(4, 4)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [0])
+    assert UpdateSheet(CHANNEL, "Kethra", {"hp": 1}) in effects
+    assert prompts_in(effects)[0].payload["player_chose"] == ["Take Death's bargain, and stabilize."]
+
+
+def test_refusing_the_bargain_is_death(director, registry, dice, scene):
+    from gary.fsm import UpdateSheet
+
+    _drop(director, dice, scene=scene)
+    dice.queue(4, 4)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [1])
+    assert UpdateSheet(CHANNEL, "Kethra", {"dead": True}) in effects
+    assert "passes beyond the Black Gates" in sends_in(effects)[1].text
+
+
+def test_a_last_breath_miss_marks_them_as_deaths_own(director, registry, dice, scene):
+    from gary.fsm import UpdateSheet
+
+    _drop(director, dice, scene=scene)
+    dice.queue(1, 2)
+    effects = roll(director)
+    assert UpdateSheet(CHANNEL, "Kethra", {"deaths_mark": True}) in effects
+
+
+def test_last_breath_is_rolled_for_them_if_nobody_clicks(director, registry, clock, dice, scene):
+    """Death does not wait on a click; a rules-triggered move never just lapses."""
+    from gary.fsm import UpdateSheet
+
+    _drop(director, dice, scene=scene)
+    clock.advance(registry._ttl + 1)
+    dice.queue(6, 6)
+    effects = director.sweep()
+    assert sends_in(effects)[0].text.startswith("🎲 **Kethra** (rolled for them) rolls 6 + 6")
+    assert UpdateSheet(CHANNEL, "Kethra", {"hp": 1}) in effects
+
+
+def test_a_weak_hack_and_slash_that_drops_you_asks_for_last_breath_after_the_narration(
+    director, registry, dice, scene
+):
+    scene["Ogre 1"] = {**goblin(hp=30), "kind": "Ogre", "damage": "d10+30"}
+    director.set_player_character(BOB, "Dorn")
+    make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB, target="Ogre 1")
+    dice.queue(3, 2)
+    roll(director, user_id=BOB)
+    dice.queue(4, 5)  # Dorn's d10, then the ogre's blow back
+    effects = roll_damage(director, only_check(registry).check_id, user_id=BOB)
+    kinds = [type(e).__name__ for e in effects]
+    assert kinds.index("PromptModel") < len(kinds) - 1  # narration first...
+    assert sends_in(effects)[-1].text == "**Dorn** — Last Breath, roll +nothing."  # ...then Death
+    assert only_check(registry).move == "last_breath"
+
+
+def test_the_down_and_the_dead_cannot_act(director, scene):
+    director._sheet_for("Kethra")["hp"] = 0
+    (note,) = prompts_in(make_move(director, "spout_lore"))
+    assert "Kethra is down at 0 HP." in note.payload["error"]
+    director._sheet_for("Dorn")["dead"] = True
+    (note,) = prompts_in(make_move(director, "spout_lore", actor="Dorn", user_id=BOB))
+    assert "Dorn is dead." in note.payload["error"]
+
+
+def test_a_creature_cannot_attack_someone_already_down(director, dice):
+    director._sheet_for("Kethra")["hp"] = 0
+    effects, facts = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Kethra")
+    assert effects == [] and "down at 0 HP" in facts["error"]
+
+
+def test_the_rules_triggered_moves_cannot_be_called_by_the_model(director):
+    for move in ("last_breath", "take_watch"):
+        (note,) = prompts_in(make_move(director, move))
+        assert "There is no move" in note.payload["error"]
+
+
+# -- Make Camp ------------------------------------------------------------------------------
+
+
+def _camp_party(director):
+    from gary.gear import ARROWS, HUNTERS_BOW, LEATHER, RATIONS
+
+    director.set_player_character(ALICE, "Kethra")
+    director.set_player_character(BOB, "Dorn")
+    _geared(director, "Kethra", [LEATHER, HUNTERS_BOW, ARROWS, RATIONS])  # 5 rations
+    director._sheet_for("Kethra")["hp"] = 5   # of 19
+    director._sheet_for("Dorn")["hp"] = 20    # of 25; no gear -- rations not counted
+
+
+def test_a_quiet_night_feeds_and_heals_half_max_hp(director):
+    from gary.fsm import UpdateSheet
+
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL)
+    assert UpdateSheet(CHANNEL, "Kethra", {"rations": 4, "hp": 14}) in effects  # +9 of 19
+    assert UpdateSheet(CHANNEL, "Dorn", {"hp": 25}) in effects  # capped at max
+    assert facts["party"]["Kethra"] == {"ate": True, "rations_left": 4, "healed": 9, "hp": 14, "max_hp": 19}
+    assert "eight hours" in facts["note"]
+    summary = sends_in(effects)[0].text
+    assert summary.startswith("🏕️ The party makes camp.")
+    assert "**Kethra** eats (4 rations left) and heals 9 — HP 14/19." in summary
+
+
+def test_no_ration_no_healing(director):
+    from gary.fsm import UpdateSheet
+
+    _camp_party(director)
+    director._sheet_for("Kethra")["rations"] = 0
+    effects, facts = director.make_camp(channel_id=CHANNEL)
+    assert facts["party"]["Kethra"] == {"ate": False}
+    assert not [e for e in effects if isinstance(e, UpdateSheet) and e.name == "Kethra"]
+    assert "**Kethra** has no rations: goes hungry, and does not heal." in sends_in(effects)[0].text
+
+
+def test_something_in_the_night_means_take_watch_and_no_healing(director, registry):
+    from gary.fsm import UpdateSheet
+
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="dorn")
+    assert UpdateSheet(CHANNEL, "Kethra", {"rations": 4}) in effects  # ate, did not heal
+    assert not any(isinstance(e, UpdateSheet) and "hp" in e.changes for e in effects)
+    assert sends_in(effects)[-1].text == "**Dorn** — Take Watch, roll +Wis +0."
+    check = only_check(registry)
+    assert (check.move, check.user_id) == ("take_watch", BOB)
+    assert "nobody heals" in facts["note"]
+
+
+def test_take_watch_resolves_as_a_rules_event(director, registry, dice):
+    _camp_party(director)
+    director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn")
+    dice.queue(5, 5)
+    (prompt,) = prompts_in(roll(director, user_id=BOB))
+    assert prompt.kind == "rules_event"
+    assert "camp takes +1 forward" in prompt.payload["what_it_means"]
+
+
+def test_an_interrupted_night_needs_a_watcher_from_the_party(director):
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Gandalf")
+    assert effects == [] and "Name who is on watch" in facts["error"]
+
+
+def test_the_dead_do_not_camp(director):
+    _camp_party(director)
+    director._sheet_for("Dorn")["dead"] = True
+    _, facts = director.make_camp(channel_id=CHANNEL)
+    assert set(facts["party"]) == {"Kethra"}

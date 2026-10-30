@@ -50,7 +50,16 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   else. Armor is the best worn plus shields; attack moves need a weapon whose range
 >   tags reach; its +damage and piercing join the damage roll; "take several shots"
 >   spends ammo (`SpendAmmo`, journalled). Sheets without gear are not gated.
-> - **Tools.** The model keeps `make_move`, `add_monsters`, `remove_monsters`,
+> - **Last Breath, Take Watch, Make Camp.** The first two are `callable=False` moves the
+>   Director opens itself (`_trigger`) for the character's player: Last Breath when a hit
+>   brings a character to 0, Take Watch when `make_camp` says something approaches. Both
+>   are rolled for the player on expiry rather than lapsing, and resolve as `rules_event`
+>   prompts that never answer a pending `make_move` call. Last Breath's 7–9 has the model
+>   name Death's bargain before the Take/Refuse buttons; survivors go to 1 HP, refusal sets
+>   `dead`, a miss `deaths_mark` (`UpdateSheet`, journalled). The down and dead cannot act.
+>   `make_camp` eats a counted ration each, heals half max HP on a quiet night, and moves
+>   the clock 480 once.
+> - **Tools.** The model keeps `make_move`, `make_camp`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >

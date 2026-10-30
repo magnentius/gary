@@ -27,9 +27,9 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import damage
-from .gear import weapon_for
+from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
-from .moves import ANY, BOND, MOVES
+from .moves import ANY, BOND, MOVES, NOTHING
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
@@ -126,6 +126,16 @@ class SpendAmmo(Effect):
     channel_id: int
     name: str
     ammo: int
+
+
+@dataclass(frozen=True)
+class UpdateSheet(Effect):
+    """Change fields on a character's sheet -- HP and rations at camp, Death's marks.
+    Journalled by the runner, like an HP change."""
+
+    channel_id: int
+    name: str
+    changes: dict
 
 
 @dataclass(frozen=True)
@@ -344,6 +354,12 @@ class Director:
                     "they roll. Do not resolve the action.",
                 )]
             mod = modifier(int(sheet["stats"][stat]))
+            unable = _unable(actor, sheet)
+            if unable:
+                return [self._refuse(
+                    channel_id, unable,
+                    "They cannot act. Narrate around them, or ask what someone else does.",
+                )]
             # A sheet made before gear existed has no gear to check, and is let through
             # as before; `?dm gear` gives it some.
             if rules.attacks and "gear" in sheet and self._weapon(sheet, rules.key) is None:
@@ -429,6 +445,36 @@ class Director:
         """Whatever the move needs next, now that its dice have landed."""
         rules = MOVES[check.move].band(band(dice))
 
+        if check.move == "last_breath" and rules.choice is not None and not check.picks:
+            # Death names the price before the player decides: the bargain is the GM's to
+            # invent, the choice is theirs, and a price nobody has heard is no choice.
+            held = self.registry.hold(check, faces=dice.faces)
+            return [
+                PromptModel(channel_id, "rules_event", {
+                    "event": "Last Breath: Death offers a bargain",
+                    "actor": check.actor,
+                    "roll_total": dice.total,
+                    "what_it_means": rules.text,
+                    "instruction": (
+                        f"Describe what {check.actor} glimpses beyond the Black Gates, and "
+                        "have Death offer a specific bargain: a real, lasting price for "
+                        "stabilizing. End on the offer. Do NOT decide whether they take it -- "
+                        "the player chooses next."
+                    ),
+                }),
+                SendMessage(
+                    channel_id,
+                    f"**{check.actor}**, Death waits for your answer.",
+                    prompt=ChoicePrompt(
+                        check_id=held.check_id,
+                        move=held.move,
+                        band=band(dice),
+                        count=1,
+                        options=tuple(o.text for o in rules.choice.options),
+                    ),
+                ),
+            ]
+
         if rules.choice is not None and not check.picks:
             held = self.registry.hold(check, faces=dice.faces)
             return [SendMessage(
@@ -460,7 +506,58 @@ class Director:
             )]
 
         self.registry.consume(check.check_id)
-        return self._resolved(channel_id, resolve(check, dice, picks=check.picks))
+        outcome = resolve(check, dice, picks=check.picks)
+        return [*self._consequences(channel_id, outcome), *self._resolved(channel_id, outcome)]
+
+    def _consequences(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
+        """What a rules-triggered move does to the sheet, beyond being narrated."""
+        name = outcome.actor
+        if outcome.move != "last_breath":
+            return []
+        took_bargain = outcome.chosen[:1] == (MOVES["last_breath"].weak.choice.options[0].text,)
+        if outcome.band == "strong" or took_bargain:
+            return [
+                SendMessage(channel_id, f"**{name}** lives — back to 1 HP."),
+                UpdateSheet(channel_id, name, {"hp": 1}),
+            ]
+        if outcome.band == "weak":
+            return [
+                SendMessage(channel_id, f"**{name}** refuses Death, and passes beyond the Black Gates."),
+                UpdateSheet(channel_id, name, {"dead": True}),
+            ]
+        return [
+            SendMessage(channel_id, f"**{name}** is marked as Death's own."),
+            UpdateSheet(channel_id, name, {"deaths_mark": True}),
+        ]
+
+    # -- the rules trigger a move ------------------------------------------------------
+
+    def _trigger(self, channel_id: int, actor: str, move: str) -> List[Effect]:
+        """Open a move the rules call for, for whoever plays this character.
+
+        Their player rolls it like any other. With no player on record nobody could click,
+        so it stays open only until the sweep rolls it for them: a rules-triggered move
+        never lapses the way a declined one does.
+        """
+        rules = MOVES[move]
+        user_id = next((uid for uid, a in self.players.items()
+                        if normalize_actor(a) == normalize_actor(actor)), 0)
+        mod = 0
+        if rules.stat not in (NOTHING, BOND) and self._sheet_for is not None:
+            sheet = self._sheet_for(actor)
+            if sheet is not None:
+                mod = modifier(int(sheet["stats"][rules.stat]))
+        check, _ = self.registry.open(
+            channel_id=channel_id, user_id=user_id, actor=actor, move=move,
+            stat=rules.stat, modifier=mod, stakes="", dice=MOVE_DICE,
+        )
+        with_what = "+nothing" if rules.stat == NOTHING else \
+            f"+{STAT_NAMES[rules.stat][:3].title()} {mod:+d}"
+        return [SendMessage(
+            channel_id,
+            f"**{actor}** — {rules.name}, roll {with_what}.",
+            prompt=RollPrompt(check.check_id),
+        )]
 
     # -- inbound: the player chooses ---------------------------------------------------
 
@@ -556,7 +653,9 @@ class Director:
             effects.extend(attack_effects)
 
         outcome = replace(outcome, damage=facts, enemy_attack=back)
-        return [*effects, *self._resolved(channel_id, outcome)]
+        dying = self._trigger(channel_id, check.actor, "last_breath") \
+            if back and back.get("down") else []
+        return [*effects, *self._resolved(channel_id, outcome), *dying]
 
     def _weapon(self, sheet: Dict[str, Any], move: str):
         return weapon_for(sheet.get("gear") or [], ranged=move == "volley",
@@ -615,10 +714,16 @@ class Director:
             standing = ", ".join(sorted(n for n, r in scene.items() if r["hp"] > 0)) or "none"
             return [], {"ok": False, "error": f"No standing creature named {monster!r}. "
                                               f"Standing: {standing}."}
-        if self._sheet_for is None or self._sheet_for(character) is None:
+        sheet = self._sheet_for(character) if self._sheet_for is not None else None
+        if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet to "
                                               "deal damage to."}
+        unable = _unable(character, sheet)
+        if unable:
+            return [], {"ok": False, "error": unable}
         effects, facts = self._attack(channel_id, name, scene[name], character)
+        if facts.get("down"):
+            effects.extend(self._trigger(channel_id, character, "last_breath"))
         return effects, {"ok": True, **facts,
                          "note": "Rolled and applied by the rules engine. Narrate it as it "
                                  "landed, as bad as its severity and no worse or better; do "
@@ -647,8 +752,8 @@ class Director:
             )
             if after <= 0:
                 facts["dying"] = (
-                    f"{character} is at 0 HP and dying. Last Breath is not built yet: "
-                    "narrate them falling, and leave whether they live open."
+                    f"{character} is at 0 HP and dying. They roll Last Breath next: narrate "
+                    "them falling, and leave whether they live open."
                 )
             effects.append(ChangeHp(channel_id, "character", character, max(after, 0)))
         return [SendMessage(channel_id, line), *effects], facts
@@ -659,13 +764,12 @@ class Director:
         return Roll(spec=check.dice, faces=check.faces, modifier=check.modifier)
 
     def _resolved(self, channel_id: int, outcome: MoveOutcome) -> List[Effect]:
+        # A move the rules triggered answers no make_move call, so it must not be handed
+        # to one that happens to be waiting -- someone else's, perhaps.
+        kind = "check_outcome" if MOVES[outcome.move].callable else "rules_event"
         return [
             RecordOutcome(channel_id=channel_id, outcome=outcome),
-            PromptModel(
-                channel_id=channel_id,
-                kind="check_outcome",
-                payload=outcome_for_model(outcome),
-            ),
+            PromptModel(channel_id=channel_id, kind=kind, payload=outcome_for_model(outcome)),
         ]
 
     # -- housekeeping ------------------------------------------------------------------
@@ -683,6 +787,16 @@ class Director:
             check = cancellation.check
             if check.rolled:
                 effects.extend(self._finish_for_them(check))
+                continue
+            if not MOVES[check.move].callable:
+                # Death and whatever approaches the camp do not wait on a click.
+                dice = self.dice.roll(check.dice, modifier=check.modifier)
+                effects.append(SendMessage(
+                    check.channel_id,
+                    f"🎲 **{check.actor}** (rolled for them) rolls {dice.render()} — "
+                    f"{_RESULT[band(dice)]}.",
+                ))
+                effects.extend(self._next(check.channel_id, check, dice))
                 continue
             effects.append(
                 PromptModel(
@@ -723,7 +837,80 @@ class Director:
                 landed = [_auto(e) for e in landed]
             return effects + landed
         outcome = resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen)
-        return effects + self._resolved(channel_id, outcome)
+        return effects + self._consequences(channel_id, outcome) + self._resolved(channel_id, outcome)
+
+    # -- Make Camp -------------------------------------------------------------------------
+
+    def make_camp(
+        self, *, channel_id: int, approaches: bool = False, watcher: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The party settles in to rest -- once for all of them, however many sleep.
+
+        Everyone eats a ration. If the night passes quietly, everyone who ate heals half
+        their max HP; whoever had no ration goes hungry and heals nothing. If something
+        approaches -- the model's call, like any GM move -- nobody heals, and the watcher
+        rolls Take Watch.
+        """
+        party = []
+        for actor in sorted(set(self.players.values())):
+            sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+            if sheet is not None and not sheet.get("dead"):
+                party.append((actor, sheet))
+        if not party:
+            return [], {"ok": False, "error": "Nobody at the table has a character sheet."}
+
+        watch = None
+        if approaches:
+            watch = next((a for a, _ in party if normalize_actor(a) == normalize_actor(watcher)), None)
+            if watch is None:
+                names = ", ".join(a for a, _ in party)
+                return [], {"ok": False,
+                            "error": f"Name who is on watch, from: {names}."}
+
+        effects: List[Effect] = []
+        lines = ["🏕️ The party makes camp."]
+        report: Dict[str, Any] = {}
+        for actor, sheet in party:
+            changes: Dict[str, Any] = {}
+            fed = True
+            if "gear" in sheet:  # sheets made before gear do not count rations
+                have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
+                fed = have > 0
+                if fed:
+                    changes["rations"] = have - 1
+            entry: Dict[str, Any] = {"ate": fed}
+            if "rations" in changes:
+                entry["rations_left"] = changes["rations"]
+            if fed and not approaches:
+                healed = min(int(sheet["max_hp"]) - int(sheet["hp"]), int(sheet["max_hp"]) // 2)
+                changes["hp"] = int(sheet["hp"]) + healed
+                entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
+                lines.append(
+                    f"**{actor}** eats" + (f" ({changes['rations']} rations left)" if "rations" in changes else "")
+                    + f" and heals {healed} — HP {changes['hp']}/{sheet['max_hp']}."
+                )
+            elif fed:
+                lines.append(f"**{actor}** eats" + (f" ({changes['rations']} rations left)." if "rations" in changes else "."))
+            else:
+                lines.append(f"**{actor}** has no rations: goes hungry, and does not heal.")
+            if changes:
+                effects.append(UpdateSheet(channel_id, actor, changes))
+            report[actor] = entry
+
+        effects.insert(0, SendMessage(channel_id, "\n".join(lines)))
+        facts: Dict[str, Any] = {"ok": True, "party": report}
+        if approaches:
+            effects.append(SendMessage(channel_id, "Something stirs beyond the firelight…"))
+            effects.extend(self._trigger(channel_id, watch, "take_watch"))
+            facts["note"] = (
+                f"Something approaches in the night. {watch} is on watch and rolls Take "
+                "Watch; nobody heals, because the sleep is broken. Narrate the approach once "
+                "the roll is in, not before."
+            )
+        else:
+            facts["note"] = ("The night passes. The world clock has moved eight hours for the "
+                             "whole party; do not advance it again.")
+        return effects, facts
 
     def cancel(self, channel_id: int, check_id: str) -> List[Effect]:
         cancellation = self.registry.cancel(check_id, CancelReason.MANUAL)
@@ -748,3 +935,14 @@ def _auto(effect: Effect) -> Effect:
             "note": "The player did not choose in time, so the first options were taken.",
         })
     return effect
+
+
+def _unable(actor: str, sheet: Dict[str, Any]) -> str:
+    """Why this character cannot act, or "" if they can."""
+    if sheet.get("dead"):
+        return f"{actor} is dead."
+    if int(sheet.get("hp", 1)) <= 0:
+        return f"{actor} is down at 0 HP" + (
+            " and marked as Death's own." if sheet.get("deaths_mark") else "."
+        )
+    return ""

@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .gear import (
     CLASS_GEAR, ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES, ClassGear, Item, ammo_of,
-    armor_of, signature_weapon,
+    armor_of, rations_of, signature_weapon,
 )
 
 STATS = ("str", "dex", "con", "int", "wis", "cha")
@@ -287,7 +287,8 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
     their HP, stats and everything else are left exactly as they are.
     """
     gear = [i.to_dict() for i in items]
-    return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear)}
+    return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear),
+            "rations": rations_of(gear)}
 
 
 def weapons_line(sheet: Dict[str, Any]) -> str:
@@ -315,4 +316,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         line += f" · wields {weapons or 'nothing'}"
         if any(g.get("needs_ammo") for g in sheet["gear"]):
             line += f" · ammo {sheet.get('ammo', 0)}"
+        rations = sheet["rations"] if "rations" in sheet else rations_of(sheet["gear"])
+        line += f" · rations {rations}"
+    if sheet.get("dead"):
+        line += " · DEAD"
+    elif int(sheet.get("hp", 1)) <= 0:
+        line += " · DOWN" + (", marked as Death's own" if sheet.get("deaths_mark") else "")
     return line

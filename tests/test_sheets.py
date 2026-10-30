@@ -146,7 +146,7 @@ def test_the_description_shows_scores_and_modifiers():
     line = describe(fighter().build())
     assert line.startswith("Kael — Dwarf Fighter 1, HP 25/25, armor 1, damage d10")
     assert "STR 16 (+2)" in line and "INT 8 (-1)" in line
-    assert line.endswith("wields Signature sword (close, +1 damage, 2 piercing)")
+    assert line.endswith("wields Signature sword (close, +1 damage, 2 piercing) · rations 5")
 
 
 # -- gear --------------------------------------------------------------------------------
@@ -222,3 +222,21 @@ def test_gear_can_be_given_to_a_character_made_before_gear_existed():
     new = with_gear(old, [CHAINMAIL, MACE])
     assert (new["hp"], new["max_hp"], new["armor"], new["ammo"]) == (18, 21, 1, 0)
     assert [g["name"] for g in new["gear"]] == ["Chainmail", "Mace"]
+
+
+def test_rations_are_counted_including_on_gear_saved_before_rations_were():
+    from gary.gear import RATIONS, rations_of
+    from gary.sheets import with_gear
+
+    assert with_gear({}, [RATIONS, RATIONS])["rations"] == 10
+    saved_before = {k: v for k, v in RATIONS.to_dict().items() if k != "rations"}
+    assert rations_of([saved_before]) == 5  # read as the catalog has it
+
+
+@pytest.mark.parametrize("changes,shown", [
+    ({"hp": 0}, " · DOWN"),
+    ({"hp": 0, "deaths_mark": True}, " · DOWN, marked as Death's own"),
+    ({"hp": 0, "dead": True}, " · DEAD"),
+])
+def test_the_description_shows_who_is_down_or_dead(changes, shown):
+    assert describe({**fighter().build(), **changes}).endswith(shown)

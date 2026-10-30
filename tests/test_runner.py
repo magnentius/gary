@@ -356,3 +356,19 @@ async def test_spending_ammo_is_journalled():
     assert store.state()["sheets"]["Kethra"]["ammo"] == 2
     store.undo_last()
     assert store.state()["sheets"]["Kethra"]["ammo"] == 3
+
+
+async def test_sheet_updates_are_journalled():
+    from gary.fsm import UpdateSheet
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: 0.0)
+    store.apply([Mutation(MutationKind.SHEET, "Thorin", {"sheet": {"name": "Thorin", "hp": 0}})],
+                reason="setup")
+    await EffectRunner(FakeSender(), EchoNarrator(), store=store).run(
+        [UpdateSheet(CHANNEL, "Thorin", {"dead": True})])
+    assert store.state()["sheets"]["Thorin"] == {"name": "Thorin", "hp": 0, "dead": True}
+    store.undo_last()
+    assert "dead" not in store.state()["sheets"]["Thorin"]

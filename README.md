@@ -413,6 +413,18 @@ A creature is defeated at 0 HP and not before, however the narration reads. When
 creature hurts you as the GM's move, Gary rolls that too and takes it off your sheet's HP.
 `?dm undo` takes a blow back like any other change.
 
+**At 0 HP you roll Last Breath** — Gary posts the button the moment you fall, and rolls it
+for you if you don't click. +nothing: Death doesn't care how tough you are. On a 10+ you
+cheat death and wake at 1 HP. On a 7–9 the GM describes what you glimpse beyond the Black
+Gates and names Death's price; then you choose — **Take** the bargain and stabilize at 1
+HP, or **Refuse** and pass on. On a miss you are marked as Death's own, and the GM will
+tell you when. Anyone down or dead can't make moves.
+
+**Make Camp heals.** When the party beds down, Gary eats a ration for each of you and, if
+the night is quiet, heals everyone who ate half their max HP and moves the clock eight
+hours. No ration, no healing. If something comes in the night, whoever is on watch rolls
+**Take Watch** (+Wis) and nobody heals.
+
 If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is narrated as
 hesitation or the moment passing — never as a success. If you rolled but never chose or
 never rolled damage, the dice stand: Gary takes the first option(s), rolls the damage for
@@ -424,8 +436,8 @@ waiting on; `?dm cancel` drops your own.
 - **Only the eight basic moves.** Hack and Slash, Volley, Defy Danger, Defend, Spout Lore,
   Discern Realities, Parley, Aid or Interfere. No special moves (Last Breath, Make Camp…)
   and no class moves yet.
-- **No Last Breath.** A character at 0 HP is down and dying, and the model is told to
-  leave their fate open — the move that decides it is not built yet.
+- **Only Last Breath, Take Watch and Make Camp of the special moves.** No Recover,
+  Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
   weight and load are not tracked.
