@@ -60,6 +60,8 @@ AUTHORITY — this is absolute:
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
   chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
+- Travel through hostile territory is perilous_journey: give each job to a different
+  character (or ask who takes which), then narrate the road as the job rolls come in.
 - Days of rest somewhere comfortable and safe -- an inn, a temple -- are recover, not
   make_camp: it heals fully and clears debilities over days.
 - When the fiction weakens a character -- a numbing claw, a sickening poison, a blow to the

@@ -427,6 +427,13 @@ rest, guarded like camp) heals to full and clears days // 3 debilities (// 2 wit
 healer); when that is fewer than a character has, `cures_owed` goes on the sheet and a
 durable `CureButton` per debility lets their player pick. The clock moves a day at a time.
 
+`perilous_journey` (guarded like camp) takes the destination, the expected days and up to
+three jobs, one per character. It spends a ration per traveller per day at once, and opens
+each job as a non-callable +Wis move (`journey_trailblazer`/`_scout`/`_quartermaster`)
+through `_trigger`, so each resolves alone as a rules event; a quartermaster's 10+ refunds
+one ration. Unfilled jobs count as a 6. The model moves the clock, since the trailblazer's
+10+ shortens the trip "by how much" the GM says.
+
 
 Defend (`defends`: the target is the charge, a character's name if it is one) puts
 `defending = {charge, hold 3/1}` on the defender's sheet. `monster_attacks` against the
@@ -754,7 +761,7 @@ mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
-- **Harm and rest:** `debility`, `recover`.
+- **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -832,7 +839,8 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
    `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   Undertake a Perilous Journey, weight and load, magic items; the companion's instinct on
+   magic items, and the special moves Encumbrance (weight and load), Carouse, Supply,
+   Recruit, Outstanding Warrants and Bolster; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
    limit).

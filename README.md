@@ -356,6 +356,14 @@ the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Sc
 them and every roll shows the cost ("+Str +1 (-1 Weak)"). The GM removes one when magic or
 real treatment cures it.
 
+**Perilous Journey.** Travelling through hostile territory, the GM gives the jobs to
+different characters — trailblazer, scout, quartermaster — or asks who takes which. Rations
+for the expected days are packed at once, and each job's holder rolls +Wis with their own
+button: a trailblazer's 10+ shortens the trip, a scout's lets you get the drop on trouble,
+a quartermaster's saves a ration. A job nobody holds counts as a 6, so a lone traveller
+takes one and the GM makes moves for the rest. The GM moves the clock for the trip's real
+length.
+
 **Recover.** Days of rest somewhere comfortable and safe — an inn, a temple — are Recover,
 not camp: the GM says how many days and whether a healer tends you, and the clock moves
 that far. A day heals everyone resting to full; every three days clears a debility (every
@@ -541,9 +549,9 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Only Last Breath, Take Watch, Make Camp, End of Session and Level Up of the special
-  moves.** No Recover or Undertake a Perilous Journey yet. End of Session covers the three
-  group questions, alignment and bonds.
+- **Special moves:** not yet Encumbrance (weight and load), Carouse, Supply, Recruit,
+  Outstanding Warrants or Bolster. End of Session covers the three
+  group questions, alignment and bonds. A journey's length is the GM's to set on the clock.
 - **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
   them from their text. A move that names another ("choose one spell", a move from another

@@ -434,6 +434,26 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         ),
         miss=_MISS, classes=("Bard",), heals_target=True,
     ),
+    # -- Undertake a Perilous Journey: one move per job, each opened by the Director for the
+    # character who holds it, all rolled +Wis.
+    Move(
+        "journey_trailblazer", "Perilous Journey: Trailblazer", "blaze the trail through hostile territory", "wis",
+        strong=Band("You reduce the time it takes to reach your destination (the GM will say by how much)."),
+        weak=Band("The journey takes about as long as expected."),
+        miss=_MISS, callable=False,
+    ),
+    Move(
+        "journey_scout", "Perilous Journey: Scout", "scout ahead through hostile territory", "wis",
+        strong=Band("You spot any trouble quick enough to let the party get the drop on it."),
+        weak=Band("No one gets the drop on you, but you don't get the drop on them either."),
+        miss=_MISS, callable=False,
+    ),
+    Move(
+        "journey_quartermaster", "Perilous Journey: Quartermaster", "keep the party supplied through hostile territory", "wis",
+        strong=Band("You reduce the number of rations required by one."),
+        weak=Band("The normal number of rations are consumed."),
+        miss=_MISS, callable=False,
+    ),
     # The thing defended is attacked: redirect is one of the choices.
     Move(
         "defend_charge", "Defend", "hold Defend's hold and your charge is attacked", NOTHING,

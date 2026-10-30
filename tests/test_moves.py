@@ -16,7 +16,8 @@ def test_the_eight_basic_moves_and_their_stats():
     }
     assert all(m.stat in (*STATS, ANY, BOND, CASTER, "nothing") for m in MOVES.values())
     assert {k for k, m in MOVES.items() if not m.callable} == {
-        "last_breath", "take_watch", "defend_charge", "defend_self"}
+        "last_breath", "take_watch", "defend_charge", "defend_self",
+        "journey_trailblazer", "journey_scout", "journey_quartermaster"}
 
 
 @pytest.mark.parametrize("total,band", [(12, "strong"), (10, "strong"), (9, "weak"),

@@ -379,6 +379,15 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.PERILOUS_JOURNEY:
+                journey_effects, result = self._director.perilous_journey(
+                    channel_id=channel_id, destination=str(args.get("destination", "") or ""),
+                    days=int(args.get("days") or 0), trailblazer=str(args.get("trailblazer", "") or ""),
+                    scout=str(args.get("scout", "") or ""), quartermaster=str(args.get("quartermaster", "") or ""))
+                effects.extend(journey_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.RECOVER:
                 rest_effects, result = self._director.recover(
                     channel_id=channel_id, characters=list(args.get("characters") or []),

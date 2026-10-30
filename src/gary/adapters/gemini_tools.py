@@ -45,6 +45,7 @@ FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 RECOVER = "recover"
+PERILOUS_JOURNEY = "perilous_journey"
 USE_POISON = "use_poison"
 BREW_POISON = "brew_poison"
 
@@ -274,6 +275,28 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "revert": _s(type=types.Type.BOOLEAN, description="True to spend all hold and turn back."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=PERILOUS_JOURNEY,
+        description=(
+            "The party travels through hostile territory: Undertake a Perilous Journey. Give "
+            "each job to a different character from the fiction -- trailblazer, scout, "
+            "quartermaster -- or ask the players who takes which. A job nobody holds counts as a "
+            "6. Rations for the expected days are spent at once; each job-holder rolls +Wis and "
+            "the results come back as rules events. You move the clock once you know how long it "
+            "really took. Not for a stroll between safe places: just advance_time."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "destination": _s(type=_STRING),
+                "days": _s(type=_INTEGER, description="The expected length in days, 1-30."),
+                "trailblazer": _s(type=_STRING),
+                "scout": _s(type=_STRING),
+                "quartermaster": _s(type=_STRING),
+            },
+            required=["destination", "days"],
         ),
     ),
     types.FunctionDeclaration(

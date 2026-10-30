@@ -905,6 +905,12 @@ class Director:
         name = outcome.actor
         if outcome.healing:
             return self._heal(channel_id, outcome)
+        if outcome.move == "journey_quartermaster" and outcome.band == "strong":
+            sheet = self._sheet_for(name) if self._sheet_for is not None else None
+            if sheet is not None and "gear" in sheet:
+                have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
+                return [SendMessage(channel_id, f"**{name}** stretches the supplies — one ration saved."),
+                        UpdateSheet(channel_id, name, {"rations": have + 1})]
         if outcome.move != "last_breath":
             return []
         took_bargain = outcome.chosen[:1] == (MOVES["last_breath"].weak.choice.options[0].text,)
@@ -1636,6 +1642,75 @@ class Director:
             SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
         ], {"ok": True, "ended": name}
+
+    # -- Undertake a Perilous Journey -----------------------------------------------------------
+
+    def perilous_journey(
+        self, *, channel_id: int, destination: str = "", days: int = 1, trailblazer: str = "",
+        scout: str = "", quartermaster: str = "",
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """"When you travel through hostile territory, choose one member of the party to act as
+        trailblazer, one to scout ahead, and one to be quartermaster (the same character
+        cannot have two jobs). If you don't have enough party members or choose not to
+        assign a job, treat that job as if it had rolled a 6."
+
+        The rations go now -- one a day for everyone travelling -- and each job's holder rolls
+        +Wis with their own button. A quartermaster's 10+ hands one back. How long the journey
+        really takes is the GM's to say once the trailblazer's roll is in, so the model moves
+        the clock.
+        """
+        unsettled = self.unsettled(channel_id, "set out on a journey")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        destination = " ".join(str(destination or "").split())
+        if not destination:
+            return [], {"ok": False, "error": "Say where they are travelling (destination)."}
+        days = int(days or 0)
+        if not 1 <= days <= MAX_RECOVER_DAYS:
+            return [], {"ok": False, "error": f"A journey of 1 to {MAX_RECOVER_DAYS} days."}
+        party = self._party()
+        if not party:
+            return [], {"ok": False, "error": "Nobody at the table has a character sheet."}
+        jobs: Dict[str, str] = {}
+        for job, who in (("trailblazer", trailblazer), ("scout", scout), ("quartermaster", quartermaster)):
+            if not str(who or "").strip():
+                continue
+            actor = next((a for a, _ in party if normalize_actor(a) == normalize_actor(who)), None)
+            if actor is None:
+                return [], {"ok": False, "error": f"{who!r} is not travelling with the party. "
+                                                  f"Party: {', '.join(a for a, _ in party)}."}
+            if actor in jobs.values():
+                return [], {"ok": False, "error": f"{actor} already has a job: the same character "
+                                                  "cannot have two."}
+            jobs[job] = actor
+
+        effects: List[Effect] = []
+        lines = [f"🧭 The party sets out for {destination} — about {days} day{'s' if days > 1 else ''} "
+                 "through hostile territory."]
+        spent: Dict[str, Any] = {}
+        for actor, sheet in party:
+            if "gear" not in sheet or sheet.get("class") == "Druid":  # By Nature Sustained
+                continue
+            have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
+            used = min(have, days)
+            spent[actor] = {"rations_used": used, "rations_left": have - used,
+                            "short": days - used}
+            effects.append(UpdateSheet(channel_id, actor, {"rations": have - used}))
+            lines.append(f"**{actor}** packs {used} ration{'s' if used != 1 else ''}"
+                         + (f" — {days - used} short." if used < days else f" ({have - used} left)."))
+        unfilled = [j for j in ("trailblazer", "scout", "quartermaster") if j not in jobs]
+        if unfilled:
+            lines.append(f"Nobody is {_and(unfilled)}: that counts as a 6.")
+        effects.insert(0, SendMessage(channel_id, "\n".join(lines)))
+        for job, actor in jobs.items():
+            effects.extend(self._trigger(channel_id, actor, f"journey_{job}"))
+        return effects, {"ok": True, "destination": destination, "days": days, "jobs": jobs,
+                         "rations": spent, "unfilled_jobs_count_as_6": unfilled, "note": (
+            "The job rolls are open. Narrate setting out, not arriving: each result comes back as "
+            "a rules event. Jobs nobody holds count as a miss -- a GM move each. When the "
+            "trailblazer's result is in (or now, with no trailblazer), move the clock with "
+            f"advance_time for the journey's real length: about {days} day(s), less on a 10+, "
+            "a day at a time. Anyone short of rations goes hungry on the road: a GM move.")}
 
     # -- Recover ---------------------------------------------------------------------------------
 
