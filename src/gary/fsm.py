@@ -842,7 +842,7 @@ class Director:
     # -- Make Camp -------------------------------------------------------------------------
 
     def make_camp(
-        self, *, channel_id: int, approaches: bool = False, watcher: str = ""
+        self, *, channel_id: int, approaches: bool = False, watcher: str = "", reason: str = ""
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """The party settles in to rest -- once for all of them, however many sleep.
 
@@ -850,7 +850,28 @@ class Director:
         their max HP; whoever had no ration goes hungry and heals nothing. If something
         approaches -- the model's call, like any GM move -- nobody heals, and the watcher
         rolls Take Watch.
+
+        Refused, back to the model, when the rules can see the party cannot settle in:
+        creatures still standing, or anyone mid-move -- above all a Last Breath not yet
+        rolled. What the rules cannot see (a chase, a storm at sea) is the model's to
+        judge, so it must say where and why it is safe: ``reason``, shown to the table.
         """
+        standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
+        if standing:
+            return [], {"ok": False, "error": (
+                f"You can't settle in to rest with {_and(standing)} still standing. Finish "
+                "the fight, or remove them with remove_monsters if they have truly gone."
+            )}
+        pending = list(self.registry.open_checks(channel_id))
+        if pending:
+            what = _and(f"{c.actor}'s {MOVES[c.move].name}" for c in pending)
+            return [], {"ok": False, "error": f"Not while {what} is still to be resolved."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": (
+                "Say where the party rests and why it is safe enough to sleep (reason). If "
+                "it is not safe, tell them so, or let them try and set something_approaches."
+            )}
         party = []
         for actor in sorted(set(self.players.values())):
             sheet = self._sheet_for(actor) if self._sheet_for is not None else None
@@ -868,7 +889,7 @@ class Director:
                             "error": f"Name who is on watch, from: {names}."}
 
         effects: List[Effect] = []
-        lines = ["🏕️ The party makes camp."]
+        lines = [f"🏕️ The party makes camp — {reason}"]
         report: Dict[str, Any] = {}
         for actor, sheet in party:
             changes: Dict[str, Any] = {}
@@ -935,6 +956,11 @@ def _auto(effect: Effect) -> Effect:
             "note": "The player did not choose in time, so the first options were taken.",
         })
     return effect
+
+
+def _and(names) -> str:
+    names = list(names)
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
 
 
 def _unable(actor: str, sheet: Dict[str, Any]) -> str:

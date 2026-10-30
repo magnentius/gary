@@ -909,6 +909,9 @@ def test_the_rules_triggered_moves_cannot_be_called_by_the_model(director):
 # -- Make Camp ------------------------------------------------------------------------------
 
 
+CAMP = "the cleared guardroom, door barred"
+
+
 def _camp_party(director):
     from gary.gear import ARROWS, HUNTERS_BOW, LEATHER, RATIONS
 
@@ -919,36 +922,39 @@ def _camp_party(director):
     director._sheet_for("Dorn")["hp"] = 20    # of 25; no gear -- rations not counted
 
 
-def test_a_quiet_night_feeds_and_heals_half_max_hp(director):
+def test_a_quiet_night_feeds_and_heals_half_max_hp(director, scene):
+    scene.clear()
     from gary.fsm import UpdateSheet
 
     _camp_party(director)
-    effects, facts = director.make_camp(channel_id=CHANNEL)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
     assert UpdateSheet(CHANNEL, "Kethra", {"rations": 4, "hp": 14}) in effects  # +9 of 19
     assert UpdateSheet(CHANNEL, "Dorn", {"hp": 25}) in effects  # capped at max
     assert facts["party"]["Kethra"] == {"ate": True, "rations_left": 4, "healed": 9, "hp": 14, "max_hp": 19}
     assert "eight hours" in facts["note"]
     summary = sends_in(effects)[0].text
-    assert summary.startswith("🏕️ The party makes camp.")
+    assert summary.startswith("🏕️ The party makes camp — the cleared guardroom, door barred")
     assert "**Kethra** eats (4 rations left) and heals 9 — HP 14/19." in summary
 
 
-def test_no_ration_no_healing(director):
+def test_no_ration_no_healing(director, scene):
+    scene.clear()
     from gary.fsm import UpdateSheet
 
     _camp_party(director)
     director._sheet_for("Kethra")["rations"] = 0
-    effects, facts = director.make_camp(channel_id=CHANNEL)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
     assert facts["party"]["Kethra"] == {"ate": False}
     assert not [e for e in effects if isinstance(e, UpdateSheet) and e.name == "Kethra"]
     assert "**Kethra** has no rations: goes hungry, and does not heal." in sends_in(effects)[0].text
 
 
-def test_something_in_the_night_means_take_watch_and_no_healing(director, registry):
+def test_something_in_the_night_means_take_watch_and_no_healing(director, registry, scene):
+    scene.clear()
     from gary.fsm import UpdateSheet
 
     _camp_party(director)
-    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="dorn")
+    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="dorn", reason=CAMP)
     assert UpdateSheet(CHANNEL, "Kethra", {"rations": 4}) in effects  # ate, did not heal
     assert not any(isinstance(e, UpdateSheet) and "hp" in e.changes for e in effects)
     assert sends_in(effects)[-1].text == "**Dorn** — Take Watch, roll +Wis +0."
@@ -957,23 +963,68 @@ def test_something_in_the_night_means_take_watch_and_no_healing(director, regist
     assert "nobody heals" in facts["note"]
 
 
-def test_take_watch_resolves_as_a_rules_event(director, registry, dice):
+def test_take_watch_resolves_as_a_rules_event(director, registry, dice, scene):
+    scene.clear()
     _camp_party(director)
-    director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn")
+    director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn", reason=CAMP)
     dice.queue(5, 5)
     (prompt,) = prompts_in(roll(director, user_id=BOB))
     assert prompt.kind == "rules_event"
     assert "camp takes +1 forward" in prompt.payload["what_it_means"]
 
 
-def test_an_interrupted_night_needs_a_watcher_from_the_party(director):
+def test_an_interrupted_night_needs_a_watcher_from_the_party(director, scene):
+    scene.clear()
     _camp_party(director)
-    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Gandalf")
+    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Gandalf", reason=CAMP)
     assert effects == [] and "Name who is on watch" in facts["error"]
 
 
-def test_the_dead_do_not_camp(director):
+def test_the_dead_do_not_camp(director, scene):
+    scene.clear()
     _camp_party(director)
     director._sheet_for("Dorn")["dead"] = True
-    _, facts = director.make_camp(channel_id=CHANNEL)
+    _, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
     assert set(facts["party"]) == {"Kethra"}
+
+
+
+# -- when you cannot rest ---------------------------------------------------------------------
+
+
+def test_no_rest_with_creatures_still_standing(director, scene):
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert effects == [] and not facts["ok"]
+    assert "Goblin 1 and Goblin 2 still standing" in facts["error"]
+
+
+def test_the_defeated_do_not_stop_a_rest(director, scene):
+    _camp_party(director)
+    scene["Goblin 1"]["hp"] = 0
+    scene["Goblin 2"]["hp"] = -2
+    _, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert facts["ok"]
+
+
+def test_no_rest_while_a_last_breath_is_unresolved(director, dice, scene):
+    _drop(director, dice, scene=scene)
+    scene.clear()
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert effects == [] and "Kethra's Last Breath is still to be resolved" in facts["error"]
+
+
+def test_no_rest_mid_move(director, scene):
+    scene.clear()
+    _camp_party(director)
+    make_move(director, "spout_lore")
+    _, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert "Kethra's Spout Lore" in facts["error"]
+
+
+def test_a_rest_must_say_where_and_why_it_is_safe(director, scene):
+    scene.clear()
+    _camp_party(director)
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason="   ")
+    assert effects == [] and "why it is safe" in facts["error"]

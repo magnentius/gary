@@ -95,7 +95,9 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
       a night's watch 120 · overland travel by the hour
   Under a minute is not worth recording. When the party beds down for the night, call
   make_camp ONCE — it eats the rations, heals, and moves the clock eight hours for
-  everyone, because there is only one night however many people sleep through it.
+  everyone, because there is only one night however many people sleep through it. Only
+  where they can truly settle in: mid-fight, mid-chase or somewhere hostile, refuse the
+  rest in the fiction, or let them try and have something approach.
 - The date is real, a thousand years back, months named for their full moons — in order:
   Wolf, Snow, Worm, Pink, Flower, Strawberry, Buck, Sturgeon, Harvest, Hunter's, Beaver,
   Cold. Wolf is deep winter, Flower is late spring, Sturgeon high summer, Hunter's mid

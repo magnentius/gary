@@ -349,6 +349,7 @@ class GeminiNarrator:
                     channel_id=channel_id,
                     approaches=bool(args.get("something_approaches")),
                     watcher=str(args.get("watch", "") or ""),
+                    reason=str(args.get("reason", "") or ""),
                 )
                 if result.get("ok") and not args.get("something_approaches"):
                     try:

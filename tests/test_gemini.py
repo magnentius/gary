@@ -555,9 +555,8 @@ async def test_a_history_from_before_moves_is_answered_under_its_own_call(rig):
 def test_every_declaration_is_well_formed():
     for decl in T.DECLARATIONS:
         assert decl.description and len(decl.description) > 20
-        # These take nothing required: no names means "clear the scene", and a quiet
-        # night needs no watch.
-        assert decl.parameters.required or decl.name in (T.REMOVE_MONSTERS, T.MAKE_CAMP)
+        # remove_monsters takes nothing required: no names means "clear the scene".
+        assert decl.parameters.required or decl.name == T.REMOVE_MONSTERS
         for name in decl.parameters.required or []:
             assert name in decl.parameters.properties, f"{decl.name}: {name} not declared"
 
@@ -801,7 +800,8 @@ async def test_make_camp_heals_through_the_director_and_moves_the_clock_once(clo
         sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
     )
     n = narrator((director, store, InMemoryHistoryBackend()),
-                 call_response(T.MAKE_CAMP, {}), text_response("Dawn comes grey."))
+                 call_response(T.MAKE_CAMP, {"reason": "a dry cave, entrance hidden"}),
+                 text_response("Dawn comes grey."))
     result = await player(n)
 
     assert store.state()["world_minutes"] == 480
@@ -819,7 +819,8 @@ async def test_an_interrupted_camp_does_not_move_the_clock(clock):
         sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
     )
     n = narrator((director, store, InMemoryHistoryBackend()),
-                 call_response(T.MAKE_CAMP, {"something_approaches": True, "watch": "Kethra"}),
+                 call_response(T.MAKE_CAMP, {"reason": "the ruined chapel",
+                                             "something_approaches": True, "watch": "Kethra"}),
                  text_response("A twig snaps."))
     await player(n)
     assert store.state()["world_minutes"] == 0

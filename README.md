@@ -423,7 +423,10 @@ tell you when. Anyone down or dead can't make moves.
 **Make Camp heals.** When the party beds down, Gary eats a ration for each of you and, if
 the night is quiet, heals everyone who ate half their max HP and moves the clock eight
 hours. No ration, no healing. If something comes in the night, whoever is on watch rolls
-**Take Watch** (+Wis) and nobody heals.
+**Take Watch** (+Wis) and nobody heals. You can't make camp with creatures still standing or while
+anyone's roll is unresolved (a Last Breath above all); anywhere else unsafe — a chase, a
+storm — the GM refuses the rest or lets something come for you. Every camp says where it is
+and why it's safe, so a bad one is easy to spot and `?dm undo`.
 
 If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is narrated as
 hesitation or the moment passing — never as a success. If you rolled but never chose or

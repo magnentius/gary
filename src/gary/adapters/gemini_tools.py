@@ -154,14 +154,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "their max HP and the clock moves eight hours. Whether something approaches in "
             "the night is your call, as dangerous as the place is: if it does, name who is "
             "on watch -- they roll Take Watch, nobody heals, and you narrate what came "
-            "once the roll is in."
+            "once the roll is in. Only somewhere they can actually settle in: not mid-fight, "
+            "not mid-chase, not clinging to a cliff. If they try to rest in danger, tell them "
+            "they can't, or let them try and set something_approaches."
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
+                "reason": _s(type=_STRING, description="Where they rest and why it is safe enough to sleep, e.g. 'the cleared guardroom, door barred'. Shown to the table."),
                 "something_approaches": _s(type=types.Type.BOOLEAN, description="True if something comes in the night."),
                 "watch": _s(type=_STRING, description="Who is on watch, if something approaches."),
             },
+            required=["reason"],
         ),
     ),
     types.FunctionDeclaration(
