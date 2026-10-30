@@ -364,6 +364,12 @@ named, ignoring armor) and Harm (which burns you too) deal damage, Bless gives i
 +1 while creatures stand, Magic Weapon adds 1d4 to the caster's weapon. The rest the GM
 narrates from the spell's text.
 
+**XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
+When you wrap up, run `?dm endsession`: anyone can flip the three questions (learned
+something important, overcame a notable enemy, looted a memorable treasure), then Award XP
+gives everyone at the table 1 XP per yes. `?dm sheet` shows XP against what you need
+(level + 7).
+
 ### Talk to Gary
 
 Gary stays quiet unless addressed, so five players chatting do not cost five model calls.
@@ -477,8 +483,10 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Only Last Breath, Take Watch and Make Camp of the special moves.** No Recover,
-  Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
+- **Only Last Breath, Take Watch, Make Camp and End of Session of the special moves.** No
+  Recover, Undertake a Perilous Journey or Level Up yet: XP is earned and shown ("ready to
+  level up"), but nobody can spend it. End of Session asks only the three group questions;
+  bond and alignment XP wait on bonds and alignment.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
   weight and load are not tracked. Debilities are not tracked, so a potion always heals
@@ -608,6 +616,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
 | `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |

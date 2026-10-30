@@ -91,6 +91,11 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   the old spells and posts a durable `SpellsButton`; the choice is a private
 >   `SpellPicker` driven by `spells.Preparation`, saved as one `SHEET` mutation.
 >   `end_spell` takes one off the ongoing list.
+> - **XP.** `Director._mark_xp` adds 1 XP (an `UpdateSheet`) whenever a move resolves as a
+>   miss, from `_resolved`, so every path -- rolled, auto-finished, rules-triggered -- marks
+>   it. `?dm endsession` posts an in-memory `EndOfSession` view (adapters/session.py): the
+>   book's three questions as toggles anyone can flip; Award XP applies +1 per yes to every
+>   living character in one apply. No model involvement. Level Up is next.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
