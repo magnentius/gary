@@ -70,3 +70,55 @@ def test_the_form_writes_removes_and_saves():
     asyncio.run(run())
     assert saved[0]["bonds"] == [{"line": INSULTED, "with": "Dorn"}]
     assert edits[-1][1] is None
+
+
+def test_alignment_is_a_creation_choice_from_the_class_list():
+    from gary.sheets import Draft, alignment_line
+
+    d = Draft()
+    d.choose_class("cleric")
+    assert list(d.alignments()) == ["Good", "Lawful", "Evil"]
+    with pytest.raises(SheetError, match="Choose one of Good, Lawful, Evil"):
+        d.choose_alignment("Chaotic")
+    d.choose_alignment("Lawful")
+    d.choose_class("thief")
+    assert d.alignment is None  # a new class, new alignments
+    assert alignment_line({"class": "Cleric", "alignment": "Good"}) == \
+        "Alignment — Good: Endanger yourself to heal another."
+    assert alignment_line({"class": "Cleric"}) == ""
+
+
+def test_the_model_sees_the_alignment():
+    from gary.class_moves import render
+
+    block = render({"Thorin": {**THORIN, "alignment": "Good"}})
+    assert "    - Alignment — Good: Endanger yourself to heal another." in block
+
+
+def test_choosing_an_alignment_later_saves_only_that():
+    from gary.adapters.discord_bot import GaryClient
+
+    sheets = {"Thorin": {**THORIN, "hp": 4}}
+    sent = []
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            for m in mutations:
+                sheets[m.target] = m.payload["sheet"]
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Client:
+        store, sender = _Store(), _Sender()
+
+    finish = GaryClient._finish_alignment.__get__(_Client(), _Client)
+    assert asyncio.run(finish("Thorin", "Evil", 1)) is None
+    assert sheets["Thorin"]["alignment"] == "Evil" and sheets["Thorin"]["hp"] == 4
+    assert sent == ["⚖️ **Thorin** — Alignment — Evil: Harm another to prove the superiority of "
+                    "your church or god."]

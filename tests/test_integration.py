@@ -1102,8 +1102,8 @@ def test_end_of_session_toggles_answers_and_awards_once():
 
     awarded, edits, private = [], [], []
 
-    async def award(yeses):
-        awarded.append(yeses)
+    async def award(yeses, fulfilled):
+        awarded.append((yeses, fulfilled))
         return f"+{yeses} XP"
 
     class _Resp:
@@ -1113,22 +1113,26 @@ def test_end_of_session_toggles_answers_and_awards_once():
         async def send_message(self, text, ephemeral=False):
             private.append(text)
 
-    def click():
-        return type("I", (), {"response": _Resp()})()
+    def click(user_id=ALICE):
+        return type("I", (), {"response": _Resp(), "user": type("U", (), {"id": user_id})()})()
 
     async def run():
-        view = EndOfSession(award)
+        view = EndOfSession(award, {"Thorin": ALICE})
         await view.children[0].callback(click())
         await view.children[2].callback(click())
-        assert view.children[3].label == "Award 2 XP"
+        assert view.children[4].label == "Award 2 XP each"
         assert "✅ Did we learn something new" in edits[-1][0]
-        await view.children[3].callback(click())
+        await view.children[3].callback(click(BOB))  # not Bob's to say
+        assert private == ["Whether Thorin acted on their alignment is their player's to say."]
+        await view.children[3].callback(click(ALICE))
+        assert view.children[3].label == "Thorin: acted on alignment"
+        await view.children[4].callback(click())
         await view._on_award(click())
 
     asyncio.run(run())
-    assert awarded == [2]
+    assert awarded == [(2, {"Thorin"})]
     assert edits[-1][0].endswith("+2 XP") and edits[-1][1] is None
-    assert private == ["XP is already awarded."]
+    assert private[-1] == "XP is already awarded."
 
 
 def test_end_session_gives_everyone_at_the_table_the_xp():
@@ -1152,10 +1156,10 @@ def test_end_session_gives_everyone_at_the_table_the_xp():
         director = type("D", (), {"players": {ALICE: "Thorin", BOB: "Gone"}})()
 
     end = GaryClient._end_session.__get__(_Client(), _Client)
-    assert asyncio.run(end(2)) == "⭐ +2 XP each — **Thorin** 5/8 XP."
+    assert asyncio.run(end(2, {"Thorin"})) == "⭐ End of session — **Thorin** +3 (6/8 XP)."
     ((mutation,),) = applied
-    assert mutation.payload["sheet"]["xp"] == 5
-    assert asyncio.run(end(0)) == "No XP from the questions this session."
+    assert mutation.payload["sheet"]["xp"] == 6
+    assert asyncio.run(end(0)) == "No XP this session."
 
 
 # -- level up ---------------------------------------------------------------------------------

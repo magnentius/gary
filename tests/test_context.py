@@ -548,6 +548,7 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     d.choose_signature_base("Axe")
     d.choose_signature_range("close")
     d.choose_signature_enhancements([3, 5])  # serrated, huge
+    d.choose_alignment("Good")
     d.choose_name("Kael")
 
     state = empty_state()

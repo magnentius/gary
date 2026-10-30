@@ -346,7 +346,9 @@ gear. Gear does real work: your best armor plus a shield is your armor; a weapon
 and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
 and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
 spends ammo. A character made before gear existed runs `?dm gear` once to pick theirs.
-Alignment is not tracked yet.
+**Alignment.** `?dm new` asks for one from your class's list, each with what fulfils it
+("Good: endanger yourself to heal another"); a character made before that runs
+`?dm alignment`. The GM sees it.
 
 **Bonds.** Once there's another character at the table, run `?dm bonds`: a private form
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
@@ -372,8 +374,9 @@ narrates from the spell's text.
 
 **XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
 When you wrap up, run `?dm endsession`: anyone can flip the three questions (learned
-something important, overcame a notable enemy, looted a memorable treasure), then Award XP
-gives everyone at the table 1 XP per yes. `?dm sheet` shows XP against what you need
+something important, overcame a notable enemy, looted a memorable treasure), and each
+player ticks whether their own character acted on their alignment (only they can). Award
+XP gives everyone 1 XP per yes, plus 1 to each who ticked. `?dm sheet` shows XP against what you need
 (level + 7).
 
 **Level Up.** With enough XP, run `?dm levelup` — refused while creatures stand or a move is
@@ -497,7 +500,7 @@ waiting on; `?dm cancel` drops your own.
   Fireball hits several creatures.
 - **Only Last Breath, Take Watch, Make Camp, End of Session and Level Up of the special
   moves.** No Recover or Undertake a Perilous Journey yet. End of Session asks only the three
-  group questions; bond and alignment XP are not awarded yet.
+  group questions and alignment; resolving a bond for XP is not built yet.
 - **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
   them from their text. A move that names another ("choose one spell", a move from another
@@ -631,6 +634,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm alignment` | Choose your alignment, for a character made before alignments existed. |
 | `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |
 | `?dm levelup` | Spend XP on a level in downtime: a private form for a stat, an advanced move and (Wizards) a spell. |
 | `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |

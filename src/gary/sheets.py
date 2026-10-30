@@ -89,6 +89,7 @@ class Draft:
     signature_base: Optional[str] = None
     signature_ranges: List[str] = field(default_factory=list)
     signature_enhancements: Tuple[int, ...] = ()
+    alignment: Optional[str] = None
 
     def choose_class(self, class_key: str) -> None:
         key = str(class_key or "").strip().lower()
@@ -97,6 +98,7 @@ class Draft:
         if key != self.class_key:
             self.race = None  # races differ by class
             self.reset_gear()  # and so does gear
+            self.alignment = None  # and alignments
         self.class_key = key
 
     def races(self) -> List[str]:
@@ -238,6 +240,15 @@ class Draft:
             ))
         return items
 
+    def alignments(self) -> Dict[str, str]:
+        """The class's alignments: name -> what fulfils it."""
+        return alignments_of(self.class_key or "")
+
+    def choose_alignment(self, alignment: str) -> None:
+        if alignment not in self.alignments():
+            raise SheetError(f"Choose one of {', '.join(self.alignments())}.")
+        self.alignment = alignment
+
     def choose_name(self, name: str) -> None:
         name = " ".join(str(name or "").split())
         if not name:
@@ -249,7 +260,7 @@ class Draft:
     @property
     def complete(self) -> bool:
         return (
-            bool(self.class_key and self.race and self.name)
+            bool(self.class_key and self.race and self.name and self.alignment)
             and not self.unassigned_stats()
             and self.gear_complete
         )
@@ -261,7 +272,8 @@ class Draft:
                 label for label, done in (
                     ("a class", self.class_key), ("a race", self.race),
                     ("stats", not self.unassigned_stats()),
-                    ("gear", self.gear_complete), ("a name", self.name),
+                    ("gear", self.gear_complete), ("an alignment", self.alignment),
+                    ("a name", self.name),
                 ) if not done
             ]
             raise SheetError("Still needs " + ", ".join(missing) + ".")
@@ -277,6 +289,7 @@ class Draft:
             "max_hp": max_hp,
             "hp": max_hp,
             "damage": cls["damage"],
+            "alignment": self.alignment,
             **with_gear({}, self.gear_items()),
         }
 
@@ -334,6 +347,21 @@ def xp_needed(sheet: Dict[str, Any]) -> int:
     """Level Up: "When you have downtime and you have XP equal to (or greater than) your
     current level+7"."""
     return int(sheet.get("level", 1)) + 7
+
+
+def alignments_of(class_name: str) -> Dict[str, str]:
+    """A class's alignments, name -> what fulfils it (the book's words)."""
+    from .class_moves import TEXTS  # class_moves -> spells; imported late to keep sheets light
+
+    return dict(TEXTS.get(class_name.lower(), {}).get("alignments", {}))
+
+
+def alignment_line(sheet: Dict[str, Any]) -> str:
+    """"Alignment — Good: Endanger yourself to heal another." "" if none is chosen."""
+    name = sheet.get("alignment")
+    if not name:
+        return ""
+    return f"Alignment — {name}: {alignments_of(sheet.get('class', '')).get(name, '')}"
 
 
 #: Said once, when XP first reaches the mark.

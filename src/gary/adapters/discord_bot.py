@@ -38,9 +38,9 @@ from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..levelling import ready
-from ..sheets import LEVEL_UP_HINT, SheetError, carrying_line, describe, xp_line, xp_needed
+from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
 from .. import bonds, spells
-from .creator import GearButton, StartButton
+from .creator import AlignmentForm, GearButton, StartButton
 from .bonds_form import BondsForm
 from .levelup import LevelUpForm
 from .session import EndOfSession
@@ -282,6 +282,7 @@ __At the table__
 `{p}endsession` — the end-of-session questions; the table answers, everyone gets the XP
 `{p}levelup` — spend your XP on a level, in downtime (a private form)
 `{p}bonds` — write your bonds with the other characters (a private form)
+`{p}alignment` — choose your alignment, for a character made before alignments existed
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -756,26 +757,57 @@ class GaryClient(discord.Client):
         picker = SpellPicker(sheet, lambda i, changes: self._finish_spells(actor, changes, channel_id))
         await interaction.response.send_message(picker.prompt(), view=picker, ephemeral=True)
 
-    async def _end_session(self, yeses: int) -> Optional[str]:
-        """Everyone at the table marks XP for each "yes". One apply for the party."""
+    async def _end_session(self, yeses: int, fulfilled: frozenset = frozenset()) -> Optional[str]:
+        """Everyone at the table marks XP for each "yes", and those who acted on their
+        alignment one more. One apply for the party."""
         sheets = self.store.state().get("sheets") or {}
         party = [sheets[a] for a in sorted(set(self.director.players.values()))
                  if a in sheets and not sheets[a].get("dead")]
         if not party:
             return "Nobody at the table has a character sheet."
-        if yeses == 0:
-            return "No XP from the questions this session."
-        updated = [{**s, "xp": int(s.get("xp", 0)) + yeses} for s in party]
+        gains = {s["name"]: yeses + (1 if s["name"] in fulfilled else 0) for s in party}
+        if not any(gains.values()):
+            return "No XP this session."
+        updated = [{**s, "xp": int(s.get("xp", 0)) + gains[s["name"]]} for s in party if gains[s["name"]]]
         diff = self.store.apply(
             [Mutation(MutationKind.SHEET, s["name"], {"sheet": s}) for s in updated],
-            reason=f"end of session: +{yeses} XP each",
+            reason=f"end of session: +{yeses} XP each, alignment for {sorted(fulfilled) or 'nobody'}",
         )
         if not diff.ok:
             return None
-        line = f"⭐ +{yeses} XP each — " + "; ".join(f"**{s['name']}** {xp_line(s)}" for s in updated) + "."
+        line = "⭐ End of session — " + "; ".join(
+            f"**{s['name']}** +{gains[s['name']]} ({xp_line(s)})" for s in updated) + "."
         if any(int(s["xp"]) >= xp_needed(s) for s in updated):
             line += LEVEL_UP_HINT
         return line
+
+    async def _private_button(self, message, text: str, label: str, emoji: str, form, prompt: str) -> None:
+        """Post a button only the asker can use, opening ``form`` privately. A typed command
+        cannot be answered privately; a click can."""
+        view = discord.ui.View(timeout=form.timeout)
+        button = discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.primary)
+        owner = message.author.id
+
+        async def open_form(interaction: "discord.Interaction") -> None:
+            if interaction.user.id != owner:
+                await interaction.response.send_message("This one is someone else's.", ephemeral=True)
+                return
+            await interaction.response.send_message(prompt, view=form, ephemeral=True)
+
+        button.callback = open_form
+        view.add_item(button)
+        await message.channel.send(text, view=view)
+
+    async def _finish_alignment(self, actor: str, chosen: str, channel_id: int) -> Optional[str]:
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None:
+            return f"{actor} has no sheet any more."
+        diff = self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": {**sheet, "alignment": chosen}})],
+                                reason=f"{actor} is {chosen}")
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        await self.sender.send(channel_id, f"⚖️ **{actor}** — {alignment_line({**sheet, 'alignment': chosen})}")
+        return None
 
     async def _finish_bonds(self, edited: dict, channel_id: int) -> Optional[str]:
         """Store bonds. Only the bonds: anything else on the sheet may have changed since the
@@ -1148,13 +1180,30 @@ class GaryClient(discord.Client):
             if sheet is None:
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
-            extra = [line for line in (carrying_line(sheet), spells.describe(sheet), bonds.describe(sheet)) if line]
+            extra = [line for line in (alignment_line(sheet), carrying_line(sheet), spells.describe(sheet),
+                                       bonds.describe(sheet)) if line]
+            if not sheet.get("alignment"):
+                extra.append(f"No alignment yet: `{prefix}alignment` chooses one.")
             await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
             return
 
         if command == "endsession":
-            view = EndOfSession(lambda yeses: self._end_session(yeses))
+            sheets = self.store.state().get("sheets") or {}
+            aligned = {actor: uid for uid, actor in sorted(self.director.players.items(), key=lambda p: p[1])
+                       if actor in sheets and sheets[actor].get("alignment") and not sheets[actor].get("dead")}
+            view = EndOfSession(lambda yeses, fulfilled: self._end_session(yeses, fulfilled), aligned)
             await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "alignment":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            form = AlignmentForm(sheet, lambda chosen: self._finish_alignment(actor, chosen, channel_id))
+            await self._private_button(message, f"**{actor}** — your alignment:", "Choose alignment",
+                                       "⚖️", form, form.prompt())
             return
 
         if command == "bonds":

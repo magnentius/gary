@@ -16,7 +16,9 @@ from typing import Awaitable, Callable, Optional
 import discord
 
 from ..gear import ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES
-from ..sheets import CLASSES, MAX_NAME_CHARS, STAT_NAMES, STATS, Draft, SheetError, describe, with_gear
+from ..sheets import (
+    CLASSES, MAX_NAME_CHARS, STAT_NAMES, STATS, Draft, SheetError, alignments_of, describe, with_gear,
+)
 
 _SIGNATURE_PROMPTS = {
     "base": "Your signature weapon. Choose a base description (all are 2 weight).",
@@ -133,6 +135,9 @@ class CharacterCreator(discord.ui.View):
             lines.append(f"{group.prompt}.")
         elif d.signature_step() is not None:
             lines.append(_SIGNATURE_PROMPTS[d.signature_step()])
+        elif d.alignment is None and self._sheet is None:
+            lines.append("Choose your alignment — you mark XP at the end of a session when you "
+                         "have acted on it.")
         elif d.name is None:
             lines.append("Name your character.")
         else:
@@ -214,6 +219,11 @@ class CharacterCreator(discord.ui.View):
             )
             return
 
+        if d.alignment is None and self._sheet is None:
+            self._select("Alignment", [discord.SelectOption(label=a, value=a, description=t[:100])
+                                       for a, t in d.alignments().items()], self._on_alignment)
+            return
+
         if d.name is None:
             self._button("Name your character", self._on_name, style=discord.ButtonStyle.primary)
             self._button("Start gear over", self._on_reset_gear)
@@ -291,6 +301,9 @@ class CharacterCreator(discord.ui.View):
             interaction, lambda: self.draft.choose_signature_enhancements([int(v) for v in values])
         )
 
+    async def _on_alignment(self, interaction, value: str) -> None:
+        await self._apply(interaction, lambda: self.draft.choose_alignment(value))
+
     async def _on_reset_stats(self, interaction) -> None:
         await self._apply(interaction, self.draft.reset_stats)
 
@@ -315,6 +328,35 @@ class CharacterCreator(discord.ui.View):
         await interaction.response.edit_message(
             content=f"✅ {'Geared up' if self._sheet else 'Created'}. {describe(sheet)}", view=None
         )
+
+
+class AlignmentForm(discord.ui.View):
+    """`?dm alignment`: choose or change an existing character's alignment. Private, and
+    the save writes only the alignment."""
+
+    def __init__(self, sheet: dict, finish: Callable[[str], Awaitable[Optional[str]]]) -> None:
+        super().__init__(timeout=FORM_TIMEOUT_SECONDS)
+        self._finish = finish
+        options = alignments_of(sheet["class"])
+        select = discord.ui.Select(placeholder="Alignment", options=[
+            discord.SelectOption(label=a, value=a, description=t[:100], default=a == sheet.get("alignment"))
+            for a, t in options.items()])
+
+        async def chosen(interaction: "discord.Interaction") -> None:
+            error = await self._finish(select.values[0])
+            if error:
+                await interaction.response.edit_message(content=f"⚠️ {error}", view=self)
+                return
+            self.stop()
+            await interaction.response.edit_message(
+                content=f"✅ {select.values[0]}: {options[select.values[0]]}", view=None)
+
+        select.callback = chosen
+        self.add_item(select)
+
+    @staticmethod
+    def prompt() -> str:
+        return "Choose your alignment — you mark XP at the end of a session when you have acted on it."
 
 
 class NameModal(discord.ui.Modal, title="Name your character"):

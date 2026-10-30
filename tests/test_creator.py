@@ -88,6 +88,7 @@ async def fighter_gear(view):
     await choose(view, "Sword")
     await choose(view, "close")
     await choose(view, ["1", "3"])
+    await choose(view, "Good")
 
 
 async def make_kael(view):

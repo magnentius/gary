@@ -102,6 +102,10 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
         if not moves:
             continue
         lines.append(f"- {actor} ({sheet.get('race', '')} {sheet['class']}):")
+        if sheet.get("alignment"):
+            from .sheets import alignment_line
+
+            lines.append(f"    - {alignment_line(sheet)}")
         for m in moves:
             if m["kind"] == ROLLED:
                 lines.append(f"    - {m['name']}: call make_move with move={m['key']}.")

@@ -108,6 +108,10 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   `?dm bonds` opens an in-memory `BondsForm` whose save writes only `bonds` onto the
 >   current sheet. Aid or Interfere (`helps_target`) needs another character as target and
 >   rolls +Bond = bonds with them.
+> - **Alignment.** A `Draft` step (`choose_alignment`, from the extracted class list) and
+>   `?dm alignment` (`AlignmentForm`, saving only `alignment`). `EndOfSession` takes each
+>   aligned character's owner and lets only them toggle "acted on alignment"; the award is
+>   +1 per yes to all, +1 more to each who ticked, in one apply.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
