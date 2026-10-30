@@ -33,7 +33,9 @@ from .moves import ANY, BOND, CASTER, MOVES, NOTHING
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
-from .sheets import LEVEL_UP_HINT, STAT_NAMES, STATS, modifier, xp_line, xp_needed
+from .sheets import (
+    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, debility_on, stat_modifier, xp_line, xp_needed,
+)
 
 #: Every move rolls this.
 MOVE_DICE = "2d6"
@@ -442,15 +444,17 @@ class Director:
                     "Tell the player, in a sentence, to make one with `?dm new` before "
                     "they roll. Do not resolve the action.",
                 )]
-            mod = modifier(int(sheet["stats"][stat]))
+            mod = stat_modifier(sheet, stat)
             # A precise weapon hacks and slashes with Dex, not Str -- where Dex is better.
             if rules.key == "hack_and_slash" and "gear" in sheet:
                 weapon = self._weapon(sheet, rules.key)
-                dex = modifier(int(sheet["stats"]["dex"]))
+                dex = stat_modifier(sheet, "dex")
                 precise = weapon is not None and ("precise" in weapon.tags
                                                   or choices.precise_for(sheet, weapon.name))
                 if precise and dex > mod:
                     stat, mod = "dex", dex
+            if debility_on(sheet, stat):
+                notes.append(f"-1 {debility_on(sheet, stat).title()}")
             unable = _unable(actor, sheet)
             if unable:
                 return [self._refuse(
@@ -612,8 +616,10 @@ class Director:
             target = ""
 
         stat = "wis" if spells.caster_class(sheet) == "cleric" else "int"
-        mod = modifier(int(sheet["stats"][stat]))
+        mod = stat_modifier(sheet, stat)
         penalty, notes = spells.casting_modifier(sheet)
+        if debility_on(sheet, stat):
+            notes.append(f"-1 {debility_on(sheet, stat).title()}")
         mod += penalty
         if self._blessed(actor):
             mod += 1
@@ -977,7 +983,7 @@ class Director:
         if rules.stat not in (NOTHING, BOND) and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if sheet is not None:
-                mod = modifier(int(sheet["stats"][rules.stat]))
+                mod = stat_modifier(sheet, rules.stat)
         check, _ = self.registry.open(
             channel_id=channel_id, user_id=user_id, actor=actor, move=move,
             stat=rules.stat, modifier=mod, stakes="", dice=MOVE_DICE,
@@ -1622,6 +1628,39 @@ class Director:
             SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
         ], {"ok": True, "ended": name}
+
+    # -- debilities -----------------------------------------------------------------------------
+
+    def debility(
+        self, *, channel_id: int, character: str, debility: str, cause: str = "", cured: bool = False
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Give a debility -- the fiction inflicted it -- or cure one. Whether is the model's
+        call, like any GM move; the -1 is Gary's, on every roll with that stat."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        name = str(debility or "").strip().lower()
+        if name not in DEBILITIES:
+            return [], {"ok": False, "error": f"No debility {debility!r}. They are: {', '.join(DEBILITIES)}."}
+        cause = " ".join(str(cause or "").split())
+        if not cause:
+            return [], {"ok": False, "error": "Say what caused it, or what cures it (cause)."}
+        have = list(sheet.get("debilities") or [])
+        stat = STAT_NAMES[DEBILITIES[name]]
+        if cured:
+            if name not in have:
+                return [], {"ok": False, "error": f"{actor} is not {name}."}
+            have.remove(name)
+            line = f"🩹 **{actor}** is no longer {name.title()} — {cause}."
+        else:
+            if name in have:
+                return [], {"ok": False, "error": f"{actor} is already {name}; a debility does not stack."}
+            have.append(name)
+            line = f"🩸 **{actor}** is {name.title()} (-1 {stat}) — {cause}."
+        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"debilities": have})], {
+            "ok": True, "debilities": have,
+            "note": f"{stat} rolls take -1 while it lasts." if not cured else f"{stat} is whole again."}
 
     # -- the Thief's poison -------------------------------------------------------------------
 

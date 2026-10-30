@@ -43,6 +43,7 @@ PREPARE_SPELLS = "prepare_spells"
 END_SPELL = "end_spell"
 FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
+DEBILITY = "debility"
 USE_POISON = "use_poison"
 BREW_POISON = "brew_poison"
 
@@ -272,6 +273,26 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "revert": _s(type=types.Type.BOOLEAN, description="True to spend all hold and turn back."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=DEBILITY,
+        description=(
+            "A character suffers a debility -- weak (Str), shaky (Dex), sick (Con), stunned "
+            "(Int), confused (Wis), scarred (Cha) -- because the fiction did it to them: a GM "
+            "move, a poison, a monster's touch, a bad fall. Or cured=true when the fiction "
+            "cures one (magic, real treatment). Each is -1 to that stat's rolls until cured, "
+            "applied for you; they do not stack. Say the cause; the table sees it."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "debility": _s(type=_STRING, enum=["weak", "shaky", "sick", "stunned", "confused", "scarred"]),
+                "cause": _s(type=_STRING, description="What did it, or what cures it, in a few words."),
+                "cured": _s(type=types.Type.BOOLEAN, description="True to remove it."),
+            },
+            required=["character", "debility", "cause"],
         ),
     ),
     types.FunctionDeclaration(

@@ -29,6 +29,10 @@ STAT_NAMES = {
     "int": "Intelligence", "wis": "Wisdom", "cha": "Charisma",
 }
 
+#: Debilities, each -1 to one stat's modifier until cured (Dungeon World, "Debilities").
+DEBILITIES = {"weak": "str", "shaky": "dex", "sick": "con", "stunned": "int",
+              "confused": "wis", "scarred": "cha"}
+
 #: Every character assigns exactly these, one to each stat (Character Creation, step 5).
 STAT_ARRAY = (16, 15, 13, 12, 9, 8)
 
@@ -71,6 +75,16 @@ def modifier(score: int) -> int:
     if score <= 17:
         return 2
     return 3
+
+
+def debility_on(sheet: Dict[str, Any], stat: str) -> Optional[str]:
+    """The debility on this stat ("weak"), or None."""
+    return next((d for d in sheet.get("debilities") or () if DEBILITIES.get(d) == stat), None)
+
+
+def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
+    """What a roll adds for this stat: its modifier, -1 for a debility on it."""
+    return modifier(int(sheet["stats"][stat])) - (1 if debility_on(sheet, stat) else 0)
 
 
 @dataclass
@@ -409,6 +423,8 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}, "
         f"damage {sheet['damage']} · {stats}"
     )
+    if sheet.get("debilities"):
+        line += " · " + ", ".join(d.title() for d in sheet["debilities"]) + " (-1 each)"
     if "gear" in sheet:
         weapons = weapons_line(sheet)
         line += f" · wields {weapons or 'nothing'}"

@@ -60,6 +60,9 @@ AUTHORITY — this is absolute:
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
   chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
+- When the fiction weakens a character -- a numbing claw, a sickening poison, a blow to the
+  head -- give the debility with the debility tool; cure it the same way when magic or real
+  treatment does. The -1 is applied to their rolls for you.
 - Defend holds against later attacks: when a creature attacks a defender or their charge,
   monster_attacks holds the blow while the defender's player spends hold; narrate only
   that it comes, and the outcome arrives as a rules event.

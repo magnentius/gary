@@ -379,6 +379,15 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.DEBILITY:
+                debility_effects, result = self._director.debility(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    debility=str(args.get("debility", "")), cause=str(args.get("cause", "") or ""),
+                    cured=bool(args.get("cured")))
+                effects.extend(debility_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.USE_POISON, T.BREW_POISON):
                 character = str(args.get("character", ""))
                 if name == T.USE_POISON:

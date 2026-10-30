@@ -350,6 +350,12 @@ spends ammo. A character made before gear existed runs `?dm gear` once to pick t
 ("Good: endanger yourself to heal another"); a character made before that runs
 `?dm alignment`. The GM sees it.
 
+**Debilities.** When the fiction weakens you — a numbing claw, a sickening poison, a blow to
+the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Scarred, each
+-1 to one stat's rolls until cured, with the cause shown to the table. Your sheet lists
+them and every roll shows the cost ("+Str +1 (-1 Weak)"). The GM removes one when magic or
+real treatment cures it.
+
 **Defend.** Defend names who or what you protect ("Defend Eva", "Defend the gate"): hold 3
 on a 10+, 1 on a 7–9, shown on your sheet. When a creature attacks you or the character you
 defend, Gary rolls the blow and holds it while you choose — redirect it to yourself, halve
@@ -539,8 +545,8 @@ waiting on; `?dm cancel` drops your own.
 - **Defend's hold** is spent one point per attack, and only against `monster_attacks` — not
   the blow back on a weak Hack and Slash. Defending an item or a place records it, but
   nothing attacks those through the rules. Ammo is one count shared by bows and throwing daggers, and
-  weight and load are not tracked. Debilities are not tracked, so a potion always heals
-  rather than curing one, and antitoxin does nothing yet. There are no magic items yet.
+  weight and load are not tracked. Antitoxin and poisons bought from the equipment list do
+  nothing yet, and a healing potion only heals HP (the book lets it cure a debility instead). There are no magic items yet.
 
 ### When something goes wrong
 
