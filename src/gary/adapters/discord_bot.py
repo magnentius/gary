@@ -37,9 +37,11 @@ from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
-from ..sheets import carrying_line, describe, xp_line
+from ..levelling import ready
+from ..sheets import LEVEL_UP_HINT, SheetError, carrying_line, describe, xp_line, xp_needed
 from .. import spells
 from .creator import GearButton, StartButton
+from .levelup import LevelUpForm
 from .session import EndOfSession
 from .spellbook import SpellPicker
 from .routing import Route, route_message
@@ -277,6 +279,7 @@ __At the table__
 `{p}gear` — choose starting gear for a character made before gear existed
 `{p}spells` — a Cleric's or Wizard's spells, and choosing them the first time
 `{p}endsession` — the end-of-session questions; the table answers, everyone gets the XP
+`{p}levelup` — spend your XP on a level, in downtime (a private form)
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -767,7 +770,29 @@ class GaryClient(discord.Client):
         )
         if not diff.ok:
             return None
-        return f"⭐ +{yeses} XP each — " + "; ".join(f"**{s['name']}** {xp_line(s)}" for s in updated) + "."
+        line = f"⭐ +{yeses} XP each — " + "; ".join(f"**{s['name']}** {xp_line(s)}" for s in updated) + "."
+        if any(int(s["xp"]) >= xp_needed(s) for s in updated):
+            line += LEVEL_UP_HINT
+        return line
+
+    async def _finish_level_up(self, levelled: dict, channel_id: int) -> Optional[str]:
+        """Store a level gained. Checked again: XP could have been spent from another
+        window, or a fight started, since the form opened."""
+        actor = levelled["name"]
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None or not ready(sheet) or int(sheet.get("level", 1)) + 1 != levelled["level"]:
+            return "That level was already taken."
+        busy = self.director.unsettled(channel_id, "level up")
+        if busy:
+            return busy
+        diff = self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": levelled})],
+                                reason=f"{actor} reaches level {levelled['level']}")
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        moves = levelled.get("advanced_moves") or []
+        await self.sender.send(channel_id, f"⭐ **{actor}** reaches level {levelled['level']} — "
+                                           f"{moves[-1] if moves else ''}. {describe(levelled, with_name=False)}")
+        return None
 
     async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:
         """Store chosen spells. Checked again here: the form was opened from a sheet that
@@ -1112,6 +1137,36 @@ class GaryClient(discord.Client):
         if command == "endsession":
             view = EndOfSession(lambda yeses: self._end_session(yeses))
             await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "levelup":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            busy = self.director.unsettled(channel_id, "level up")
+            if busy:
+                await self.sender.send(channel_id, f"{busy} Levelling up takes downtime.")
+                return
+            try:
+                form = LevelUpForm(sheet, lambda levelled: self._finish_level_up(levelled, channel_id))
+            except SheetError as exc:
+                await self.sender.send(channel_id, str(exc))
+                return
+            view = discord.ui.View(timeout=form.timeout)
+            button = discord.ui.Button(label="Level up", emoji="⭐", style=discord.ButtonStyle.primary)
+            owner = message.author.id
+
+            async def open_form(interaction: "discord.Interaction") -> None:
+                if interaction.user.id != owner:
+                    await interaction.response.send_message(f"This one is {actor}'s.", ephemeral=True)
+                    return
+                await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
+
+            button.callback = open_form
+            view.add_item(button)
+            await message.channel.send(f"**{actor}** is ready for level {form.advance.level}:", view=view)
             return
 
         if command == "spells":

@@ -336,6 +336,10 @@ def xp_needed(sheet: Dict[str, Any]) -> int:
     return int(sheet.get("level", 1)) + 7
 
 
+#: Said once, when XP first reaches the mark.
+LEVEL_UP_HINT = " Run `?dm levelup` when there's downtime."
+
+
 def xp_line(sheet: Dict[str, Any]) -> str:
     """"5/8 XP", or "8/8 XP, ready to level up"."""
     xp, needed = int(sheet.get("xp", 0)), xp_needed(sheet)

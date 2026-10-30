@@ -370,6 +370,12 @@ something important, overcame a notable enemy, looted a memorable treasure), the
 gives everyone at the table 1 XP per yes. `?dm sheet` shows XP against what you need
 (level + 7).
 
+**Level Up.** With enough XP, run `?dm levelup` — refused while creatures stand or a move is
+pending, because levelling takes downtime. A private form asks for a stat to raise (18 at
+most; Constitution raises HP too), an advanced move from your class's list (the 6–10 list
+opens at level 6; "Requires" and "Replaces" are honoured), and for a Wizard a spell for the
+spellbook. The XP is spent and the level is announced to the table.
+
 ### Talk to Gary
 
 Gary stays quiet unless addressed, so five players chatting do not cost five model calls.
@@ -483,10 +489,13 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Only Last Breath, Take Watch, Make Camp and End of Session of the special moves.** No
-  Recover, Undertake a Perilous Journey or Level Up yet: XP is earned and shown ("ready to
-  level up"), but nobody can spend it. End of Session asks only the three group questions;
-  bond and alignment XP wait on bonds and alignment.
+- **Only Last Breath, Take Watch, Make Camp, End of Session and Level Up of the special
+  moves.** No Recover or Undertake a Perilous Journey yet. End of Session asks only the three
+  group questions; bond and alignment XP wait on bonds and alignment.
+- **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
+  Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
+  them from their text. A move that names another ("choose one spell", a move from another
+  class) is recorded without that second choice — tell the GM which.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
   weight and load are not tracked. Debilities are not tracked, so a potion always heals
@@ -616,6 +625,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm levelup` | Spend XP on a level in downtime: a private form for a stat, an advanced move and (Wizards) a spell. |
 | `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |

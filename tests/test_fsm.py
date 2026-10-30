@@ -1186,4 +1186,5 @@ def test_enough_xp_says_ready_to_level_up(director, dice):
     _sheets(director)["Kethra"].update(level=1, xp=7)
     make_move(director, "defy_danger", stat="dex")
     dice.queue(1, 1)
-    assert "**Kethra** marks XP — 8/8 XP, ready to level up." in [e.text for e in sends_in(roll(director))]
+    assert ("**Kethra** marks XP — 8/8 XP, ready to level up. Run `?dm levelup` when there's "
+            "downtime.") in [e.text for e in sends_in(roll(director))]

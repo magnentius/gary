@@ -33,7 +33,7 @@ from .moves import ANY, BOND, CASTER, MOVES, NOTHING
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
-from .sheets import STAT_NAMES, STATS, modifier, xp_line
+from .sheets import LEVEL_UP_HINT, STAT_NAMES, STATS, modifier, xp_line, xp_needed
 
 #: Every move rolls this.
 MOVE_DICE = "2d6"
@@ -1146,7 +1146,8 @@ class Director:
             return []
         xp = int(sheet.get("xp", 0)) + 1
         return [
-            SendMessage(channel_id, f"**{outcome.actor}** marks XP — {xp_line({**sheet, 'xp': xp})}."),
+            SendMessage(channel_id, f"**{outcome.actor}** marks XP — {xp_line({**sheet, 'xp': xp})}."
+                                    + (LEVEL_UP_HINT if xp == xp_needed(sheet) else "")),
             UpdateSheet(channel_id, outcome.actor, {"xp": xp}),
         ]
 
@@ -1233,7 +1234,7 @@ class Director:
         rolled. What the rules cannot see (a chase, a storm at sea) is the model's to
         judge, so it must say where and why it is safe: ``reason``, shown to the table.
         """
-        unsettled = self._unsettled(channel_id, "settle in to rest")
+        unsettled = self.unsettled(channel_id, "settle in to rest")
         if unsettled:
             return [], {"ok": False, "error": unsettled}
         reason = " ".join(str(reason or "").split())
@@ -1307,7 +1308,7 @@ class Director:
                              "whole party; do not advance it again.")
         return effects, facts
 
-    def _unsettled(self, channel_id: int, doing: str) -> str:
+    def unsettled(self, channel_id: int, doing: str) -> str:
         """Why the party cannot take an hour or a night out, or "" if it can: creatures
         still standing, or anyone mid-move -- above all a Last Breath not yet rolled."""
         standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
@@ -1343,7 +1344,7 @@ class Director:
         if unable:
             return [], {"ok": False, "error": unable}
         doing = "commune" if cls == "cleric" else "prepare spells"
-        unsettled = self._unsettled(channel_id, doing)
+        unsettled = self.unsettled(channel_id, doing)
         if unsettled:
             return [], {"ok": False, "error": unsettled}
         reason = " ".join(str(reason or "").split())

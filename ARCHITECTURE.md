@@ -95,7 +95,14 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   miss, from `_resolved`, so every path -- rolled, auto-finished, rules-triggered -- marks
 >   it. `?dm endsession` posts an in-memory `EndOfSession` view (adapters/session.py): the
 >   book's three questions as toggles anyone can flip; Award XP applies +1 per yes to every
->   living character in one apply. No model involvement. Level Up is next.
+>   living character in one apply. No model involvement.
+> - **Level Up.** `levelling.Advance` (like `sheets.Draft`) takes a stat (<=18; Con raises
+>   max and current HP), an advanced move from `move_options` (tiers, Requires, Replaces;
+>   157 extracted into `class_moves.json` by `scripts/extract_dw_class_moves.py`), and a
+>   Wizard's spellbook spell, then spends level+7 XP. `?dm levelup` checks
+>   `Director.unsettled` (the camp guard) and opens an in-memory `LevelUpForm`; the save
+>   rechecks readiness and downtime. Advanced moves reach the model as text in the class
+>   moves block; none are wired to numbers yet.
 > - **Tools.** The model keeps `make_move`, `make_camp`, `prepare_spells`, `end_spell`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.

@@ -1156,3 +1156,59 @@ def test_end_session_gives_everyone_at_the_table_the_xp():
     ((mutation,),) = applied
     assert mutation.payload["sheet"]["xp"] == 5
     assert asyncio.run(end(0)) == "No XP from the questions this session."
+
+
+# -- level up ---------------------------------------------------------------------------------
+
+
+def test_dm_levelup_needs_the_xp_and_downtime():
+    import asyncio
+
+    sent = []
+    sheets = {"Thorin": {**_THORIN, "xp": 3}}
+    Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": sheets}, sent)
+    busy = []
+    client.director = type("D", (), {"players": {11: "Thorin"},
+                                     "unsettled": lambda self, c, d: busy[0] if busy else ""})()
+    asyncio.run(dispatch(Msg("?dm levelup")))
+    assert sent[-1] == "Thorin has 3 XP and needs 8."
+    busy.append("You can't level up with Goblin 1 still standing.")
+    asyncio.run(dispatch(Msg("?dm levelup")))
+    assert sent[-1] == "You can't level up with Goblin 1 still standing. Levelling up takes downtime."
+
+
+def test_a_level_is_saved_once():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+    from gary.levelling import Advance
+
+    sheets = {"Thorin": {**_THORIN, "xp": 8}}
+    sent = []
+
+    class _Store:
+        def state(self):
+            return {"sheets": sheets}
+
+        def apply(self, mutations, reason=""):
+            for m in mutations:
+                sheets[m.target] = m.payload["sheet"]
+            return type("Diff", (), {"ok": True, "rejected": ()})()
+
+    class _Sender:
+        async def send(self, channel_id, text):
+            sent.append(text)
+
+    class _Client:
+        store, sender = _Store(), _Sender()
+        director = type("D", (), {"unsettled": lambda self, c, d: ""})()
+
+    finish = GaryClient._finish_level_up.__get__(_Client(), _Client)
+    a = Advance(sheets["Thorin"])
+    a.choose_stat("wis")
+    a.choose_move("Serenity")
+    levelled = a.result()
+    assert asyncio.run(finish(levelled, CHANNEL)) is None
+    assert sheets["Thorin"]["level"] == 2 and sheets["Thorin"]["xp"] == 0
+    assert sent[-1].startswith("⭐ **Thorin** reaches level 2 — Serenity. Dwarf Cleric 2 (0/9 XP)")
+    assert asyncio.run(finish(levelled, CHANNEL)) == "That level was already taken."

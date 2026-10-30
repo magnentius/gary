@@ -117,6 +117,11 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             else:
                 text = m["text"].replace("\n", " ")
                 lines.append(f"    - {m['name']}: {text}")
+        book = {m["name"]: m for m in TEXTS.get(sheet["class"].lower(), {}).get("advanced", ())}
+        for name in sheet.get("advanced_moves") or ():
+            if name in book:
+                text = book[name]["text"].replace("\n", " ")
+                lines.append(f"    - {name} (advanced): {text}")
         if spells.caster_class(sheet):
             have = spells.castable(sheet)
             lines.append(f"    - Spells {actor} can cast now (make_move cast_a_spell, spell=…):"
