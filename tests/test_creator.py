@@ -219,7 +219,7 @@ async def test_saving_stores_the_sheet_claims_it_and_tells_the_table(table):
     assert state["sheets"]["Kael"] == sheet
     assert state["players"] == {str(ALICE): "Kael"}
     assert director.players == {ALICE: "Kael"}  # checks for Kael are Alice's to roll
-    assert sent == ["**Kael** joins the party — Kael — Dwarf Fighter 1, HP 25/25, armor 0, "
+    assert sent == ["**Kael** joins the party — Dwarf Fighter 1, HP 25/25, armor 0, "
                     "damage d10 · STR 16 (+2) DEX 13 (+1) CON 15 (+1) INT 8 (-1) "
                     "WIS 12 (+0) CHA 9 (+0)"]
 

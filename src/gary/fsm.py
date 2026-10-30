@@ -356,8 +356,11 @@ class Director:
             held = self.registry.hold_for_choice(check, dice.faces)
             return [rolled, SendMessage(
                 channel_id,
-                f"{rules.text}\n**{check.actor}**, choose "
-                + ("one." if rules.choice.count == 1 else f"{rules.choice.count}."),
+                # Who picks and where. How many is in the rules text for most moves, so
+                # it is only repeated when there is more than one.
+                f"{rules.text}\nPick "
+                + ("" if rules.choice.count == 1 else f"{rules.choice.count} ")
+                + f"below, **{check.actor}**.",
                 prompt=ChoicePrompt(
                     check_id=held.check_id,
                     move=held.move,

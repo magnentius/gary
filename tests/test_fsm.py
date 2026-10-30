@@ -230,7 +230,9 @@ def test_a_result_with_a_choice_asks_for_it_and_waits(director, registry, dice):
     assert not [e for e in effects if isinstance(e, RecordOutcome)]
     rolled, ask = sends_in(effects)
     assert rolled.text == "🎲 **Kethra** rolls 3 + 2 +2 = 7 — weak hit."
-    assert ask.text.endswith("**Kethra**, choose one.")
+    assert ask.text == (
+        "Choose one (whichever you choose you deal your damage).\nPick below, **Kethra**."
+    )
     prompt = ask.prompt
     assert isinstance(prompt, ChoicePrompt)
     assert (prompt.move, prompt.band, prompt.count) == ("volley", "weak", 1)
@@ -289,6 +291,7 @@ def test_discern_realities_on_a_hit_asks_three_distinct_questions(director, regi
     dice.queue(5, 5)
     (_, ask) = sends_in(roll(director))
     assert ask.prompt.count == 3 and len(ask.prompt.options) == 6
+    assert ask.text.endswith("Pick 3 below, **Kethra**.")
 
     check_id = only_check(registry).check_id
     assert choose(director, check_id, [0, 0, 1]) == []  # not distinct

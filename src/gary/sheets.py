@@ -169,13 +169,18 @@ class Draft:
         }
 
 
-def describe(sheet: Dict[str, Any]) -> str:
-    """One line for the table and for the model: who, what, and the numbers rolls use."""
+def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
+    """One line for the table and for the model: who, what, and the numbers rolls use.
+
+    ``with_name=False`` for a line that already starts with the name, like "Kael joins
+    the party — …", which would otherwise say it twice.
+    """
     stats = " ".join(
         f"{s.upper()} {sheet['stats'][s]} ({modifier(sheet['stats'][s]):+d})" for s in STATS
     )
+    who = f"{sheet['name']} — " if with_name else ""
     return (
-        f"{sheet['name']} — {sheet['race']} {sheet['class']} {sheet['level']}, "
+        f"{who}{sheet['race']} {sheet['class']} {sheet['level']}, "
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}, "
         f"damage {sheet['damage']} · {stats}"
     )

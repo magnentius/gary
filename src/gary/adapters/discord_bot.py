@@ -646,7 +646,7 @@ class GaryClient(discord.Client):
         if not diff.ok:
             return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
         self.director.set_player_character(user_id, name)
-        await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet)}")
+        await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet, with_name=False)}")
         return None
 
     async def on_choose(

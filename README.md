@@ -384,7 +384,7 @@ and waits for you before narrating:
 ```
 Gary   🎲 **Liriel** rolls 3 + 2 +2 = 7 — weak hit.
        Choose one (whichever you choose you deal your damage).
-       **Liriel**, choose one.
+       Pick below, **Liriel**.
        [Move to get the shot…] [Take what you can get: -1d6 damage.] [Take several shots…]
 ```
 
