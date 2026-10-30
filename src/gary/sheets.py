@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .gear import (
     CLASS_GEAR, ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES, ClassGear, Item, ammo_of,
-    armor_of, rations_of, signature_weapon,
+    armor_of, item_for, rations_of, signature_weapon,
 )
 
 STATS = ("str", "dex", "con", "int", "wis", "cha")
@@ -289,7 +289,15 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
     """
     # "10 coins" in a starting kit is money, not something to carry.
     coins = sum(int(m[1]) for i in items if (m := re.fullmatch(r"(\d+) coins?", i.name.lower())))
-    gear = [i.to_dict() for i in items if not re.fullmatch(r"\d+ coins?", i.name.lower())]
+    gear = []
+    for i in items:
+        if re.fullmatch(r"\d+ coins?", i.name.lower()):
+            continue
+        # "2 healing potions" is two potions, each drunk on its own -- not one item.
+        if (m := re.fullmatch(r"(\d+) (.+)", i.name)) and item_for(m[2])[1]:
+            gear.extend(item_for(m[2])[0].to_dict() for _ in range(int(m[1])))
+        else:
+            gear.append(i.to_dict())
     return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear),
             "rations": rations_of(gear), "coins": int(sheet.get("coins", 0)) + coins}
 

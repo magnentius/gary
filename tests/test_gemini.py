@@ -883,3 +883,46 @@ async def test_a_character_without_a_sheet_keeps_the_loose_inventory(rig):
                                                    "reason": "x"}), text_response("."))
     await player(n)
     assert store.state()["party"]["Dorn"]["inventory"] == ["a torch"]
+
+
+async def test_using_a_potion_on_a_friend_changes_both_sheets_in_one_undo(clock):
+    from gary.gear import POTION
+
+    store, rig = _shop(clock)
+    store.apply([
+        Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+            **store.state()["sheets"]["Kethra"], "gear": [POTION.to_dict()]}}),
+        Mutation(MutationKind.SHEET, "Thorin", {"sheet": {**KETHRA_SHEET, "name": "Thorin",
+                                                          "hp": 2, "max_hp": 21, "gear": []}}),
+    ], reason="setup")
+    n = narrator(rig, call_response(T.USE_ITEM, {"actor": "Kethra", "item": "healing potion",
+                                                 "target": "thorin"}), text_response("He coughs."))
+    result = await player(n)
+
+    sheets = store.state()["sheets"]
+    assert sheets["Thorin"]["hp"] == 12 and sheets["Kethra"]["gear"] == []
+    assert any(isinstance(e, SendMessage) and e.text ==
+               "🩹 **Kethra** uses healing potion on **Thorin** — heals 10, HP 12/21."
+               for e in result.effects)
+    store.undo_last()
+    store.undo_last()
+    sheets = store.state()["sheets"]
+    assert sheets["Thorin"]["hp"] == 2 and len(sheets["Kethra"]["gear"]) == 1
+
+
+async def test_bandages_mid_fight_are_refused_back_to_the_model(clock):
+    from gary.gear import BANDAGES
+
+    store, rig = _shop(clock)
+    store.apply([
+        Mutation(MutationKind.SHEET, "Kethra", {"sheet": {
+            **store.state()["sheets"]["Kethra"], "gear": [BANDAGES.to_dict()]}}),
+        Mutation(MutationKind.SHEET, "Thorin", {"sheet": {**KETHRA_SHEET, "name": "Thorin", "hp": 2}}),
+        Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": GOBLIN}}),
+    ], reason="setup")
+    n = narrator(rig, call_response(T.USE_ITEM, {"actor": "Kethra", "item": "bandages",
+                                                 "target": "Thorin"}), text_response("No time."))
+    await player(n)
+    fr = n.client.calls[1]["contents"][-1].parts[0].function_response
+    assert fr.response["ok"] is False and "creatures are still standing" in fr.response["error"]
+    assert store.state()["sheets"]["Thorin"]["hp"] == 2

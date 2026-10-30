@@ -38,6 +38,7 @@ MAKE_CAMP = "make_camp"
 GIVE_COINS = "give_coins"
 BUY = "buy"
 SELL = "sell"
+USE_ITEM = "use_item"
 
 
 def _s(**kw) -> types.Schema:
@@ -221,6 +222,25 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING),
             },
             required=["actor", "items", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=USE_ITEM,
+        description=(
+            "Someone uses a healing item. A healing potion heals whoever drinks it 10 -- "
+            "their own, or poured down a friend's throat (target). Bandages heal someone "
+            "ELSE 4; poultices and herbs heal anyone 7; both spend a use, and both are slow, "
+            "so not while creatures are still standing. The rules engine applies it and "
+            "tells you what was healed; narrate that."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING, description="Who uses it -- whose item it is."),
+                "item": _s(type=_STRING, description="'healing potion', 'bandages', 'poultices and herbs'."),
+                "target": _s(type=_STRING, description="Who is healed, if not the actor."),
+            },
+            required=["actor", "item"],
         ),
     ),
     types.FunctionDeclaration(

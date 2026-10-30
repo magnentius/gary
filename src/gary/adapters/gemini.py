@@ -41,7 +41,7 @@ from ..context import (
     render_memory,
 )
 from ..fsm import Director
-from .. import trade
+from .. import healing, trade
 from ..fsm import SendMessage
 from ..models import Mutation, MutationKind
 from ..monsters import describe as describe_monster, prepare as prepare_monsters
@@ -346,6 +346,12 @@ class GeminiNarrator:
             name = call.name
             args = dict(call.args or {})
 
+            if name == T.USE_ITEM:
+                heal_effects, result = self._use_item(channel_id, args)
+                effects.extend(heal_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL):
                 trade_effects, result = self._trade(channel_id, name, args)
                 effects.extend(trade_effects)
@@ -422,6 +428,45 @@ class GeminiNarrator:
             if normalize_actor(name) == wanted:
                 return int(user_id)
         return self._speaker.get(channel_id, 0)
+
+    def _use_item(self, channel_id: int, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
+        """Heal with an item. User and patient change in one apply, so one undo reverses
+        both: the potion back in the pack and the HP back where it was."""
+        state = self._store.state()
+        sheets = state.get("sheets") or {}
+
+        def find(name: str):
+            return next((a for a in sheets if a.lower() == str(name or "").strip().lower()), None)
+
+        actor = find(args.get("actor"))
+        if actor is None:
+            return [], {"ok": False, "error": f"{args.get('actor')!r} has no character sheet."}
+        target_name = str(args.get("target") or "").strip()
+        target = None
+        if target_name and target_name.lower() != actor.lower():
+            found = find(target_name)
+            if found is None:
+                return [], {"ok": False, "error": f"{target_name!r} has no character sheet."}
+            target = sheets[found]
+        fighting = any(r["hp"] > 0 for r in (state.get("monsters") or {}).values())
+        try:
+            user, patient, healed, remedy = healing.use(
+                sheets[actor], str(args.get("item", "")), target, fighting
+            )
+        except healing.HealingError as exc:
+            return [], {"ok": False, "error": str(exc)}
+
+        mutations = [Mutation(MutationKind.SHEET, actor, {"sheet": user})]
+        if patient["name"] != actor:
+            mutations.append(Mutation(MutationKind.SHEET, patient["name"], {"sheet": patient}))
+        who = "themselves" if patient["name"] == actor else f"**{patient['name']}**"
+        line = (f"🩹 **{actor}** uses {remedy.lower()} on {who} — heals {healed}, "
+                f"HP {patient['hp']}/{patient['max_hp']}.")
+        self._store.apply(mutations, reason=line)
+        return [SendMessage(channel_id, line)], {
+            "ok": True, "healed": healed, "patient": patient["name"],
+            "hp": patient["hp"], "max_hp": patient["max_hp"],
+        }
 
     def _trade(self, channel_id: int, name: str, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
         """Items and coin, on the character's sheet: one journalled change each, so every

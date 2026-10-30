@@ -67,7 +67,11 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   coin bounded (500 a call; unlisted sales capped at 100; sales at half price or less).
 >   `give_items`/`take_items` write the sheet, falling back to the old loose inventory
 >   only for characters without one; each change is one journalled `SHEET` mutation.
-> - **Tools.** The model keeps `make_move`, `make_camp`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
+> - **Healing items.** `healing.py` applies the book's three: a potion heals the drinker
+>   10 and is gone; bandages heal someone else 4 and poultices anyone 7, spending counted
+>   uses, and both are slow -- refused while creatures stand. `use_item` journals user and
+>   patient in one apply. Kit items named with a count ("2 healing potions") are split.
+> - **Tools.** The model keeps `make_move`, `make_camp`, `use_item`, `give_coins`, `buy`, `sell`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.
 >

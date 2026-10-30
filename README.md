@@ -417,6 +417,10 @@ the book's price, refused if you can't afford it; selling fetches half, or less 
 stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
 Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
 
+**Healing items** work as the book says. A healing potion heals whoever drinks it 10 —
+yourself, or a friend you pour it into. Bandages heal *someone else* 4, poultices and herbs
+heal anyone 7; both spend a use and are slow, so not while creatures are still standing.
+
 A creature is defeated at 0 HP and not before, however the narration reads. When a
 creature hurts you as the GM's move, Gary rolls that too and takes it off your sheet's HP.
 `?dm undo` takes a blow back like any other change.
@@ -451,8 +455,8 @@ waiting on; `?dm cancel` drops your own.
   Undertake a Perilous Journey, Level Up or End of Session yet, so XP is not earned.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
   announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
-  weight and load are not tracked. Using an item — drinking a potion, binding a wound —
-  is narrated, not yet applied, and there are no magic items yet.
+  weight and load are not tracked. Debilities are not tracked, so a potion always heals
+  rather than curing one, and antitoxin does nothing yet. There are no magic items yet.
 
 ### When something goes wrong
 

@@ -112,7 +112,8 @@ BOOKKEEPING IS YOURS, NOT THE PLAYERS':
 - Coin is on each character's sheet. Name prices in the fiction, then buy, sell or
   give_coins: a sale or purchase only happened if the tool says it did, and a refusal
   ("can't afford it") is the truth to narrate. Loot found is give_items; name book items
-  as the book does, so a found long sword really is one.
+  as the book does, so a found long sword really is one. When someone drinks a potion or
+  binds wounds, call use_item: the healing is applied for you.
 - Never tell a player to note something on their sheet, track something themselves, or
   remember something for you. If it is worth tracking, call the tool and say nothing
   about it.
