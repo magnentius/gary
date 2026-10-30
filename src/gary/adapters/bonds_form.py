@@ -15,6 +15,19 @@ from .. import bonds
 from ..sheets import SheetError
 from .creator import FORM_TIMEOUT_SECONDS
 
+#: A dropdown shows roughly this much of a label before cutting it off; the rest goes in
+#: the option's description, which wraps.
+_SHOWN = 45
+
+
+def long_option(text: str, value: str) -> "discord.SelectOption":
+    if len(text) <= _SHOWN:
+        return discord.SelectOption(label=text, value=value)
+    cut = text.rfind(" ", 0, _SHOWN)
+    head = text[:cut if cut > 0 else _SHOWN]
+    return discord.SelectOption(label=head + " …", value=value, description=("… " + text[len(head):].strip())[:100])
+
+
 #: Called with the sheet as edited. Returns an error to show the player, or None when saved.
 Finish = Callable[[dict], Awaitable[Optional[str]]]
 
@@ -47,10 +60,10 @@ class BondsForm(discord.ui.View):
             self._select("With…", [discord.SelectOption(label=c[:100], value=c) for c in self.companions],
                          self._on_companion)
         elif self._unused():
-            self._select("Write a bond", [discord.SelectOption(label=line[:100], value=str(i))
+            self._select("Write a bond", [long_option(line, str(i))
                                           for i, line in enumerate(self._unused())], self._on_line)
         if self.sheet.get("bonds"):
-            self._select("Remove a bond", [discord.SelectOption(label=bonds.written(b)[:100], value=str(i))
+            self._select("Remove a bond", [long_option(bonds.written(b), str(i))
                                            for i, b in enumerate(self.sheet["bonds"])], self._on_remove)
         save = discord.ui.Button(label="Save bonds", style=discord.ButtonStyle.success)
         save.callback = self._on_save

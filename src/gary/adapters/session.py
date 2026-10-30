@@ -19,6 +19,7 @@ from typing import Awaitable, Callable, Dict, List, Optional, Set
 import discord
 
 from .. import bonds as bond_rules
+from .bonds_form import long_option
 
 QUESTIONS = (
     "Did we learn something new and important about the world?",
@@ -132,7 +133,7 @@ class EndOfSession(discord.ui.View):
             return
         picker = discord.ui.View(timeout=SESSION_TIMEOUT_SECONDS)
         select = discord.ui.Select(placeholder="The bond that is resolved", options=[
-            discord.SelectOption(label=bond_rules.written(b)[:100], value=str(i))
+            long_option(bond_rules.written(b), str(i))
             for i, b in enumerate(self.bonds[actor])])
 
         async def chosen(pick: "discord.Interaction") -> None:

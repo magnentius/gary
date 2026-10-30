@@ -18,7 +18,9 @@ def test_each_class_chooses_from_the_books_lists():
     cleric = {s.key: s for s in steps("Cleric", "Dwarf")}
     assert cleric["deity"].written
     assert "Bloody Conquest" in cleric["domain"].options
-    assert cleric["precept"].options[3].endswith("add Petition: Personal Victory")
+    assert cleric["precept"].options[3] == "Petition: Personal Victory"
+    assert cleric["precept"].descriptions[3] == "Your religion believes in trial by combat"
+    assert all(len(o) <= 40 for s in cleric.values() for o in s.options)
     assert len({s.key: s for s in steps("Druid", "Elf")}["land"].options) == 11
     assert steps("Bard", "Human")[0].options[0] == "Spells and Magicks"
     poison = steps("Thief", "Halfling")[0]

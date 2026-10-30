@@ -72,9 +72,14 @@ def steps(class_name: str, race: str) -> List[Step]:
     cls = class_name.lower()
     if cls == "cleric":
         domains, precepts = _bullet_groups("cleric", "Deity")
+        # "Your religion is cultish and insular, add Petition: Gaining Secrets": the petition
+        # is what the choice gives, and a dropdown cuts long labels off well short of it.
+        split = [re.match(r"(.+?),\s*add (Petition: .+)", p) for p in precepts]
         return [Step("deity", "Give your god a name (maybe Helferth, Sucellus, Zorica or Krugon the Bleak)."),
                 Step("domain", "Choose your deity's domain.", tuple(domains)),
-                Step("precept", "Choose one precept of your religion.", tuple(precepts))]
+                Step("precept", "Choose one precept of your religion — it adds a Petition to "
+                                "Divine Guidance.",
+                     tuple(m[2] for m in split), tuple(m[1] for m in split))]
     if cls == "druid":
         (lands,) = _bullet_groups("druid", "Born of the Soil")
         return [Step("land", "Choose the land to which you are attuned — you may take the shape of "
@@ -152,7 +157,7 @@ def describe(sheet: Dict[str, Any]) -> str:
     parts = []
     if "deity" in c:
         parts.append(f"serves {c['deity']}" + (f", god of {c['domain']}" if c.get("domain") else "")
-                     + (f" — {c['precept']}" if c.get("precept") else ""))
+                     + (f" ({c['precept']})" if c.get("precept") else ""))
     if "land" in c:
         parts.append(f"born of {c['land']}" + (f", marked by {c['tell']}" if c.get("tell") else ""))
     if "lore" in c:
