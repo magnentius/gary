@@ -95,6 +95,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "character a healing spell or Bless is cast on. Omit otherwise."
                     ),
                 ),
+                "companion": _s(
+                    type=types.Type.BOOLEAN,
+                    description=(
+                        "True when a Ranger works with their animal companion on this move -- "
+                        "the player says so, or the companion is plainly in it with them. The "
+                        "rules engine checks it is trained for it and adds its bonus."
+                    ),
+                ),
                 "spell": _s(
                     type=_STRING,
                     description=(

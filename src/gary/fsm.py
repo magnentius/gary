@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import bonds, damage, spells
+from . import bonds, companion as companions, damage, spells
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, MOVES, NOTHING
@@ -289,6 +289,7 @@ class Director:
         stakes: str = "",
         target: str = "",
         spell: str = "",
+        companion: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -448,15 +449,31 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
+        pet = ""
+        if companion and self._sheet_for is not None:
+            sheet = self._sheet_for(actor) or {}
+            rule, why = companions.command(sheet, rules.key)
+            if rule is None:
+                return [self._refuse(
+                    channel_id, why,
+                    "Re-issue make_move without companion, or narrate what the companion does "
+                    "instead.",
+                )]
+            pet = sheet["companion"]["name"]
+            if rule.roll:
+                bonus = int(sheet["companion"][rule.roll])
+                mod += bonus
+                notes.append(f"+{bonus} {pet}")
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
               else f" at {target}") if target else ""
         return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
-                          ttl_seconds, f"{rules.name}{at}", notes)
+                          ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
+                          notes, companion=pet)
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
         stakes: str, target: str, ttl_seconds: Optional[float], what: str,
-        notes: Sequence[str] = (), spell: str = "",
+        notes: Sequence[str] = (), spell: str = "", companion: str = "",
     ) -> List[Effect]:
         """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
@@ -470,6 +487,7 @@ class Director:
             dice=MOVE_DICE,
             target=target,
             spell=spell,
+            companion=companion,
             ttl_seconds=ttl_seconds,
         )
 
@@ -701,8 +719,10 @@ class Director:
         if self._deals_damage(check, dice):
             held = self.registry.hold(check, faces=dice.faces)
             die, _, weapon = self._damage_die(check)
+            ferocity = self._ferocity(check)
             extra = " ".join(x for x in (self._damage_extra(check, dice),
-                                         "+1d4 Magic Weapon" if self._magic_weapon(check) else None) if x)
+                                         "+1d4 Magic Weapon" if self._magic_weapon(check) else None,
+                                         f"+{ferocity} {check.companion}" if ferocity else None) if x)
             with_what = f", {weapon}" if weapon else ""
             return [SendMessage(
                 channel_id,
@@ -781,6 +801,23 @@ class Director:
         if changes:
             effects.append(UpdateSheet(channel_id, check.actor, changes))
         return effects, facts
+
+    def _companion_of(self, check: PendingCheck) -> Optional[Dict[str, Any]]:
+        if not check.companion or self._sheet_for is None:
+            return None
+        return (self._sheet_for(check.actor) or {}).get("companion")
+
+    def _ferocity(self, check: PendingCheck) -> int:
+        """Command: "...and you attack the same target, add its ferocity to your damage.\""""
+        pet = self._companion_of(check)
+        rule = companions.COMMANDS.get(check.move)
+        return int(pet["ferocity"]) if pet and rule and rule.damage else 0
+
+    def _companion_armor(self, check: PendingCheck) -> int:
+        """Command: "...and you take damage, add its armor to your armor.\""""
+        pet = self._companion_of(check)
+        rule = companions.COMMANDS.get(check.move)
+        return int(pet["armor"]) if pet and rule and rule.armor else 0
 
     def _magic_weapon(self, check: PendingCheck) -> bool:
         """Magic Weapon: "The weapon you hold while casting does +1d4 damage." The caster's
@@ -978,6 +1015,9 @@ class Director:
             if self._magic_weapon(check):
                 bonus = self.dice.roll("1d4").total
                 total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
+            ferocity = self._ferocity(check)
+            if ferocity:
+                total, shown = total + ferocity, f"{shown}, +{ferocity} {check.companion} = {total + ferocity}"
         line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {shown}"
         hits = []
         for name in check.target.split(", ") if spell is not None and spell.area else [check.target]:
@@ -1011,7 +1051,8 @@ class Director:
         if outcome.enemy_attacks and target is not None:
             # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
             # finished it. The rules say both happen, so both do.
-            attack_effects, back = self._attack(channel_id, check.target, target, check.actor)
+            attack_effects, back = self._attack(channel_id, check.target, target, check.actor,
+                                                extra_armor=self._companion_armor(check))
             effects.extend(attack_effects)
 
         outcome = replace(outcome, damage=facts, enemy_attack=back, spell=spell_facts)
@@ -1118,11 +1159,12 @@ class Director:
                                  "not change the numbers."}
 
     def _attack(
-        self, channel_id: int, name: str, creature: Dict[str, Any], character: str
+        self, channel_id: int, name: str, creature: Dict[str, Any], character: str,
+        extra_armor: int = 0,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
         hit = damage.roll(self.dice, damage.parse(creature["damage"]))
-        armor = int(sheet["armor"]) if sheet else 0
+        armor = (int(sheet["armor"]) if sheet else 0) + extra_armor
         dealt = damage.through_armor(
             hit.total, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
         )

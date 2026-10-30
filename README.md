@@ -350,6 +350,15 @@ spends ammo. A character made before gear existed runs `?dm gear` once to pick t
 ("Good: endanger yourself to heal another"); a character made before that runs
 `?dm alignment`. The GM sees it.
 
+**Animal Companion.** A Ranger runs `?dm companion` (Gary reminds them after `?dm new`): a
+private form for species, base, strengths, trainings and weaknesses — as many as its
+numbers say — and a name. When you work with it ("Fang and I go for the goblin"), the GM
+flags the move and Gary checks the training and applies Command: +ferocity to damage and
+its armor against the blow back on an attack (fight humanoids or monsters), +cunning to
+Hunt and Track (hunt, search), Discern Realities (search, scout, guard) and Parley
+(perform). The roll line says so ("+1 Fang"). Its instinct on someone interfering with you
+is left to the table.
+
 **Bonds.** Once there's another character at the table, run `?dm bonds`: a private form
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
 the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
@@ -491,8 +500,8 @@ waiting on; `?dm cancel` drops your own.
 - **Class moves: starting moves only.** Rolled class moves work —
   Turn Undead, Lay on Hands, I Am the Law, Hunt and Track, Called Shot, Trap Expert,
   Tricks of the Trade, Backstab, Bend Bars, Arcane Art, Cast a Spell — for that class
-  alone. The rest are shown to the GM to honour in the story. Shapeshifter and the Animal
-  Companion are not playable yet; nor are choices made at creation (a Cleric's deity, a
+  alone. The rest are shown to the GM to honour in the story. Shapeshifter is not
+  playable yet; nor are choices made at creation (a Cleric's deity, a
   Bard's lore). Called Shot and Arcane Art pick their effect after the roll rather than
   before.
 - **Spells, as far as the numbers go.** Sanctuary's +1d4 healing, Bless ending with the
@@ -636,6 +645,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm sheet` | Your character's sheet. |
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
+| `?dm companion` | A Ranger's animal companion: a private form, or shows the one you have. |
 | `?dm alignment` | Choose your alignment, for a character made before alignments existed. |
 | `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |
 | `?dm levelup` | Spend XP on a level in downtime: a private form for a stat, an advanced move and (Wizards) a spell. |

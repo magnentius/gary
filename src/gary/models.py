@@ -78,6 +78,7 @@ class PendingCheck:
     picks: tuple = ()
     target: str = ""
     spell: str = ""
+    companion: str = ""  # the animal companion working with them (Command), by name
 
     @property
     def rolled(self) -> bool:
@@ -108,6 +109,7 @@ class PendingCheck:
             "picks": list(self.picks),
             "target": self.target,
             "spell": self.spell,
+            "companion": self.companion,
         }
 
     @classmethod
@@ -136,6 +138,7 @@ class PendingCheck:
             picks=tuple(int(p) for p in d.get("picks", ())),
             target=d.get("target", ""),
             spell=d.get("spell", ""),
+            companion=d.get("companion", ""),
         )
 
 

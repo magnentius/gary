@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from gary.class_moves import NARRATIVE, NOT_YET, PREPARE, ROLLED, TEXTS, _KINDS, moves_of, render
+from gary.class_moves import COMPANION, NARRATIVE, NOT_YET, PREPARE, ROLLED, TEXTS, _KINDS, moves_of, render
 from gary.moves import MOVES
 
 
@@ -18,7 +18,7 @@ def test_every_mapped_move_exists_and_belongs_to_its_class():
         names = [m["name"] for m in TEXTS[cls]["starting"]]
         for name, key in mapping.items():
             assert name in names, (cls, name)
-            if key not in (NOT_YET, PREPARE):
+            if key not in (NOT_YET, PREPARE, COMPANION):
                 assert cls.title() in MOVES[key].classes, key
 
 

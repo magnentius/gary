@@ -8,9 +8,10 @@ Three kinds:
   truthfully").
 - **Spells** -- Commune and Prepare Spells are the prepare_spells tool; Cast a Spell is
   rolled. The caster's spells are listed with their text (spells.py).
-- **Not yet** -- shapeshifting and the animal companion, which are whole systems of their
-  own. Shown with a note, so the model narrates around them rather than inventing how
-  they work.
+- **Companion** -- the Ranger's Animal Companion and Command (companion.py): the
+  companion is shown, and the model flags make_move when it works with them.
+- **Not yet** -- shapeshifting, a whole system of its own. Shown with a note, so the model
+  narrates around it rather than inventing how it works.
 
 A few narrative moves also have a number Gary applies where it already runs the rules:
 By Nature Sustained (no ration at camp), the Halfling Druid's +1d6 at camp, the Halfling
@@ -30,7 +31,7 @@ from . import spells
 
 _DATA = Path(__file__).parent / "data" / "class_moves.json"
 
-ROLLED, NARRATIVE, NOT_YET, PREPARE = "rolled", "narrative", "not yet", "prepare"
+ROLLED, NARRATIVE, NOT_YET, PREPARE, COMPANION = "rolled", "narrative", "not yet", "prepare", "companion"
 
 
 def _load() -> Dict[str, Dict[str, Any]]:
@@ -54,7 +55,7 @@ _KINDS: Dict[str, Dict[str, str]] = {
     "fighter": {"Bend Bars, Lift Gates": "bend_bars"},
     "paladin": {"Lay on Hands (Cha)": "lay_on_hands", "I Am the Law": "i_am_the_law"},
     "ranger": {"Hunt and Track (Wis)": "hunt_and_track", "Called Shot": "called_shot",
-               "Animal Companion": NOT_YET, "Command": NOT_YET},
+               "Animal Companion": COMPANION, "Command": COMPANION},
     "thief": {"Trap Expert": "trap_expert", "Tricks of the Trade": "tricks_of_the_trade",
               "Backstab": "backstab"},
     "wizard": {"Prepare Spells": PREPARE, "Cast a Spell (Int)": "cast_a_spell"},
@@ -76,7 +77,7 @@ def moves_of(class_name: str, race: str) -> List[Dict[str, Any]]:
                     "kind": NARRATIVE, "key": None})
     for move in book["starting"]:
         mapped = _KINDS.get(cls, {}).get(move["name"])
-        if mapped in (NOT_YET, PREPARE):
+        if mapped in (NOT_YET, PREPARE, COMPANION):
             kind, key = mapped, None
         elif mapped:
             kind, key = ROLLED, mapped
@@ -109,6 +110,21 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
         for m in moves:
             if m["kind"] == ROLLED:
                 lines.append(f"    - {m['name']}: call make_move with move={m['key']}.")
+            elif m["kind"] == COMPANION:
+                from .companion import describe as describe_companion
+
+                pet = sheet.get("companion")
+                if m["name"] == "Command":
+                    if pet:
+                        lines.append(
+                            f"    - Command: when {actor} works with {pet['name']} on an attack, "
+                            "tracking, Discern Realities or Parley, set companion=true on make_move; "
+                            "the rules engine checks its training and adds its bonus.")
+                elif pet:
+                    lines.append(f"    - {describe_companion(sheet)}")
+                else:
+                    lines.append("    - Animal Companion: not chosen yet (the player runs `?dm "
+                                 "companion`). Until then there is no companion in the story.")
             elif m["kind"] == PREPARE:
                 lines.append(f"    - {m['name']}: when they spend an undisturbed hour at it, "
                              "call prepare_spells.")

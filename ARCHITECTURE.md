@@ -78,7 +78,7 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   (Lay on Hands, rolled in the Director, applied by `UpdateSheet`). The rest reach the
 >   model every turn as a "class moves" block. Wired number tweaks: precise weapons hack
 >   with Dex, Halfling Thief +2 ranged, Druids need no ration, a Halfling Druid adds 1d6 at
->   camp. Shapeshifter and the Animal Companion are next.
+>   camp. Shapeshifter is next.
 > - **Spells.** `spells.py` reads both lists (`data/spells.json`, 63 spells,
 >   `scripts/extract_dw_spells.py`) and holds the caster's state on the sheet: spellbook,
 >   borrowed spell, prepared/granted `spells`, `lost`, `cast_penalty`, `ongoing`,
@@ -103,6 +103,12 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   `Director.unsettled` (the camp guard) and opens an in-memory `LevelUpForm`; the save
 >   rechecks readiness and downtime. Advanced moves reach the model as text in the class
 >   moves block; none are wired to numbers yet.
+> - **Animal Companion.** `companion.py`: `CompanionDraft` (species, base, strengths/
+>   trainings/weaknesses counted by ferocity/cunning/instinct, name) behind an in-memory
+>   `CompanionForm`; `COMMANDS` maps moves to the trainings that count and what they add.
+>   `make_move(companion=true)` is checked in `open_move` (+cunning to the roll) and the
+>   companion's name rides on the `PendingCheck`, so damage gets +ferocity and the blow
+>   back meets its armor.
 > - **Bonds.** Bond lines and alignments are extracted with the class moves. `bonds.py`
 >   keeps `[{"line", "with"}]` on the sheet, each class line once, companions only;
 >   `?dm bonds` opens an in-memory `BondsForm` whose save writes only `bonds` onto the

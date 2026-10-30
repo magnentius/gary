@@ -39,9 +39,10 @@ from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
-from .. import bonds, spells
+from .. import bonds, companion as companions, spells
 from .creator import AlignmentForm, GearButton, StartButton
 from .bonds_form import BondsForm
+from .companion_form import CompanionForm
 from .levelup import LevelUpForm
 from .session import EndOfSession
 from .spellbook import SpellPicker
@@ -283,6 +284,7 @@ __At the table__
 `{p}levelup` — spend your XP on a level, in downtime (a private form)
 `{p}bonds` — write your bonds with the other characters (a private form)
 `{p}alignment` — choose your alignment, for a character made before alignments existed
+`{p}companion` — a Ranger's animal companion (a private form)
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -729,6 +731,9 @@ class GaryClient(discord.Client):
         await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet, with_name=False)}")
         if spells.needs_setup(sheet):
             await self._offer_spells(channel_id, user_id, name)
+        if sheet.get("class") == "Ranger":
+            await self.sender.send(channel_id, f"**{name}**, your animal companion awaits: "
+                                               f"`{self.settings.command_prefix}companion`.")
         return None
 
     async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
@@ -809,6 +814,19 @@ class GaryClient(discord.Client):
         button.callback = open_form
         view.add_item(button)
         await message.channel.send(text, view=view)
+
+    async def _finish_companion(self, actor: str, pet: dict, channel_id: int) -> Optional[str]:
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None:
+            return f"{actor} has no sheet any more."
+        if sheet.get("companion"):
+            return f"{actor} already has {sheet['companion']['name']}."
+        diff = self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": {**sheet, "companion": pet}})],
+                                reason=f"{actor} is joined by {pet['name']}")
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        await self.sender.send(channel_id, f"🐺 **{actor}** — {companions.describe({**sheet, 'companion': pet})}.")
+        return None
 
     async def _finish_alignment(self, actor: str, chosen: str, channel_id: int) -> Optional[str]:
         sheet = (self.store.state().get("sheets") or {}).get(actor)
@@ -1193,7 +1211,7 @@ class GaryClient(discord.Client):
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
             extra = [line for line in (alignment_line(sheet), carrying_line(sheet), spells.describe(sheet),
-                                       bonds.describe(sheet)) if line]
+                                       companions.describe(sheet), bonds.describe(sheet)) if line]
             if not sheet.get("alignment"):
                 extra.append(f"No alignment yet: `{prefix}alignment` chooses one.")
             await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
@@ -1210,6 +1228,24 @@ class GaryClient(discord.Client):
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
             )
             view.message = await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "companion":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            if sheet.get("class") != "Ranger":
+                await self.sender.send(channel_id, f"Only a Ranger has an animal companion; {actor} "
+                                                   f"is a {sheet.get('class')}.")
+                return
+            if sheet.get("companion"):
+                await self.sender.send(channel_id, f"**{actor}** — {companions.describe(sheet)}.")
+                return
+            form = CompanionForm(actor, lambda pet: self._finish_companion(actor, pet, channel_id))
+            await self._private_button(message, f"**{actor}** — your animal companion:", "Choose companion",
+                                       "🐺", form, form.prompt())
             return
 
         if command == "alignment":
@@ -1230,13 +1266,13 @@ class GaryClient(discord.Client):
             if sheet is None:
                 await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
                 return
-            companions = sorted(a for a in set(self.director.players.values())
-                                if a != actor and a in sheets and not sheets[a].get("dead"))
-            if not companions:
+            others = sorted(a for a in set(self.director.players.values())
+                            if a != actor and a in sheets and not sheets[a].get("dead"))
+            if not others:
                 await self.sender.send(channel_id, "Bonds are with your companions, and nobody else at "
                                                    "the table has a character yet.")
                 return
-            form = BondsForm(sheet, companions, lambda edited: self._finish_bonds(edited, channel_id))
+            form = BondsForm(sheet, others, lambda edited: self._finish_bonds(edited, channel_id))
             view = discord.ui.View(timeout=form.timeout)
             button = discord.ui.Button(label="Write bonds", emoji="🤝", style=discord.ButtonStyle.primary)
             owner = message.author.id

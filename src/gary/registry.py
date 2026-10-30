@@ -82,6 +82,7 @@ class PendingCheckRegistry:
         dice: str,
         target: str = "",
         spell: str = "",
+        companion: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> Tuple[PendingCheck, Optional[PendingCheck]]:
         """Open a check. Returns (new_check, superseded_check_or_None)."""
@@ -99,6 +100,7 @@ class PendingCheckRegistry:
             dice=dice,
             target=target,
             spell=spell,
+            companion=companion,
             created_at=now,
             expires_at=now + ttl,
         )

@@ -437,6 +437,7 @@ class GeminiNarrator:
             stakes=str(args.get("stakes", "")),
             target=str(args.get("target", "") or ""),
             spell=str(args.get("spell", "") or ""),
+            companion=bool(args.get("companion")),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
