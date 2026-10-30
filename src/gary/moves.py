@@ -43,6 +43,8 @@ class Option:
     enemy_attacks: bool = False
     # Taking this option changes the damage dice: "+1d6" or "-1d6".
     damage_mod: Optional[str] = None
+    # Taking this option spends one ammo.
+    spends_ammo: bool = False
 
 
 @dataclass(frozen=True)
@@ -124,7 +126,7 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, (
                 Option("Move to get the shot, placing yourself in danger of the GM’s choice."),
                 Option("Take what you can get: -1d6 damage.", damage_mod="-1d6"),
-                Option("Take several shots, reducing your ammo by one."),
+                Option("Take several shots, reducing your ammo by one.", spends_ammo=True),
             )),
             deals_damage=True,
         ),

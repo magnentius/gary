@@ -669,3 +669,109 @@ def test_a_character_brought_to_zero_is_down_and_dying(director, dice, scene):
 def test_a_creature_attack_that_cannot_happen_goes_back_to_the_model(director, monster, character, error):
     effects, facts = director.monster_attacks(channel_id=CHANNEL, monster=monster, character=character)
     assert effects == [] and not facts["ok"] and error in facts["error"]
+
+
+# -- gear --------------------------------------------------------------------------------
+
+
+def _geared(director, name, items, ammo=None):
+    """Give a sheet gear, the way ?dm new or ?dm gear would."""
+    from gary.sheets import with_gear
+
+    sheet = director._sheet_for(name)
+    geared = with_gear(sheet, items)
+    if ammo is not None:
+        geared["ammo"] = ammo
+    sheet.clear()
+    sheet.update(geared)
+
+
+def test_volley_needs_something_that_shoots(director):
+    from gary.gear import LEATHER, SHORT_SWORD
+
+    _geared(director, "Kethra", [LEATHER, SHORT_SWORD])
+    (note,) = prompts_in(make_move(director, "volley"))
+    assert "nothing to Volley with" in note.payload["error"]
+    assert "near, far or thrown" in note.payload["error"]
+    assert director.state(CHANNEL) is ChannelState.IDLE
+
+
+def test_hack_and_slash_needs_something_that_reaches(director):
+    from gary.gear import BOOKS, WORN_BOW, ARROWS
+
+    _geared(director, "Kethra", [BOOKS, WORN_BOW, ARROWS])
+    (note,) = prompts_in(make_move(director, "hack_and_slash"))
+    assert "hand, close or reach" in note.payload["error"]
+
+
+def test_a_bow_without_ammo_cannot_volley(director):
+    from gary.gear import HUNTERS_BOW
+
+    _geared(director, "Kethra", [HUNTERS_BOW], ammo=0)
+    (note,) = prompts_in(make_move(director, "volley"))
+    assert "ammo" in note.payload["error"]
+
+
+def test_a_sheet_made_before_gear_is_not_gated(director):
+    """Thorin attacked with nothing on his sheet before gear existed; he still can."""
+    assert sends_in(make_move(director, "volley"))
+
+
+def test_a_weapons_damage_and_piercing_go_into_the_roll(director, registry, dice, scene):
+    from gary.gear import DUELING_RAPIER, LONG_SWORD
+
+    scene["Goblin 1"] = {**goblin(hp=20), "armor": 2}
+    _geared(director, "Dorn", [DUELING_RAPIER, LONG_SWORD])  # the +1 damage sword wins
+    make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB)
+    dice.queue(6, 6)
+    roll(director, user_id=BOB)
+    ask = sends_in(choose(director, only_check(registry).check_id, [0], user_id=BOB))[-1]
+    assert ask.text == "**Dorn**, roll your damage (d10+1, Long sword) against Goblin 1."
+
+    dice.queue(5)  # d10 5 +1 = 6, through armor 2 -> 4
+    effects = roll_damage(director, only_check(registry).check_id, user_id=BOB)
+    assert "d10+1: 5 +1 = 6 → Goblin 1: 4 through armor 2" in sends_in(effects)[0].text
+
+
+def test_piercing_cuts_through_armor(director, registry, dice, scene):
+    from gary.gear import DUELING_RAPIER
+
+    scene["Goblin 1"] = {**goblin(hp=20), "armor": 2}
+    _geared(director, "Dorn", [DUELING_RAPIER])  # close, 1 piercing
+    make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB)
+    dice.queue(6, 6)
+    roll(director, user_id=BOB)
+    choose(director, only_check(registry).check_id, [0], user_id=BOB)
+    dice.queue(5)  # d10 5, armor 2 less 1 piercing -> 4
+    effects = roll_damage(director, only_check(registry).check_id, user_id=BOB)
+    assert "Goblin 1: 4 through armor 2" in sends_in(effects)[0].text
+
+
+def test_taking_several_shots_spends_one_ammo(director, registry, dice):
+    from gary.fsm import SpendAmmo
+    from gary.gear import ARROWS, HUNTERS_BOW
+
+    _geared(director, "Kethra", [HUNTERS_BOW, ARROWS])  # 3 ammo
+    make_move(director, "volley")
+    dice.queue(3, 2)  # 7 with +2: weak hit
+    roll(director)
+    check_id = only_check(registry).check_id
+    choose(director, check_id, [2])  # take several shots
+    dice.queue(4)
+    effects = roll_damage(director, check_id)
+    assert SpendAmmo(CHANNEL, "Kethra", 2) in effects
+    assert "**Kethra** has 2 ammo left." in [e.text for e in sends_in(effects)]
+
+
+def test_other_volley_choices_spend_no_ammo(director, registry, dice):
+    from gary.fsm import SpendAmmo
+    from gary.gear import ARROWS, HUNTERS_BOW
+
+    _geared(director, "Kethra", [HUNTERS_BOW, ARROWS])
+    make_move(director, "volley")
+    dice.queue(3, 2)
+    roll(director)
+    check_id = only_check(registry).check_id
+    choose(director, check_id, [1])  # -1d6 damage instead
+    dice.queue(4, 1)
+    assert not [e for e in roll_damage(director, check_id) if isinstance(e, SpendAmmo)]

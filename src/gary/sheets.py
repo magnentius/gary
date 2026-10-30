@@ -15,7 +15,12 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence, Tuple
+
+from .gear import (
+    CLASS_GEAR, ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES, ClassGear, Item, ammo_of,
+    armor_of, signature_weapon,
+)
 
 STATS = ("str", "dex", "con", "int", "wis", "cha")
 STAT_NAMES = {
@@ -76,6 +81,13 @@ class Draft:
     # stat -> score, filled one array value at a time
     stats: Dict[str, int] = field(default_factory=dict)
     name: Optional[str] = None
+    # group index -> option indices picked, in the order the class lists its groups
+    gear_picks: Dict[int, Tuple[int, ...]] = field(default_factory=dict)
+    # The Fighter's signature weapon, built in steps: base, range, two enhancements, and
+    # a second range if one enhancement is Versatile.
+    signature_base: Optional[str] = None
+    signature_ranges: List[str] = field(default_factory=list)
+    signature_enhancements: Tuple[int, ...] = ()
 
     def choose_class(self, class_key: str) -> None:
         key = str(class_key or "").strip().lower()
@@ -83,6 +95,7 @@ class Draft:
             raise SheetError(f"There is no {class_key!r} class.")
         if key != self.class_key:
             self.race = None  # races differ by class
+            self.reset_gear()  # and so does gear
         self.class_key = key
 
     def races(self) -> List[str]:
@@ -130,6 +143,100 @@ class Draft:
     def reset_stats(self) -> None:
         self.stats.clear()
 
+    # -- gear ------------------------------------------------------------------------
+
+    def class_gear(self) -> Optional[ClassGear]:
+        return CLASS_GEAR[self.class_key] if self.class_key else None
+
+    def next_gear_group(self) -> Optional[int]:
+        """The first of the class's gear groups not yet chosen from, or None."""
+        cg = self.class_gear()
+        if cg is None:
+            return None
+        return next((i for i in range(len(cg.groups)) if i not in self.gear_picks), None)
+
+    def choose_gear(self, group: int, picks: Sequence[int]) -> None:
+        cg = self.class_gear()
+        if cg is None:
+            raise SheetError("Choose a class first.")
+        if not 0 <= group < len(cg.groups):
+            raise SheetError("There is no such gear choice.")
+        g = cg.groups[group]
+        picks = tuple(sorted(int(p) for p in picks))
+        if len(picks) != g.count or len(set(picks)) != g.count:
+            raise SheetError(f"{g.prompt}: pick {g.count}.")
+        if not all(0 <= p < len(g.options) for p in picks):
+            raise SheetError(f"{g.prompt}: that is not one of the options.")
+        self.gear_picks[group] = picks
+
+    def needs_signature(self) -> bool:
+        cg = self.class_gear()
+        return bool(cg and cg.signature_weapon)
+
+    def signature_step(self) -> Optional[str]:
+        """What the signature weapon still needs: base, range, enhancements, extra_range."""
+        if not self.needs_signature():
+            return None
+        if self.signature_base is None:
+            return "base"
+        if not self.signature_ranges:
+            return "range"
+        if len(self.signature_enhancements) != 2:
+            return "enhancements"
+        versatile = any(ENHANCEMENTS[i].versatile for i in self.signature_enhancements)
+        if versatile and len(self.signature_ranges) < 2:
+            return "extra_range"
+        return None
+
+    def choose_signature_base(self, base: str) -> None:
+        if base not in SIGNATURE_BASES:
+            raise SheetError(f"Choose one of {', '.join(SIGNATURE_BASES)}.")
+        self.signature_base = base
+
+    def choose_signature_range(self, rng: str) -> None:
+        if rng not in SIGNATURE_RANGES:
+            raise SheetError(f"Choose one of {', '.join(SIGNATURE_RANGES)}.")
+        if rng in self.signature_ranges:
+            raise SheetError(f"Your weapon is already {rng}.")
+        if len(self.signature_ranges) >= (2 if self.signature_step() == "extra_range" else 1):
+            raise SheetError("Your weapon has its range.")
+        self.signature_ranges.append(rng)
+
+    def choose_signature_enhancements(self, picks: Sequence[int]) -> None:
+        picks = tuple(sorted(int(p) for p in picks))
+        if len(picks) != 2 or len(set(picks)) != 2:
+            raise SheetError("Choose two enhancements.")
+        if not all(0 <= p < len(ENHANCEMENTS) for p in picks):
+            raise SheetError("That is not one of the enhancements.")
+        self.signature_enhancements = picks
+
+    def reset_gear(self) -> None:
+        self.gear_picks.clear()
+        self.signature_base = None
+        self.signature_ranges = []
+        self.signature_enhancements = ()
+
+    @property
+    def gear_complete(self) -> bool:
+        return self.class_key is not None and self.next_gear_group() is None \
+            and self.signature_step() is None
+
+    def gear_items(self) -> List[Item]:
+        """Everything the character carries: the class's fixed gear, what was picked, and
+        the signature weapon if there is one. Refuses anything incomplete."""
+        if not self.gear_complete:
+            raise SheetError("Gear is not chosen yet.")
+        cg = self.class_gear()
+        items = list(cg.fixed)
+        for group, picks in sorted(self.gear_picks.items()):
+            for p in picks:
+                items.extend(cg.groups[group].options[p][1])
+        if cg.signature_weapon:
+            items.insert(0, signature_weapon(
+                self.signature_base, self.signature_ranges, self.signature_enhancements
+            ))
+        return items
+
     def choose_name(self, name: str) -> None:
         name = " ".join(str(name or "").split())
         if not name:
@@ -140,7 +247,11 @@ class Draft:
 
     @property
     def complete(self) -> bool:
-        return bool(self.class_key and self.race and self.name) and not self.unassigned_stats()
+        return (
+            bool(self.class_key and self.race and self.name)
+            and not self.unassigned_stats()
+            and self.gear_complete
+        )
 
     def build(self) -> Dict[str, Any]:
         """The finished sheet, as stored. Refuses anything incomplete."""
@@ -148,7 +259,8 @@ class Draft:
             missing = [
                 label for label, done in (
                     ("a class", self.class_key), ("a race", self.race),
-                    ("stats", not self.unassigned_stats()), ("a name", self.name),
+                    ("stats", not self.unassigned_stats()),
+                    ("gear", self.gear_complete), ("a name", self.name),
                 ) if not done
             ]
             raise SheetError("Still needs " + ", ".join(missing) + ".")
@@ -164,9 +276,23 @@ class Draft:
             "max_hp": max_hp,
             "hp": max_hp,
             "damage": cls["damage"],
-            # Armor comes from gear, which this sheet does not track yet.
-            "armor": 0,
+            **with_gear({}, self.gear_items()),
         }
+
+
+def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
+    """The sheet carrying these items: gear, and the armor and ammo they come to.
+
+    Used for a new character and for giving gear to one made before gear existed -- so
+    their HP, stats and everything else are left exactly as they are.
+    """
+    gear = [i.to_dict() for i in items]
+    return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear)}
+
+
+def weapons_line(sheet: Dict[str, Any]) -> str:
+    weapons = [g for g in sheet.get("gear") or [] if Item(**{**g, "tags": tuple(g["tags"])}).ranges]
+    return ", ".join(Item(**{**g, "tags": tuple(g["tags"])}).label() for g in weapons)
 
 
 def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
@@ -179,8 +305,14 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         f"{s.upper()} {sheet['stats'][s]} ({modifier(sheet['stats'][s]):+d})" for s in STATS
     )
     who = f"{sheet['name']} — " if with_name else ""
-    return (
+    line = (
         f"{who}{sheet['race']} {sheet['class']} {sheet['level']}, "
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}, "
         f"damage {sheet['damage']} · {stats}"
     )
+    if "gear" in sheet:
+        weapons = weapons_line(sheet)
+        line += f" · wields {weapons or 'nothing'}"
+        if any(g.get("needs_ammo") for g in sheet["gear"]):
+            line += f" · ammo {sheet.get('ammo', 0)}"
+    return line

@@ -44,6 +44,12 @@ Google Gemini (narrative) + Avrae (rules & dice) + a campaign state server (pers
 >   (`DamageButton`); `damage.py` rolls `d`/`b[]`/`w[]` expressions with the option's ±1d6,
 >   applies armor and piercing, and the runner journals each `ChangeHp`. A weak Hack and
 >   Slash rolls the creature's blow back at once; `monster_attacks` is the GM-move version.
+> - **Gear.** `gear.py` holds each class's starting gear, hand-written (the Druid's XML
+>   section has lost its group headings), and the Fighter's signature weapon. `?dm new`
+>   adds gear steps; `?dm gear` gives gear to an older sheet without touching anything
+>   else. Armor is the best worn plus shields; attack moves need a weapon whose range
+>   tags reach; its +damage and piercing join the damage roll; "take several shots"
+>   spends ammo (`SpendAmmo`, journalled). Sheets without gear are not gated.
 > - **Tools.** The model keeps `make_move`, `add_monsters`, `remove_monsters`,
 >   `monster_attacks`, `advance_time`, `give_items`, `take_items`,
 >   `record_note`, `upsert_npc` and `set_scene`.

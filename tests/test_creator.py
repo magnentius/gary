@@ -63,9 +63,13 @@ def _component(view, kind, label=None):
 
 
 async def choose(view, value):
+    """Pick from the form's dropdown: one value, or a list for a pick-several step."""
     select = _component(view, "select")
-    assert value in [o.value for o in select.options], f"{value} not offered"
-    select._values = [value]  # what discord.py sets from the click payload
+    values = value if isinstance(value, list) else [value]
+    offered = [o.value for o in select.options]
+    assert all(v in offered for v in values), f"{values} not all offered in {offered}"
+    assert select.min_values == select.max_values == len(values)
+    select._values = values  # what discord.py sets from the click payload
     interaction = _Interaction()
     await select.callback(interaction)
     return interaction
@@ -77,11 +81,21 @@ async def press(view, label, interaction=None):
     return interaction
 
 
+async def fighter_gear(view):
+    """Chainmail and gear; potions and coins; a sharp, serrated signature sword."""
+    await choose(view, "0")
+    await choose(view, ["0", "3"])
+    await choose(view, "Sword")
+    await choose(view, "close")
+    await choose(view, ["1", "3"])
+
+
 async def make_kael(view):
     await choose(view, "fighter")
     await choose(view, "Dwarf")
     for stat in ("str", "con", "dex", "wis", "cha"):
         await choose(view, stat)
+    await fighter_gear(view)
     interaction = await press(view, "Name your character")
     (modal,) = interaction.response.modals
     modal.name._value = "Kael"
@@ -135,6 +149,8 @@ async def test_a_bad_name_is_shown_and_the_form_waits():
     await choose(view, "Elf")
     for stat in ("int", "wis", "dex", "con", "cha"):
         await choose(view, stat)
+    for _ in range(3):  # leather; dagger; healing potion
+        await choose(view, "0")
     modal = NameModal(view)
     modal.name._value = "   "
     submitted = _Interaction()
@@ -219,9 +235,10 @@ async def test_saving_stores_the_sheet_claims_it_and_tells_the_table(table):
     assert state["sheets"]["Kael"] == sheet
     assert state["players"] == {str(ALICE): "Kael"}
     assert director.players == {ALICE: "Kael"}  # checks for Kael are Alice's to roll
-    assert sent == ["**Kael** joins the party — Dwarf Fighter 1, HP 25/25, armor 0, "
+    assert sent == ["**Kael** joins the party — Dwarf Fighter 1, HP 25/25, armor 1, "
                     "damage d10 · STR 16 (+2) DEX 13 (+1) CON 15 (+1) INT 8 (-1) "
-                    "WIS 12 (+0) CHA 9 (+0)"]
+                    "WIS 12 (+0) CHA 9 (+0) · wields Signature sword (close, +1 damage, "
+                    "2 piercing)"]
 
 
 async def test_the_sheet_and_the_claim_undo_together(table):
@@ -279,6 +296,7 @@ def _dispatcher(table):
     class _Client:
         settings = _Settings()
         _finish_character = GaryClient._finish_character
+        _finish_gear = GaryClient._finish_gear
 
     client = _Client()
     client.store, client.director, client.sender = store, director, save.__self__.sender
@@ -304,3 +322,66 @@ async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
     await save(_Interaction(ALICE), await _kael_sheet(), CHANNEL)
     await dispatch(msg("?dm sheet"))
     assert sent[-1].startswith("Kael — Dwarf Fighter 1, HP 25/25")
+
+
+
+# -- gear for a character made before gear --------------------------------------------------
+
+
+THORIN = {"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 1, "xp": 0,
+          "stats": {"str": 15, "dex": 9, "con": 13, "int": 12, "wis": 16, "cha": 8},
+          "max_hp": 21, "hp": 18, "damage": "d6", "armor": 0}
+
+
+async def test_the_gear_form_asks_only_for_gear_and_keeps_everything_else():
+    taken = []
+
+    async def finish(interaction, sheet):
+        taken.append(sheet)
+
+    view = CharacterCreator(finish, sheet=THORIN)
+    assert view.prompt().endswith("Choose your defenses.")
+    await choose(view, "0")   # chainmail
+    await choose(view, "1")   # mace
+    await choose(view, "1")   # healing potion
+    assert view.prompt().endswith("Take this gear?")
+    done = await press(view, "Take this gear")
+
+    (sheet,) = taken
+    assert (sheet["hp"], sheet["max_hp"], sheet["armor"]) == (18, 21, 1)
+    assert [g["name"] for g in sheet["gear"]][-3:] == ["Chainmail", "Mace", "Healing potion"]
+    assert done.response.edits[-1][0].startswith("✅ Geared up.")
+
+
+async def test_dm_gear_posts_a_button_and_saving_journals_the_sheet(table):
+    from gary.adapters.creator import GearButton
+    from gary.models import Mutation, MutationKind
+    from gary.sheets import with_gear
+    from gary.gear import CHAINMAIL
+
+    save, store, director, sent = table
+    store.apply([Mutation(MutationKind.SHEET, "Thorin", {"sheet": THORIN})], reason="old")
+    director.set_player_character(ALICE, "Thorin")
+    msg, dispatch, posted = _dispatcher(table)
+
+    await dispatch(msg("?dm gear"))
+    ((text, view),) = posted
+    assert isinstance(view, GearButton) and "Thorin" in text
+
+    await view.finish(None, with_gear(THORIN, [CHAINMAIL]))
+    assert store.state()["sheets"]["Thorin"]["armor"] == 1
+    assert sent[-1].startswith("**Thorin** gears up — Dwarf Cleric 1, HP 18/21, armor 1")
+    store.undo_last()
+    assert "gear" not in store.state()["sheets"]["Thorin"]
+
+    store.apply([Mutation(MutationKind.SHEET, "Thorin", {"sheet": with_gear(THORIN, [CHAINMAIL])})],
+                reason="geared")
+    await dispatch(msg("?dm gear"))
+    assert "already has their gear" in sent[-1]
+
+
+async def test_stats_show_in_the_rules_order_even_from_a_sorted_sheet():
+    """Read back from the store, a sheet's stats come alphabetical: CHA first."""
+    sorted_thorin = {**THORIN, "stats": dict(sorted(THORIN["stats"].items()))}
+    view = CharacterCreator(None, sheet=sorted_thorin)
+    assert "STR 15 · DEX 9 · CON 13 · INT 12 · WIS 16 · CHA 8" in view.prompt()

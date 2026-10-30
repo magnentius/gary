@@ -38,7 +38,7 @@ from ..state.lock import CampaignLock, lock_path
 from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..sheets import describe
-from .creator import StartButton
+from .creator import GearButton, StartButton
 from .routing import Route, route_message
 from .runner import EffectRunner
 from .sender import ChannelSender
@@ -238,6 +238,7 @@ __Opening a campaign__
 __At the table__
 `{p}new` — make a character (a private form; it is yours to roll for)
 `{p}sheet` — your character's sheet
+`{p}gear` — choose starting gear for a character made before gear existed
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -724,6 +725,17 @@ class GaryClient(discord.Client):
             log.warning("could not disable damage button for %s", check_id)
         await self.runner.run(effects)
 
+    async def _finish_gear(self, sheet: dict, channel_id: int) -> Optional[str]:
+        """Store a character's chosen gear. One journalled change, so it undoes."""
+        diff = self.store.apply(
+            [Mutation(MutationKind.SHEET, sheet["name"], {"sheet": sheet})],
+            reason=f"{sheet['name']} takes their gear",
+        )
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        await self.sender.send(channel_id, f"**{sheet['name']}** gears up — {describe(sheet, with_name=False)}")
+        return None
+
     def _why_no_roll(self, channel_id: int, check_id: str, verb: str = "roll") -> str:
         pending = next(
             (c for c in self.director.registry.open_checks(channel_id) if c.check_id == check_id),
@@ -967,6 +979,24 @@ class GaryClient(discord.Client):
             await message.channel.send(
                 f"**{message.author.display_name}** — make your character:", view=view
             )
+            return
+
+        if command == "gear":
+            actor = self.director.players.get(message.author.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                return
+            if "gear" in sheet:
+                await self.sender.send(
+                    channel_id, f"**{actor}** already has their gear. `{prefix}sheet` shows it."
+                )
+                return
+            view = GearButton(
+                message.author.id, message.author.display_name, sheet,
+                lambda interaction, geared: self._finish_gear(geared, channel_id),
+            )
+            await message.channel.send(f"**{actor}** — choose your gear:", view=view)
             return
 
         if command == "sheet":

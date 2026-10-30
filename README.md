@@ -7,7 +7,8 @@ enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
 > rolls its own dice when a player clicks **Roll**, knows the eight basic moves, and tracks
-> monsters' HP and damage. Special and class moves, bonds and gear are not built yet — see
+> monsters' HP and damage, and characters carry their class's starting gear. Special and
+> class moves and bonds are not built yet — see
 > [what is missing](#what-is-not-built-yet).
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
@@ -330,7 +331,8 @@ Everyone runs:
 
 Gary posts a **Create character** button for you. Clicking it opens a form only you can
 see: pick a class and a race, place the Dungeon World stats (16, 15, 13, 12, 9, 8) one at
-a time, and name your character. Gary works out your hit points and damage die, saves the
+a time, choose your class's starting gear (a Fighter builds their signature weapon), and
+name your character. Gary works out your hit points and damage die, saves the
 sheet, and tells the table who has joined. `?dm sheet` shows yours again.
 
 Making a character also claims it: its checks are yours to roll, and nobody else's. Why it
@@ -338,8 +340,12 @@ matters: without a claim the model only knows Discord display names, and a check
 whoever happened to be speaking. `?dm playing <character name>` claims a character without
 a sheet, for a table that keeps its sheets elsewhere.
 
-The sheet tracks what rolls need — class, race, stats, HP, damage, armor, level — and not
-yet alignment, gear, bonds or moves. Armor starts at 0 because it comes from gear.
+The sheet tracks what rolls need — class, race, stats, HP, damage, armor, level — and your
+gear. Gear does real work: your best armor plus a shield is your armor; a weapon's +damage
+and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
+and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
+spends ammo. A character made before gear existed runs `?dm gear` once to pick theirs.
+Alignment, bonds and class moves are not tracked yet.
 
 ### Talk to Gary
 
@@ -421,8 +427,8 @@ waiting on; `?dm cancel` drops your own.
 - **No Last Breath.** A character at 0 HP is down and dying, and the model is told to
   leave their fate open — the move that decides it is not built yet.
 - **Aid or Interfere rolls +0**, because bonds are not tracked. **Defend's hold** is
-  announced but not tracked. **Armor is 0**, because gear is not tracked — so characters
-  take every point a creature deals. Ammo is not tracked either.
+  announced but not tracked. Ammo is one count shared by bows and throwing daggers, and
+  weight and load are not tracked.
 
 ### When something goes wrong
 
@@ -546,6 +552,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 |---|---|
 | `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
 | `?dm sheet` | Your character's sheet. |
+| `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
 | `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |

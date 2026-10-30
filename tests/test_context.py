@@ -544,14 +544,20 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     d.choose_race("Dwarf")
     for stat in ("str", "con", "dex", "wis", "cha"):
         d.assign(stat, d.next_score())
+    d.choose_gear(0, [1])        # scale armor
+    d.choose_gear(1, [1, 3])     # shield, 22 coins
+    d.choose_signature_base("Axe")
+    d.choose_signature_range("close")
+    d.choose_signature_enhancements([3, 5])  # serrated, huge
     d.choose_name("Kael")
 
     state = empty_state()
     state["players"] = {"111": "Kael", "222": "Liriel"}
     state["sheets"] = {"Kael": d.build()}
     rendered = render_live_state(state)
-    assert "Kael — Dwarf Fighter 1, HP 25/25" in rendered
+    assert "Kael — Dwarf Fighter 1, HP 25/25, armor 3" in rendered
     assert "STR 16 (+2)" in rendered
+    assert "wields Signature axe (close, +1 damage, messy, forceful)" in rendered
     assert "- Liriel: carrying nothing" in rendered  # no sheet yet: just the name
 
 

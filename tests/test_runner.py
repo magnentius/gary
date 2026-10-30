@@ -341,3 +341,18 @@ async def test_hp_changes_are_journalled_so_they_undo():
 
     store.undo_last()
     assert store.state()["sheets"]["Kethra"]["hp"] == 19
+
+
+async def test_spending_ammo_is_journalled():
+    from gary.fsm import SpendAmmo
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: 0.0)
+    store.apply([Mutation(MutationKind.SHEET, "Kethra", {"sheet": {"name": "Kethra", "ammo": 3}})],
+                reason="setup")
+    await EffectRunner(FakeSender(), EchoNarrator(), store=store).run([SpendAmmo(CHANNEL, "Kethra", 2)])
+    assert store.state()["sheets"]["Kethra"]["ammo"] == 2
+    store.undo_last()
+    assert store.state()["sheets"]["Kethra"]["ammo"] == 3

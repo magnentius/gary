@@ -27,6 +27,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import damage
+from .gear import weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, MOVES
 from .ports import Dice, RandomDice
@@ -116,6 +117,15 @@ class ChangeHp(Effect):
     kind: str  # "monster" | "character"
     name: str
     hp: int
+
+
+@dataclass(frozen=True)
+class SpendAmmo(Effect):
+    """Set a character's ammo. Journalled by the runner, like an HP change."""
+
+    channel_id: int
+    name: str
+    ammo: int
 
 
 @dataclass(frozen=True)
@@ -331,6 +341,17 @@ class Director:
                     "they roll. Do not resolve the action.",
                 )]
             mod = modifier(int(sheet["stats"][stat]))
+            # A sheet made before gear existed has no gear to check, and is let through
+            # as before; `?dm gear` gives it some.
+            if rules.attacks and "gear" in sheet and self._weapon(sheet, rules.key) is None:
+                needs = "a near, far or thrown weapon (and ammo, for a bow)" \
+                    if rules.key == "volley" else "a hand, close or reach weapon"
+                return [self._refuse(
+                    channel_id,
+                    f"{actor} has nothing to {rules.name} with: it needs {needs}.",
+                    "Narrate what they can do instead, or choose a move that fits what they "
+                    "carry. Do not resolve the attack.",
+                )]
 
         check, displaced = self.registry.open(
             channel_id=channel_id,
@@ -425,12 +446,13 @@ class Director:
 
         if rules.deals_damage:
             held = self.registry.hold(check, faces=dice.faces)
-            die = self._damage_die(check.actor)
+            die, _, weapon = self._damage_die(check)
             extra = self._damage_extra(check, dice)
+            with_what = f", {weapon}" if weapon else ""
             return [SendMessage(
                 channel_id,
-                f"**{check.actor}**, roll your damage ({die}{' ' + extra if extra else ''}) "
-                f"against {check.target}.",
+                f"**{check.actor}**, roll your damage ({die}{' ' + extra if extra else ''}"
+                f"{with_what}) against {check.target}.",
                 prompt=DamagePrompt(held.check_id),
             )]
 
@@ -500,8 +522,8 @@ class Director:
         outcome = resolve(check, dice, picks=check.picks)
         effects: List[Effect] = []
 
-        hit = damage.roll(self.dice, damage.parse(self._damage_die(check.actor)),
-                          self._damage_extra(check, dice))
+        die, piercing, _ = self._damage_die(check)
+        hit = damage.roll(self.dice, damage.parse(die), self._damage_extra(check, dice))
         target = self._monsters().get(check.target)
         facts: Dict[str, Any] = {"target": check.target, "rolled": hit.total}
         line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {hit.render()}"
@@ -509,7 +531,7 @@ class Director:
             facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
             line += f" — {check.target} is gone."
         else:
-            dealt = damage.through_armor(hit.total, target["armor"])
+            dealt = damage.through_armor(hit.total, target["armor"], piercing)
             after = int(target["hp"]) - dealt
             facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
                          hp_after=max(after, 0), defeated=after <= 0,
@@ -521,6 +543,8 @@ class Director:
             effects.append(ChangeHp(channel_id, "monster", check.target, after))
         effects.insert(0, SendMessage(channel_id, line))
 
+        effects.extend(self._spend_ammo(channel_id, check, dice))
+
         back = None
         if outcome.enemy_attacks and target is not None:
             # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
@@ -531,9 +555,39 @@ class Director:
         outcome = replace(outcome, damage=facts, enemy_attack=back)
         return [*effects, *self._resolved(channel_id, outcome)]
 
-    def _damage_die(self, actor: str) -> str:
-        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
-        return sheet["damage"] if sheet else "d6"
+    def _weapon(self, sheet: Dict[str, Any], move: str):
+        return weapon_for(sheet.get("gear") or [], ranged=move == "volley",
+                          ammo=int(sheet.get("ammo", 0)))
+
+    def _damage_die(self, check: PendingCheck) -> Tuple[str, int, str]:
+        """(damage expression, piercing, weapon name) for this attack.
+
+        The class's die, plus the weapon's +damage, with its piercing. A sheet with no
+        gear -- made before gear existed -- rolls the bare class die, as it always did.
+        """
+        sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
+        if not sheet:
+            return "d6", 0, ""
+        die = sheet["damage"]
+        weapon = self._weapon(sheet, check.move) if "gear" in sheet else None
+        if weapon is None:
+            return die, 0, ""
+        spec = damage.parse(die)
+        boosted = damage.DamageSpec(spec.sides, spec.mode, spec.modifier + weapon.damage)
+        return str(boosted), weapon.piercing, weapon.name
+
+    def _spend_ammo(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        choice = MOVES[check.move].band(band(dice)).choice
+        if not choice or not any(choice.options[p].spends_ammo for p in check.picks):
+            return []
+        sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
+        if not sheet or "gear" not in sheet:
+            return []
+        left = max(0, int(sheet.get("ammo", 0)) - 1)
+        return [
+            SendMessage(channel_id, f"**{check.actor}** has {left} ammo left."),
+            SpendAmmo(channel_id, check.actor, left),
+        ]
 
     def _damage_extra(self, check: PendingCheck, dice: Roll) -> Optional[str]:
         choice = MOVES[check.move].band(band(dice)).choice
