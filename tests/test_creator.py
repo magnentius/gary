@@ -322,7 +322,7 @@ async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
     await save(_Interaction(ALICE), await _kael_sheet(), CHANNEL)
     await dispatch(msg("?dm sheet"))
     assert sent[-1].startswith("Kael — Dwarf Fighter 1, HP 25/25")
-    assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Chainmail" in sent[-1]
+    assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Dungeon rations" in sent[-1]
     assert "2 × Healing Potion" in sent[-1]
 
 

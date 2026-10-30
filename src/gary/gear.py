@@ -47,6 +47,14 @@ class Item:
     def label(self) -> str:
         return self.name + (f" ({', '.join(self.tags)})" if self.tags else "")
 
+    @classmethod
+    def from_dict(cls, d: Dict[str, Any]) -> "Item":
+        """An item from a saved gear entry. Entries carry more than an Item -- "uses"
+        once one is spent -- and older ones carry less; neither may break loading."""
+        known = {f for f in cls.__dataclass_fields__}
+        return cls(**{**{k: v for k, v in d.items() if k in known},
+                      "tags": tuple(d.get("tags", ()))})
+
     def to_dict(self) -> Dict[str, Any]:
         """JSON-shaped, so a sheet built here equals the same sheet read back from the
         store -- which saves it as JSON, turning a tuple into a list."""
@@ -261,7 +269,7 @@ def signature_weapon(base: str, ranges: Sequence[str], enhancements: Sequence[in
 
 
 def items_of(gear: Sequence[Dict[str, Any]]) -> List[Item]:
-    return [Item(**{**g, "tags": tuple(g.get("tags", ()))}) for g in gear]
+    return [Item.from_dict(g) for g in gear]
 
 
 def armor_of(gear: Sequence[Dict[str, Any]]) -> int:

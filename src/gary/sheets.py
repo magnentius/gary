@@ -303,8 +303,8 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
 
 
 def weapons_line(sheet: Dict[str, Any]) -> str:
-    weapons = [g for g in sheet.get("gear") or [] if Item(**{**g, "tags": tuple(g["tags"])}).ranges]
-    return ", ".join(Item(**{**g, "tags": tuple(g["tags"])}).label() for g in weapons)
+    weapons = [Item.from_dict(g) for g in sheet.get("gear") or []]
+    return ", ".join(w.label() for w in weapons if w.ranges)
 
 
 def carrying_line(sheet: Dict[str, Any]) -> str:
@@ -318,7 +318,7 @@ def carrying_line(sheet: Dict[str, Any]) -> str:
         return ""
     labels: List[str] = []
     for g in gear:
-        item = Item(**{**g, "tags": tuple(g.get("tags", ()))})
+        item = Item.from_dict(g)
         label = item.label()
         if "uses" in g:
             label = f"{item.name} ({g['uses']} uses left)"

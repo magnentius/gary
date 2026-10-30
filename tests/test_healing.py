@@ -76,3 +76,14 @@ def test_the_dead_are_beyond_bandages():
 def test_a_kit_of_2_healing_potions_is_two_potions():
     sheet = with_gear({"name": "Kael"}, [Item("2 healing potions")])
     assert [g["name"] for g in sheet["gear"]] == ["Healing Potion", "Healing Potion"]
+
+
+
+def test_a_spent_use_does_not_break_armor_or_weapons_afterwards():
+    """Spending a bandage adds "uses" to its gear entry; loading gear must not choke on it."""
+    from gary.gear import CHAINMAIL, MACE, armor_of, weapon_for
+
+    sheet = thorin(items=(CHAINMAIL, MACE, BANDAGES))
+    sheet, _, _, _ = healing.use(sheet, "bandages", KETHRA, fighting=False)
+    assert armor_of(sheet["gear"]) == 1
+    assert weapon_for(sheet["gear"], ranged=False, ammo=0).name == "Mace"
