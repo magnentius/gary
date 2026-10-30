@@ -379,6 +379,22 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.RECOVER:
+                rest_effects, result = self._director.recover(
+                    channel_id=channel_id, characters=list(args.get("characters") or []),
+                    days=int(args.get("days") or 0), healer=bool(args.get("healer")),
+                    reason=str(args.get("reason", "") or ""))
+                if result.get("ok"):
+                    try:
+                        # A day at a time: the store bounds one advance at a day.
+                        for _ in range(result["days"]):
+                            self._store.advance_time(1440, reason="the party recovers")
+                    except StateError as exc:
+                        result["clock"] = str(exc)
+                effects.extend(rest_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.DEBILITY:
                 debility_effects, result = self._director.debility(
                     channel_id=channel_id, character=str(args.get("character", "")),

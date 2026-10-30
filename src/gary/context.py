@@ -60,6 +60,8 @@ AUTHORITY — this is absolute:
   cast_a_spell with the spell named. Healing and damage in a spell are rolled for you.
   When one prays or studies for an undisturbed hour, call prepare_spells; their player
   chooses. Ongoing spells cost -1 to cast while they run: call end_spell when one ends.
+- Days of rest somewhere comfortable and safe -- an inn, a temple -- are recover, not
+  make_camp: it heals fully and clears debilities over days.
 - When the fiction weakens a character -- a numbing claw, a sickening poison, a blow to the
   head -- give the debility with the debility tool; cure it the same way when magic or real
   treatment does. The -1 is applied to their rolls for you.

@@ -90,6 +90,14 @@ class SpellsPrompt:
     actor: str
 
 
+@dataclass(frozen=True)
+class CurePrompt:
+    """A button per debility, for this player to pick which Recover clears."""
+
+    user_id: int
+    debilities: tuple
+
+
 # -- effects ------------------------------------------------------------------------------
 
 
@@ -1629,6 +1637,81 @@ class Director:
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
         ], {"ok": True, "ended": name}
 
+    # -- Recover ---------------------------------------------------------------------------------
+
+    def recover(
+        self, *, channel_id: int, characters: Sequence[str] = (), days: int = 1,
+        healer: bool = False, reason: str = "",
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """"When you do nothing but rest in comfort and safety after a day of rest you recover
+        all your HP. After three days of rest you remove one debility of your choice. If
+        you're under the care of a healer (magical or otherwise) you heal a debility for
+        every two days of rest instead."
+
+        Guarded like camp. Where a character has more debilities than the rest clears, which
+        go is theirs to pick, with buttons only they can press.
+        """
+        unsettled = self.unsettled(channel_id, "rest for days")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say where they rest in comfort and safety (reason)."}
+        days = int(days or 0)
+        if not 1 <= days <= MAX_RECOVER_DAYS:
+            return [], {"ok": False, "error": f"Rest for 1 to {MAX_RECOVER_DAYS} days."}
+        party = self._party()
+        if characters:
+            wanted = {normalize_actor(c) for c in characters}
+            party = [(a, s) for a, s in party if normalize_actor(a) in wanted]
+        if not party:
+            return [], {"ok": False, "error": "Nobody named has a character sheet."}
+        per = 2 if healer else 3
+        lines = [f"🛏️ {days} day{'s' if days > 1 else ''} of rest — {reason}"
+                 + (" (under a healer's care)" if healer else "")]
+        effects: List[Effect] = []
+        report: Dict[str, Any] = {}
+        for actor, sheet in party:
+            changes: Dict[str, Any] = {"hp": int(sheet["max_hp"])}
+            have = list(sheet.get("debilities") or [])
+            cures = days // per + int(sheet.get("cures_owed", 0))
+            entry: Dict[str, Any] = {"hp": int(sheet["max_hp"])}
+            said = f"**{actor}** is whole again — HP {sheet['max_hp']}/{sheet['max_hp']}"
+            if have and cures >= len(have):
+                changes["debilities"], changes["cures_owed"] = [], 0
+                entry["cured"] = have
+                said += f", and no longer {_and([d.title() for d in have])}."
+            elif have and cures:
+                changes["cures_owed"] = cures
+                entry["choosing"] = cures
+                said += f"; they choose {cures} debilit{'ies' if cures > 1 else 'y'} to shed."
+            else:
+                said += "." if not have else f"; {_and([d.title() for d in have])} need{'s' if len(have) == 1 else ''} longer."
+            lines.append(said)
+            effects.append(UpdateSheet(channel_id, actor, changes))
+            if entry.get("choosing"):
+                user_id = next((uid for uid, a in self.players.items()
+                                if normalize_actor(a) == normalize_actor(actor)), 0)
+                effects.append(SendMessage(channel_id, f"**{actor}**, which goes?",
+                                           prompt=CurePrompt(user_id, tuple(have))))
+            report[actor] = entry
+        effects.insert(0, SendMessage(channel_id, "\n".join(lines)))
+        return effects, {"ok": True, "party": report, "days": days, "note": (
+            f"{days} day(s) pass; the clock has moved for everyone. Narrate the rest briefly.")}
+
+    def cure(self, *, channel_id: int, user_id: int, debility: str) -> List[Effect]:
+        """The player picks a debility Recover clears. Only theirs, only while one is owed."""
+        actor = self.players.get(user_id)
+        sheet = self._sheet_for(actor) if actor and self._sheet_for is not None else None
+        if sheet is None or int(sheet.get("cures_owed", 0)) <= 0 or debility not in (sheet.get("debilities") or ()):
+            return []
+        have = [d for d in sheet["debilities"] if d != debility]
+        owed = int(sheet["cures_owed"]) - 1
+        return [
+            SendMessage(channel_id, f"🩹 **{actor}** is no longer {debility.title()}."),
+            UpdateSheet(channel_id, actor, {"debilities": have, "cures_owed": owed if have else 0}),
+        ]
+
     # -- debilities -----------------------------------------------------------------------------
 
     def debility(
@@ -1780,6 +1863,9 @@ _RESULT = {"strong": "strong hit", "weak": "weak hit", "miss": "miss"}
 
 #: The moves that spend Defend's hold on an attack.
 _DEFENCE = ("defend_charge", "defend_self")
+
+#: The longest single Recover: weeks are possible, but a model typing 300 is a mistake.
+MAX_RECOVER_DAYS = 30
 
 #: Shapeshifter's hold by result.
 _SHAPE_HOLD = {"strong": 3, "weak": 2, "miss": 1}

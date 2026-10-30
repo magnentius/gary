@@ -27,7 +27,7 @@ import discord
 
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
-from ..fsm import ChoicePrompt, DamagePrompt, Director, PromptModel, RollPrompt, SpellsPrompt
+from ..fsm import ChoicePrompt, CurePrompt, DamagePrompt, Director, PromptModel, RollPrompt, SpellsPrompt
 from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
 from ..ports import EchoNarrator, Narrator
@@ -217,6 +217,28 @@ class SpellsButton(
         await interaction.client.on_spells(interaction, self.user_id)
 
 
+class CureButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:cure:(?P<user_id>\d+):(?P<debility>[a-z]+)",
+):
+    """One debility Recover may clear, for its player to pick. Durable like the others;
+    whether one is still owed is the sheet's to say."""
+
+    def __init__(self, user_id: int, debility: str) -> None:
+        super().__init__(discord.ui.Button(
+            label=f"Shed {debility.title()}", style=discord.ButtonStyle.success,
+            custom_id=f"gary:cure:{user_id}:{debility}",
+        ))
+        self.user_id, self.debility = user_id, debility
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "CureButton":
+        return cls(int(match["user_id"]), match["debility"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_cure(interaction, self.user_id, self.debility)
+
+
 def spells_view(user_id: int) -> "discord.ui.View":
     view = discord.ui.View(timeout=None)
     view.add_item(SpellsButton(user_id))
@@ -259,6 +281,11 @@ class DiscordTransport:
             await channel.send(text, view=damage_view(prompt.check_id))
         elif isinstance(prompt, SpellsPrompt):
             await channel.send(text, view=spells_view(prompt.user_id))
+        elif isinstance(prompt, CurePrompt):
+            view = discord.ui.View(timeout=None)
+            for debility in prompt.debilities:
+                view.add_item(CureButton(prompt.user_id, debility))
+            await channel.send(text, view=view)
         else:
             await channel.send(text)
 
@@ -352,7 +379,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton)
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -740,6 +767,27 @@ class GaryClient(discord.Client):
     async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
         channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
         await channel.send(f"**{actor}**, choose your spells:", view=spells_view(user_id))
+
+    async def on_cure(self, interaction: "discord.Interaction", owner_id: int, debility: str) -> None:
+        """A debility picked for Recover to clear. Only by its owner, only while one is owed."""
+        if interaction.user.id != owner_id:
+            await interaction.response.send_message("That choice is someone else's.", ephemeral=True)
+            return
+        effects = self.director.cure(channel_id=interaction.channel_id, user_id=owner_id, debility=debility)
+        if not effects:
+            await interaction.response.send_message("Nothing left to shed.", ephemeral=True)
+            return
+        after = next(e.changes for e in effects if hasattr(e, "changes"))
+        view = None
+        if after.get("cures_owed"):
+            view = discord.ui.View(timeout=None)
+            for left in after["debilities"]:
+                view.add_item(CureButton(owner_id, left))
+        try:
+            await interaction.response.edit_message(view=view)
+        except discord.HTTPException:
+            log.warning("could not update the debility buttons")
+        await self.runner.run(effects)
 
     async def on_spells(self, interaction: "discord.Interaction", owner_id: int) -> None:
         """Choose spells was clicked. Only its owner, and only when there is something to

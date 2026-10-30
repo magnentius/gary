@@ -44,6 +44,7 @@ END_SPELL = "end_spell"
 FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
+RECOVER = "recover"
 USE_POISON = "use_poison"
 BREW_POISON = "brew_poison"
 
@@ -273,6 +274,25 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "revert": _s(type=types.Type.BOOLEAN, description="True to spend all hold and turn back."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=RECOVER,
+        description=(
+            "Characters do nothing but rest in comfort and safety for days -- an inn, a temple, "
+            "a friend's home. A day heals all HP; every three days clears a debility (every "
+            "two under a healer's care); the player picks which. The clock moves the days for "
+            "everyone. Not in the wilds or the dungeon: that is make_camp."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "days": _s(type=_INTEGER, description="Whole days of rest, 1-30."),
+                "reason": _s(type=_STRING, description="Where they rest and why it is comfortable and safe. Shown to the table."),
+                "healer": _s(type=types.Type.BOOLEAN, description="True if a healer, magical or otherwise, tends them."),
+                "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Who rests. Omit for the whole party."),
+            },
+            required=["days", "reason"],
         ),
     ),
     types.FunctionDeclaration(

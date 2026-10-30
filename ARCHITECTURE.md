@@ -422,7 +422,10 @@ no roll, or all to turn back, and the Druid returns to their natural form at 0.
 `sheet["debilities"]` holds any of weak, shaky, sick, stunned, confused, scarred;
 `sheets.stat_modifier` takes 1 off the stat each names, and every roll that reads a stat
 goes through it, noting the cost on the roll line. The model gives and cures them with the
-`debility` tool, naming a cause shown to the table; they do not stack.
+`debility` tool, naming a cause shown to the table; they do not stack. `recover` (days of
+rest, guarded like camp) heals to full and clears days // 3 debilities (// 2 with a
+healer); when that is fewer than a character has, `cures_owed` goes on the sheet and a
+durable `CureButton` per debility lets their player pick. The clock moves a day at a time.
 
 
 Defend (`defends`: the target is the charge, a character's name if it is one) puts
@@ -751,7 +754,7 @@ mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
-- **Harm:** `debility`.
+- **Harm and rest:** `debility`, `recover`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -828,7 +831,7 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    petition, a Druid's land and a Bard's lore are the model's to honour, and poison effects
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
-   `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin, Recover,
+   `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
    Undertake a Perilous Journey, weight and load, magic items; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option

@@ -356,6 +356,12 @@ the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Sc
 them and every roll shows the cost ("+Str +1 (-1 Weak)"). The GM removes one when magic or
 real treatment cures it.
 
+**Recover.** Days of rest somewhere comfortable and safe — an inn, a temple — are Recover,
+not camp: the GM says how many days and whether a healer tends you, and the clock moves
+that far. A day heals everyone resting to full; every three days clears a debility (every
+two under a healer), and when there are more debilities than the rest clears, you pick
+which with buttons only you can press.
+
 **Defend.** Defend names who or what you protect ("Defend Eva", "Defend the gate"): hold 3
 on a 10+, 1 on a 7–9, shown on your sheet. When a creature attacks you or the character you
 defend, Gary rolls the blow and holds it while you choose — redirect it to yourself, halve
