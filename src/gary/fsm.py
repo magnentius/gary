@@ -278,10 +278,13 @@ class Director:
         call goes back to the model as a system note, never to the table.
         """
         rules = MOVES.get(str(move or "").strip().lower())
+        if rules is not None and not rules.callable:
+            rules = None  # Last Breath, Take Watch: the rules trigger these, not the model
         if rules is None:
             return [self._refuse(
                 channel_id,
-                f"There is no move {move!r}. Moves: {', '.join(sorted(MOVES))}.",
+                f"There is no move {move!r}. Moves: "
+                f"{', '.join(sorted(k for k, m in MOVES.items() if m.callable))}.",
                 "Re-issue make_move with one of these moves.",
             )]
 

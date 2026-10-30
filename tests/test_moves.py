@@ -9,12 +9,13 @@ from gary.sheets import STATS
 
 
 def test_the_eight_basic_moves_and_their_stats():
-    assert {k: m.stat for k, m in MOVES.items()} == {
+    assert {k: m.stat for k, m in MOVES.items() if m.callable} == {
         "hack_and_slash": "str", "volley": "dex", "defy_danger": ANY, "defend": "con",
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,
     }
-    assert all(m.stat in (*STATS, ANY, BOND) for m in MOVES.values())
+    assert all(m.stat in (*STATS, ANY, BOND, "nothing") for m in MOVES.values())
+    assert {k for k, m in MOVES.items() if not m.callable} == {"last_breath", "take_watch"}
 
 
 @pytest.mark.parametrize("total,band", [(12, "strong"), (10, "strong"), (9, "weak"),

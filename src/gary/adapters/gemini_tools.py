@@ -55,13 +55,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "only which move the fiction triggered and, for Defy Danger, which stat their "
             "approach uses. After calling this, STOP. Do not describe the result. The "
             "player rolls, and the result comes back to you as fact to narrate.\n"
-            + "\n".join(f"- {m.key}: when you {m.trigger}" for m in MOVES.values())
+            + "\n".join(f"- {m.key}: when you {m.trigger}" for m in MOVES.values() if m.callable)
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
                 "actor": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
-                "move": _s(type=_STRING, enum=sorted(MOVES)),
+                "move": _s(type=_STRING, enum=sorted(k for k, m in MOVES.items() if m.callable)),
                 "stat": _s(
                     type=_STRING,
                     enum=list(STATS),

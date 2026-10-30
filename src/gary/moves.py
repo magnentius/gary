@@ -1,4 +1,5 @@
-"""The Dungeon World basic moves (ARCHITECTURE.md §5).
+"""The Dungeon World moves Gary knows: the basic moves, and the special moves the rules
+trigger themselves (ARCHITECTURE.md §5).
 
 Hand-written from the authors' text (Sagelt/Dungeon-World, text/Moves.xml), not parsed:
 there are eight, and the parts a parser cannot get right -- which option exposes you to an
@@ -22,8 +23,10 @@ from typing import Dict, Optional, Tuple
 
 #: Sentinel stats. ANY: the player's approach picks one of the six (Defy Danger). BOND:
 #: rolled +Bond with the character helped, which nothing tracks yet, so it rolls +0.
+#: NOTHING: "just roll, +nothing" (Last Breath).
 ANY = "any"
 BOND = "bond"
+NOTHING = "nothing"
 
 STRONG, WEAK, MISS = "strong", "weak", "miss"
 
@@ -70,10 +73,13 @@ class Move:
     key: str
     name: str
     trigger: str
-    stat: str  # one of sheets.STATS, ANY, or BOND
+    stat: str  # one of sheets.STATS, ANY, BOND or NOTHING
     strong: Band
     weak: Band
     miss: Band
+    # False for a move the rules trigger themselves -- Last Breath at 0 HP, Take Watch
+    # when something approaches the camp -- so the model cannot call it by hand.
+    callable: bool = True
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
@@ -202,5 +208,34 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, _AID),
         ),
         miss=_MISS,
+    ),
+    Move(
+        "last_breath", "Last Breath", "are dying", NOTHING,
+        strong=Band("You've cheated death—you're in a bad spot but you're still alive."),
+        weak=Band(
+            "Death will offer you a bargain. Take it and stabilize or refuse and pass beyond "
+            "the Black Gates into whatever fate awaits you.",
+            choice=Choice(1, (
+                Option("Take Death's bargain, and stabilize."),
+                Option("Refuse, and pass beyond the Black Gates."),
+            )),
+        ),
+        miss=Band(
+            "Your fate is sealed. You're marked as Death's own and you'll cross the threshold "
+            "soon. The GM will tell you when."
+        ),
+        callable=False,
+    ),
+    Move(
+        "take_watch", "Take Watch", "are on watch and something approaches the camp", "wis",
+        strong=Band(
+            "You're able to wake the camp and prepare a response, the camp takes +1 forward."
+        ),
+        weak=Band(
+            "You react just a moment too late; the camp is awake but hasn't had time to "
+            "prepare. You have weapons and armor but little else."
+        ),
+        miss=Band("Whatever lurks outside the campfire's light has the drop on you."),
+        callable=False,
     ),
 )}

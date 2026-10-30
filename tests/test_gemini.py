@@ -530,8 +530,11 @@ def test_make_move_description_tells_the_model_to_stop_and_lists_every_trigger()
     assert "stop" in text
     assert "decide nothing about the outcome" in text
     for move in MOVES.values():
-        assert f"- {move.key}: when you {move.trigger}" in decl.description
-    assert list(decl.parameters.properties["move"].enum) == sorted(MOVES)
+        listed = f"- {move.key}: when you {move.trigger}" in decl.description
+        assert listed == move.callable, move.key  # Last Breath and Take Watch are not the model's
+    assert list(decl.parameters.properties["move"].enum) == sorted(
+        k for k, m in MOVES.items() if m.callable
+    )
 
 
 async def test_a_history_from_before_moves_is_answered_under_its_own_call(rig):
