@@ -1,4 +1,4 @@
-"""The model's tool surface (ARCHITECTURE.md §5.1, §7.2).
+"""The model's tool surface (ARCHITECTURE.md §5.1, §12.6).
 
 **Design decision: narrow, flat tools rather than one generic ``update_campaign_state``.**
 

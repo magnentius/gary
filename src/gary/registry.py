@@ -168,7 +168,7 @@ class PendingCheckRegistry:
 
         Keyed by Discord user, which a click carries exactly. Nothing here reads a name:
         matching rolls to checks by character name was the weakest link in the Avrae
-        design (§14 (6), (7)), and owning the dice is what lets it go.
+        design, and owning the dice is what lets it go.
         """
         now = self._clock()
         with self._lock:

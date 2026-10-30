@@ -6,10 +6,10 @@ An AI Game Master over Discord. Gemini writes the narrative, Gary rolls the dice
 enforces the maths, and a local state server owns the persistent world.
 
 > **This branch (`dungeon-world`) runs Dungeon World.** Avrae and D&D 5e are gone: Gary
-> rolls its own dice when a player clicks **Roll**, knows the eight basic moves, each
-> class's starting moves and Cleric and Wizard spells, and tracks
-> monsters' HP and damage, and characters carry their class's starting gear. Special and
-> class moves and bonds are not built yet — see
+> rolls its own dice when a player clicks **Roll**, and runs the basic moves, every
+> class's starting moves (spells, the animal companion and Shapeshifter included), Last
+> Breath, Make Camp, End of Session and Level Up, with sheets, gear, coin, monsters, XP,
+> bonds and alignment. Some rules are still missing — see
 > [what is missing](#what-is-not-built-yet).
 
 Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
@@ -737,23 +737,23 @@ than mysteries at the table.
 How Gary works, and why it is built this way, is [`ARCHITECTURE.md`](ARCHITECTURE.md).
 The short version, with the sections that carry the argument:
 
-- **Outcomes are not decided by the model.** A DC and both consequences are persisted
-  before anyone is told to roll; resolution is arithmetic. §5.1, §5.2
-- **A check is a deferred function call.** The model's `open_check` is left unanswered
-  until the roll arrives as its `function_response`, minutes later. §12.4
+- **Outcomes are not decided by the model.** It names the move; the stat, modifier, target
+  and spell are fixed before anyone is told to roll, and the result is the move's band.
+  §5.1, §5.2
+- **A move is a deferred function call.** The model's `make_move` is left unanswered until
+  the roll arrives as its `function_response`, minutes later. §5.6
 - **Trust rides on the transport, not on strings.** Roll results arrive as structured
   tool results; player text and imported documents are sanitised, fenced and labelled as
   data. §9.1
-- **Only the player a check belongs to can roll it, and only once.** Gary rolls the dice
-  itself, so there is no roll to parse and no name to match.
+- **Only the player a move belongs to can roll it, and only once.** Gary rolls the dice
+  itself when they click, so there is no roll to parse and no name to match. §5.3, §9.2
 - **A proposal decides nothing.** `?dm scene` and the post-import premise run the model
   while it holds every state-mutating tool, so nothing they produce is written until you
-  accept it. §8.1.1
+  accept it. §8.1
 - **There is one writer.** The store is used in-process and guarded by a lock; why a
   second client was built and then removed is §2.1
 - **Nothing important lives on the box.** State sits behind storage protocols with
   in-memory, file and Firestore implementations. §7.4, §11.1
 
-The source map is §12.7 and the open risks — including the Firestore document ceiling —
-are §14. ARCHITECTURE.md still describes the Avrae design in most sections; see the note
-at its top.
+The rules engine is §6, the source map §12.7, and the open risks — including the
+Firestore document ceiling — §13.

@@ -60,7 +60,7 @@ log = logging.getLogger("gary.gemini")
 # Flash, not Pro, is deliberate. The 3.x family has no stable Pro: the flagship stable
 # model is gemini-3.7-flash, which carries Pro-grade reasoning at Flash latency and cost.
 # (gemini-3.1-pro-preview exists but is preview, and gemini-3-pro-preview is retired.)
-# Latency and cost are live risks here -- §14 (4) and (5) -- and a turn costs two model
+# Latency and cost are live risks here -- §13 (7) -- and a turn costs two model
 # calls around a player's roll, so Flash is the right shape as well as the current one.
 DEFAULT_MODEL = "gemini-3.7-flash"
 

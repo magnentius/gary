@@ -214,7 +214,7 @@ def test_persona_specifies_scene_summaries_as_standing_state():
     text = DM_SYSTEM_INSTRUCTION
     assert "STANDING STATE" in text
     assert "present tense" in text.lower()
-    # and must not invite a second clock alongside world_minutes (§3.1)
+    # and must not invite a second clock alongside world_minutes (§3)
     assert "time of day" in text.lower()
 
 
@@ -229,7 +229,7 @@ def test_persona_stays_a_small_fraction_of_the_budget():
     """Layers 1-3 are rebuilt every call, so the persona is a fixed cost on every turn.
 
     It doubled in a single day of tuning (1798 -> 3564 chars) and only announced itself by
-    breaking an unrelated budget test. §14 (5) asks for per-turn spend to be instrumented;
+    breaking an unrelated budget test. §13 (7) asks for per-turn spend to be instrumented;
     until it is, this is the tripwire.
     """
     from gary.context import CHARS_PER_TOKEN, DEFAULT_TOKEN_BUDGET

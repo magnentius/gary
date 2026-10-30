@@ -40,7 +40,7 @@ def test_another_player_cannot_reach_it(registry):
 
 
 def test_two_players_sharing_a_character_name_stay_apart(registry):
-    """The case name matching could not resolve (§14 (6)): attribution is by user now."""
+    """The case name matching could not resolve (the old Avrae design): attribution is by user now."""
     alice_check, _ = open_for(registry, ALICE, "Kethra", modifier=2)
     bob_check, _ = open_for(registry, BOB, "Kethra", modifier=-1)
     assert registry.for_player(CHANNEL, ALICE).check_id == alice_check.check_id

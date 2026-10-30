@@ -654,7 +654,7 @@ class GaryClient(discord.Client):
             elif route is Route.DM_COMMAND:
                 await self._on_dm_command(message)
             elif route is Route.NOT_A_GAME_CHANNEL and not message.author.bot:
-                # §6.3 calls an unregistered channel "silence, not an error", which is
+                # §4.2 calls an unregistered channel "silence, not an error", which is
                 # right in a busy server and indistinguishable from a broken bot when
                 # you are waiting in the channel you believe is configured.
                 log.info(

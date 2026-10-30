@@ -1,4 +1,4 @@
-"""Ingest routing (ARCHITECTURE.md §6.3).
+"""Ingest routing (ARCHITECTURE.md §4.2).
 
 The ordering of these checks is the whole substance of the module, and getting it wrong
 produces failures that look like anything but a routing bug: a bot arguing with itself,

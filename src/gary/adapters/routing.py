@@ -1,4 +1,4 @@
-"""Ingest routing (ARCHITECTURE.md §6.3).
+"""Ingest routing (ARCHITECTURE.md §4.2).
 
 Extracted from the discord.py event handler as a pure function, because the ordering of
 these checks is the part that matters and the part that broke in v1. The handler around

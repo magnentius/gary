@@ -198,7 +198,7 @@ def render_proposal(kind: str, already_offered: Sequence[str] = ()) -> str:
     what `parse_proposal` can read back, and it is what fits in the field.
 
     ``already_offered`` is what stops a second ask from paraphrasing the first. A
-    proposal runs as an ordinary turn in the channel's history (§8.1.1), which is what
+    proposal runs as an ordinary turn in the channel's history (§8.1), which is what
     grounds a scene in recent play -- and also means the model reads its own previous
     suggestion and rewrites it. Asking twice produced the same vault twice, reworded.
     Naming the rejects and asking for a genuinely different one is the counterweight;
