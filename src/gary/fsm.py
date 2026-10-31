@@ -563,6 +563,9 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
+        more, why = self._ongoing(actor, rules.key)
+        mod += more
+        notes.extend(why)
         burden = self._burden(actor)
         if burden:
             mod -= 1
@@ -815,6 +818,9 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
+        more, why = self._ongoing(actor, "cast_a_spell")
+        mod += more
+        notes.extend(why)
         burden = self._burden(actor)
         if burden:
             mod -= 1
@@ -978,6 +984,9 @@ class Director:
             return self._grant(channel_id, actor, "when acting on what Discern Realities showed")
         if check.move == "communion_of_whispers" and b == "miss":
             return self._grant(channel_id, actor, "shaken by the vision", amount=-1)
+        if check.move == "through_deaths_eyes" and b == "miss" and self._standing():
+            # "you see your own death and consequently take -1 ongoing throughout the battle"
+            return self._put_ongoing(channel_id, actor, -1, "saw their own death", "battle")
         if check.move == "i_am_the_law" and b == "strong":
             return self._grant(channel_id, actor, "against the one they gave the order")
         if check.move == "i_am_the_law" and b == "miss":
@@ -1413,6 +1422,8 @@ class Director:
             mod += 1  # A Safe Place: "everyone takes +1 to take watch"
         if move == "last_breath" and any(advanced.has(s, "The Scales of Life and Death") for s in others):
             mod += 1  # "When someone takes their last breath in your presence, they take +1"
+        if rules.stat != NOTHING:  # "no stat is added to the Last Breath roll" -- nor anything ongoing
+            mod += self._ongoing(actor, move)[0]
         check, _ = self.registry.open(
             channel_id=channel_id, user_id=user_id, actor=actor, move=move,
             stat=rules.stat, modifier=mod, stakes="", dice=MOVE_DICE,
@@ -2206,6 +2217,8 @@ class Director:
                 changes["defending"] = None  # nobody stands in defense through the night
             if sheet.get("forwards"):
                 changes["forwards"] = []  # a forward is for the scene it came from
+            if any(o.get("until") == "battle" for o in sheet.get("ongoing_mods") or ()):
+                changes["ongoing_mods"] = [o for o in sheet["ongoing_mods"] if o.get("until") != "battle"]
             fed = True
             sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
             # Human Ranger: "When you make camp in a dungeon or city, you don't need to consume a ration."
@@ -2744,6 +2757,77 @@ class Director:
         return effects, {"ok": True, "healed": healed, "hp": hp, "note": "They take -1 forward."}
 
     # -- forwards ---------------------------------------------------------------------------------
+
+    # -- ongoing bonuses --------------------------------------------------------------------------
+
+    def _standing(self) -> List[str]:
+        return sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
+
+    def _live_ongoing(self, sheet: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """The ongoing bonuses still in force. One that lasts the battle ends when every
+        creature that stood when it began is down or gone."""
+        standing = set(self._standing())
+        return [o for o in sheet.get("ongoing_mods") or ()
+                if o.get("until") != "battle" or set(o.get("battle") or ()) & standing]
+
+    def _ongoing(self, actor: str, move: str) -> Tuple[int, List[str]]:
+        """"Take +1 ongoing": +1 to all move rolls -- or to one move -- until it ends."""
+        total, notes = 0, []
+        for o in self._live_ongoing(self._sheet_or_empty(actor)):
+            if o.get("move") and o["move"] != move:
+                continue
+            total += int(o["amount"])
+            notes.append(f"{int(o['amount']):+d} ongoing ({o['reason']})")
+        return total, notes
+
+    def _put_ongoing(self, channel_id: int, actor: str, amount: int, reason: str, until: str,
+                     move: str = "") -> List[Effect]:
+        sheet = self._sheet_or_empty(actor)
+        entry = {"amount": amount, "reason": reason, "until": until, "move": move}
+        if until == "battle":
+            entry["battle"] = self._standing()
+        kept = self._live_ongoing(sheet)
+        to = f" to {MOVES[move].name}" if move else ""
+        ends = "for the battle" if until == "battle" else "until it ends"
+        return [SendMessage(channel_id, f"➕ **{actor}** takes {amount:+d} ongoing{to} — {reason} ({ends})."),
+                UpdateSheet(channel_id, actor, {"ongoing_mods": [*kept, entry]})]
+
+    def give_ongoing(
+        self, *, channel_id: int, character: str, amount: int = 0, reason: str = "", until: str = "battle",
+        move: str = "", end: bool = False,
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The model gives an ongoing bonus or penalty -- a GM move, a spell, a blessing --
+        or ends one (end=true, matched by its reason; all of them with no reason)."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        reason = " ".join(str(reason or "").split())
+        if end:
+            have = self._live_ongoing(sheet)
+            folded = reason.lower()
+            kept = [o for o in have if folded and folded not in o["reason"].lower()]
+            if len(kept) == len(have):
+                return [], {"ok": False, "error": f"{actor} has no ongoing bonus like {reason!r}. Ongoing: "
+                                                  f"{'; '.join(o['reason'] for o in have) or 'none'}."}
+            gone = [o["reason"] for o in have if o not in kept]
+            return [SendMessage(channel_id, f"➖ **{actor}**'s ongoing ends — {'; '.join(gone)}."),
+                    UpdateSheet(channel_id, actor, {"ongoing_mods": kept})], {"ok": True, "ended": gone}
+        amount = int(amount or 0)
+        if amount not in (-2, -1, 1, 2):
+            return [], {"ok": False, "error": "An ongoing bonus is +1 or -1 (at most 2 either way)."}
+        if not reason:
+            return [], {"ok": False, "error": "Say what causes it (reason)."}
+        until = str(until or "battle").strip().lower()
+        if until not in ("battle", "ended"):
+            return [], {"ok": False, "error": "until is 'battle' (ends when this fight does) or 'ended' "
+                                              "(lasts until you end it)."}
+        if until == "battle" and not self._standing():
+            return [], {"ok": False, "error": "No battle is going on: use until='ended' and end it yourself."}
+        move = str(move or "").strip().lower()
+        if move and move not in MOVES:
+            return [], {"ok": False, "error": f"No move {move!r}."}
+        return self._put_ongoing(channel_id, actor, amount, reason, until, move), {"ok": True}
 
     def give_forward(
         self, *, channel_id: int, character: str, amount: int = 1, reason: str = ""

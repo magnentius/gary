@@ -460,6 +460,16 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.ONGOING:
+                ongoing_effects, result = self._director.give_ongoing(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    amount=int(args.get("amount") or 0), reason=str(args.get("reason", "") or ""),
+                    until=str(args.get("until", "") or "battle"), move=str(args.get("move", "") or ""),
+                    end=bool(args.get("end")))
+                effects.extend(ongoing_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.HAZARD_DAMAGE:
                 hazard_effects, result = self._director.hazard_damage(
                     channel_id=channel_id, characters=[str(c) for c in args.get("characters") or []],

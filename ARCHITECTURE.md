@@ -479,6 +479,13 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
+`ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
+records the creatures standing (`battle`) and is live while any of them still stands -- the
+same trick as the Human Fighter's reroll; `until="ended"` lasts until `end=true` with its
+reason. `_ongoing` adds it in `open_move`, casting and `_trigger` (not Last Breath: "no stat
+is added"); camp drops the finished battle ones. Through Death's Eyes' miss puts one on.
+
 **Hazards.** `hazard_damage` is damage from no creature: the model names the book's
 severity (`_HAZARDS`: bruises d4, blood d6, bones d8, lethal d10), whether it ignores armor,
 and cover (1-2); each character caught goes through `_attack(hazard=True)`, so armor,
@@ -886,9 +893,10 @@ Flash; a turn is two model calls around a human click, so latency and cost matte
 The model sees narrow, typed tools, each with its own checks and failure message, each
 mapping to store mutations or Director calls:
 
-- **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`.
+- **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
+  `forward`, `ongoing`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
-- **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
+- **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.
 - **Fronts:** `create_front`, `advance_portent`, `end_danger`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,

@@ -583,6 +583,11 @@ your damage against it and takes 4 off your damage against anyone else, until it
 which ends the promise by itself. If it escapes or you give up, the promise holds until
 you redeem yourself and the GM releases you.
 
+**Ongoing bonuses.** The GM can give "+1 ongoing" or "-1 ongoing" the way the book does — a
+curse, a blessing, a lasting fear — to every roll or to one move. It's on your sheet and on
+every roll line it touches, and it lasts for the battle (ending by itself when the fight
+does) or until the GM ends it.
+
 **Race moves with numbers** are applied too: an Elf Ranger's journey job through wilderness
 succeeds as a 10+ without a roll; a Human Ranger eats no ration camping in a dungeon or
 city; a Dwarf Fighter parleys with Con over a shared drink; a Halfling Fighter using their

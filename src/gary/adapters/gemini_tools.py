@@ -49,6 +49,7 @@ FORWARD = "forward"
 HIRE = "hire"
 START_QUEST = "start_quest"
 HAZARD_DAMAGE = "hazard_damage"
+ONGOING = "ongoing"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -536,6 +537,27 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                                                                      "truth", "hospitality"])),
             },
             required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ONGOING,
+        description=(
+            "Give a character +1 or -1 ongoing (at most 2): added to ALL their move rolls, or to "
+            "one move, until it ends -- a curse, a blessing, a lasting wound, a spell's effect, "
+            "fear. until='battle' ends by itself when this fight does; until='ended' lasts until "
+            "you call this again with end=true and its reason. For a single roll, use forward."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "amount": _s(type=_INTEGER, description="+1, -1, or at most 2 either way."),
+                "reason": _s(type=_STRING, description="What causes it. Shown to the table."),
+                "until": _s(type=_STRING, enum=["battle", "ended"]),
+                "move": _s(type=_STRING, description="Only this move (its make_move key), if the bonus is that narrow."),
+                "end": _s(type=types.Type.BOOLEAN, description="True to end the ongoing bonus named by reason."),
+            },
+            required=["character", "reason"],
         ),
     ),
     types.FunctionDeclaration(

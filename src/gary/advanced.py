@@ -29,6 +29,10 @@ APPLIED: Dict[str, str] = {
     **{n: "the +1 hold" for n in ("Staunch Defender", "Impervious Defender")},
     "Embracing No Form": "the extra hold",
     "Exterminatus": "the damage once you record the promise with swear_enemy",
+    "Through Death's Eyes": "the -1 ongoing for the battle on a miss",
+    "Communion of Whispers": "the -1 forward on a miss",
+    "Metal Hurlant": "the 1d10 damage",
+    "Counterspell": "forgetting the staked spell on a 7-9",
     **{n: "the cleric spells: Commune (prepare_spells) and Cast a Spell at their cleric level"
        for n in ("Divine Favor", "God Amidst the Wastes")},
     **{n: "the chosen spell's lower level (lowered_spells)" for n in ("Chosen One", "Anointed", "Prodigy", "Master")},
