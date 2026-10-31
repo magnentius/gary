@@ -150,3 +150,35 @@ def test_the_choices_form_saves_when_all_are_made():
     asyncio.run(run())
     assert saved == [{"land": "The Great Forests", "tell": "antlers of birch"}]
     assert edits[-1] == ("✅ Chosen.", None)
+
+
+def test_written_choices_have_labels_discord_will_not_cut():
+    for cls, race in (("Cleric", "Dwarf"), ("Druid", "Elf")):
+        for step in steps(cls, race):
+            if step.written:
+                assert step.label and len(step.label) <= 45 and len(step.placeholder) <= 100
+
+
+def test_the_confirmation_shows_alignment_and_class_choices():
+    from gary.adapters.creator import CharacterCreator
+
+    async def run():
+        view = CharacterCreator(lambda i, s: None)
+        d = view.draft
+        d.choose_class("cleric")
+        d.choose_race("Dwarf")
+        for stat in ("wis", "con", "str", "cha", "dex"):
+            d.assign(stat, d.next_score())
+        d.choose_gear(0, [0])
+        d.choose_gear(1, [0])
+        d.choose_gear(2, [0])
+        d.choose_alignment("Good")
+        for value in ("Testgod", "Civilization", "Petition: Offering"):
+            d.choose_class_choice(value)
+        d.choose_name("Formtest")
+        return view.prompt()
+
+    text = asyncio.run(run())
+    assert "Alignment — Good: Endanger yourself to heal another." in text
+    assert "serves Testgod, god of Civilization (Petition: Offering)" in text
+    assert text.endswith("Create this character?")

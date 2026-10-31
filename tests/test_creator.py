@@ -344,7 +344,7 @@ async def test_the_gear_form_asks_only_for_gear_and_keeps_everything_else():
         taken.append(sheet)
 
     view = CharacterCreator(finish, sheet=THORIN)
-    assert view.prompt().endswith("Choose your defenses.")
+    assert view.prompt().endswith("Starting gear — choose your defenses.")
     await choose(view, "0")   # chainmail
     await choose(view, "1")   # mace
     await choose(view, "1")   # healing potion

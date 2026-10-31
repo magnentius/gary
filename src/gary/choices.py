@@ -40,6 +40,9 @@ class Step:
     prompt: str
     options: Tuple[str, ...] = ()  # empty: written by the player
     descriptions: Tuple[str, ...] = ()
+    # A written step's text box: Discord shows 45 characters of a label, 100 of a placeholder.
+    label: str = ""
+    placeholder: str = ""
 
     @property
     def written(self) -> bool:
@@ -75,7 +78,8 @@ def steps(class_name: str, race: str) -> List[Step]:
         # "Your religion is cultish and insular, add Petition: Gaining Secrets": the petition
         # is what the choice gives, and a dropdown cuts long labels off well short of it.
         split = [re.match(r"(.+?),\s*add (Petition: .+)", p) for p in precepts]
-        return [Step("deity", "Give your god a name (maybe Helferth, Sucellus, Zorica or Krugon the Bleak)."),
+        return [Step("deity", "Give your god a name (maybe Helferth, Sucellus, Zorica or Krugon the Bleak).",
+                     label="Your god's name", placeholder="Helferth, Sucellus, Zorica, Krugon the Bleak…"),
                 Step("domain", "Choose your deity's domain.", tuple(domains)),
                 Step("precept", "Choose one precept of your religion — it adds a Petition to "
                                 "Divine Guidance.",
@@ -85,7 +89,8 @@ def steps(class_name: str, race: str) -> List[Step]:
         return [Step("land", "Choose the land to which you are attuned — you may take the shape of "
                              "any animal who might live there.", tuple(lands)),
                 Step("tell", "Your tell: a physical mark of your land that stays in every shape "
-                             "(antlers, leopard's spots, hair like leaves).")]
+                             "(antlers, leopard's spots, hair like leaves).",
+                     label="Your tell", placeholder="antlers, leopard's spots, hair like leaves…")]
     if cls == "bard":
         (areas,) = _bullet_groups("bard", "Bardic Lore")
         return [Step("lore", "Choose your area of bardic lore.", tuple(areas))]

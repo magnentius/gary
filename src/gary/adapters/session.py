@@ -26,6 +26,8 @@ QUESTIONS = (
     "Did we overcome a notable monster or enemy?",
     "Did we loot a memorable treasure?",
 )
+#: What each toggle says: the question's answer as a statement, ticked or not.
+_TOGGLES = ("Learned something important", "Overcame a notable enemy", "Looted a memorable treasure")
 
 #: Long enough to talk each question over; short enough that a forgotten one does not
 #: award XP tomorrow.
@@ -76,7 +78,7 @@ class EndOfSession(discord.ui.View):
         self.clear_items()
         for i, question in enumerate(QUESTIONS):
             button = discord.ui.Button(
-                label=("Yes: " if self.answers[i] else "No: ") + question[len("Did we "):-1],
+                label=f"{'✅' if self.answers[i] else '⬜'} {_TOGGLES[i]}",
                 style=discord.ButtonStyle.success if self.answers[i] else discord.ButtonStyle.secondary,
                 row=i,
             )
@@ -85,7 +87,7 @@ class EndOfSession(discord.ui.View):
         for i, actor in enumerate(self.characters):
             done = actor in self.fulfilled
             button = discord.ui.Button(
-                label=f"{actor}: {'acted on alignment' if done else 'alignment?'}"[:80],
+                label=f"{'✅' if done else '⬜'} {actor} acted on their alignment"[:80],
                 style=discord.ButtonStyle.success if done else discord.ButtonStyle.secondary,
                 row=len(QUESTIONS) + i // _PER_ROW,
             )

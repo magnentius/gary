@@ -1125,7 +1125,7 @@ def test_end_of_session_toggles_answers_and_awards_once():
         await view.children[3].callback(click(BOB))  # not Bob's to say
         assert private == ["Whether Thorin acted on their alignment is their player's to say."]
         await view.children[3].callback(click(ALICE))
-        assert view.children[3].label == "Thorin: acted on alignment"
+        assert view.children[3].label == "✅ Thorin acted on their alignment"
         await view.children[4].callback(click())
         await view._on_award(click())
 

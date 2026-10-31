@@ -17,7 +17,8 @@ import discord
 
 from ..gear import ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES
 from ..sheets import (
-    CLASSES, MAX_NAME_CHARS, STAT_NAMES, STATS, Draft, SheetError, alignments_of, describe, with_gear,
+    CLASSES, MAX_NAME_CHARS, STAT_NAMES, STATS, Draft, SheetError, alignment_line, alignments_of, describe,
+    with_gear,
 )
 
 _SIGNATURE_PROMPTS = {
@@ -132,7 +133,8 @@ class CharacterCreator(discord.ui.View):
             lines.append(f"Where does your **{d.next_score()}** go?")
         elif d.next_gear_group() is not None:
             group = d.class_gear().groups[d.next_gear_group()]
-            lines.append(f"{group.prompt}.")
+            # The book heads some groups only "Choose one"; say what it is a choice of.
+            lines.append(f"Starting gear — {group.prompt[0].lower()}{group.prompt[1:]}.")
         elif d.signature_step() is not None:
             lines.append(_SIGNATURE_PROMPTS[d.signature_step()])
         elif d.alignment is None and self._sheet is None:
@@ -143,10 +145,12 @@ class CharacterCreator(discord.ui.View):
         elif d.name is None:
             lines.append("Name your character.")
         else:
-            lines = ([f"⚠️ {error}"] if error else []) + [
-                describe(self._result()),
-                "Take this gear?" if self._sheet else "Create this character?",
-            ]
+            from ..choices import describe as describe_choices
+
+            built = self._result()
+            lines = ([f"⚠️ {error}"] if error else []) + [describe(built)] + [
+                line for line in (alignment_line(built), describe_choices(built)) if line
+            ] + ["Take this gear?" if self._sheet else "Create this character?"]
         return "\n".join(lines)
 
     def _build(self) -> None:
@@ -378,12 +382,13 @@ def add_choice_step(view: "discord.ui.View", step, choose) -> None:
         button = discord.ui.Button(label="Write it", style=discord.ButtonStyle.primary)
 
         async def open_modal(interaction: "discord.Interaction") -> None:
-            await interaction.response.send_modal(ChoiceModal(step.prompt, choose))
+            await interaction.response.send_modal(ChoiceModal(step, choose))
 
         button.callback = open_modal
         view.add_item(button)
         return
-    select = discord.ui.Select(placeholder=step.prompt[:150], options=[
+    # The prompt is shown above; a dropdown cuts a long placeholder off mid-word.
+    select = discord.ui.Select(placeholder="Choose one", options=[
         discord.SelectOption(label=o[:100], value=o[:100], description=(d or None) and d[:100])
         for o, d in zip(step.options, step.descriptions or ("",) * len(step.options))])
 
@@ -398,9 +403,13 @@ def add_choice_step(view: "discord.ui.View", step, choose) -> None:
 class ChoiceModal(discord.ui.Modal, title="Your choice"):
     answer = discord.ui.TextInput(label="Answer", max_length=MAX_NAME_CHARS * 2)
 
-    def __init__(self, prompt: str, choose) -> None:
+    def __init__(self, step, choose) -> None:
         super().__init__(timeout=FORM_TIMEOUT_SECONDS)
-        self.answer.label = prompt[:45]
+        # Discord cuts a text box's label at 45 characters, so the long prompt stays on the
+        # form and the box gets a short label, with examples as its placeholder.
+        self.answer.label = (step.label or step.prompt)[:45]
+        if step.placeholder:
+            self.answer.placeholder = step.placeholder[:100]
         self._choose = choose
 
     async def on_submit(self, interaction: "discord.Interaction") -> None:
