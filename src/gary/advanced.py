@@ -64,13 +64,19 @@ def applied(sheet: Dict[str, Any], name: str) -> str:
     """What Gary applies of this advanced move for this character, or ""."""
     if name == "Divine Protection":  # two moves share the name: the Cleric's, and the Paladin's on a quest
         return "the armor" if sheet.get("class") in ("Cleric", "Paladin") else ""
-    return APPLIED.get(name, "")
+    return APPLIED.get(_same(name), "")
+
+
+def _same(name: str) -> str:
+    """The book writes "Man’s Best Friend" with a curly apostrophe; code writes it straight."""
+    return name.replace("\u2019", "'")
 
 
 def has(sheet: Dict[str, Any], name: str) -> bool:
     """An advanced move of their own, or one taken from another class (Multiclass)."""
-    return name in (sheet.get("advanced_moves") or ()) or any(
-        m["name"] == name for m in sheet.get("multiclass_moves") or ())
+    wanted = _same(name)
+    return any(_same(n) == wanted for n in sheet.get("advanced_moves") or ()) or any(
+        _same(m["name"]) == wanted for m in sheet.get("multiclass_moves") or ())
 
 
 def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str]]:

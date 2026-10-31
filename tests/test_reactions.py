@@ -155,3 +155,10 @@ def test_penitence_hurts_more_for_a_forward(director, dice, sheets):
     effects = director.react(channel_id=CHANNEL, user_id=BOB, hit_id=hid, key="pain")
     apply(effects, sheets)
     assert sheets["Thorin"]["hp"] == 12 and sheets["Thorin"]["forwards"][0]["reason"] == "to cast a spell (Penitent)"
+
+
+def test_mans_best_friend_works_with_the_books_curly_apostrophe(director, dice, sheets):
+    sheets["Dorn"].update(**{"class": "Ranger"}, advanced_moves=["Man’s Best Friend"],
+                          companion={"name": "Ash", "ferocity": 2, "cunning": 1, "armor": 1, "instinct": 1})
+    hid = hit_id(hit(director, dice, sheets))
+    assert [r.key for r in director.reactions(user_id=ALICE, hit_id=hid)[0]] == ["pet"]
