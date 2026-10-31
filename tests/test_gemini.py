@@ -1009,3 +1009,26 @@ async def test_spend_hold_goes_through_the_director(clock):
     await player(n, "I maul the goblin")
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response
     assert fr.response == {"ok": True, "move": "Maul", "hold": 1}
+
+
+async def test_a_new_wave_never_reuses_a_fallen_creatures_name(rig):
+    director, store, history = rig
+    n = narrator(rig,
+                 call_response(T.ADD_MONSTERS, {"monsters": [{"name": "Goblin", "count": 2}]}),
+                 call_response(T.REMOVE_MONSTERS, {}),
+                 call_response(T.ADD_MONSTERS, {"monsters": [{"name": "Goblin"}]}),
+                 text_response("More come."))
+    await player(n, "goblins!")
+    assert list(store.state()["monsters"]) == ["Goblin 3"]
+
+
+async def test_a_new_location_starts_the_count_again(rig):
+    director, store, history = rig
+    n = narrator(rig,
+                 call_response(T.ADD_MONSTERS, {"monsters": [{"name": "Goblin"}]}),
+                 call_response(T.REMOVE_MONSTERS, {}),
+                 call_response(T.SET_SCENE, {"location": "Down the road", "summary": "Another ambush."}),
+                 call_response(T.ADD_MONSTERS, {"monsters": [{"name": "Goblin"}]}),
+                 text_response("Again."))
+    await player(n, "onward")
+    assert list(store.state()["monsters"]) == ["Goblin 1"]

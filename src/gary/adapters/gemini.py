@@ -639,8 +639,10 @@ class GeminiNarrator:
                     "active_effects": [e["name"] for e in state.get("effects", [])]}
 
         if name == T.ADD_MONSTERS:
-            scene = store.state().get("monsters") or {}
-            added, errors = prepare_monsters(list(args.get("monsters") or []), scene)
+            state = store.state()
+            # Names used here before count as taken, though the creatures are gone.
+            taken = [*(state.get("monsters") or {}), *(state.get("monster_names_used") or [])]
+            added, errors = prepare_monsters(list(args.get("monsters") or []), taken)
             if added:
                 store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": added})],
                             reason="creatures enter the scene")

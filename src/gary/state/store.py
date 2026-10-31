@@ -601,6 +601,10 @@ def _h_monsters_add(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     scene = store._state.setdefault("monsters", {})
     added = dict(m.payload.get("monsters") or {})
     scene.update(added)
+    # Remembered after they are gone, so a later wave here is "Goblin 6", never a second
+    # "Goblin 1" the table could mistake for the one that fell. A new location forgets.
+    used = store._state.setdefault("monster_names_used", [])
+    used.extend(n for n in added if n not in used)
     return AppliedMutation(
         mutation=m,
         inverse=Mutation(MutationKind.MONSTERS_REMOVE, "", {"names": list(added)}),
@@ -676,6 +680,9 @@ def _h_calendar(store: "CampaignStore", m: Mutation) -> AppliedMutation:
 def _h_scene(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = dict(store._state.get("scene", {}))
     store._state["scene"] = {**before, **m.payload}
+    if store._state["scene"].get("location") != before.get("location"):
+        # Somewhere new: creature numbering starts again from what is actually here.
+        store._state["monster_names_used"] = list(store._state.get("monsters") or {})
     return AppliedMutation(
         mutation=m,
         inverse=Mutation(MutationKind.SCENE, "", before),
