@@ -9,7 +9,8 @@ from gary.sheets import STATS
 
 
 def test_the_eight_basic_moves_and_their_stats():
-    assert {k: m.stat for k, m in MOVES.items() if m.callable and not m.classes} == {
+    special = {"supply", "carouse"}
+    assert {k: m.stat for k, m in MOVES.items() if m.callable and not m.classes and k not in special} == {
         "hack_and_slash": "str", "volley": "dex", "defy_danger": ANY, "defend": "con",
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,
@@ -41,7 +42,8 @@ def test_the_choices_players_make():
     assert choice("aid_or_interfere", "strong") == (1, 2)
     assert choice("aid_or_interfere", "weak") == (1, 2)
     # A miss offers no choice -- except spending hold, which is no roll at all.
-    assert all(m.miss.choice is None for k, m in MOVES.items() if not k.startswith("defend_"))
+    assert all(m.miss.choice is None for k, m in MOVES.items()
+               if not k.startswith("defend_") and k != "carouse")
 
 
 def test_only_hack_and_slash_makes_the_enemy_attack_and_only_where_the_rules_say():

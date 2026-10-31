@@ -122,7 +122,7 @@ def test_buying_what_you_cannot_afford_changes_nothing():
 
 
 def test_buying_something_the_book_does_not_price_is_refused_with_what_to_do():
-    with pytest.raises(trade.TradeError, match="give_coins"):
+    with pytest.raises(trade.TradeError, match="found it with Supply"):
         trade.buy(thorin(), "a silver locket")
 
 
@@ -143,3 +143,17 @@ def test_an_unlisted_item_sells_for_an_offer_up_to_the_cap():
 def test_you_cannot_sell_what_you_do_not_carry():
     with pytest.raises(trade.TradeError, match="carries no Plate"):
         trade.sell(thorin(), "plate")
+
+
+def test_a_supply_price_is_bounded():
+    sheet = thorin(coins=100)
+    new, label, cost = trade.buy(sheet, "long sword", price=20)  # book 15
+    assert cost == 20
+    with pytest.raises(trade.TradeError, match="must be 15 to 30"):
+        trade.buy(sheet, "long sword", price=10)  # never below the book
+    with pytest.raises(trade.TradeError, match="must be 15 to 30"):
+        trade.buy(sheet, "long sword", price=31)
+    new, label, cost = trade.buy(thorin(coins=400), "Moonlit blade", price=300)
+    assert cost == 300 and label == "Moonlit blade"
+    with pytest.raises(trade.TradeError, match="1 to 500"):
+        trade.buy(thorin(coins=900), "Moonlit blade", price=800)

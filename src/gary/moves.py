@@ -176,6 +176,13 @@ _CAST = (
            loses_spell=True),
 )
 
+_CAROUSE = (
+    Option("You befriend a useful NPC."),
+    Option("You hear rumors of an opportunity."),
+    Option("You gain useful information."),
+    Option("You are not entangled, ensorcelled, or tricked."),
+)
+
 # Spending Defend's hold when an attack comes in: one point for one of these, or none.
 # Held as a move of its own, so the choice is the defender's click like any other, and
 # survives a restart with the attack's damage dice.
@@ -296,6 +303,20 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
             choice=Choice(1, _AID),
         ),
         miss=_MISS,
+    ),
+    Move(
+        "supply", "Supply",
+        "go to buy something special, beyond what's usually available here, or non-mundane", "cha",
+        strong=Band("You find what you're looking for at a fair price."),
+        weak=Band("You'll have to pay more or settle for something similar."),
+        miss=_MISS,
+    ),
+    Move(
+        "carouse", "Carouse", "return triumphant and throw a big party", NOTHING,
+        strong=Band("Choose 3.", choice=Choice(3, _CAROUSE)),
+        weak=Band("Choose 1.", choice=Choice(1, _CAROUSE)),
+        # Another miss that still chooses.
+        miss=Band("You still choose one, but things get really out of hand.", choice=Choice(1, _CAROUSE)),
     ),
     Move(
         "last_breath", "Last Breath", "are dying", NOTHING,

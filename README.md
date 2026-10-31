@@ -356,6 +356,14 @@ the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Sc
 them and every roll shows the cost ("+Str +1 (-1 Weak)"). The GM removes one when magic or
 real treatment cures it.
 
+**Town.** Buying something readily available is the book's price. Something special, rare
+or magical is the **Supply** move first (+Cha): a 10+ finds it at a fair price, a 7–9 costs
+more (at most twice the book's) or something similar is offered, and for an item the book
+doesn't price the GM names it, up to 500. **Carouse**: return triumphant and throw a party
+for 100 coins or more, +1 for each extra 100; pick what comes of it (a useful friend,
+rumours, information, not being tricked) — three on a 10+, one otherwise, and a miss gets
+out of hand. The coin goes when the party does.
+
 **Encumbrance.** Your load is your class's base plus Str (a Fighter 12+Str, a Wizard
 7+Str); everything you carry has a weight, and 100 coins weigh 1. The sheet shows "weight
 11/13". One or two over and every move takes -1; more than two over and the roll waits on
@@ -554,7 +562,7 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Special moves:** not yet Carouse, Supply, Recruit, Outstanding Warrants or Bolster.
+- **Special moves:** not yet Recruit (hirelings), Outstanding Warrants or Bolster.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.

@@ -497,6 +497,7 @@ class GeminiNarrator:
             target=str(args.get("target", "") or ""),
             spell=str(args.get("spell", "") or ""),
             companion=bool(args.get("companion")),
+            coins=int(args.get("coins") or 0),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
@@ -589,7 +590,9 @@ class GeminiNarrator:
                 line = f"🪙 **{actor}** {verb} {abs(amount)} coins" + (f" — {reason}" if reason else "") + "."
                 result = {"ok": True}
             elif name == T.BUY:
-                new, label, cost = trade.buy(sheet, str(args.get("item", "")))
+                price = args.get("price")
+                new, label, cost = trade.buy(sheet, str(args.get("item", "")),
+                                             int(price) if price not in (None, "") else None)
                 line = f"🪙 **{actor}** buys {label} for {cost} coins."
                 result = {"ok": True, "bought": label, "cost": cost}
             else:

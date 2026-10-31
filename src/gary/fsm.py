@@ -310,6 +310,7 @@ class Director:
         target: str = "",
         spell: str = "",
         companion: bool = False,
+        coins: int = 0,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -368,6 +369,8 @@ class Director:
 
         if rules.stat == CASTER:
             return self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
+        if rules.key == "carouse":
+            return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds)
 
         # A healing move lands on a character with a sheet: the one named, or the mover.
         if rules.heals_target:
@@ -549,7 +552,7 @@ class Director:
                 channel_id,
                 f"(Superseding {displaced.actor}'s pending {MOVES[displaced.move].name}.)",
             ))
-        rolled_with = f"+Bond {mod:+d}" if stat == BOND else \
+        rolled_with = f"+Bond {mod:+d}" if stat == BOND else f"{mod:+d}" if stat == NOTHING else \
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
         if notes:
             rolled_with += f" ({', '.join(notes)})"
@@ -706,6 +709,31 @@ class Director:
         return self._open(channel_id, user_id, actor, "cast_a_spell", stat, mod, stakes, target,
                           ttl_seconds, f"Cast a Spell: {spell.name}{on}", notes, spell=spell.name,
                           overloaded=burden == "overloaded")
+
+    def _open_carouse(
+        self, channel_id: int, user_id: int, actor: str, coins: int, stakes: str,
+        ttl_seconds: Optional[float],
+    ) -> List[Effect]:
+        """Carouse: "spend 100 coin and roll + extra 100s of coin spent". Whole hundreds only;
+        the coin goes when the party is resolved, so a party never thrown costs nothing."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        if sheet is None:
+            return [self._refuse(channel_id, f"{actor} has no character sheet.",
+                                 "Tell the player to make one with `?dm new` first.")]
+        spend = coins // 100 * 100
+        have = int(sheet.get("coins", 0))
+        if spend < 100:
+            return [self._refuse(channel_id, "A party worth the name costs at least 100 coins.",
+                                 "Re-issue make_move with coins of 100 or more, or narrate a "
+                                 "smaller night out without a move.")]
+        if spend > have:
+            return [self._refuse(channel_id, f"{actor} has {have} coins; that party costs {spend}.",
+                                 "Re-issue make_move with coins they can afford, or narrate them "
+                                 "short of the money.")]
+        extra = spend // 100 - 1
+        return self._open(channel_id, user_id, actor, "carouse", NOTHING, extra, stakes, "",
+                          ttl_seconds, f"Carouse with {spend} coins", ["+1 for each 100 past the first"]
+                          if extra else ())
 
     def _party(self) -> List[Tuple[str, Dict[str, Any]]]:
         """Every character at the table with a sheet, living."""
@@ -976,6 +1004,14 @@ class Director:
         name = outcome.actor
         if outcome.healing:
             return self._heal(channel_id, outcome)
+        if outcome.move == "carouse":
+            sheet = self._sheet_for(name) if self._sheet_for is not None else None
+            if sheet is not None:
+                spent = 100 * (outcome.modifier + 1)
+                left = max(0, int(sheet.get("coins", 0)) - spent)
+                return [SendMessage(channel_id, f"🍻 **{name}** spends {spent} coins on the party "
+                                                f"({left} left)."),
+                        UpdateSheet(channel_id, name, {"coins": left})]
         if outcome.move == "journey_quartermaster" and outcome.band == "strong":
             sheet = self._sheet_for(name) if self._sheet_for is not None else None
             if sheet is not None and "gear" in sheet:

@@ -104,6 +104,11 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "species to become ('bear', 'hawk'). Omit otherwise."
                     ),
                 ),
+                "coins": _s(
+                    type=_INTEGER,
+                    description="carouse only: the coin spent on the party, 100 or more; each "
+                                "100 past the first is +1.",
+                ),
                 "companion": _s(
                     type=types.Type.BOOLEAN,
                     description=(
@@ -453,15 +458,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=BUY,
         description=(
-            "A character buys something at the book's price, paid from their coin. Refused "
-            "if they cannot afford it, or if the book gives it no price -- then name a price "
-            "in the fiction, take it with give_coins, and hand the item over with give_items."
+            "A character buys something, paid from their coin. Something readily available here "
+            "is the book's price: omit price. Something special, rare or magical needs the "
+            "supply move first; then give price -- the fair price on a 10+, more on a 7-9 (at "
+            "most twice the book's), and for something the book does not price, yours (up to "
+            "500). Refused if they cannot afford it."
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
                 "actor": _s(type=_STRING),
                 "item": _s(type=_STRING, description="e.g. 'long sword', '2 healing potions'."),
+                "price": _s(type=_INTEGER, description="Each, after a supply roll only."),
             },
             required=["actor", "item"],
         ),

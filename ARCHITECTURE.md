@@ -433,6 +433,12 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Supply and Carouse.** Supply is a +Cha move; its result tells the model what to charge,
+and `buy(price=)` bounds it (book price to twice it; up to 500 for something unpriced).
+Carouse takes `make_move(coins=)`: whole hundreds, +1 per hundred past the first, refused
+if unaffordable; its options are the player's (three, one, and one on a miss), and the coin
+is taken when it resolves.
+
 `perilous_journey` (guarded like camp) takes the destination, the expected days and up to
 three jobs, one per character. It spends a ration per traveller per day at once, and opens
 each job as a non-callable +Wis move (`journey_trailblazer`/`_scout`/`_quartermaster`)
@@ -845,8 +851,7 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
    `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   magic items, and the special moves Carouse, Supply, Recruit, Outstanding Warrants and
-   Bolster; encumbrance on rules-triggered moves; the companion's instinct on
+   magic items, and the special moves Recruit, Outstanding Warrants and Bolster; encumbrance on rules-triggered moves; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
    limit).

@@ -22,6 +22,10 @@ from .gear import armor_of, item_for, items_of, price_of
 MAX_COINS_PER_CALL = 500
 MAX_UNLISTED_SALE = 100
 MAX_ITEMS_PER_CALL = 5
+#: Supply, 7-9: "you'll have to pay more" -- at most this many times the book's price.
+MAX_MARKUP = 2
+#: Supply, for something the book does not price (a magic blade): the most one costs.
+MAX_SPECIAL_PRICE = 500
 
 _COINS = re.compile(r"^\s*(\d+)\s+coins?\s*$", re.IGNORECASE)
 
@@ -121,14 +125,24 @@ def give_coins(sheet: Dict[str, Any], amount: int) -> Dict[str, Any]:
     return _recount(sheet, list(sheet.get("gear") or []), ammo, rations, coins + amount)
 
 
-def buy(sheet: Dict[str, Any], name: str) -> Tuple[Dict[str, Any], str, int]:
-    """At the book's price, or not at all. Returns (new sheet, item label, price)."""
+def buy(sheet: Dict[str, Any], name: str, price: int = None) -> Tuple[Dict[str, Any], str, int]:
+    """At the book's price -- or, after Supply, at the price the GM names: never below the
+    book's, at most twice it, and for something the book does not price at most
+    MAX_SPECIAL_PRICE. Returns (new sheet, item label, total cost)."""
     qty, item_name = _quantity(name)
-    price = price_of(item_name)
+    book = price_of(item_name)
     if price is None:
-        raise TradeError(f"{item_name!r} has no price in the book. If it is for sale here, "
-                         "name its price in the fiction, take the coin with give_coins and "
-                         "hand it over with give_items.")
+        if book is None:
+            raise TradeError(f"{item_name!r} has no price in the book. If it is something special "
+                             "and they found it with Supply, give the price you name.")
+        price = book
+    else:
+        price = int(price)
+        if book is not None and not book <= price <= book * MAX_MARKUP:
+            raise TradeError(f"{item_name} is {book} coins in the book; a Supply price must be "
+                             f"{book} to {book * MAX_MARKUP}.")
+        if book is None and not 1 <= price <= MAX_SPECIAL_PRICE:
+            raise TradeError(f"Price something special at 1 to {MAX_SPECIAL_PRICE} coins.")
     cost = price * qty
     _, _, coins = _counts(sheet)
     if cost > coins:
