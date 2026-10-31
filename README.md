@@ -151,8 +151,8 @@ Everything is an environment variable. Only the first two are required.
 | `GARY_PLAYERS` | *(none)* | Pre-assign characters: `<discord id>=<name>;…`. Usually `/new` does this. |
 | `GARY_CAMPAIGN_ROOT` | `~/.local/share/gary/campaign` | Where the campaign lives. |
 | `GARY_BACKEND` | `file` | `file`, or `firestore` (with `GARY_FIRESTORE_CAMPAIGN_ID`). |
-| `GARY_GEMINI_MODEL` | `gemini-3.7-flash` | The narrator. |
-| `GARY_GEMINI_FALLBACK_MODEL` | `gemini-3.6-flash` | Tried when the narrator is overloaded; empty disables it. |
+| `GARY_GEMINI_MODEL` | `gemini-3.8-flash` | The narrator. |
+| `GARY_GEMINI_FALLBACK_MODEL` | `gemini-3.7-flash` | Tried when the narrator is overloaded; empty disables it. |
 | `GARY_GEMINI_SUMMARY_MODEL` | `gemini-3.5-flash-lite` | Folds old conversation into a summary. |
 | `GARY_GEMINI_TIMEOUT` | `90` | Seconds before a model call gives up. |
 | `GARY_HISTORY_WINDOW` | `30` | Turns kept word for word before summarising. |

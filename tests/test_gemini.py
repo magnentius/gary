@@ -414,10 +414,21 @@ async def test_empty_candidate_does_not_crash(rig):
     assert (await player(n)).text == ""
 
 
-async def test_tool_loop_is_bounded(rig):
-    """A model that only ever calls tools would otherwise never return."""
+async def test_tool_loop_is_bounded_and_still_narrates(rig):
+    """A model that only ever calls tools would otherwise never return. At the bound, one
+    last call with the tools taken away narrates what was done instead of leaving silence."""
     script = [call_response(T.RECORD_NOTE, {"kind": "general", "subject": "x", "body": "y"})
-              for _ in range(20)]
+              for _ in range(4)] + [text_response("The town settles around you.")]
+    n = narrator(rig, *script, max_tool_iterations=4)
+    result = await player(n)
+    assert len(n.client.calls) == 5
+    assert n.client.calls[-1]["config"].tools is None and n.client.calls[0]["config"].tools
+    assert result.text == "The town settles around you."
+
+
+async def test_a_bounded_loop_that_already_spoke_makes_no_extra_call(rig):
+    script = [call_response(T.RECORD_NOTE, {"kind": "general", "subject": "x", "body": "y"}, text="Noted.")
+              for _ in range(4)]
     n = narrator(rig, *script, max_tool_iterations=4)
     await player(n)
     assert len(n.client.calls) == 4
@@ -579,7 +590,7 @@ def test_defaults_are_current_stable_models():
     Pinned as a test so a stale default is a failure rather than a 404 at the table. If
     this fails, recheck the model list -- do not just update the constant.
     """
-    assert DEFAULT_MODEL == "gemini-3.7-flash"
+    assert DEFAULT_MODEL == "gemini-3.8-flash"
     assert DEFAULT_SUMMARY_MODEL == "gemini-3.5-flash-lite"
     assert "preview" not in DEFAULT_MODEL
     assert "preview" not in DEFAULT_SUMMARY_MODEL

@@ -54,15 +54,15 @@ from . import gemini_tools as T
 
 log = logging.getLogger("gary.gemini")
 
-# Narration id verified 2026-08-18, summariser 2026-08-09, against
-# ai.google.dev/gemini-api/docs/models. Ids move; recheck.
+# Narration id checked 2026-10-31 against the models this API key lists, and played
+# through the fight and town playtests; summariser 2026-08-09. Ids move; recheck.
 #
 # Flash, not Pro, is deliberate. The 3.x family has no stable Pro: the flagship stable
-# model is gemini-3.7-flash, which carries Pro-grade reasoning at Flash latency and cost.
+# model is gemini-3.8-flash, which carries Pro-grade reasoning at Flash latency and cost.
 # (gemini-3.1-pro-preview exists but is preview, and gemini-3-pro-preview is retired.)
 # Latency and cost are live risks here -- §13 (7) -- and a turn costs two model
 # calls around a player's roll, so Flash is the right shape as well as the current one.
-DEFAULT_MODEL = "gemini-3.7-flash"
+DEFAULT_MODEL = "gemini-3.8-flash"
 
 # Summarisation is a cheap background job on text nobody reads directly.
 DEFAULT_SUMMARY_MODEL = "gemini-3.5-flash-lite"
@@ -337,6 +337,17 @@ class GeminiNarrator:
             log.error(
                 "tool loop hit %d iterations; the model is not converging", self._max_iterations
             )
+            if not texts:
+                # The work is done -- every call answered -- but nothing has been said, and
+                # silence reads as a crashed bot. One more turn with the tools taken away
+                # can only narrate what already happened. Observed 2026-10-31: 3.8-flash
+                # made a town, an NPC, the scene and the clock one call at a time and ran
+                # out of rounds before a word.
+                response = await self._generate(contents, system_instruction, tools=False)
+                parts = _parts_of(response)
+                if parts:
+                    contents.append(types.Content(role="model", parts=parts))
+                    texts.extend(p.text for p in parts if p.text)
 
         return texts, contents, effects
 
@@ -1123,7 +1134,7 @@ class GeminiNarrator:
 
     # -- model I/O ---------------------------------------------------------------------
 
-    async def _generate(self, contents, system_instruction) -> Any:
+    async def _generate(self, contents, system_instruction, tools: bool = True) -> Any:
         # temperature is left unset by default. Google's Gemini 3 guidance is to keep it
         # at the model default of 1.0; lowering it "may lead to unexpected behavior, such
         # as looping or degraded performance". Looping is precisely the failure the tool
@@ -1131,7 +1142,7 @@ class GeminiNarrator:
         # would risk causing the thing we are guarding against. Settable for 2.x models.
         config = types.GenerateContentConfig(
             system_instruction=system_instruction,
-            tools=T.tool_config(),
+            tools=T.tool_config() if tools else None,
             temperature=self._temperature,
             # We dispatch calls ourselves: make_move must go through the Director, and
             # the SDK's automatic loop would answer it immediately rather than deferring.
@@ -1146,10 +1157,10 @@ class GeminiNarrator:
     async def _with_retries(self, make_call) -> Any:
         """Retry the primary model, then try the fallback once before giving up.
 
-        TEMPORARY (2026-08-21): gemini-3.7-flash was eight days old and repeatedly
-        answering 503 "experiencing high demand". Retries alone did not clear it. Revisit
-        once the model settles — a permanent fallback quietly hides a model that has
-        genuinely gone away.
+        Added 2026-08-21, when a newly released flash model kept answering 503
+        "experiencing high demand" and retries alone did not clear it. The fallback is the
+        previous release; a permanent fallback can hide a model that has genuinely gone
+        away, so the log says loudly when it is used.
 
         Only transient failures fall back. A 400 or an auth error would fail identically
         on the second model, and retrying it would just double the latency before the

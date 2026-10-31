@@ -100,14 +100,14 @@ class Settings:
 
     # Empty means run with EchoNarrator: the full Discord path, no model, no spend.
     gemini_api_key: str = ""
-    gemini_model: str = "gemini-3.7-flash"
+    gemini_model: str = "gemini-3.8-flash"
     gemini_summary_model: str = "gemini-3.5-flash-lite"
     # §1 requires a timeout on every model call. Without one a hung request
     # blocks the turn forever: no log, no retry, and nothing at the table.
     gemini_timeout_seconds: float = 90.0
-    # TEMPORARY: gemini-3.7-flash was answering 503 "high demand" repeatedly on
-    # 2026-08-21, eight days after release. Empty disables the fallback.
-    gemini_fallback_model: str = "gemini-3.6-flash"
+    # The previous release, tried once when the narrator is overloaded (a new flash model
+    # answered 503 "high demand" for days after release). Empty disables the fallback.
+    gemini_fallback_model: str = "gemini-3.7-flash"
     history_window: int = 30
 
     check_ttl_seconds: float = 180.0
@@ -163,10 +163,10 @@ class Settings:
             backend=e.get("GARY_BACKEND", "file"),
             firestore_campaign_id=e.get("GARY_FIRESTORE_CAMPAIGN_ID", "default"),
             gemini_api_key=e.get("GEMINI_API_KEY", ""),
-            gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.7-flash"),
+            gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.8-flash"),
             gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
             gemini_timeout_seconds=float(e.get("GARY_GEMINI_TIMEOUT", 90.0)),
-            gemini_fallback_model=e.get("GARY_GEMINI_FALLBACK_MODEL", "gemini-3.6-flash"),
+            gemini_fallback_model=e.get("GARY_GEMINI_FALLBACK_MODEL", "gemini-3.7-flash"),
             history_window=int(e.get("GARY_HISTORY_WINDOW", 30)),
             check_ttl_seconds=float(e.get("GARY_CHECK_TTL", 180.0)),
             sweep_interval_seconds=float(e.get("GARY_SWEEP_INTERVAL", 15.0)),

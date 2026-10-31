@@ -321,7 +321,7 @@ class Table:
         self.narrator = RecordingNarrator(
             client=client, director=self.director,
             store=self.store, history_backend=InMemoryHistoryBackend(), summarize=False,
-            model=os.environ.get("GARY_GEMINI_MODEL") or "gemini-3.7-flash",
+            model=os.environ.get("GARY_GEMINI_MODEL") or "gemini-3.8-flash",
         )
         self.narrator.report = report
         self.transport = Transport(report)

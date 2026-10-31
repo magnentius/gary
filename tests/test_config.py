@@ -23,7 +23,8 @@ def test_defaults_are_the_verified_values():
     s = settings()
     assert not s.command_prefix.startswith("!")
     # Must track adapters/gemini.py; a drift between them is a silent misconfiguration.
-    assert s.gemini_model == "gemini-3.7-flash"
+    assert s.gemini_model == "gemini-3.8-flash"
+    assert s.gemini_fallback_model == "gemini-3.7-flash"
     assert s.gemini_summary_model == "gemini-3.5-flash-lite"
 
 

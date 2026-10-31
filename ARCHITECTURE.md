@@ -871,6 +871,7 @@ belongs in Secret Manager.
 | Player rolled but never chose / rolled damage | The dice stand; first options taken, damage rolled for them, table told. |
 | Rules-triggered move never rolled | Rolled for the player on expiry. |
 | Model loops on its own output | `EffectRunner` recursion bound (`GARY_MAX_EFFECT_DEPTH`, default 4), logged. |
+| Model calls tools round after round without speaking | Six rounds a turn (`MAX_TOOL_ITERATIONS`); if nothing has been said by then, one more call with the tools removed narrates what was done. |
 | Gary restart mid-move | Pending moves and their buttons survive (§5.3, §7.4). In-memory forms (creation, level up, bonds, End of Session) are lost and reopened by the command. |
 | Interaction not answered in 3 s | Clicks are acknowledged before narration starts. |
 
@@ -959,8 +960,8 @@ it risks looping, which the recursion bound exists to catch).
 
 ### 12.4 Model choice
 
-`gemini-3.7-flash` for narration, `gemini-3.5-flash-lite` for summarisation,
-`gemini-3.6-flash` as fallback, each overridable by environment and pinned by a test so a
+`gemini-3.8-flash` for narration, `gemini-3.5-flash-lite` for summarisation,
+`gemini-3.7-flash` (the previous release) as fallback, each overridable by environment and pinned by a test so a
 stale default fails in CI rather than at the table. The 3.x family's stable flagship is
 Flash; a turn is two model calls around a human click, so latency and cost matter.
 
