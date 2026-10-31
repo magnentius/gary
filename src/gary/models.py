@@ -79,6 +79,7 @@ class PendingCheck:
     target: str = ""
     spell: str = ""
     companion: str = ""  # the animal companion working with them (Command), by name
+    aide: str = ""  # a hireling helping with this move (Man-at-arms, Intervene), by name
 
     @property
     def rolled(self) -> bool:
@@ -110,6 +111,7 @@ class PendingCheck:
             "target": self.target,
             "spell": self.spell,
             "companion": self.companion,
+            "aide": self.aide,
         }
 
     @classmethod
@@ -139,6 +141,7 @@ class PendingCheck:
             target=d.get("target", ""),
             spell=d.get("spell", ""),
             companion=d.get("companion", ""),
+            aide=d.get("aide", ""),
         )
 
 

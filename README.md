@@ -383,7 +383,12 @@ reputation. Whoever joins is made by the book — skills (Adept, Burglar, Minstr
 Protector, Tracker, Warrior) with ranks, loyalty and a cost, their points set by where you
 found them (village 5 up to city 10) — and kept on your sheet. Ordering one into something
 dangerous or degrading is Order Hirelings, +their loyalty (-1 while their pay lapses). The
-GM sees each skill's rule and honours it; none is wired to a number yet.
+GM sees each skill's rule, and Gary applies the ones with numbers: a hired Priest adds their
+skill to camp healing and can give first aid (2×skill HP, -1 forward); a Warrior aiding your
+attack adds their skill to damage and takes the counter-attack; a Protector helping you Defy
+Danger gives +1 (but a 10+ counts as 7–9), or standing sentry adds their skill to your armor
+and then tires until they rest; a Tracker guides any journey shorter than their skill to
+success; a Minstrel takes their skill off prices in town. Burglars and Adepts are the GM's.
 
 **Encumbrance.** Your load is your class's base plus Str (a Fighter 12+Str, a Wizard
 7+Str); everything you carry has a weight, and 100 coins weigh 1. The sheet shows "weight
@@ -596,8 +601,8 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Special moves:** all of the book's are in. Hireling skills are shown to the GM, not wired
-  to numbers, and preparation is not spent on Cast a Spell, Recruit or Carouse rolls.
+- **Special moves:** all of the book's are in. Burglar and Adept hireling skills are the GM's
+  to apply, and preparation is not spent on Cast a Spell, Recruit or Carouse rolls.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.

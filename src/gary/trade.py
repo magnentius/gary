@@ -125,7 +125,7 @@ def give_coins(sheet: Dict[str, Any], amount: int) -> Dict[str, Any]:
     return _recount(sheet, list(sheet.get("gear") or []), ammo, rations, coins + amount)
 
 
-def buy(sheet: Dict[str, Any], name: str, price: int = None) -> Tuple[Dict[str, Any], str, int]:
+def buy(sheet: Dict[str, Any], name: str, price: int = None, discount: int = 0) -> Tuple[Dict[str, Any], str, int]:
     """At the book's price -- or, after Supply, at the price the GM names: never below the
     book's, at most twice it, and for something the book does not price at most
     MAX_SPECIAL_PRICE. Returns (new sheet, item label, total cost)."""
@@ -143,7 +143,8 @@ def buy(sheet: Dict[str, Any], name: str, price: int = None) -> Tuple[Dict[str, 
                              f"{book} to {book * MAX_MARKUP}.")
         if book is None and not 1 <= price <= MAX_SPECIAL_PRICE:
             raise TradeError(f"Price something special at 1 to {MAX_SPECIAL_PRICE} coins.")
-    cost = price * qty
+    # Minstrel, A Hero's Welcome: "subtract the minstrel's skill from all prices in town."
+    cost = max(1, price - int(discount or 0)) * qty
     _, _, coins = _counts(sheet)
     if cost > coins:
         raise TradeError(f"{item_name} costs {cost} coins; {sheet['name']} has {coins}.")

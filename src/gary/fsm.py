@@ -314,6 +314,7 @@ class Director:
         forward: bool = False,
         offers: Sequence[str] = (),
         preparation: bool = False,
+        aide: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -527,6 +528,18 @@ class Director:
             mod += ready
             notes.append("+1 preparation")
             spend = [*spend, *prepared]
+        helper = ""
+        if aide:
+            found, skill_name, why = self._aide(rules.key, aide)
+            if found is None:
+                return [self._refuse(channel_id, why, "Re-issue make_move without aide, or narrate "
+                                                      "what the hireling does instead.")]
+            helper = found["name"]
+            if skill_name == "Protector":
+                mod += 1
+                notes.append(f"+1 {helper}; a 10+ counts as 7–9")
+            else:
+                notes.append(f"+{hirelings.skill(found, 'Warrior')} damage from {helper}")
         pet = ""
         if companion and self._sheet_for is not None:
             sheet = self._sheet_for(actor) or {}
@@ -547,12 +560,13 @@ class Director:
               else f" at {target}") if target else ""
         return [*spend, *self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                                     ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
-                                    notes, companion=pet, overloaded=burden == "overloaded")]
+                                    notes, companion=pet, overloaded=burden == "overloaded", aide=helper)]
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
         stakes: str, target: str, ttl_seconds: Optional[float], what: str,
         notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
+        aide: str = "",
     ) -> List[Effect]:
         """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
@@ -567,6 +581,7 @@ class Director:
             target=target,
             spell=spell,
             companion=companion,
+            aide=aide,
             ttl_seconds=ttl_seconds,
         )
 
@@ -938,12 +953,43 @@ class Director:
         if check is None or check.rolled or (check_id is not None and check.check_id != check_id):
             return []
 
-        dice = self.dice.roll(check.dice, modifier=check.modifier)
+        dice, capped = self._intervened(check, self.dice.roll(check.dice, modifier=check.modifier))
         rolled = SendMessage(
             channel_id,
-            f"🎲 **{check.actor}** rolls {dice.render()} — {_RESULT[band(dice)]}.",
+            f"🎲 **{check.actor}** rolls {dice.render()} — {_RESULT[band(dice)]}." + capped,
         )
         return [rolled, *self._next(channel_id, check, dice)]
+
+    def _intervened(self, check: PendingCheck, dice: Roll) -> Tuple[Roll, str]:
+        """Protector, Intervene: "you may take +1 from their aid. If you do you cannot get a
+        10+ result, a 10+ instead counts as a 7-9." Held to 9, and said so."""
+        if not check.aide or check.move != "defy_danger" or dice.total < 10:
+            return dice, ""
+        held = Roll(spec=dice.spec, faces=dice.faces, modifier=9 - sum(dice.faces))
+        return held, f" ({check.aide}'s help: a 10+ counts as 7–9)"
+
+    def _aide(self, move: str, name: str) -> Tuple[Optional[Dict[str, Any]], str, str]:
+        """(the hireling, the skill that helps, why not) for a hireling aiding this move:
+        a Warrior on an attack, a Protector on Defy Danger."""
+        for _, sheet in self._party():
+            found = hirelings.find(sheet, name)
+            if found is None:
+                continue
+            if MOVES[move].attacks and hirelings.skill(found, "Warrior"):
+                return found, "Warrior", ""
+            if move == "defy_danger" and hirelings.skill(found, "Protector"):
+                return found, "Protector", ""
+            return None, "", (f"{found['name']} adds nothing to {MOVES[move].name}: a Warrior aids "
+                              "attacks, a Protector helps Defy Danger.")
+        return None, "", f"No hireling named {name!r} is with the party."
+
+    def _hireling_named(self, name: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        """(employer, hireling) for a hireling anywhere in the party."""
+        for actor, sheet in self._party():
+            found = hirelings.find(sheet, name)
+            if found is not None:
+                return actor, found
+        return None, None
 
     def _next(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """Whatever the move needs next, now that its dice have landed."""
@@ -1352,6 +1398,11 @@ class Director:
             ferocity = self._ferocity(check)
             if ferocity:
                 total, shown = total + ferocity, f"{shown}, +{ferocity} {check.companion} = {total + ferocity}"
+            # Warrior, Man-at-arms: "add their skill to the damage done".
+            _, warrior = self._hireling_named(check.aide) if check.aide else (None, None)
+            might = hirelings.skill(warrior, "Warrior") if warrior else 0
+            if might:
+                total, shown = total + might, f"{shown}, +{might} {warrior['name']} = {total + might}"
             # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
             boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
@@ -1392,7 +1443,15 @@ class Director:
 
         back = None
         target = self._monsters().get(check.target)  # as it stood before this blow
-        if outcome.enemy_attacks and target is not None:
+        _, warrior = self._hireling_named(check.aide) if check.aide and spell is None else (None, None)
+        if outcome.enemy_attacks and target is not None and warrior and hirelings.skill(warrior, "Warrior"):
+            # "If your attack results in consequences (like a counter attack) the man-at-arms
+            # takes the brunt of it." Hirelings keep no HP: the model narrates what it costs them.
+            effects.append(SendMessage(channel_id, f"🛡️ {warrior['name']} takes the brunt of "
+                                                   f"{check.target}'s counter-attack."))
+            facts["counter_attack"] = (f"{warrior['name']} (a hireling) took the brunt of the "
+                                       "counter-attack instead; narrate what it cost them.")
+        elif outcome.enemy_attacks and target is not None:
             # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
             # finished it. The rules say both happen, so both do.
             attack_effects, back = self._attack(channel_id, check.target, target, check.actor,
@@ -1472,7 +1531,8 @@ class Director:
     # -- the GM's side: a creature attacks ---------------------------------------------
 
     def monster_attacks(
-        self, *, channel_id: int, monster: str, character: str, also: Sequence[str] = ()
+        self, *, channel_id: int, monster: str, character: str, also: Sequence[str] = (),
+        protector: str = "",
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """A creature deals its damage to a character -- the GM move "deal damage", on a
         miss or when everyone looks to the GM.
@@ -1519,7 +1579,23 @@ class Director:
         if defender is not None:
             effects, facts = self._hold_attack(channel_id, name, scene[name], character, defender, hit=hit)
             return ([SendMessage(channel_id, pack)] if pack else []) + effects, facts
-        effects, facts = self._attack(channel_id, name, scene[name], character, hit=hit)
+        # Protector, Sentry: "When a protector stands between you and an attack you increase your
+        # armor against that attack by the defender's skill, then reduce their skill by 1 until
+        # they receive healing or have time to mend."
+        guard_armor, strained = 0, []
+        if protector:
+            employer, guard = self._hireling_named(protector)
+            if guard is None or not hirelings.skill(guard, "Protector"):
+                return [], {"ok": False, "error": f"No protector named {protector!r} is with the party."}
+            guard_armor = hirelings.skill(guard, "Protector")
+            esheet = self._sheet_for(employer)
+            strained = [SendMessage(channel_id, f"🛡️ {guard['name']} steps in: +{guard_armor} armor."),
+                        UpdateSheet(channel_id, employer, {"hirelings": [
+                            {**h, "strain": int(h.get("strain", 0)) + 1} if h is guard or h["name"] == guard["name"] else h
+                            for h in esheet["hirelings"]]})]
+        effects, facts = self._attack(channel_id, name, scene[name], character, hit=hit,
+                                      extra_armor=guard_armor)
+        effects = strained + effects
         if pack:
             effects.insert(0, SendMessage(channel_id, pack))
             facts["attackers"] = names
@@ -1748,11 +1824,11 @@ class Director:
                 continue
             if not MOVES[check.move].callable:
                 # Death and whatever approaches the camp do not wait on a click.
-                dice = self.dice.roll(check.dice, modifier=check.modifier)
+                dice, capped = self._intervened(check, self.dice.roll(check.dice, modifier=check.modifier))
                 effects.append(SendMessage(
                     check.channel_id,
                     f"🎲 **{check.actor}** (rolled for them) rolls {dice.render()} — "
-                    f"{_RESULT[band(dice)]}.",
+                    f"{_RESULT[band(dice)]}." + capped,
                 ))
                 effects.extend(self._next(check.channel_id, check, dice))
                 continue
@@ -1849,8 +1925,16 @@ class Director:
                                   for _, s in party):
             songs = self.dice.roll("1d6")
             lines.append(f"A halfling's healing song carries over the camp: +{songs.total} to all healing.")
+        # Priest, Ministry: "When you make camp with a priest if you would normally heal you
+        # heal +skill HP."
+        ministry = 0 if approaches else hirelings.best([s for _, s in party], "Priest")
+        if ministry:
+            lines.append(f"A hired priest tends the camp: +{ministry} to all healing.")
         for actor, sheet in party:
             changes: Dict[str, Any] = {}
+            if any(h.get("strain") for h in sheet.get("hirelings") or ()):
+                # A night's rest: a protector's sentry strain mends.
+                changes["hirelings"] = [{**h, "strain": 0} for h in sheet["hirelings"]]
             if sheet.get("defending"):
                 changes["defending"] = None  # nobody stands in defense through the night
             if sheet.get("forwards"):
@@ -1867,7 +1951,7 @@ class Director:
                 entry["rations_left"] = changes["rations"]
             if fed and not approaches:
                 healed = min(int(sheet["max_hp"]) - int(sheet["hp"]),
-                             int(sheet["max_hp"]) // 2 + (songs.total if songs else 0))
+                             int(sheet["max_hp"]) // 2 + (songs.total if songs else 0) + ministry)
                 changes["hp"] = int(sheet["hp"]) + healed
                 entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
                 lines.append(
@@ -2039,6 +2123,23 @@ class Director:
         if unfilled:
             lines.append(f"Nobody is {_and(unfilled)}: that counts as a 6.")
         effects.insert(0, SendMessage(channel_id, "\n".join(lines)))
+        guide = hirelings.best([s for _, s in party], "Tracker")
+        if guide > days:
+            # Tracker, Guide: "you automatically succeed on any Perilous Journey of a distance (in
+            # rations) lower than the tracker's skill." Every job counts as a 10+.
+            effects[0] = replace(effects[0], text=effects[0].text + "\nA hired tracker leads the "
+                                                 "way: the journey succeeds without a roll.")
+            quartermaster = jobs.get("quartermaster")
+            if quartermaster:
+                qs = dict(self._sheet_for(quartermaster) or {})
+                if "gear" in qs:
+                    left = spent.get(quartermaster, {}).get("rations_left", int(qs.get("rations", 0)))
+                    effects.append(UpdateSheet(channel_id, quartermaster, {"rations": left + 1}))
+            return effects, {"ok": True, "destination": destination, "days": days, "guided": True,
+                             "rations": spent, "note": (
+                                 "A hired tracker guided them: every job counts as a 10+ -- the trip is "
+                                 "shorter than expected (you say by how much), they get the drop on any "
+                                 "trouble, and a ration is saved. Move the clock; narrate the arrival.")}
         for job, actor in jobs.items():
             effects.extend(self._trigger(channel_id, actor, f"journey_{job}"))
         return effects, {"ok": True, "destination": destination, "days": days, "jobs": jobs,
@@ -2085,6 +2186,8 @@ class Director:
         report: Dict[str, Any] = {}
         for actor, sheet in party:
             changes: Dict[str, Any] = {"hp": int(sheet["max_hp"])}
+            if any(h.get("strain") for h in sheet.get("hirelings") or ()):
+                changes["hirelings"] = [{**h, "strain": 0} for h in sheet["hirelings"]]
             if sheet.get("forwards"):
                 changes["forwards"] = []  # a forward is for the scene it came from
             have = list(sheet.get("debilities") or [])
@@ -2182,6 +2285,31 @@ class Director:
         updated = [*sheet["hirelings"][:index], changed, *sheet["hirelings"][index + 1:]]
         return [SendMessage(channel_id, f"🤝 {hired['name']} — {', '.join(parts) or 'unchanged'} — {reason}."),
                 UpdateSheet(channel_id, actor, {"hirelings": updated})], {"ok": True, "hireling": changed}
+
+    def first_aid(
+        self, *, channel_id: int, hireling: str, patient: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Priest, First Aid: "When a priest staunches your wounds heal 2×skill HP. You take -1
+        forward as their healing is painful and distracting.\""""
+        _, priest = self._hireling_named(hireling)
+        rank = hirelings.skill(priest, "Priest") if priest else 0
+        if not rank:
+            return [], {"ok": False, "error": f"No priest named {hireling!r} is with the party."}
+        actor = self._character(patient)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{patient!r} has no character sheet."}
+        if sheet.get("dead"):
+            return [], {"ok": False, "error": f"{actor} is dead."}
+        healed = min(2 * rank, int(sheet["max_hp"]) - int(sheet["hp"]))
+        hp = int(sheet["hp"]) + healed
+        effects: List[Effect] = [
+            SendMessage(channel_id, f"🩹 {priest['name']} staunches **{actor}**'s wounds — heals {healed}, "
+                                    f"HP {hp}/{sheet['max_hp']}."),
+            UpdateSheet(channel_id, actor, {"hp": hp}),
+            *self._grant(channel_id, actor, "the priest's healing is painful and distracting", amount=-1),
+        ]
+        return effects, {"ok": True, "healed": healed, "hp": hp, "note": "They take -1 forward."}
 
     # -- forwards ---------------------------------------------------------------------------------
 

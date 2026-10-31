@@ -404,6 +404,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.FIRST_AID:
+                aid_effects, result = self._director.first_aid(
+                    channel_id=channel_id, hireling=str(args.get("hireling", "")),
+                    patient=str(args.get("patient", "")))
+                effects.extend(aid_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.BOLSTER:
                 study_effects, result = self._director.bolster(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -513,6 +521,7 @@ class GeminiNarrator:
                     monster=str(args.get("monster", "")),
                     character=str(args.get("character", "")),
                     also=[str(a) for a in args.get("also") or []],
+                    protector=str(args.get("protector", "") or ""),
                 )
                 effects.extend(attack_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -551,6 +560,7 @@ class GeminiNarrator:
             forward=bool(args.get("forward")),
             offers=[str(o) for o in args.get("offers") or []],
             preparation=bool(args.get("preparation")),
+            aide=str(args.get("aide", "") or ""),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
@@ -644,8 +654,11 @@ class GeminiNarrator:
                 result = {"ok": True}
             elif name == T.BUY:
                 price = args.get("price")
+                from .. import hirelings as hired
+
+                discount = hired.best(list(sheets.values()), "Minstrel")
                 new, label, cost = trade.buy(sheet, str(args.get("item", "")),
-                                             int(price) if price not in (None, "") else None)
+                                             int(price) if price not in (None, "") else None, discount)
                 line = f"🪙 **{actor}** buys {label} for {cost} coins."
                 result = {"ok": True, "bought": label, "cost": cost}
             else:

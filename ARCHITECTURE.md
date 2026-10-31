@@ -449,7 +449,12 @@ by where they were found) and they live on the employer's sheet (`hirelings`), s
 change journals as a `SHEET`. Recruit rolls `OFFERS` (+1 per offer made known, from
 `make_move(offers=)`); Order Hirelings rolls `LOYALTY` (the named hireling's, -1 while
 `unpaid`). `hire` and `update_hireling` (paid, loyalty ±1, leaves) are the model's tools;
-the rules of every skill at the table reach the model with the class moves block.
+the rules of every skill at the table reach the model with the class moves block. Five are
+wired: Priest (`ministry` at camp; `hireling_first_aid`), Warrior and Protector as
+`make_move(aide=)` (on the `PendingCheck` as `aide`: +skill damage and the counter-attack
+taken; or +1 with the roll held to 9 by `_intervened`), Protector's Sentry as
+`monster_attacks(protector=)` (+skill armor, then `strain` until camp or Recover), Tracker
+in `perilous_journey` (every job a 10+), Minstrel as `trade.buy(discount=)`.
 
 **Supply and Carouse.** Supply is a +Cha move; its result tells the model what to charge,
 and `buy(price=)` bounds it (book price to twice it; up to 500 for something unpriced).
@@ -814,7 +819,7 @@ mapping to store mutations or Director calls:
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
-- **Hirelings and downtime:** `hire`, `update_hireling`, `bolster`.
+- **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.
 - **Fronts:** `create_front`, `advance_portent`, `end_danger`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
@@ -895,7 +900,7 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
    `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   magic items, and hireling skills as numbers; encumbrance on rules-triggered moves; the companion's instinct on
+   magic items, and Burglar and Adept hireling skills; encumbrance on rules-triggered moves; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
    limit).

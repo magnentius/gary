@@ -7,7 +7,10 @@ a journalled sheet change that undoes like any other.
 Gary checks a hireling against the book's rules for making one -- where they were found
 sets the points shared between loyalty and skills -- and rolls Order Hirelings +loyalty
 (-1 while their cost goes unpaid). What each skill does is shown to the model to honour;
-none is wired to a number yet.
+Gary applies the five that touch a number it runs -- Priest (camp healing, first aid),
+Warrior (damage, taking the counter-attack), Protector (Intervene on Defy Danger, Sentry
+armor), Tracker (guided journeys), Minstrel (prices). Burglar and Adept stay with the
+model.
 
 The skill rules are the book's, lightly shortened; there are seven.
 """
@@ -98,8 +101,20 @@ def loyalty_of(hireling: Dict[str, Any]) -> int:
     return int(hireling["loyalty"]) - (1 if hireling.get("unpaid") else 0)
 
 
+def skill(hireling: Dict[str, Any], name: str) -> int:
+    """A hireling's rank in a skill, less any strain from standing sentry (Protector)."""
+    rank = int((hireling.get("skills") or {}).get(name, 0))
+    return max(0, rank - int(hireling.get("strain", 0))) if name == "Protector" else rank
+
+
+def best(sheets: Sequence[Dict[str, Any]], name: str) -> int:
+    """The highest rank in this skill among every hireling at the table."""
+    return max((skill(h, name) for s in sheets for h in s.get("hirelings") or ()), default=0)
+
+
 def label(h: Dict[str, Any]) -> str:
-    skills = ", ".join(f"{s} {r}" for s, r in h["skills"].items())
+    skills = ", ".join(f"{s} {r}" + (f" (strained to {skill(h, s)})" if s == "Protector" and h.get("strain") else "")
+                       for s, r in h["skills"].items())
     return (f"{h['name']} ({skills}; loyalty {h['loyalty']:+d}; cost: {h['cost']}"
             + (", UNPAID" if h.get("unpaid") else "") + ")")
 

@@ -47,6 +47,7 @@ SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
+FIRST_AID = "hireling_first_aid"
 BOLSTER = "bolster"
 CREATE_FRONT = "create_front"
 ADVANCE_PORTENT = "advance_portent"
@@ -119,6 +120,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "recruit only: what they made known -- generous pay, what they're setting out "
                         "to do (purpose), a share of what they find -- and reputation if they have a "
                         "useful one here. Each is +1."
+                    ),
+                ),
+                "aide": _s(
+                    type=_STRING,
+                    description=(
+                        "A hireling helping with this move, by name: a Warrior aiding an attack "
+                        "(+their skill to damage; they take any counter-attack), or a Protector helping "
+                        "Defy Danger (+1, but a 10+ counts as 7-9)."
                     ),
                 ),
                 "preparation": _s(
@@ -223,6 +232,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "Other creatures striking the same character at the same moment -- a pack, a "
                     "surrounding ring. One combined blow: the biggest damage die among them, rolled "
                     "once per attacker, highest counts. Not for blows at different moments.")),
+                "protector": _s(type=_STRING, description=(
+                    "A hired Protector standing between the character and this attack: +their skill "
+                    "to armor, then their skill drops 1 until they rest.")),
             },
             required=["monster", "character"],
         ),
@@ -442,6 +454,19 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "what": _s(type=_STRING, description="What they study or practise. Shown to the table."),
             },
             required=["character", "weeks", "what"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=FIRST_AID,
+        description=(
+            "A hired Priest staunches a character's wounds: heals 2 × their skill, and the patient "
+            "takes -1 forward from the pain. The rules engine applies it."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"hireling": _s(type=_STRING, description="The priest."),
+                        "patient": _s(type=_STRING)},
+            required=["hireling", "patient"],
         ),
     ),
     types.FunctionDeclaration(
