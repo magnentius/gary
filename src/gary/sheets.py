@@ -91,6 +91,17 @@ def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
     return modifier(int(sheet["stats"][stat])) - (1 if debility_on(sheet, stat) else 0)
 
 
+#: Armored (Fighter, Paladin): "You ignore the clumsy tag on any armor you wear."
+_ARMORED = ("Fighter", "Paladin")
+
+
+def clumsy(sheet: Dict[str, Any]) -> str:
+    """The clumsy item weighing on every roll ("-1 ongoing while using it"), or ""."""
+    if sheet.get("class") in _ARMORED:
+        return ""
+    return next((g["name"] for g in sheet.get("gear") or () if "clumsy" in (g.get("tags") or ())), "")
+
+
 def load(sheet: Dict[str, Any]) -> int:
     return LOAD_BASE.get(str(sheet.get("class", "")).lower(), 9) + stat_modifier(sheet, "str")
 

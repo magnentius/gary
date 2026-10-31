@@ -406,6 +406,12 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.TREASURE:
+                loot_effects, result = self._treasure(channel_id, args)
+                effects.extend(loot_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.FIRST_AID:
                 aid_effects, result = self._director.first_aid(
                     channel_id=channel_id, hireling=str(args.get("hireling", "")),
@@ -603,7 +609,7 @@ class GeminiNarrator:
         fighting = any(r["hp"] > 0 for r in (state.get("monsters") or {}).values())
         try:
             user, patient, healed, remedy = healing.use(
-                sheets[actor], str(args.get("item", "")), target, fighting
+                sheets[actor], str(args.get("item", "")), target, fighting, str(args.get("cure", "") or "")
             )
         except healing.HealingError as exc:
             return [], {"ok": False, "error": str(exc)}
@@ -612,12 +618,72 @@ class GeminiNarrator:
         if patient["name"] != actor:
             mutations.append(Mutation(MutationKind.SHEET, patient["name"], {"sheet": patient}))
         who = "themselves" if patient["name"] == actor else f"**{patient['name']}**"
-        line = (f"🩹 **{actor}** uses {remedy.lower()} on {who} — heals {healed}, "
+        cured = str(args.get("cure", "") or "").strip().lower()
+        line = (f"🩹 **{actor}** uses {remedy.lower()} on {who} — no longer {cured.title()}." if cured else
+                f"🩹 **{actor}** uses {remedy.lower()} on {who} — heals {healed}, "
                 f"HP {patient['hp']}/{patient['max_hp']}.")
         self._store.apply(mutations, reason=line)
         return [SendMessage(channel_id, line)], {
             "ok": True, "healed": healed, "patient": patient["name"],
             "hp": patient["hp"], "max_hp": patient["max_hp"],
+        }
+
+    def _treasure(self, channel_id: int, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
+        """Roll a creature's treasure and give the finder the coins and valuables. The sheet
+        change is journalled last, so the first undo takes the coins and gems back; a second
+        leaves the creature unsearched again."""
+        from .. import treasure as loot
+        from ..monsters import lookup as bestiary
+
+        state = self._store.state()
+        sheets = state.get("sheets") or {}
+        wanted = str(args.get("finder", "")).strip().lower()
+        finder = next((a for a in sheets if a.lower() == wanted), None)
+        if finder is None:
+            return [], {"ok": False, "error": f"{args.get('finder')!r} has no character sheet."}
+        asked = " ".join(str(args.get("creature", "")).split())
+        scene = state.get("monsters") or {}
+        instance = next((n for n in scene if n.lower() == asked.lower()), None)
+        if instance is not None:
+            record = scene[instance]
+            if record.get("looted"):
+                return [], {"ok": False, "error": f"{instance}'s belongings have already been searched."}
+            kind_record, damage_expr = bestiary(record.get("kind", "")), record["damage"]
+        else:
+            kind_record = bestiary(asked)
+            if kind_record is None or not kind_record.get("damage"):
+                return [], {"ok": False, "error": f"No creature {asked!r} in the scene or the bestiary. "
+                                                  f"In the scene: {', '.join(scene) or 'none'}."}
+            damage_expr = kind_record["damage"]
+        flags = loot.flags_of(kind_record)
+        flags += [f for f, key in (("far from home", "far_from_home"), ("lord", "lord"),
+                                   ("ancient", "ancient")) if args.get(key)]
+        found = loot.roll(lambda spec: self._director.dice.roll(spec).total, damage_expr, flags)
+
+        sheet = dict(sheets[finder])
+        gear = list(sheet.get("gear") or [])
+        for v in found.valuables:
+            gear.append({"name": v["name"], "tags": [f"worth {v['value']} coins"], "weight": v["weight"],
+                         "value": v["value"], "armor": 0, "shield": 0, "damage": 0, "piercing": 0,
+                         "ammo": 0, "needs_ammo": False})
+        rations = int(sheet.get("rations", 0)) + found.rations
+        sheet.update(gear=gear, coins=int(sheet.get("coins", 0)) + found.coins, rations=rations)
+        mutations = [Mutation(MutationKind.SHEET, finder, {"sheet": sheet})]
+        if instance is not None:
+            mutations.insert(0, Mutation(MutationKind.MONSTER_LOOTED, instance, {"looted": True}))
+        whose = instance or asked
+        line = (f"💰 **{finder}** searches {whose}'s belongings — {found.rolled}.\n"
+                + "\n".join(f"• {e}" for e in found.entries)
+                + (f"\n• {found.rations} ration" if found.rations else "")
+                + (f"\n**{finder}** now has {sheet['coins']} coins." if found.coins else ""))
+        self._store.apply(mutations, reason=f"{finder} takes {whose}'s treasure")
+        return [SendMessage(channel_id, line)], {
+            "ok": True, "rolled": found.roll, "found": found.entries, "coins": found.coins,
+            "valuables": found.valuables, "rations": found.rations, "you_decide": found.for_gm,
+            **({"magic_item_ideas": [{"name": i["name"], "tags": i["tags"], "text": i["text"]}
+                                     for i in found.ideas]} if found.ideas else {}),
+            "note": ("The coins and valuables are on their sheet already. Describe what they find, "
+                     "honestly; name what you_decide asks you to, and give any item with give_items."),
         }
 
     def _trade(self, channel_id: int, name: str, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:

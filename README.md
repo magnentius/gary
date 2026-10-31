@@ -577,8 +577,19 @@ the book's price, refused if you can't afford it; selling fetches half, or less 
 stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
 Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
 
+**Treasure** is rolled by the book. When you search a creature's belongings or lair, Gary
+rolls its damage die (twice for a hoarder, +1d4 for a lord or something ancient) on the
+book's treasure table and rolls every amount: a few coins, a gem worth 2d10×10, a chest
+worth 3d6×100, a dragon's hoard. The coins and valuables go straight onto the finder's
+sheet; a gem or a crown sells for exactly what it is worth. What else turns up — a useful
+item, a clue, a portal, something magical — the GM names, and for anything magical the GM
+is shown a few of the book's 39 magic items for ideas. A creature is searched once.
+
+**Clumsy armor** (scale mail, plate) gives -1 to every roll while worn, shown on the roll
+line — except for Fighters and Paladins, whose Armored move ignores it.
+
 **Healing items** work as the book says. A healing potion heals whoever drinks it 10 —
-yourself, or a friend you pour it into. Bandages heal *someone else* 4, poultices and herbs
+yourself, or a friend you pour it into — or removes one debility instead, if you'd rather. Bandages heal *someone else* 4, poultices and herbs
 heal anyone 7; both spend a use and are slow, so not while creatures are still standing.
 
 A creature is defeated at 0 HP and not before, however the narration reads. When a
@@ -638,9 +649,9 @@ waiting on; `?dm cancel` drops your own.
   which.
 - **Defend's hold** is spent one point per attack, and only against `monster_attacks` — not
   the blow back on a weak Hack and Slash. Defending an item or a place records it, but
-  nothing attacks those through the rules. Ammo is one count shared by bows and throwing daggers, and
-  weight and load are not tracked. Antitoxin and poisons bought from the equipment list do
-  nothing yet, and a healing potion only heals HP (the book lets it cure a debility instead). There are no magic items yet.
+  nothing attacks those through the rules. Ammo is one count shared by bows and throwing
+  daggers. Antitoxin and poisons bought from the equipment list do nothing yet. Magic items
+  are the GM's to narrate: the book's list is offered as ideas, and none changes a number.
 
 ### When something goes wrong
 

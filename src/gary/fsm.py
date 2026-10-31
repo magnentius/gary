@@ -34,7 +34,7 @@ from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
 from .sheets import (
-    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, SheetError, debility_on, encumbrance, stat_modifier,
+    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, SheetError, clumsy, debility_on, encumbrance, stat_modifier,
     xp_line, xp_needed,
 )
 
@@ -519,6 +519,9 @@ class Director:
                     stat, mod = "dex", dex
             if debility_on(sheet, stat):
                 notes.append(f"-1 {debility_on(sheet, stat).title()}")
+            if clumsy(sheet):
+                mod -= 1
+                notes.append(f"-1 clumsy {clumsy(sheet)}")
             unable = _unable(actor, sheet)
             if unable:
                 return [self._refuse(
@@ -772,6 +775,9 @@ class Director:
         penalty, notes = spells.casting_modifier(sheet)
         if debility_on(sheet, stat):
             notes.append(f"-1 {debility_on(sheet, stat).title()}")
+        if clumsy(sheet):
+            mod -= 1
+            notes.append(f"-1 clumsy {clumsy(sheet)}")
         mod += penalty
         if self._blessed(actor):
             mod += 1
@@ -1355,7 +1361,7 @@ class Director:
         if rules.stat not in (NOTHING, BOND) and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if sheet is not None:
-                mod = stat_modifier(sheet, rules.stat)
+                mod = stat_modifier(sheet, rules.stat) - (1 if clumsy(sheet) else 0)
         others = [s for a, s in self._party() if normalize_actor(a) != normalize_actor(actor)]
         if move == "take_watch" and any(advanced.has(s, "A Safe Place") or advanced.has(s, "A Safer Place")
                                         for _, s in self._party()):

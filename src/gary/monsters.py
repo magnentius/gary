@@ -176,7 +176,7 @@ def natures(scene: Dict[str, Dict[str, Any]]) -> List[str]:
 
 def describe(name: str, record: Dict[str, Any]) -> str:
     if record["hp"] <= 0:
-        return f"{name} (defeated)"
+        return f"{name} (defeated" + (", searched)" if record.get("looted") else ")")
     pierce = (
         ", ignores armor" if record.get("ignores_armor")
         else f", {record['piercing']} piercing" if record.get("piercing") else ""

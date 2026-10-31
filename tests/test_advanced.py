@@ -113,3 +113,14 @@ def test_the_model_is_told_what_gary_already_applies():
     assert "Merciless (advanced): When you deal damage, deal +1d4 damage. [Gary applies the extra damage" in text
     assert "Heirloom (advanced)" in text and "Heirloom" not in advanced.APPLIED
     assert advanced.applied({"class": "Paladin"}, "Divine Protection") == ""
+
+
+def test_clumsy_armor_weighs_on_every_roll_but_the_armored(director, sheets):
+    plate = {"name": "Plate", "armor": 3, "shield": 0, "tags": ["3 armor", "worn", "clumsy"], "weight": 4}
+    sheets["Dorn"].update(gear=[plate])
+    (ask,) = texts(director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Dorn", move="spout_lore"))
+    assert "clumsy" not in ask  # a Fighter is Armored
+    sheets["Dorn"]["class"] = "Cleric"
+    director.registry.cancel(next(iter(director.registry.open_checks(CHANNEL))).check_id)
+    (ask,) = texts(director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Dorn", move="spout_lore"))
+    assert "+Int -2" in ask and "-1 clumsy Plate" in ask

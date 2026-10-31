@@ -386,7 +386,18 @@ carry their book stats; anything else is carried with no rules. `trade.py`: buy 
 price (refused if unaffordable), sell at half or less (the model may offer less, never
 more), coin bounded per call. `healing.py`: a potion heals 10 and is gone; bandages heal
 someone else 4 and poultices anyone 7, spending counted uses, and both are refused while
-creatures stand.
+creatures stand; a potion's `cure` removes a debility instead. `sheets.clumsy` names a
+clumsy item worn by anyone but a Fighter or Paladin (Armored), and every roll takes -1 for it.
+
+**Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
+trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --
+modified by its bestiary tags (hoarder, magical, divine, planar) and the model's flags (far
+from home, lord, ancient), reads the book's 1-18 table through `Director.dice`; every amount
+is rolled, "roll again" chains up to `MAX_REROLLS`. Coins and valuables (gear entries with a
+`value`, which `trade.sell` pays in full) go onto the finder's sheet; the rest comes back
+as `you_decide`, with three of the book's magic items (`data/magic_items.json`) as ideas
+when something magical turned up. `MONSTER_LOOTED` marks an instance searched, journalled
+before the sheet so the first undo returns the coins.
 
 ### 6.5 Monsters and damage
 
@@ -846,7 +857,8 @@ mapping to store mutations or Director calls:
 - **Fronts:** `create_front`, `advance_portent`, `end_danger`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
-- **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
+- **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`,
+  `roll_treasure`.
 - **World:** `advance_time`, `set_scene`, `upsert_npc`, `record_note`.
 
 Rejections are reported back (`ok: false` with the reason), so the model narrates what
@@ -864,6 +876,7 @@ src/gary/
   sheets.py        sheets, the creation Draft, XP lines, alignment                  §6.3
   gear.py          class gear, signature weapon, equipment lookup                   §6.4
   trade.py         give/take/buy/sell on the sheet                                  §6.4
+  treasure.py      the book's treasure table; magic items as ideas                  §6.4
   healing.py       potions, bandages, poultices                                     §6.4
   monsters.py      bestiary lookup, homebrew checks, instances                      §6.5
   damage.py        damage expressions, armor, severity                              §6.5

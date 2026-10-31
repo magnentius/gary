@@ -87,3 +87,15 @@ def test_a_spent_use_does_not_break_armor_or_weapons_afterwards():
     sheet, _, _, _ = healing.use(sheet, "bandages", KETHRA, fighting=False)
     assert armor_of(sheet["gear"]) == 1
     assert weapon_for(sheet["gear"], ranged=False, ammo=0).name == "Mace"
+
+
+def test_a_healing_potion_can_remove_a_debility_instead():
+    from gary import healing
+
+    dorn = {"name": "Dorn", "hp": 5, "max_hp": 20, "debilities": ["weak", "sick"],
+            "gear": [{"name": "Healing potion", "tags": [], "weight": 0}]}
+    user, patient, healed, _ = healing.use(dorn, "healing potion", None, fighting=True, cure="Weak")
+    assert healed == 0 and patient["hp"] == 5 and patient["debilities"] == ["sick"]
+    assert user["gear"] == [] and user["debilities"] == ["sick"]
+    with pytest.raises(healing.HealingError, match="is not shaky"):
+        healing.use(dorn, "healing potion", None, fighting=True, cure="shaky")

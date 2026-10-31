@@ -1,9 +1,8 @@
 """Healing items: what using one does (Dungeon World, "Dungeon Gear").
 
 From the book's own descriptions:
-- **Healing potion.** Whoever drinks it heals 10 (or removes a debility -- debilities are
-  not tracked, so 10 HP). Yours to drink, or to pour down a fallen friend's throat. Gone
-  once drunk.
+- **Healing potion.** Whoever drinks it heals 10, or removes a debility instead (``cure``).
+  Yours to drink, or to pour down a fallen friend's throat. Gone once drunk.
 - **Bandages.** A few minutes binding *someone else's* wounds: heal them 4, spend a use.
 - **Poultices and herbs.** Carefully treating anyone's wounds: heal them 7, spend a use.
 
@@ -49,11 +48,13 @@ def _uses(item: Dict[str, Any]) -> int:
 
 
 def use(
-    user: Dict[str, Any], item_name: str, target: Optional[Dict[str, Any]], fighting: bool
+    user: Dict[str, Any], item_name: str, target: Optional[Dict[str, Any]], fighting: bool,
+    cure: str = "",
 ) -> Tuple[Dict[str, Any], Dict[str, Any], int, str]:
     """Use a healing item. Returns (user's new sheet, target's new sheet, HP healed, the
     remedy's name). ``target`` is None for "on themselves"; ``fighting`` is whether
-    creatures are still standing."""
+    creatures are still standing; ``cure`` is a debility a potion removes instead of
+    healing."""
     wanted, known = item_for(item_name)
     remedy = REMEDIES.get(wanted.name) if known else None
     if remedy is None:
@@ -75,7 +76,13 @@ def use(
     patient = user if on_self else target
     if patient.get("dead"):
         raise HealingError(f"{patient['name']} is dead.")
-    healed = max(0, min(remedy.heals, int(patient["max_hp"]) - int(patient["hp"])))
+    cure = str(cure or "").strip().lower()
+    if cure:
+        if wanted.name != "Healing Potion":
+            raise HealingError(f"Only a healing potion removes a debility; {wanted.name.lower()} heal HP.")
+        if cure not in (patient.get("debilities") or ()):
+            raise HealingError(f"{patient['name']} is not {cure}.")
+    healed = 0 if cure else max(0, min(remedy.heals, int(patient["max_hp"]) - int(patient["hp"])))
 
     item = dict(gear[index])
     left = _uses(item) - 1
@@ -85,7 +92,10 @@ def use(
         gear[index] = {**item, "uses": left}
     new_user = {**user, "gear": gear}
     new_patient = {**patient, "hp": int(patient["hp"]) + healed}
+    if cure:
+        new_patient["debilities"] = [d for d in patient["debilities"] if d != cure]
     if on_self:
-        new_user = {**new_user, "hp": new_patient["hp"]}
+        new_user = {**new_user, "hp": new_patient["hp"],
+                    **({"debilities": new_patient["debilities"]} if cure else {})}
         new_patient = new_user
     return new_user, new_patient, healed, wanted.name

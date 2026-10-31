@@ -641,6 +641,22 @@ def _h_monster_hp(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_monster_looted(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the instance name; payload {"looted": bool}. Its treasure has been
+    rolled, so it is not rolled twice. Undone by putting the flag back."""
+    record = store._state.setdefault("monsters", {}).get(m.target)
+    if record is None:
+        raise StateError(f"no creature named {m.target!r} in this scene")
+    before = bool(record.get("looted"))
+    record["looted"] = bool(m.payload.get("looted", True))
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.MONSTER_LOOTED, m.target, {"looted": before}),
+        before=before,
+        after=record["looted"],
+    )
+
+
 def _h_front(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """payload {"front": record}, or {"front": None} to drop it. Undone by putting back what
     was there -- a portent ticked off comes un-ticked."""
@@ -728,4 +744,5 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.MONSTERS_ADD: _h_monsters_add,
     MutationKind.MONSTERS_REMOVE: _h_monsters_remove,
     MutationKind.MONSTER_HP: _h_monster_hp,
+    MutationKind.MONSTER_LOOTED: _h_monster_looted,
 }

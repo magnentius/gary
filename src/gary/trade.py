@@ -157,7 +157,16 @@ def sell(sheet: Dict[str, Any], name: str, offer: int = None) -> Tuple[Dict[str,
     book does not price sells for what the model offers, up to a cap. Returns (new sheet,
     item name, coins paid)."""
     _, item_name = _quantity(name)
+    carried = next((g for g in sheet.get("gear") or () if g["name"].lower() == item_name.strip().lower()), None)
     price = price_of(item_name)
+    if carried is not None and carried.get("value"):
+        # A found valuable -- a gem, a crown -- is worth what the treasure roll said, in full.
+        worth = int(carried["value"])
+        paid = worth if offer is None else max(0, min(int(offer), worth))
+        gear = list(sheet["gear"])
+        gear.remove(carried)
+        ammo, rations, coins = _counts(sheet)
+        return _recount(sheet, gear, ammo, rations, coins + paid), carried["name"], paid
     if price is not None:
         fair = price // 2
         paid = fair if offer is None else max(0, min(int(offer), fair))

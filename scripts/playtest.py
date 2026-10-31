@@ -145,7 +145,7 @@ SCENARIOS: Dict[str, Scenario] = {
             ("Thorin", "If one of them is pinned or knocked down, I bring my hammer down on it."),
             ("Dorn", "Are any of them still standing? I finish them off."),
         ],
-        goals={"Dorn": "Get past the ambush alive and kill or drive off every goblin.",
+        goals={"Dorn": "Get past the ambush alive and kill or drive off every goblin, then search the bodies.",
                "Thorin": "Keep Dorn alive: bless him, defend him, heal him if he is hurt."},
     ),
     "discern": Scenario(
@@ -274,14 +274,18 @@ class RecordingNarrator(GeminiNarrator):
 
     def _dispatch(self, channel_id, calls, effects):
         deferred, responses = super()._dispatch(channel_id, calls, effects)
-        answers = {getattr(r.function_response, "name", None): r.function_response.response
-                   for r in responses if getattr(r, "function_response", None)}
+        # In order per tool: two calls to one tool in a turn each get their own answer.
+        answers: Dict[str, List[Any]] = {}
+        for r in responses:
+            if getattr(r, "function_response", None):
+                answers.setdefault(r.function_response.name, []).append(r.function_response.response)
         for call in calls:
             args = dict(call.args or {})
             self.report.tool_calls[call.name] = self.report.tool_calls.get(call.name, 0) + 1
             if call.name == "make_move" and args.get("forward"):
                 self.report.forwards_used += 1
-            answer = answers.get(call.name)
+            queue = answers.get(call.name) or []
+            answer = queue.pop(0) if queue else None
             shown = json.dumps(args, ensure_ascii=False)
             self.report.say(f"  🔧 `{call.name}` {shown}" + (f" → `{json.dumps(answer, ensure_ascii=False)[:300]}`"
                                                            if answer is not None else " (deferred)"))

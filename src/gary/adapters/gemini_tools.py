@@ -47,6 +47,7 @@ SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
+TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
 BOLSTER = "bolster"
 CREATE_FRONT = "create_front"
@@ -484,6 +485,29 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         ),
     ),
     types.FunctionDeclaration(
+        name=TREASURE,
+        description=(
+            "Someone searches a creature's belongings or lair and it has gathered some wealth: "
+            "roll its treasure by the book. Gary rolls its damage die (twice for a hoarder, +1d4 "
+            "for a lord over others or something ancient) and every amount, gives the coins and "
+            "valuables to the finder, and tells you what else turned up for you to name and "
+            "describe -- with a few of the book's magic items as ideas if something magical did. "
+            "Once per creature. Not every creature carries anything: a wolf has no purse."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "finder": _s(type=_STRING, description="The character who searches and takes it."),
+                "creature": _s(type=_STRING, description="A creature in the scene by name ('Orc 2', even "
+                                                         "defeated), or a bestiary kind ('Dragon') for a lair."),
+                "far_from_home": _s(type=types.Type.BOOLEAN, description="It is far from home: at least one ration."),
+                "lord": _s(type=types.Type.BOOLEAN, description="It is a lord over others: +1d4."),
+                "ancient": _s(type=types.Type.BOOLEAN, description="It is ancient and noteworthy: +1d4."),
+            },
+            required=["finder", "creature"],
+        ),
+    ),
+    types.FunctionDeclaration(
         name=HIRE,
         description=(
             "Someone joins a character as a hireling, after a recruit roll or a deal in the fiction. "
@@ -646,7 +670,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=USE_ITEM,
         description=(
             "Someone uses a healing item. A healing potion heals whoever drinks it 10 -- "
-            "their own, or poured down a friend's throat (target). Bandages heal someone "
+            "their own, or poured down a friend's throat (target) -- or, if they choose, "
+            "removes one debility instead (cure). Bandages heal someone "
             "ELSE 4; poultices and herbs heal anyone 7; both spend a use, and both are slow, "
             "so not while creatures are still standing. The rules engine applies it and "
             "tells you what was healed; narrate that."
@@ -657,6 +682,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "actor": _s(type=_STRING, description="Who uses it -- whose item it is."),
                 "item": _s(type=_STRING, description="'healing potion', 'bandages', 'poultices and herbs'."),
                 "target": _s(type=_STRING, description="Who is healed, if not the actor."),
+                "cure": _s(type=_STRING, description="Healing potion only: a debility to remove instead of healing 10, e.g. 'weak'."),
             },
             required=["actor", "item"],
         ),
@@ -664,7 +690,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=GIVE_COINS,
         description=(
-            "Coin gained or lost outside a sale: treasure, a reward, a bribe, a fine. "
+            "Coin gained or lost outside a sale: a reward, a bribe, a fine, treasure you place. "
+            "A creature's own wealth is roll_treasure instead. "
             "Positive gains, negative spends. Refused if they cannot pay."
         ),
         parameters=_s(
