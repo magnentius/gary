@@ -395,7 +395,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=ADVANCE_TIME,
         description=(
-            "Advance the world clock and expire finished effects. A night's rest is 480, "
+            "Advance the world clock. A night's rest is 480 (make_camp moves it for you), "
             "and is advanced once for the whole party. Searching a room is about 10, a "
             "conversation about 5, crossing a town about 30."
         ),

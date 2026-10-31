@@ -73,3 +73,5 @@ def test_the_gm_is_told_how_to_play():
     assert "A 7-9 is a success with a cost" in text
     assert "deal_damage, not hack_and_slash" in text
     assert "Spread the spotlight" in text
+    assert "Never speak the name of your move" in text
+    assert "quest status" not in text

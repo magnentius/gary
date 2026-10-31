@@ -571,7 +571,8 @@ layers, in order:
    position in the scene summary and the books with tools. A "running the game" section,
    drawn from the fan guide, covers the conversation (threat, response, roll), clear
    threats before damage, soft and hard moves, 7–9 as success with a cost, no-roll actions,
-   and spreading the spotlight. Held under 5% of the token budget by a test.
+   and spreading the spotlight, and the book's principles (never name your move, be a fan of
+   the characters, think offscreen). Held under 7.5% of the token budget by a test.
 2. **Live state** (rebuilt per call, never carried in history) — the setting (≤600
    characters, from `?dm setting`), date and time, scene, the party with each sheet line
    (stats, HP, armor, weapons, XP, shape), what they carry, their spells, companion and

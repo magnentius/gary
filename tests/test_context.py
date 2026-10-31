@@ -230,13 +230,15 @@ def test_persona_stays_a_small_fraction_of_the_budget():
 
     It doubled in a single day of tuning (1798 -> 3564 chars) and only announced itself by
     breaking an unrelated budget test. §13 (7) asks for per-turn spend to be instrumented;
-    until it is, this is the tripwire.
+    until it is, this is the tripwire. Raised from 5% to 7.5% on 2026-10-30, deliberately,
+    to make room for how a Dungeon World GM plays -- not for more tool notes, which belong in
+    the tools' own descriptions.
     """
     from gary.context import CHARS_PER_TOKEN, DEFAULT_TOKEN_BUDGET
 
     approx_tokens = len(DM_SYSTEM_INSTRUCTION) / CHARS_PER_TOKEN
-    assert approx_tokens < DEFAULT_TOKEN_BUDGET * 0.05, (
-        f"persona is {approx_tokens:.0f} tokens, over 5% of the {DEFAULT_TOKEN_BUDGET}-token "
+    assert approx_tokens < DEFAULT_TOKEN_BUDGET * 0.075, (
+        f"persona is {approx_tokens:.0f} tokens, over 7.5% of the {DEFAULT_TOKEN_BUDGET}-token "
         "budget on every single turn — trim it or raise the budget deliberately"
     )
 
