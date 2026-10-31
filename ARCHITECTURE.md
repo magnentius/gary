@@ -460,7 +460,17 @@ defender's click lands it — redirected, halved, with the defender striking bac
 level, or as rolled — spends one hold (clearing the defense at 0) and tells the model as a
 rules event. Expiry spends nothing. Make Camp ends every defense.
 
-### 6.9 Camp, XP and advancement
+### 6.9 Forward
+
+`sheet["forwards"]` holds `{amount, reason}` (or `{damage, reason}`: Arcane Art's +1d4). Moves
+that grant them do it in `_forwards_from` (Discern Realities, Take Watch, I Am the Law,
+Backstab's advantage, Arcane Art) and Defend's "open the attacker up" in `_spend_defence`;
+the model adds its own with the `forward` tool. A roll forward is spent only when the model
+calls a move with `forward=true` -- the book's conditions are fiction, so the model judges
+them -- and is summed into the committed modifier; a damage forward goes on the next damage
+roll. Make Camp, Recover and setting out on a journey clear them.
+
+### 6.10 Camp, XP and advancement
 
 - **Make Camp** — one call for the party: a counted ration each; on a quiet night everyone
   who ate heals half max HP and the clock moves eight hours once. If something approaches,
@@ -780,7 +790,7 @@ mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
-- **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
+- **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -807,9 +817,9 @@ src/gary/
   class_moves.py   class move texts, kinds, the model's class moves block           §6.2
   spells.py        spell lists, caster state, Preparation                           §6.6
   companion.py     animal companion and Command                                     §6.7
-  levelling.py     Level Up                                                         §6.9
+  levelling.py     Level Up                                                         §6.10
   choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
-  bonds.py         bonds and +Bond                                                  §6.9
+  bonds.py         bonds and +Bond                                                  §6.10
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
   ports.py         Narrator / transport / Dice seams, EchoNarrator, ScriptedDice    §12.2
   config.py        boot-time settings, fail-fast validation                         §12.5
@@ -829,9 +839,9 @@ src/gary/
     creator.py     ?dm new / gear / alignment / choices forms                       §6.3
     spellbook.py   Choose spells                                                    §6.6
     companion_form.py  ?dm companion                                                §6.7
-    levelup.py     ?dm levelup                                                      §6.9
-    bonds_form.py  ?dm bonds                                                        §6.9
-    session.py     ?dm endsession                                                   §6.9
+    levelup.py     ?dm levelup                                                      §6.10
+    bonds_form.py  ?dm bonds                                                        §6.10
+    session.py     ?dm endsession                                                   §6.10
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6
 scripts/extract_dw_*.py   XML → data/*.json                                         §6.1

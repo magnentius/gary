@@ -404,6 +404,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.FORWARD:
+                fwd_effects, result = self._director.give_forward(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    amount=int(args.get("amount") or 0), reason=str(args.get("reason", "") or ""))
+                effects.extend(fwd_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.DEBILITY:
                 debility_effects, result = self._director.debility(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -508,6 +516,7 @@ class GeminiNarrator:
             spell=str(args.get("spell", "") or ""),
             companion=bool(args.get("companion")),
             coins=int(args.get("coins") or 0),
+            forward=bool(args.get("forward")),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:

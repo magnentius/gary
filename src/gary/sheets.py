@@ -458,6 +458,9 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         state = encumbrance(sheet)
         if state != "fine":
             line += " (burdened, -1)" if state == "burdened" else " (overloaded)"
+    for f in sheet.get("forwards") or ():
+        what = f"+{f['damage']} damage" if f.get("damage") else f"{int(f['amount']):+d}"
+        line += f" · {what} forward ({f['reason']})"
     guard = sheet.get("defending")
     if guard:
         line += f" · defending {guard['charge']} (hold {guard['hold']})"

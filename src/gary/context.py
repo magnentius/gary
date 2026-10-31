@@ -72,6 +72,8 @@ RUNNING THE GAME:
 - Not every action is a move: when the fiction allows it, it just happens. Striking a
   helpless, surprised or pinned enemy is deal_damage, not hack_and_slash. Creatures
   striking one character at once are one monster_attacks with the rest in also.
+- Forwards wait on the sheet with what they are for. When a move acts on one, set
+  forward=true; give or take one with the forward tool when the fiction earns it.
 - Spread the spotlight: when one moment resolves, shift a threat to another character.
   There are no turns. Address characters, not players; ask how they do things and use the
   answers. Leave blanks in the world and play to find out what happens.

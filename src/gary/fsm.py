@@ -311,6 +311,7 @@ class Director:
         spell: str = "",
         companion: bool = False,
         coins: int = 0,
+        forward: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -368,7 +369,17 @@ class Director:
                 )]
 
         if rules.stat == CASTER:
-            return self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
+            cast = self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
+            if forward and any(isinstance(e, SendMessage) and isinstance(e.prompt, RollPrompt) for e in cast):
+                # Fixed after the fact on the committed check, so the cast's own checks run first.
+                held, spend = self._forward(channel_id, actor)
+                if held:
+                    check = next(c for c in self.registry.open_checks(channel_id) if c.user_id == user_id)
+                    self.registry.hold(check, modifier=check.modifier + held)
+                    cast = [e if not (isinstance(e, SendMessage) and isinstance(e.prompt, RollPrompt))
+                            else replace(e, text=e.text.rstrip(".") + f" ({held:+d} forward).") for e in cast]
+                    return [*spend, *cast]
+            return cast
         if rules.key == "carouse":
             return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds)
 
@@ -501,6 +512,10 @@ class Director:
         if burden:
             mod -= 1
             notes.append("-1 encumbered")
+        held, spend = self._forward(channel_id, actor) if forward else (0, [])
+        if held:
+            mod += held
+            notes.append(f"{held:+d} forward")
         pet = ""
         if companion and self._sheet_for is not None:
             sheet = self._sheet_for(actor) or {}
@@ -519,9 +534,9 @@ class Director:
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
               else f" into a {target}" if rules.names_form else f" {target}" if rules.defends
               else f" at {target}") if target else ""
-        return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
-                          ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
-                          notes, companion=pet, overloaded=burden == "overloaded")
+        return [*spend, *self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
+                                    ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
+                                    notes, companion=pet, overloaded=burden == "overloaded")]
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
@@ -744,6 +759,47 @@ class Director:
                 out.append((actor, sheet))
         return out
 
+    def _forward(self, channel_id: int, actor: str) -> Tuple[int, List[Effect]]:
+        """The roll forwards this character holds, summed, and the effect spending them. The
+        model says they apply (make_move forward=true); Gary adds them and they are gone."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        held = [f for f in (sheet or {}).get("forwards") or () if not f.get("damage")]
+        if not held:
+            return 0, []
+        left = [f for f in sheet["forwards"] if f.get("damage")]
+        return sum(int(f["amount"]) for f in held), [UpdateSheet(channel_id, actor, {"forwards": left})]
+
+    def _grant(self, channel_id: int, actor: str, reason: str, amount: int = 1,
+               damage: str = "") -> List[Effect]:
+        """Give a character a forward: +1 (or -1) to a later roll, or extra damage dice."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        if sheet is None:
+            return []
+        entry = {"damage": damage, "reason": reason} if damage else {"amount": amount, "reason": reason}
+        what = f"+{damage} damage" if damage else f"{amount:+d}"
+        return [SendMessage(channel_id, f"➕ **{actor}** takes {what} forward — {reason}."),
+                UpdateSheet(channel_id, actor, {"forwards": [*(sheet.get("forwards") or []), entry]})]
+
+    def _forwards_from(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """The forwards a move's result grants, as the book writes them."""
+        b = band(dice)
+        rules = MOVES[check.move].band(b)
+        picked = [rules.choice.options[p].text for p in check.picks] if rules.choice else []
+        actor = check.actor
+        if check.move == "discern_realities" and b != "miss":
+            return self._grant(channel_id, actor, "when acting on what Discern Realities showed")
+        if check.move == "i_am_the_law" and b == "strong":
+            return self._grant(channel_id, actor, "against the one they gave the order")
+        if check.move == "i_am_the_law" and b == "miss":
+            return self._grant(channel_id, actor, "against the one who defied their order", amount=-1)
+        if check.move == "take_watch" and b == "strong":
+            return [e for a, _ in self._party() for e in self._grant(channel_id, a, "the camp was ready")]
+        if check.move == "backstab" and any(t.startswith("You create an advantage") for t in picked):
+            return self._grant(channel_id, actor, "acting on the advantage Backstab made")
+        if check.move == "arcane_art" and any(t.startswith("+1d4 forward") for t in picked):
+            return self._grant(channel_id, check.target or actor, "Arcane Art", damage="1d4")
+        return []
+
     def _blessed(self, actor: str) -> bool:
         """Bless: "+1 ongoing so long as battle continues" -- while creatures stand."""
         if not any(r["hp"] > 0 for r in self._monsters().values()):
@@ -876,9 +932,10 @@ class Director:
         cast, spell = self._cast(channel_id, check, dice)
         shift, shape = self._shift(channel_id, check, dice)
         guard = self._guard(channel_id, check, dice)
+        ahead = self._forwards_from(channel_id, check, dice)
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
                           healing=self._healing(check, dice), spell=spell, shape=shape)
-        return [*self._consequences(channel_id, outcome), *cast, *shift, *guard,
+        return [*self._consequences(channel_id, outcome), *cast, *shift, *guard, *ahead,
                 *self._resolved(channel_id, outcome)]
 
     def _guard(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
@@ -1207,6 +1264,15 @@ class Director:
             ferocity = self._ferocity(check)
             if ferocity:
                 total, shown = total + ferocity, f"{shown}, +{ferocity} {check.companion} = {total + ferocity}"
+            # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
+            sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
+            boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
+            for boost in boosts:
+                extra = self.dice.roll(boost["damage"]).total
+                total, shown = total + extra, f"{shown}, +{boost['damage']} forward: {extra} = {total + extra}"
+            if boosts:
+                effects.append(UpdateSheet(channel_id, check.actor, {
+                    "forwards": [f for f in sheet["forwards"] if not f.get("damage")]}))
         line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {shown}"
         hits = []
         for name in check.target.split(", ") if spell is not None and spell.area else [check.target]:
@@ -1220,6 +1286,7 @@ class Director:
         effects.extend(self._spend_ammo(channel_id, check, dice))
         cast, spell_facts = self._cast(channel_id, check, dice)
         effects.extend(cast)
+        effects.extend(self._forwards_from(channel_id, check, dice))
         dying: List[Effect] = []
         if spell is not None and spell.self_damage:
             # Harm: "...and 1d6 damage to yourself. This damage ignores armor."
@@ -1474,6 +1541,8 @@ class Director:
             victim = defender
         elif choice.startswith("Halve"):
             halve = True
+        elif choice.startswith("Open the attacker up") and normalize_actor(character) != normalize_actor(defender):
+            effects += self._grant(channel_id, character, f"against {name}, opened up by {defender}")
         elif choice.startswith("Deal damage") and creature is not None:
             level = int(sheet.get("level", 1))
             dealt = damage.through_armor(level, creature["armor"])
@@ -1696,6 +1765,8 @@ class Director:
             changes: Dict[str, Any] = {}
             if sheet.get("defending"):
                 changes["defending"] = None  # nobody stands in defense through the night
+            if sheet.get("forwards"):
+                changes["forwards"] = []  # a forward is for the scene it came from
             fed = True
             sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
             if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
@@ -1872,7 +1943,8 @@ class Director:
             used = min(have, days)
             spent[actor] = {"rations_used": used, "rations_left": have - used,
                             "short": days - used}
-            effects.append(UpdateSheet(channel_id, actor, {"rations": have - used}))
+            effects.append(UpdateSheet(channel_id, actor, {"rations": have - used,
+                                                           **({"forwards": []} if sheet.get("forwards") else {})}))
             lines.append(f"**{actor}** packs {used} ration{'s' if used != 1 else ''}"
                          + (f" — {days - used} short." if used < days else f" ({have - used} left)."))
         unfilled = [j for j in ("trailblazer", "scout", "quartermaster") if j not in jobs]
@@ -1925,6 +1997,8 @@ class Director:
         report: Dict[str, Any] = {}
         for actor, sheet in party:
             changes: Dict[str, Any] = {"hp": int(sheet["max_hp"])}
+            if sheet.get("forwards"):
+                changes["forwards"] = []  # a forward is for the scene it came from
             have = list(sheet.get("debilities") or [])
             cures = days // per + int(sheet.get("cures_owed", 0))
             entry: Dict[str, Any] = {"hp": int(sheet["max_hp"])}
@@ -1963,6 +2037,24 @@ class Director:
             SendMessage(channel_id, f"🩹 **{actor}** is no longer {debility.title()}."),
             UpdateSheet(channel_id, actor, {"debilities": have, "cures_owed": owed if have else 0}),
         ]
+
+    # -- forwards ---------------------------------------------------------------------------------
+
+    def give_forward(
+        self, *, channel_id: int, character: str, amount: int = 1, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The model gives (or takes) a forward as a GM move or for a 7-9's price: "you're off
+        balance, -1 forward". It waits until a move the model flags forward=true."""
+        actor = self._character(character)
+        if actor is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        amount = int(amount or 0)
+        if amount not in (-2, -1, 1, 2):
+            return [], {"ok": False, "error": "A forward is +1 or -1 (at most 2 either way)."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say what it is for (reason): when it applies."}
+        return self._grant(channel_id, actor, reason, amount=amount), {"ok": True, "forward": amount}
 
     # -- debilities -----------------------------------------------------------------------------
 

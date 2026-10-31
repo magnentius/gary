@@ -383,6 +383,13 @@ that far. A day heals everyone resting to full; every three days clears a debili
 two under a healer), and when there are more debilities than the rest clears, you pick
 which with buttons only you can press.
 
+**Forward.** "+1 forward" waits on your sheet with what it's for ("when acting on what
+Discern Realities showed", "against the ogre") until the GM says a move acts on it — then
+it's added and spent ("roll +Str +1 (+1 forward)"). Discern Realities, Take Watch, I Am the
+Law, Backstab's advantage, Defend's "open the attacker up" and Arcane Art's +1d4 damage grant
+them; the GM gives or takes them as the fiction earns it. They expire at camp, rest or the
+start of a journey.
+
 **Packs and free blows.** When several creatures strike one character at once, the GM
 rolls them as one blow — the biggest damage die among them, once per attacker, the highest
 counting — so a pack is dangerous without being certain death. And when the fiction hands

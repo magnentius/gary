@@ -45,6 +45,7 @@ END_SPELL = "end_spell"
 FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
+FORWARD = "forward"
 RECOVER = "recover"
 PERILOUS_JOURNEY = "perilous_journey"
 USE_POISON = "use_poison"
@@ -103,6 +104,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "Fireball every creature caught in it, comma-separated), or the "
                         "character a healing spell or Bless is cast on. For shapeshifter: the "
                         "species to become ('bear', 'hawk'). Omit otherwise."
+                    ),
+                ),
+                "forward": _s(
+                    type=types.Type.BOOLEAN,
+                    description=(
+                        "True when this move acts on a forward the character holds (the state lists "
+                        "them with what they are for: 'when acting on what Discern Realities showed', "
+                        "'against the ogre'). Gary adds it and it is spent. Omit when this move is not "
+                        "what the forward was for."
                     ),
                 ),
                 "coins": _s(
@@ -345,6 +355,24 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Who rests. Omit for the whole party."),
             },
             required=["days", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=FORWARD,
+        description=(
+            "Give a character +1 forward, or -1 forward, as the fiction earns it: a 7-9's price "
+            "('you're off balance'), a GM move, an advantage you grant. It waits on their sheet, "
+            "with what it is for, until a move you flag forward=true. Moves that grant forwards "
+            "themselves (Discern Realities, Take Watch, I Am the Law...) do it for you."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "amount": _s(type=_INTEGER, description="+1 or -1 (at most 2 either way)."),
+                "reason": _s(type=_STRING, description="When it applies, e.g. 'against the troll'."),
+            },
+            required=["character", "amount", "reason"],
         ),
     ),
     types.FunctionDeclaration(
