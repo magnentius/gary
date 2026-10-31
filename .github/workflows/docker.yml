@@ -87,15 +87,22 @@ jobs:
           from gary.gear import EQUIPMENT
           from gary.class_moves import TEXTS
           from gary.spells import SPELLS
+          from gary.compendium import CLASSES as COMPENDIUM
+          from gary.treasure import MAGIC_ITEMS
+          from gary.npcs import INSTINCTS, KNACKS
           from gary.ports import RandomDice
           assert len(CLASSES) == 8, f'class data missing: {sorted(CLASSES)}'
           assert len(BESTIARY) == 154, f'monster data missing: {len(BESTIARY)}'
           assert len(EQUIPMENT) == 45, f'equipment data missing: {len(EQUIPMENT)}'
           assert len(TEXTS) == 8, f'class move data missing: {sorted(TEXTS)}'
           assert [len(SPELLS[c]) for c in ('cleric', 'wizard')] == [33, 30], 'spell data missing'
+          assert len(COMPENDIUM) == 8, f'compendium data missing: {sorted(COMPENDIUM)}'
+          assert len(MAGIC_ITEMS) == 39, f'magic item data missing: {len(MAGIC_ITEMS)}'
+          assert (len(INSTINCTS), len(KNACKS)) == (100, 100), 'instant NPC data missing'
           roll = RandomDice().roll('2d6')
           assert 2 <= roll.total <= 12, roll
-          print('ok: adapters import, 8 classes, 154 monsters, 45 items, 63 spells, dice roll', roll.render())
+          print('ok: adapters import, 8 classes, 154 monsters, 45 items, 63 spells, 8 compendium classes,',
+                '39 magic items, NPC tables, dice roll', roll.render())
           "
           # Config validation must fail fast and by name, not hang holding a token.
           docker run --rm gary:ci 2>&1 | grep -q 'DISCORD_TOKEN is empty'
