@@ -357,20 +357,16 @@ __Opening a campaign__
 `{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
 
 __At the table__
-`{p}new` — make a character (a private form; it is yours to roll for)
+`{p}new` — make a character (a private form)
 `{p}sheet` — your character's sheet
-`{p}gear` — choose starting gear for a character made before gear existed
-`{p}spells` — a Cleric's or Wizard's spells, and choosing them the first time
-`{p}endsession` — the end-of-session questions; the table answers, everyone gets the XP
-`{p}levelup` — spend your XP on a level, in downtime (a private form)
-`{p}bonds` — write your bonds with the other characters (a private form)
-`{p}alignment` — choose your alignment, for a character made before alignments existed
-`{p}companion` — a Ranger's animal companion (a private form)
-`{p}choices` — your class's creation choices (deity, land, lore, poison…), for a character made before them
-`{p}fronts` — the threats the GM is tracking, shown only to whoever asks (spoilers)
+`{p}spells` · `{p}bonds` · `{p}companion` — spells, bonds, a Ranger's companion
+`{p}alignment` · `{p}choices` · `{p}gear` — for a character made before these existed
+`{p}levelup` — spend XP on a level, in downtime
+`{p}endsession` — the end-of-session questions and XP
+`{p}fronts` — the GM's threats, shown privately (spoilers)
+`{p}dice` · `{p}dice <character>` — the dice so far, against fair 2d6
 `{p}playing <character name>` — claim a character someone else made
-`{p}checks` — what Gary is waiting to be rolled
-`{p}cancel` — drop your own pending check
+`{p}checks` · `{p}cancel` — what Gary is waiting on; drop your own
 `{p}undo` — reverse the last change to the world
 
 __Looking in__
@@ -1367,6 +1363,13 @@ class GaryClient(discord.Client):
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
             )
             view.message = await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "dice":
+            from ..dicestats import summary
+
+            who = body[len("dice"):].strip() or None
+            await self.sender.send(channel_id, summary(self.store.journal(), who))
             return
 
         if command == "fronts":
