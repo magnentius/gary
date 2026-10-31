@@ -37,7 +37,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 
 | | |
 |---|---|
-| **A Discord bot token** | With the **Message Content privileged intent enabled** in the Developer Portal. |
+| **A Discord bot token** | With the **Message Content privileged intent enabled** in the Developer Portal, and the bot invited with both the `bot` and `applications.commands` scopes (the second is what makes `/sheet`, `/new` and the rest appear). |
 | **A channel id** | Right-click the channel → Copy Channel ID (needs Developer Mode on). |
 | **Python 3.11+** | `pyproject.toml` requires it. Developed on 3.12. |
 | **A Gemini API key** | Optional at first. Without one Gary runs on `EchoNarrator` and spends nothing. |
@@ -801,9 +801,16 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 
 ## `?dm` command reference
 
-`?dm help` prints this in the channel. So does `?dm` on its own, and any command Gary does
-not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not start with
-`!`, which most other bots claim.
+**Every command here is also a slash command** — type `/` in a game channel and pick
+Gary's: `/sheet`, `/new`, `/scene location: summary:`, `/dice character:` and so on, with
+Discord filling in the options (and character names). Four answer only you: `/new` opens
+the character form, `/sheet` your sheet and its buttons, `/fronts` the GM's threats, and
+`/help` the list. They register in each server Gary plays in when it connects; if they don't
+appear, re-invite Gary with the `applications.commands` scope.
+
+The typed `?dm` forms below work too. `?dm help` prints them in the channel; so does `?dm`
+on its own, and any command Gary does not recognise. The prefix is configurable
+(`GARY_COMMAND_PREFIX`); it may not start with `!`, which most other bots claim.
 
 ### Opening a campaign
 

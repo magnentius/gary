@@ -408,7 +408,7 @@ class DiscordTransport:
 #: Grouped by the moment you need them, because the commands that matter are not the
 #: ones used most often -- they are the four that open a campaign, and a DM meeting Gary
 #: for the first time has no way to tell those apart from the ones for mid-session repair.
-HELP = """**Gary — `{bare}` commands**
+HELP = """**Gary — `{bare}` commands** · every one is also a slash command: type `/`
 
 __Opening a campaign__
 `{p}import` *(attach a `.md` or `.txt`)* — read a whole setting document and file its people as NPCs, its places, factions and lore as notes
@@ -497,9 +497,18 @@ class GaryClient(discord.Client):
         self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton, AcceptButton,
                                DropButton, FailButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
+        from .slash import register
+
+        self.tree = register(self)
+        self._slash_synced = False
 
     async def on_ready(self) -> None:
         log.info("connected as %s (%s)", self.user, getattr(self.user, "id", "?"))
+        if not getattr(self, "_slash_synced", True):
+            from .slash import sync
+
+            self._slash_synced = True
+            await sync(self)
         log.info(
             "watching %d channel(s); %d pending check(s) restored",
             len(self.settings.game_channels),
@@ -625,6 +634,18 @@ class GaryClient(discord.Client):
         campaign's suggestions away from perfectly good ground."""
         self._pending_proposals.pop((channel_id, kind), None)
         self._declined_proposals.pop((channel_id, kind), None)
+
+    def _fronts_text(self) -> str:
+        """Every front, for the DM's eyes only -- or that there are none yet."""
+        from .. import fronts
+
+        known = self.store.state().get("fronts") or {}
+        if not known:
+            return "No fronts yet: the GM writes them as threats take shape."
+        text = "\n\n".join(fronts.describe(f) for f in known.values())
+        if len(text) > 1900:
+            text = text[:1900].rsplit("\n", 1)[0] + "\n…"
+        return text
 
     def _stats_line(self) -> str:
         """Since Gary started: messages sent, turns narrated, model failures, moves journalled."""
@@ -1102,14 +1123,18 @@ class GaryClient(discord.Client):
                 out["levelup"] = str(exc)
         return out
 
-    async def _sheet_hub(self, message, channel_id: int, prefix: str, only: Optional[str] = None) -> None:
+    async def _sheet_hub(self, message, channel_id: int, prefix: str, only: Optional[str] = None,
+                         reply=None) -> None:
         """`?dm sheet`: the sheet, with a button for everything this character can open --
         spells, companion, bonds, alignment, class choices, gear, a level. `?dm spells` and
         the rest are the same buttons one at a time, kept for habit's sake."""
         actor = self.director.players.get(message.author.id)
         sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
         if sheet is None:
-            await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+            if reply is not None:
+                await reply("You have no sheet yet. `/new` makes one.", None)
+            else:
+                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
             return
         actions = self._sheet_actions(channel_id, message.author.id, actor, sheet, prefix)
         if only is not None:
@@ -1143,7 +1168,7 @@ class GaryClient(discord.Client):
 
             button.callback = clicked
             view.add_item(button)
-        await message.channel.send(text, view=view if buttons else None)
+        await (reply or (lambda t, v: message.channel.send(t, view=v)))(text, view if buttons else None)
 
     async def _private_button(self, message, text: str, label: str, emoji: str, form, prompt: str) -> None:
         """Post a button only the asker can use, opening ``form`` privately. A typed command
@@ -1563,15 +1588,11 @@ class GaryClient(discord.Client):
             return
 
         if command == "fronts":
-            from .. import fronts
-
             known = self.store.state().get("fronts") or {}
+            text = self._fronts_text()
             if not known:
-                await self.sender.send(channel_id, "No fronts yet: the GM writes them as threats take shape.")
+                await self.sender.send(channel_id, text)
                 return
-            text = "\n\n".join(fronts.describe(f) for f in known.values())
-            if len(text) > 1900:
-                text = text[:1900].rsplit("\n", 1)[0] + "\n…"
             view = discord.ui.View(timeout=15 * 60)
             button = discord.ui.Button(label="Show fronts (only you will see them)", emoji="🗺️",
                                        style=discord.ButtonStyle.secondary)

@@ -374,7 +374,11 @@ Fighter's signature weapon in full), alignment, the class's own choices (`choice
 a Cleric's god, domain and precept; a Druid's land and tell; a Bard's lore; a Thief's
 poison; a Fighter's weapon look and an Elf's precise weapon type, read from the move
 texts), name. Creating a character also claims it
-for the creator, in the same apply. Everything else about a character opens from `?dm sheet`
+for the creator, in the same apply. (Every command is also a slash command, `adapters/slash.py`:
+each runs the `?dm` dispatcher through a stand-in message built from the interaction --
+author, channel, text, attachments -- deferring at once and removing the placeholder after;
+`/new`, `/sheet`, `/fronts` and `/help` answer ephemerally instead. They are synced per guild
+of the game channels on connect.) Everything else about a character opens from `?dm sheet`
 (`GaryClient._sheet_hub`): `_sheet_actions` returns, per action, a button (its form built on
 click, from the sheet as it is then) or why it does not apply -- spells, companion, bonds,
 alignment, class choices, gear, level up -- and the sheet shows every button that applies.
@@ -991,6 +995,7 @@ src/gary/
     levelup.py     the sheet's Level up                                             §6.10
     bonds_form.py  the sheet's Bonds                                                §6.10
     session.py     ?dm endsession                                                   §6.10
+    slash.py       the slash commands: each through the ?dm dispatcher, four private §6.3
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6
 scripts/extract_dw_*.py   XML → data/*.json                                         §6.1
