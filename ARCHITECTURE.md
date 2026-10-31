@@ -10,6 +10,10 @@ creature, and tells the model what happened as fact. The book's text is extracte
 the authors' InDesign XML ([Sagelt/Dungeon-World](https://github.com/Sagelt/Dungeon-World),
 CC-BY 3.0); the rules structure built on it is hand-written.
 
+How to run it and the slash commands are in [`README.md`](README.md); how each rule plays at
+the table, and what stays with the GM, in [`RULES.md`](RULES.md). This document is how it is
+built and why.
+
 > **History.** v1–v2 ran D&D 5e (2024) with [Avrae](https://avrae.io) rolling dice and
 > holding sheets, and Gary parsing Avrae's embeds to resolve checks. Avrae was removed on
 > the `dungeon-world` branch: it caused most of the complexity and the open risks
@@ -319,7 +323,9 @@ persona warns about.
 `scripts/extract_dw_*.py` read the authors' XML into `src/gary/data/*.json`, each with its
 attribution and source commit: classes (8), class moves (35 starting, 18 race, 157
 advanced, bond lines and alignments), monsters (154; 142 with stats), equipment (45
-items), spells (33 Cleric, 30 Wizard). Every extractor fails loudly on anything it cannot
+items), spells (33 Cleric, 30 Wizard), magic items (39), and the Instant NPC tables (100
+instincts, 100 knacks, names). The compendium classes (8) come from the backers' Player
+Compendium PDF (CC-BY 3.0) via `pdftotext`, plus the core book's Divine Bond. Every extractor fails loudly on anything it cannot
 read, and the loaders raise at import if a file is missing, because an empty bestiary is
 indistinguishable from "everything is homebrew".
 
@@ -392,7 +398,7 @@ and held in memory: a half-made choice is cheap to start again. Each save writes
 the form changed onto the *current* sheet, so HP lost in a fight while a form was open is
 not put back.
 
-### 6.4 Gear, items, coin and healing
+### 6.4 Gear, items, coin, healing and towns
 
 `gear.py`: armor is the best worn plus shields; attack moves need a weapon whose range tags
 reach (hand/close/reach for Hack and Slash, near/far/thrown for Volley, ammo for a bow);
@@ -405,21 +411,17 @@ someone else 4 and poultices anyone 7, spending counted uses, and both are refus
 creatures stand; a potion's `cure` removes a debility instead. `sheets.clumsy` names a
 clumsy item worn by anyone but a Fighter or Paladin (Armored), and every roll takes -1 for it.
 
-**The Paladin's Quest** (`quests.py`). `start_quest` records `sheet["quest"]`: the mission
-(slay / defend / discover and its blank), up to two boons the player chose (two take a
-blank) and the vows the model names; `end_quest` clears it as fulfilled, broken or
-abandoned. Gary reads it in `advanced.py` (Smite, Holy Smite, Holy Protection, the Paladin's
-Divine Protection count only `on_quest`) and in camp and journeys (`sustenance` eats nothing).
-The other boons reach the model on the sheet line. Exterminatus: `swear_enemy` sets
-`sworn_enemy` (a creature's listed name, or a kind or NPC); `_sworn_damage` adds 2d4 against
-a target matching it by name or kind (articles ignored) and -4 against anyone else, at both
-character damage sites, and `_oath_kept` clears it when that target is defeated. A failure
-is released with `released=true` and a reason.
+**Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
+trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --
+modified by its bestiary tags (hoarder, magical, divine, planar) and the model's flags (far
+from home, lord, ancient), reads the book's 1-18 table through `Director.dice`; every amount
+is rolled, "roll again" chains up to `MAX_REROLLS`. Coins and valuables (gear entries with a
+`value`, which `trade.sell` pays in full) go onto the finder's sheet; the rest comes back
+as `you_decide`, with three of the book's magic items (`data/magic_items.json`) as ideas
+when something magical turned up. `MONSTER_LOOTED` marks an instance searched, journalled
+before the sheet so the first undo returns the coins.
 
-**Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
-rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.
-**Session questions:** `/questions` (journalled `SESSION_QUESTIONS`) replaces the book's
-three end-of-session questions with the adventure's own; `EndOfSession(questions=)` asks them.
+#### Towns
 
 **Steadings** (`steadings.py`). `create_steading` builds one from `KINDS` -- the book's
 defaults per kind, an option and a problem by number, every "your choice" filled in order
@@ -431,15 +433,29 @@ Director's `steading` callable applies Market to Supply and `recruit_bonus` to R
 Exotic, Craft, Lawless for poison) and `price_factor` (Resource half, Need double, on sale
 too). The live state lists every steading and marks the party's.
 
-**Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
-trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --
-modified by its bestiary tags (hoarder, magical, divine, planar) and the model's flags (far
-from home, lord, ancient), reads the book's 1-18 table through `Director.dice`; every amount
-is rolled, "roll again" chains up to `MAX_REROLLS`. Coins and valuables (gear entries with a
-`value`, which `trade.sell` pays in full) go onto the finder's sheet; the rest comes back
-as `you_decide`, with three of the book's magic items (`data/magic_items.json`) as ideas
-when something magical turned up. `MONSTER_LOOTED` marks an instance searched, journalled
-before the sheet so the first undo returns the coins.
+**Supply and Carouse.** Supply is a +Cha move; its result tells the model what to charge,
+and `buy(price=)` bounds it (book price to twice it; up to 500 for something unpriced).
+Carouse takes `make_move(coins=)`: whole hundreds, +1 per hundred past the first, refused
+if unaffordable; its options are the player's (three, one, and one on a miss), and the coin
+is taken when it resolves.
+
+**Hirelings.** `hirelings.py` makes them by the book (skills and ranks, loyalty, a cost, points
+by where they were found) and they live on the employer's sheet (`hirelings`), so every
+change journals as a `SHEET`. Recruit rolls `OFFERS` (+1 per offer made known, from
+`make_move(offers=)`); Order Hirelings rolls `LOYALTY` (the named hireling's, -1 while
+`unpaid`). `hire` and `update_hireling` (paid, loyalty ±1, leaves) are the model's tools;
+the rules of every skill at the table reach the model with the class moves block. Five are
+wired: Priest (`ministry` at camp; `hireling_first_aid`), Warrior and Protector as
+`make_move(aide=)` (on the `PendingCheck` as `aide`: +skill damage and the counter-attack
+taken; or +1 with the roll held to 9 by `_intervened`), Protector's Sentry as
+`monster_attacks(protector=)` (+skill armor, then `strain` until camp or Recover), Tracker
+in `perilous_journey` (every job a 10+), Minstrel as `trade.buy(discount=)`.
+
+**Outstanding Warrants and Bolster.** Outstanding Warrants is a +Cha move whose 7–9
+complication is the model's to choose. `bolster` (downtime, guarded like camp) adds 1
+preparation for a week or two of study and 3 for a month or more (`sheet["preparation"]`),
+and moves the clock a day at a time; `make_move(preparation=true)` spends one for +1, one
+per roll, on the moves that read a stat.
 
 ### 6.5 Monsters and damage
 
@@ -488,7 +504,7 @@ The Druid's Shapeshifter rolls into a named species and holds 3/2/1 (even a miss
 The model records the form's moves with `form_moves`; `spend_hold` spends one per use with
 no roll, or all to turn back, and the Druid returns to their natural form at 0.
 
-### 6.8 Debilities and Defend
+### 6.8 Debilities, Defend and encumbrance
 
 `sheet["debilities"]` holds any of weak, shaky, sick, stunned, confused, scarred;
 `sheets.stat_modifier` takes 1 off the stat each names, and every roll that reads a stat
@@ -498,50 +514,29 @@ rest, guarded like camp) heals to full and clears days // 3 debilities (// 2 wit
 healer); when that is fewer than a character has, `cures_owed` goes on the sheet and a
 durable `CureButton` per debility lets their player pick. The clock moves a day at a time.
 
+`perilous_journey` (guarded like camp) takes the destination, the expected days and up to
+three jobs, one per character. It spends a ration per traveller per day at once, and opens
+each job as a non-callable +Wis move (`journey_trailblazer`/`_scout`/`_quartermaster`)
+through `_trigger`, so each resolves alone as a rules event; a quartermaster's 10+ refunds
+one ration. Unfilled jobs count as a 6. The model moves the clock, since the trailblazer's
+10+ shortens the trip "by how much" the GM says.
+
+Defend (`defends`: the target is the charge, a character's name if it is one) puts
+`defending = {charge, hold 3/1}` on the defender's sheet. `monster_attacks` against the
+defender or their charge, while hold remains and the defender can act, rolls the damage
+and **holds** it as a non-callable move of its own (`defend_charge`, with redirect, or
+`defend_self`), its dice the creature's damage faces, so it survives a restart. The
+defender's click lands it — redirected, halved, with the defender striking back for their
+level, or as rolled — spends one hold (clearing the defense at 0) and tells the model as a
+rules event. Expiry spends nothing. Make Camp ends every defense.
+
 **Encumbrance.** `sheets.load` is the class base (`LOAD_BASE`) plus Str; `carried` sums gear
 weights and coin at 100 to the weight. One or two over load, `open_move` and casting take -1
 and say so. Past load+2 the check is opened with the -1 but posted with an `OverloadPrompt`
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
-**Setting up the next blow.** `_forwards_from` also runs `_after_hack` (any Hack and Slash:
-Duelist's Parry/Block `armor_forward`, Scent/Taste of Blood and Setup/Tandem Strike `marks`
-via `make_move(ally=)`) and `_invigorate`. `armor_forward` is added in `_attack` and spent on
-the next blow; `marks` ({target, damage, reason}) are spent by `_use_marks` at both character
-damage sites. `lead_the_charge` grants Charge!'s forward and Ever Onward's armor. Superior
-Warrior drops the counter-attack on a 12+; damage forwards may be flat ("2", Invigorate).
-
-**Situational flags.** A move that depends on the situation is told so on `make_move`
-(`weak_point`, `two_weapons`, `extra_targets`, `form_boon`, `form_plus`, `form_minus`),
-checked by `_situation` against the advanced move that grants it, and carried as the check's
-`flags`: Smaug's Belly's 2 piercing in `_damage_die`, Viper's off-hand dice and Blot Out the
-Sun's `spread` (one roll on every target, extra ammo spent up front) in `_land_damage`,
-Formshaper and Formcrafter onto the `shape` record (armor and dice in `advanced.py`, the
-stat +-1 by `_form_mod`). Balance counts up on damage dealt; `channel_balance` spends it.
-`_race_move_of` gives Half-Elven Rangers both race moves.
-
-**Notes for the model.** What an advanced move adds that Gary does not track goes on the
-result as `MoveOutcome.notes` (the model sees it as `also`): Cautious and Extremely Cautious
-on Trap Expert, the Empower family's offer on a 10+ cast (free on a 12+ with Greater).
-Impervious Defender's 12+ replaces Defend's hold in `_guard`. `_after_strike` records
-`last_struck` for Spell Augmentation, whose tool shunts an ongoing spell's level onto it.
-
-**Poison, stun, cover and the rest.** `use_poison` spends a carried dose of any equipment-list
-poison (`POISONS`) or the Thief's mastered one; on a creature Bloodweed and Serpent's Tears go
-on its record as `afflictions` (`AfflictMonster` -> `MONSTER_AFFLICT`, journalled), read by
-`_attack` (-1d4 to its damage) and `_serpents_tears` (damage against it rolled twice, better
-kept). `stun` sets `stunned`: no HP lost, and `open_move` refuses anything but Defy Danger until
-`end=true`. `monster_attacks(cover=)` adds 1-2 armor. `_hurt` adds Cloudkill's separate 1d6
-while anyone's Cloudkill runs (to every creature: Gary cannot see the fog's edge); Consume
-Unlife destroys its target and heals the caster by the HP it had left. `trade._rations_for`
-gives "Requires Dwarf" food only to Dwarves; antitoxin is handled in `use_item`.
-
-**Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
-`ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
-records the creatures standing (`battle`) and is live while any of them still stands -- the
-same trick as the Human Fighter's reroll; `until="ended"` lasts until `end=true` with its
-reason. `_ongoing` adds it in `open_move`, casting and `_trigger` (not Last Breath: "no stat
-is added"); camp drops the finished battle ones. Through Death's Eyes' miss puts one on.
+#### Damage beyond an attack
 
 **Hazards.** `hazard_damage` is damage from no creature: the model names the book's
 severity (`_HAZARDS`: bruises d4, blood d6, bones d8, lethal d10), whether it ignores armor,
@@ -560,48 +555,48 @@ is a separate `pain` flag), paying the cost on the sheet, cancelling an open Las
 and telling the model as a `rules_event`. Commune sets `intervention` hold; a spent
 companion (`companion.spent`) adds no ferocity until camp.
 
-**Outstanding Warrants and Bolster.** Outstanding Warrants is a +Cha move whose 7–9
-complication is the model's to choose. `bolster` (downtime, guarded like camp) adds 1
-preparation for a week or two of study and 3 for a month or more (`sheet["preparation"]`),
-and moves the clock a day at a time; `make_move(preparation=true)` spends one for +1, one
-per roll, on the moves that read a stat.
+**Poison, stun, cover and the rest.** `use_poison` spends a carried dose of any equipment-list
+poison (`POISONS`) or the Thief's mastered one; on a creature Bloodweed and Serpent's Tears go
+on its record as `afflictions` (`AfflictMonster` -> `MONSTER_AFFLICT`, journalled), read by
+`_attack` (-1d4 to its damage) and `_serpents_tears` (damage against it rolled twice, better
+kept). `stun` sets `stunned`: no HP lost, and `open_move` refuses anything but Defy Danger until
+`end=true`. `monster_attacks(cover=)` adds 1-2 armor. `_hurt` adds Cloudkill's separate 1d6
+while anyone's Cloudkill runs (to every creature: Gary cannot see the fog's edge); Consume
+Unlife destroys its target and heals the caster by the HP it had left. `trade._rations_for`
+gives "Requires Dwarf" food only to Dwarves; antitoxin is handled in `use_item`.
 
-**Hirelings.** `hirelings.py` makes them by the book (skills and ranks, loyalty, a cost, points
-by where they were found) and they live on the employer's sheet (`hirelings`), so every
-change journals as a `SHEET`. Recruit rolls `OFFERS` (+1 per offer made known, from
-`make_move(offers=)`); Order Hirelings rolls `LOYALTY` (the named hireling's, -1 while
-`unpaid`). `hire` and `update_hireling` (paid, loyalty ±1, leaves) are the model's tools;
-the rules of every skill at the table reach the model with the class moves block. Five are
-wired: Priest (`ministry` at camp; `hireling_first_aid`), Warrior and Protector as
-`make_move(aide=)` (on the `PendingCheck` as `aide`: +skill damage and the counter-attack
-taken; or +1 with the roll held to 9 by `_intervened`), Protector's Sentry as
-`monster_attacks(protector=)` (+skill armor, then `strain` until camp or Recover), Tracker
-in `perilous_journey` (every job a 10+), Minstrel as `trade.buy(discount=)`.
+#### Bonuses and situations
 
-**Supply and Carouse.** Supply is a +Cha move; its result tells the model what to charge,
-and `buy(price=)` bounds it (book price to twice it; up to 500 for something unpriced).
-Carouse takes `make_move(coins=)`: whole hundreds, +1 per hundred past the first, refused
-if unaffordable; its options are the player's (three, one, and one on a miss), and the coin
-is taken when it resolves.
+**Setting up the next blow.** `_forwards_from` also runs `_after_hack` (any Hack and Slash:
+Duelist's Parry/Block `armor_forward`, Scent/Taste of Blood and Setup/Tandem Strike `marks`
+via `make_move(ally=)`) and `_invigorate`. `armor_forward` is added in `_attack` and spent on
+the next blow; `marks` ({target, damage, reason}) are spent by `_use_marks` at both character
+damage sites. `lead_the_charge` grants Charge!'s forward and Ever Onward's armor. Superior
+Warrior drops the counter-attack on a 12+; damage forwards may be flat ("2", Invigorate).
 
-`perilous_journey` (guarded like camp) takes the destination, the expected days and up to
-three jobs, one per character. It spends a ration per traveller per day at once, and opens
-each job as a non-callable +Wis move (`journey_trailblazer`/`_scout`/`_quartermaster`)
-through `_trigger`, so each resolves alone as a rules event; a quartermaster's 10+ refunds
-one ration. Unfilled jobs count as a 6. The model moves the clock, since the trailblazer's
-10+ shortens the trip "by how much" the GM says.
+**Situational flags.** A move that depends on the situation is told so on `make_move`
+(`weak_point`, `two_weapons`, `extra_targets`, `form_boon`, `form_plus`, `form_minus`),
+checked by `_situation` against the advanced move that grants it, and carried as the check's
+`flags`: Smaug's Belly's 2 piercing in `_damage_die`, Viper's off-hand dice and Blot Out the
+Sun's `spread` (one roll on every target, extra ammo spent up front) in `_land_damage`,
+Formshaper and Formcrafter onto the `shape` record (armor and dice in `advanced.py`, the
+stat +-1 by `_form_mod`). Balance counts up on damage dealt; `channel_balance` spends it.
+`_race_move_of` gives Half-Elven Rangers both race moves.
 
+**Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
+`ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
+records the creatures standing (`battle`) and is live while any of them still stands -- the
+same trick as the Human Fighter's reroll; `until="ended"` lasts until `end=true` with its
+reason. `_ongoing` adds it in `open_move`, casting and `_trigger` (not Last Breath: "no stat
+is added"); camp drops the finished battle ones. Through Death's Eyes' miss puts one on.
 
-Defend (`defends`: the target is the charge, a character's name if it is one) puts
-`defending = {charge, hold 3/1}` on the defender's sheet. `monster_attacks` against the
-defender or their charge, while hold remains and the defender can act, rolls the damage
-and **holds** it as a non-callable move of its own (`defend_charge`, with redirect, or
-`defend_self`), its dice the creature's damage faces, so it survives a restart. The
-defender's click lands it — redirected, halved, with the defender striking back for their
-level, or as rolled — spends one hold (clearing the defense at 0) and tells the model as a
-rules event. Expiry spends nothing. Make Camp ends every defense.
+**Notes for the model.** What an advanced move adds that Gary does not track goes on the
+result as `MoveOutcome.notes` (the model sees it as `also`): Cautious and Extremely Cautious
+on Trap Expert, the Empower family's offer on a 10+ cast (free on a 12+ with Greater).
+Impervious Defender's 12+ replaces Defend's hold in `_guard`. `_after_strike` records
+`last_struck` for Spell Augmentation, whose tool shunts an ongoing spell's level onto it.
 
-### 6.9 Fronts
+### 6.9 Fronts and the GM's tools
 
 `fronts.py` checks a front (1–4 dangers, each an impulse, 2–5 grim portents and an impending
 doom; stakes questions) and renders it. Fronts live in state as `fronts`, written only by the
@@ -609,6 +604,11 @@ journalled `FRONT` mutation, whose inverse is the record as it was. The model's
 `create_front`, `advance_portent` (the next portent comes true; the last one returns the doom)
 and `end_danger` post nothing to the table; the live state shows each live danger's impulse,
 progress and next portent. `/fronts` answers ephemerally, so only whoever asked sees it.
+
+**Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
+rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.
+**Session questions:** `/questions` (journalled `SESSION_QUESTIONS`) replaces the book's
+three end-of-session questions with the adventure's own; `EndOfSession(questions=)` asks them.
 
 ### 6.9a Forward
 
@@ -667,6 +667,17 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 
 ---
+
+**The Paladin's Quest** (`quests.py`). `start_quest` records `sheet["quest"]`: the mission
+(slay / defend / discover and its blank), up to two boons the player chose (two take a
+blank) and the vows the model names; `end_quest` clears it as fulfilled, broken or
+abandoned. Gary reads it in `advanced.py` (Smite, Holy Smite, Holy Protection, the Paladin's
+Divine Protection count only `on_quest`) and in camp and journeys (`sustenance` eats nothing).
+The other boons reach the model on the sheet line. Exterminatus: `swear_enemy` sets
+`sworn_enemy` (a creature's listed name, or a kind or NPC); `_sworn_damage` adds 2d4 against
+a target matching it by name or kind (articles ignored) and -4 against anyone else, at both
+character damage sites, and `_oath_kept` clears it when that target is defeated. A failure
+is released with `released=true` and a reason.
 
 ## 7. Campaign store
 
@@ -968,7 +979,9 @@ The model sees narrow, typed tools, each with its own checks and failure message
 mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
-  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`, `spell_augmentation`, `stun`.
+  `forward`, `ongoing`, `stun`.
+- **Class and compendium moves:** `start_quest`, `end_quest`, `swear_enemy`, `lead_the_charge`,
+  `channel_balance`, `spell_augmentation`, `qualify_compendium`, `compendium_power`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.
@@ -977,10 +990,10 @@ mapping to store mutations or Director calls:
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`,
   `roll_treasure`.
-- **World:** `advance_time`, `set_scene`, `upsert_npc`, `record_note`, `create_steading`,
+- **World:** `advance_time`, `set_scene`, `upsert_npc`, `instant_npc`, `record_note`, `create_steading`,
   `adjust_steading`.
 
-Rejections are reported back (`ok: false` with the reason), so the model narrates what
+`open_check` survives only as a name, so histories from before moves still read. Rejections are reported back (`ok: false` with the reason), so the model narrates what
 actually happened — a refused sale, a potion nobody has.
 
 ### 12.7 Source map
@@ -997,7 +1010,7 @@ src/gary/
   trade.py         give/take/buy/sell on the sheet                                  §6.4
   treasure.py      the book's treasure table; magic items as ideas                  §6.4
   steadings.py     villages, towns, keeps, cities: templates and tags               §6.4
-  npcs.py          the Instant NPC tables                                           §6.4
+  npcs.py          the Instant NPC tables                                           §6.9
   healing.py       potions, bandages, poultices                                     §6.4
   monsters.py      bestiary lookup, homebrew checks, instances                      §6.5
   damage.py        damage expressions, armor, severity                              §6.5
@@ -1005,8 +1018,15 @@ src/gary/
   spells.py        spell lists, caster state, Preparation                           §6.6
   companion.py     animal companion and Command                                     §6.7
   levelling.py     Level Up                                                         §6.10
+  advanced.py      advanced moves Gary applies; what the model is told it applies   §6.3
+  multiclass.py    Multiclass Dabbler, Initiate, Master                             §6.10
+  compendium.py    compendium classes: requirements, starting and follow-on moves   §6.10
+  slimes.py        Blob's slime minions, ooze form, copies                          §6.10
+  quests.py        the Paladin's Quest                                              §6.10
+  reactions.py     answering a blow: Spell Defense, Armor Mastery, Bloody Aegis...  §6.8
+  dicestats.py     /dice: the table's rolls against fair 2d6                        §10
   choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
-  hirelings.py     hirelings: making, loyalty, skill rules                          §6.8
+  hirelings.py     hirelings: making, loyalty, skill rules                          §6.4
   fronts.py        fronts, dangers, grim portents                                   §6.9
   bonds.py         bonds and +Bond                                                  §6.10
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
@@ -1050,18 +1070,18 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    move at all. Gary bounds *how much* but not *whether*.
 3. **Nothing tracks position.** Reach and range are only as consistent as the scene summary
    the model keeps.
-4. **Most advanced moves are text, not rules.** About a quarter are wired (`advanced.py`);
-   the conditional rest ("while on a quest", "when acting on the answers") the model
-   honours or does not. Choices inside a move (Chosen One's spell, Multiclass Dabbler's move) are not recorded. Of the creation
-   choices only the Elf's precise weapon and the Thief's poison uses are wired; a deity's
-   petition, a Druid's land and a Bard's lore are the model's to honour, and poison effects
-   are narrated, not tracked on creatures.
-5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
-   `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   magic items, and Burglar and Adept hireling skills; encumbrance on rules-triggered moves; the companion's instinct on
-   interference; companion armor against `monster_attacks`. Only Fireball hits several
-   creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
-   limit).
+4. **Conditional moves are the model's.** Advanced and compendium moves that change a
+   number Gary runs are wired (`advanced.py`, `advanced.APPLIED` tells the model which);
+   those with a judgement-call trigger ("when acting on the answers", Fount of Knowledge,
+   Heist) the model grants as a forward or ongoing bonus, or does not. Story effects --
+   a deity's petition, a Bard's lore, Awakened Mind -- are the model's to honour.
+5. **Gaps in the rules engine.** Defend's hold is spent only by `monster_attacks`, one per
+   attack. Not tracked: Burglar and Adept hireling skills; encumbrance on rules-triggered
+   moves; the companion's instinct on interference, and its armor against `monster_attacks`;
+   poisons on characters (antitoxin is spent, what it cures is narrated); magic items' powers;
+   which goods are Dwarven or Elven. Cloudkill counts every creature in the scene. A Human's
+   borrowed spell is offered from levels 1–5 (Discord's 25-option limit). Holds Gary does
+   not count (Trap Expert, Evil Eye) reach the model as notes.
 6. **In-memory forms die with the process.** Harmless (reopen with the command), but a
    restart mid End of Session loses the toggles.
 7. **Latency and cost.** A move is two model calls around a human click. Measure before
