@@ -33,6 +33,10 @@ STAT_NAMES = {
 DEBILITIES = {"weak": "str", "shaky": "dex", "sick": "con", "stunned": "int",
               "confused": "wis", "scarred": "cha"}
 
+#: "Your load is 12+Str." -- each class's base, from its gear section.
+LOAD_BASE = {"bard": 9, "cleric": 10, "druid": 6, "fighter": 12, "paladin": 12, "ranger": 11,
+             "thief": 9, "wizard": 7}
+
 #: Every character assigns exactly these, one to each stat (Character Creation, step 5).
 STAT_ARRAY = (16, 15, 13, 12, 9, 8)
 
@@ -85,6 +89,24 @@ def debility_on(sheet: Dict[str, Any], stat: str) -> Optional[str]:
 def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
     """What a roll adds for this stat: its modifier, -1 for a debility on it."""
     return modifier(int(sheet["stats"][stat])) - (1 if debility_on(sheet, stat) else 0)
+
+
+def load(sheet: Dict[str, Any]) -> int:
+    return LOAD_BASE.get(str(sheet.get("class", "")).lower(), 9) + stat_modifier(sheet, "str")
+
+
+def carried(sheet: Dict[str, Any]) -> int:
+    """Weight carried: every item, and coin at 100 to the weight."""
+    return sum(int(g.get("weight", 0)) for g in sheet.get("gear") or ()) + int(sheet.get("coins", 0)) // 100
+
+
+def encumbrance(sheet: Dict[str, Any]) -> str:
+    """Encumbrance: "fine" up to load, "burdened" (-1) at load+1 or +2, "overloaded" past
+    that. A sheet without gear carries nothing."""
+    if "gear" not in sheet:
+        return "fine"
+    over = carried(sheet) - load(sheet)
+    return "fine" if over <= 0 else "burdened" if over <= 2 else "overloaded"
 
 
 @dataclass
@@ -432,6 +454,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
             line += f" · ammo {sheet.get('ammo', 0)}"
         rations = sheet["rations"] if "rations" in sheet else rations_of(sheet["gear"])
         line += f" · rations {rations} · {int(sheet.get('coins', 0))} coins"
+        line += f" · weight {carried(sheet)}/{load(sheet)}"
+        state = encumbrance(sheet)
+        if state != "fine":
+            line += " (burdened, -1)" if state == "burdened" else " (overloaded)"
     guard = sheet.get("defending")
     if guard:
         line += f" · defending {guard['charge']} (hold {guard['hold']})"

@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import bonds, choices, companion as companions, damage, spells
+from . import bonds, choices, companion as companions, damage, spells, trade
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, MOVES, NOTHING
@@ -34,7 +34,8 @@ from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
 from .sheets import (
-    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, debility_on, stat_modifier, xp_line, xp_needed,
+    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, debility_on, encumbrance, stat_modifier, xp_line,
+    xp_needed,
 )
 
 #: Every move rolls this.
@@ -88,6 +89,15 @@ class SpellsPrompt:
 
     user_id: int
     actor: str
+
+
+@dataclass(frozen=True)
+class OverloadPrompt:
+    """Encumbrance past load+2: drop one of these (by index into the gear) and roll at -1,
+    or fail outright."""
+
+    check_id: str
+    items: tuple
 
 
 @dataclass(frozen=True)
@@ -484,6 +494,10 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
+        burden = self._burden(actor)
+        if burden:
+            mod -= 1
+            notes.append("-1 encumbered")
         pet = ""
         if companion and self._sheet_for is not None:
             sheet = self._sheet_for(actor) or {}
@@ -504,12 +518,12 @@ class Director:
               else f" at {target}") if target else ""
         return self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                           ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
-                          notes, companion=pet)
+                          notes, companion=pet, overloaded=burden == "overloaded")
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
         stakes: str, target: str, ttl_seconds: Optional[float], what: str,
-        notes: Sequence[str] = (), spell: str = "", companion: str = "",
+        notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
     ) -> List[Effect]:
         """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
@@ -539,12 +553,64 @@ class Director:
             f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
         if notes:
             rolled_with += f" ({', '.join(notes)})"
+        if overloaded:
+            # "...you have a choice: drop at least 1 weight and roll at -1, or automatically fail."
+            gear = (self._sheet_for(actor) or {}).get("gear") or []
+            effects.append(SendMessage(
+                channel_id,
+                f"**{actor}** — {what}, roll {rolled_with}. You carry more than you can: drop "
+                "something and roll, or fail.",
+                prompt=OverloadPrompt(check.check_id, tuple(
+                    (i, g["name"]) for i, g in enumerate(gear) if int(g.get("weight", 0)) > 0)),
+            ))
+            return effects
         effects.append(SendMessage(
             channel_id,
             f"**{actor}** — {what}, roll {rolled_with}.",
             prompt=RollPrompt(check.check_id),
         ))
         return effects
+
+    def _burden(self, actor: str) -> str:
+        """"" if fine, else "burdened" or "overloaded" (Encumbrance): -1 either way."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        state = encumbrance(sheet) if sheet else "fine"
+        return "" if state == "fine" else state
+
+    def drop_and_roll(self, *, channel_id: int, user_id: int, check_id: str, index: int) -> List[Effect]:
+        """Overloaded: the player drops an item and rolls at -1 (already in the modifier)."""
+        check = self.registry.for_player(channel_id, user_id)
+        if check is None or check.rolled or check.check_id != check_id:
+            return []
+        sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
+        gear = (sheet or {}).get("gear") or []
+        if not 0 <= index < len(gear) or int(gear[index].get("weight", 0)) <= 0:
+            return []
+        dropped, _ = trade.remove_items(sheet, [gear[index]["name"]])
+        changes = {k: dropped[k] for k in ("gear", "armor", "ammo", "rations")}
+        return [
+            SendMessage(channel_id, f"**{check.actor}** drops {gear[index]['name']}."),
+            UpdateSheet(channel_id, check.actor, changes),
+            *self.roll(channel_id=channel_id, user_id=user_id, check_id=check_id),
+        ]
+
+    def fail_overloaded(self, *, channel_id: int, user_id: int, check_id: str) -> List[Effect]:
+        """Overloaded and keeping it all: the move fails outright, as a miss. No dice are
+        rolled, so no XP is marked."""
+        check = self.registry.for_player(channel_id, user_id)
+        if check is None or check.rolled or check.check_id != check_id:
+            return []
+        self.registry.consume(check.check_id)
+        failed = Roll(spec="", faces=(), modifier=0)
+        outcome = resolve(check, failed)
+        return [
+            SendMessage(channel_id, f"**{check.actor}** keeps everything, and fails — too much to carry."),
+            RecordOutcome(channel_id=channel_id, outcome=outcome),
+            PromptModel(channel_id=channel_id,
+                        kind="check_outcome" if MOVES[check.move].callable else "rules_event",
+                        payload={**outcome_for_model(outcome),
+                                 "note": "Overloaded, they chose to fail rather than drop anything."}),
+        ]
 
     def _open_cast(
         self, channel_id: int, user_id: int, actor: str, name: str, target: str, stakes: str,
@@ -632,9 +698,14 @@ class Director:
         if self._blessed(actor):
             mod += 1
             notes.append("+1 Bless")
+        burden = self._burden(actor)
+        if burden:
+            mod -= 1
+            notes.append("-1 encumbered")
         on = f" on {target}" if spell.target == "character" else f" at {target}" if target else ""
         return self._open(channel_id, user_id, actor, "cast_a_spell", stat, mod, stakes, target,
-                          ttl_seconds, f"Cast a Spell: {spell.name}{on}", notes, spell=spell.name)
+                          ttl_seconds, f"Cast a Spell: {spell.name}{on}", notes, spell=spell.name,
+                          overloaded=burden == "overloaded")
 
     def _party(self) -> List[Tuple[str, Dict[str, Any]]]:
         """Every character at the table with a sheet, living."""

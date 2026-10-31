@@ -356,6 +356,11 @@ the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Sc
 them and every roll shows the cost ("+Str +1 (-1 Weak)"). The GM removes one when magic or
 real treatment cures it.
 
+**Encumbrance.** Your load is your class's base plus Str (a Fighter 12+Str, a Wizard
+7+Str); everything you carry has a weight, and 100 coins weigh 1. The sheet shows "weight
+11/13". One or two over and every move takes -1; more than two over and the roll waits on
+your choice — drop something (a button per item) and roll at -1, or keep it all and fail.
+
 **Perilous Journey.** Travelling through hostile territory, the GM gives the jobs to
 different characters — trailblazer, scout, quartermaster — or asks who takes which. Rations
 for the expected days are packed at once, and each job's holder rolls +Wis with their own
@@ -549,8 +554,9 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Special moves:** not yet Encumbrance (weight and load), Carouse, Supply, Recruit,
-  Outstanding Warrants or Bolster. End of Session covers the three
+- **Special moves:** not yet Carouse, Supply, Recruit, Outstanding Warrants or Bolster.
+  Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
+  Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.
 - **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
   Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours

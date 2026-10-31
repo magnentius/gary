@@ -27,7 +27,9 @@ import discord
 
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
-from ..fsm import ChoicePrompt, CurePrompt, DamagePrompt, Director, PromptModel, RollPrompt, SpellsPrompt
+from ..fsm import (
+    ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, PromptModel, RollPrompt, SpellsPrompt,
+)
 from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
 from ..ports import EchoNarrator, Narrator
@@ -217,6 +219,56 @@ class SpellsButton(
         await interaction.client.on_spells(interaction, self.user_id)
 
 
+class DropButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:drop:(?P<check_id>[0-9A-Z]+):(?P<index>\d+)",
+):
+    """Overloaded: drop this item (by its place in the gear) and roll at -1."""
+
+    def __init__(self, check_id: str, index: int, label: str = "") -> None:
+        super().__init__(discord.ui.Button(
+            label=f"Drop {label}"[:MAX_LABEL] if label else f"Drop item {index + 1}",
+            style=discord.ButtonStyle.primary, custom_id=f"gary:drop:{check_id}:{index}",
+        ))
+        self.check_id, self.index = check_id, index
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "DropButton":
+        return cls(match["check_id"], int(match["index"]))
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_overload(interaction, self.check_id, self.index)
+
+
+class FailButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:fail:(?P<check_id>[0-9A-Z]+)",
+):
+    """Overloaded: keep everything and fail the move."""
+
+    def __init__(self, check_id: str) -> None:
+        super().__init__(discord.ui.Button(
+            label="Keep it all and fail", style=discord.ButtonStyle.danger,
+            custom_id=f"gary:fail:{check_id}",
+        ))
+        self.check_id = check_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "FailButton":
+        return cls(match["check_id"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_overload(interaction, self.check_id, None)
+
+
+def overload_view(prompt: OverloadPrompt) -> "discord.ui.View":
+    view = discord.ui.View(timeout=None)
+    for index, name in prompt.items[:24]:  # 25 components at most, and Fail is one
+        view.add_item(DropButton(prompt.check_id, index, name))
+    view.add_item(FailButton(prompt.check_id))
+    return view
+
+
 class CureButton(
     discord.ui.DynamicItem[discord.ui.Button],
     template=r"gary:cure:(?P<user_id>\d+):(?P<debility>[a-z]+)",
@@ -281,6 +333,8 @@ class DiscordTransport:
             await channel.send(text, view=damage_view(prompt.check_id))
         elif isinstance(prompt, SpellsPrompt):
             await channel.send(text, view=spells_view(prompt.user_id))
+        elif isinstance(prompt, OverloadPrompt):
+            await channel.send(text, view=overload_view(prompt))
         elif isinstance(prompt, CurePrompt):
             view = discord.ui.View(timeout=None)
             for debility in prompt.debilities:
@@ -379,7 +433,8 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton)
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton,
+                               DropButton, FailButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
     async def on_ready(self) -> None:
@@ -767,6 +822,24 @@ class GaryClient(discord.Client):
     async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
         channel = self.get_channel(channel_id) or await self.fetch_channel(channel_id)
         await channel.send(f"**{actor}**, choose your spells:", view=spells_view(user_id))
+
+    async def on_overload(self, interaction: "discord.Interaction", check_id: str, index: Optional[int]) -> None:
+        """Overloaded: drop an item and roll, or fail. Answered like a roll."""
+        channel_id = interaction.channel_id
+        if index is None:
+            effects = self.director.fail_overloaded(channel_id=channel_id, user_id=interaction.user.id,
+                                                    check_id=check_id)
+        else:
+            effects = self.director.drop_and_roll(channel_id=channel_id, user_id=interaction.user.id,
+                                                  check_id=check_id, index=index)
+        if not effects:
+            await interaction.response.send_message(self._why_no_roll(channel_id, check_id), ephemeral=True)
+            return
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            log.warning("could not clear the overload choice for %s", check_id)
+        await self.runner.run(effects)
 
     async def on_cure(self, interaction: "discord.Interaction", owner_id: int, debility: str) -> None:
         """A debility picked for Recover to clear. Only by its owner, only while one is owed."""

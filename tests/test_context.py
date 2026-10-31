@@ -591,7 +591,8 @@ def test_a_character_with_a_sheet_shows_what_they_carry_besides_weapons():
     state = empty_state()
     state["sheets"] = {"Thorin": {**sheet, "coins": 7}}
     rendered = render_live_state(state)
-    assert "wields Warhammer (close) · rations 5 · 7 coins: carrying Chainmail, Dungeon rations" in rendered
+    assert ("wields Warhammer (close) · rations 5 · 7 coins · weight 3/10: carrying Chainmail, "
+            "Dungeon rations") in rendered
 
 
 def test_the_persona_keeps_money_honest():

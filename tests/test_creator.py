@@ -240,7 +240,7 @@ async def test_saving_stores_the_sheet_claims_it_and_tells_the_table(table):
     assert sent == ["**Kael** joins the party — Dwarf Fighter 1 (0/8 XP), HP 25/25, armor 1, "
                     "damage d10 · STR 16 (+2) DEX 13 (+1) CON 15 (+1) INT 8 (-1) "
                     "WIS 12 (+0) CHA 9 (+0) · wields Signature sword (close, +1 damage, "
-                    "2 piercing) · rations 5 · 22 coins"]
+                    "2 piercing) · rations 5 · 22 coins · weight 5/14"]
 
 
 async def test_the_sheet_and_the_claim_undo_together(table):
