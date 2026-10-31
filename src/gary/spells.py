@@ -168,9 +168,31 @@ def _other(cls: str) -> str:
 # -- what a caster has --------------------------------------------------------------------
 
 
+#: Advanced moves that make a Paladin or Ranger a cleric for spells: "You gain the commune
+#: and cast a spell cleric moves. When you select this move, treat yourself as a cleric of
+#: level 1 for using spells. Every time you gain a level thereafter, increase your
+#: effective cleric level by 1."
+FAVOR_MOVES = ("Divine Favor", "God Amidst the Wastes")
+
+
+def favored(sheet: Optional[Dict[str, Any]]) -> bool:
+    """A Paladin with Divine Favor or a Ranger with God Amidst the Wastes."""
+    return (sheet or {}).get("class") in ("Paladin", "Ranger") and any(
+        m in ((sheet or {}).get("advanced_moves") or ()) for m in FAVOR_MOVES)
+
+
 def caster_class(sheet: Optional[Dict[str, Any]]) -> Optional[str]:
     """"cleric" or "wizard", or None for everyone else."""
-    return CASTERS.get((sheet or {}).get("class", ""))
+    return CASTERS.get((sheet or {}).get("class", "")) or ("cleric" if favored(sheet) else None)
+
+
+def caster_level(sheet: Dict[str, Any]) -> int:
+    """The level spells go by: a caster's own, or a favored Paladin's or Ranger's cleric
+    level -- 1 at the level they took the move (``favor_from``), +1 for each since."""
+    level = int(sheet.get("level", 1))
+    if sheet.get("class") in CASTERS:
+        return level
+    return max(1, level - int(sheet.get("favor_from", level)) + 1)
 
 
 def free_spells(sheet: Dict[str, Any]) -> List[Spell]:
@@ -221,7 +243,7 @@ def preparable(sheet: Dict[str, Any]) -> List[Spell]:
     cls = caster_class(sheet)
     if cls is None:
         return []
-    level = int(sheet.get("level", 1))
+    level = caster_level(sheet)
     free = {s.name for s in free_spells(sheet)}
     if cls == "cleric":
         pool = [s for s in SPELLS["cleric"] if not s.free]
@@ -236,7 +258,7 @@ def preparable(sheet: Dict[str, Any]) -> List[Spell]:
 
 def budget(sheet: Dict[str, Any]) -> int:
     """"...whose total levels don't exceed your own level+1.\""""
-    return int(sheet.get("level", 1)) + 1
+    return caster_level(sheet) + 1
 
 
 def find(sheet: Dict[str, Any], name: str) -> Optional[Spell]:
@@ -358,8 +380,8 @@ class Preparation:
         """"spellbook", "borrowed", "prepare", or None when done."""
         if self.cls == "wizard" and "spellbook" not in self.sheet and self.spellbook is None:
             return "spellbook"
-        if self.sheet.get("race") == "Human" and "borrowed_spell" not in self.sheet \
-                and self.borrowed is None:
+        if self.sheet.get("race") == "Human" and self.sheet.get("class") in CASTERS \
+                and "borrowed_spell" not in self.sheet and self.borrowed is None:
             return "borrowed"
         if self.prepared is None:
             return "prepare"

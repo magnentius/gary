@@ -392,7 +392,8 @@ class Director:
         if rules.classes and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if (sheet is not None and sheet.get("class") not in rules.classes
-                    and not multiclass.grants_key(sheet, rules.key)):  # Multiclass Dabbler's move
+                    and not multiclass.grants_key(sheet, rules.key)  # Multiclass Dabbler's move
+                    and not (rules.key == "cast_a_spell" and spells.favored(sheet))):  # Divine Favor
                 return [self._refuse(
                     channel_id,
                     f"{rules.name} is the {' or '.join(rules.classes)}'s move; {actor} is a "

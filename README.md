@@ -491,8 +491,10 @@ cantrip, always ready — and Expanded Spellbook puts a spell from any class's l
 Wizard's book. Multiclass Dabbler, Initiate and Master ask for a class and then one of its
 moves, your level counting as one lower; the move is yours from then on — shown to the GM,
 counted where Gary applies it, and if Gary rolls it (Backstab, Called Shot) you can make it.
-Spellcasting moves and the Ranger's companion aren't offered: Divine Favor and God Amidst
-the Wastes are how a non-caster gets spells. The XP is spent and the level is announced to the table.
+Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
+Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
+1 for spells, one level higher with each level after. Name your deity with `?dm choices`,
+choose spells with `?dm spells`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
 
 ### Talk to Gary
 

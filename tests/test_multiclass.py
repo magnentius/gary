@@ -55,3 +55,41 @@ def test_without_the_move_the_class_gate_holds(registry, clock, dice):
                         players={ALICE: "Dorn"}, sheet_for={"Dorn": dict(DORN)}.get, monsters=lambda: {})
     (note,) = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Dorn", move="backstab", target="x")
     assert "Backstab is the Thief's move" in note.payload["error"]
+
+
+ANNA = {"name": "Anna", "class": "Paladin", "race": "Human", "level": 3, "xp": 10, "hp": 20, "max_hp": 20,
+        "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 14, "cha": 13}, "armor": 0, "damage": "d10"}
+
+
+def test_divine_favor_makes_a_paladin_a_level_one_cleric_that_grows():
+    from gary import choices, spells
+
+    a = Advance(ANNA)
+    a.choose_stat("wis")
+    a.choose_move("Divine Favor")
+    sheet = a.result()
+    assert sheet["favor_from"] == 4
+    assert spells.caster_class(sheet) == "cleric" and spells.caster_level(sheet) == 1
+    assert spells.budget(sheet) == 2
+    assert max(s.level for s in spells.preparable({**sheet, "spells": []})) == 1
+    assert spells.caster_level({**sheet, "level": 6}) == 3
+    assert choices.missing(sheet)  # the deity they are dedicated to
+    assert [s.key for s in choices.Choices("Paladin", "Human", None, spells.favored(sheet)).steps] == ["deity"]
+    assert spells.Preparation({**sheet}).step() == "prepare"  # no Human Cleric's borrowed spell
+
+
+def test_a_favored_ranger_casts_with_wis(registry, clock, dice):
+    from gary import spells
+
+    rhea = {"name": "Rhea", "class": "Ranger", "race": "Elf", "level": 4, "hp": 15, "max_hp": 15,
+            "stats": {"str": 10, "dex": 16, "con": 12, "int": 9, "wis": 15, "cha": 8}, "armor": 1,
+            "damage": "d8", "advanced_moves": ["God Amidst the Wastes"], "favor_from": 4,
+            "spells": ["Bless"], "lost": [], "cast_penalty": 0}
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+                        players={ALICE: "Rhea"}, sheet_for={"Rhea": rhea}.get, monsters=lambda: {})
+    effects = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Rhea", move="cast_a_spell",
+                                 spell="Bless", target="Rhea")
+    (ask,) = [e.text for e in effects if isinstance(e, SendMessage)]
+    assert "Cast a Spell" in ask and "+Wis +1" in ask
+    assert "cleric level 1" in class_moves.render({"Rhea": rhea})
+    assert spells.favored(rhea) and not spells.favored({**rhea, "class": "Fighter"})

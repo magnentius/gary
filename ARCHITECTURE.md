@@ -565,7 +565,10 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   class's starting moves and the advanced tiers its level less one reaches, minus the
   spellcasting core and the companion) and append `{class, name}` to `multiclass_moves`,
   which `advanced.has`, `class_moves.render` and the class gate in `open_move`
-  (`multiclass.grants_key`) all read.
+  (`multiclass.grants_key`) all read. Divine Favor and God Amidst the Wastes set
+  `favor_from` to the level taken: `spells.favored` makes `caster_class` "cleric" and
+  `caster_level` (level - favor_from + 1) drives what can be prepared and the budget; the
+  cast gate lets them Cast a Spell, and `?dm choices` asks for their deity.
 - **Bonds** — `?dm bonds`: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

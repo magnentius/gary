@@ -71,8 +71,12 @@ def _named(options: Sequence[str]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
     return tuple(names), tuple(descriptions)
 
 
-def steps(class_name: str, race: str) -> List[Step]:
+def steps(class_name: str, race: str, favored: bool = False) -> List[Step]:
     cls = class_name.lower()
+    if favored and cls in ("paladin", "ranger"):
+        # Divine Favor, God Amidst the Wastes: "Dedicate yourself to a deity".
+        return [Step("deity", "Name the deity you are dedicated to (a new one, or one already "
+                              "established).", label="Your god's name", placeholder="Helferth, Sucellus…")]
     if cls == "cleric":
         domains, precepts = _bullet_groups("cleric", "Deity")
         # "Your religion is cultish and insular, add Petition: Gaining Secrets": the petition
@@ -112,8 +116,9 @@ def steps(class_name: str, race: str) -> List[Step]:
 class Choices:
     """A character's creation choices, made one step at a time."""
 
-    def __init__(self, class_name: str, race: str, made: Optional[Dict[str, str]] = None) -> None:
-        self.steps = steps(class_name, race)
+    def __init__(self, class_name: str, race: str, made: Optional[Dict[str, str]] = None,
+                 favored: bool = False) -> None:
+        self.steps = steps(class_name, race, favored)
         self.made: Dict[str, str] = dict(made or {})
 
     def step(self) -> Optional[Step]:
@@ -139,7 +144,10 @@ class Choices:
 
 
 def missing(sheet: Dict[str, Any]) -> bool:
-    return not Choices(sheet.get("class", ""), sheet.get("race", ""), sheet.get("choices")).complete
+    from .spells import favored
+
+    return not Choices(sheet.get("class", ""), sheet.get("race", ""), sheet.get("choices"),
+                       favored(sheet)).complete
 
 
 def on_sheet(sheet: Dict[str, Any], made: Dict[str, str]) -> Dict[str, Any]:

@@ -156,6 +156,11 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             done = advanced.applied(sheet, entry["name"])
             lines.append(f"    - {entry['name']} (from the {entry['class'].title()}, by Multiclass): {text}{how}"
                          + (f" [Gary applies {done}; do not add it again.]" if done else ""))
+        if spells.favored(sheet):
+            lines.append(f"    - Commune and Cast a Spell (the Cleric's moves, by "
+                         f"{next(m for m in spells.FAVOR_MOVES if m in sheet['advanced_moves'])}; "
+                         f"cleric level {spells.caster_level(sheet)}): when they spend an undisturbed hour "
+                         "in prayer, call prepare_spells; cast with make_move cast_a_spell.")
         if spells.caster_class(sheet):
             have = spells.castable(sheet)
             lines.append(f"    - Spells {actor} can cast now (make_move cast_a_spell, spell=…):"

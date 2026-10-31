@@ -1052,6 +1052,10 @@ class GaryClient(discord.Client):
         moves = levelled.get("advanced_moves") or []
         await self.sender.send(channel_id, f"⭐ **{actor}** reaches level {levelled['level']} — "
                                            f"{moves[-1] if moves else ''}. {describe(levelled, with_name=False)}")
+        if moves and moves[-1] in spells.FAVOR_MOVES:
+            await self.sender.send(channel_id, f"🙏 **{actor}** is a cleric of level 1 for spells now: name "
+                                               f"your deity with `{self.settings.command_prefix}choices` and choose your spells "
+                                               f"with `{self.settings.command_prefix}spells`.")
         return None
 
     async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:

@@ -15,6 +15,7 @@ from typing import Awaitable, Callable, Optional
 
 import discord
 
+from .. import spells
 from ..gear import ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES
 from ..sheets import (
     CLASSES, MAX_NAME_CHARS, STAT_NAMES, STATS, Draft, SheetError, alignment_line, alignments_of, describe,
@@ -426,7 +427,8 @@ class ChoicesForm(discord.ui.View):
 
         super().__init__(timeout=FORM_TIMEOUT_SECONDS)
         self._finish = finish
-        self.choices = Choices(sheet["class"], sheet.get("race", ""), sheet.get("choices"))
+        self.choices = Choices(sheet["class"], sheet.get("race", ""), sheet.get("choices"),
+                               spells.favored(sheet))
         self._build()
 
     def prompt(self, error: Optional[str] = None) -> str:
