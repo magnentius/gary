@@ -35,6 +35,20 @@ APPLIED: Dict[str, str] = {
         "Man's Best Friend", "Divine Intervention", "Divine Invincibility", "Penitent")},
     "Martyr": "the pain and the forward through the Reduce damage button (adding their level to "
               "the spell is yours)",
+    # Race moves, named as class_moves names them.
+    "Elf (Ranger)": "it when perilous_journey has wilderness=true",
+    "Human (Ranger)": "it when make_camp has dungeon_or_city=true",
+    "Human (Fighter)": "it on a creature's hit, through the Reduce damage button",
+    "Dwarf (Fighter)": "Con when make_move has race_move=true",
+    "Halfling (Fighter)": "the +1 when make_move has race_move=true",
+    "Human (Thief)": "the +1 when make_move has race_move=true",
+    "Halfling (Thief)": "the +2 damage",
+    "Halfling (Druid)": "the camp healing",
+    "Elf (Wizard)": "the cantrip",
+    "Dwarf (Cleric)": "the rote",
+    "Human (Wizard)": "the borrowed spell",
+    "Human (Cleric)": "the borrowed spell",
+    "Elf (Fighter)": "the precise tag",
 }
 
 

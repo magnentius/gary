@@ -346,7 +346,13 @@ Narrative class moves (no roll, or nothing Gary tracks) and advanced moves reach
 every turn in the book's words, in a "class moves" block per character (`class_moves.py`).
 A few touch a number Gary already runs and are wired where that number is: precise weapons
 hack with Dex, a Halfling Thief deals +2 at range, Druids eat no rations, a Halfling Druid
-adds 1d6 to camp healing. The advanced moves with a number Gary runs live in `advanced.py`
+adds 1d6 to camp healing. The other race moves with a number are wired behind a flag the
+model sets when the fiction fits: `make_move(race_move=)` (`_RACE_MOVES`: Dwarf Fighter
+parleys with Con; Halfling Fighter's Defy Danger and Human Thief's Spout Lore and Discern
+Realities take +1), `perilous_journey(wilderness=)` (an Elf Ranger's job is a 10+ unrolled)
+and `make_camp(dungeon_or_city=)` (a Human Ranger eats nothing). The Human Fighter's
+once-per-battle reroll is a `reroll` reaction on a creature's hit; `reroll_used` holds the
+creatures standing when it was spent, and it returns once none of them stands. The advanced moves with a number Gary runs live in `advanced.py`
 (armor, damage dice, a shaped die, healing dice, spell-penalty relief, rotes) and are
 called where that number is computed; `advanced.APPLIED` says, in the class-moves block,
 what Gary applies of each so the model does not apply it twice.

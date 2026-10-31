@@ -19,7 +19,7 @@ def sheet(name, cls, **more):
 
 @pytest.fixture
 def sheets():
-    return {"Dorn": sheet("Dorn", "Fighter"), "Thorin": sheet("Thorin", "Cleric")}
+    return {"Dorn": dict(sheet("Dorn", "Fighter"), race="Dwarf"), "Thorin": sheet("Thorin", "Cleric")}
 
 
 @pytest.fixture

@@ -38,6 +38,14 @@ from .sheets import (
     xp_line, xp_needed,
 )
 
+#: Race moves the model flags with race_move=true: (class, race, move) -> what changes.
+_RACE_MOVES = {
+    ("Fighter", "Dwarf", "parley"): "con",  # sharing a drink
+    ("Fighter", "Halfling", "defy_danger"): "+1",  # using small size
+    ("Thief", "Human", "spout_lore"): "+1",  # about criminal activities
+    ("Thief", "Human", "discern_realities"): "+1",
+}
+
 #: Every move rolls this.
 MOVE_DICE = "2d6"
 
@@ -322,6 +330,7 @@ class Director:
         offers: Sequence[str] = (),
         preparation: bool = False,
         aide: str = "",
+        race_move: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -365,6 +374,15 @@ class Director:
                 )]
         else:
             stat = rules.stat
+        racial = _RACE_MOVES.get((self._sheet_or_empty(actor).get("class"), self._sheet_or_empty(actor).get("race"),
+                                  rules.key)) if race_move else None
+        if race_move and racial is None:
+            mover = self._sheet_or_empty(actor)
+            return [self._refuse(channel_id, f"No race move of {actor}'s ({mover.get('race', '?')} "
+                                             f"{mover.get('class', '?')}) applies to {rules.name}.",
+                                 "Re-issue make_move without race_move.")]
+        if racial == "con":
+            stat = "con"  # Dwarf Fighter: "you may parley with them using CON instead of CHA"
 
         # A class move is that class's alone: a Fighter cannot Backstab.
         if rules.classes and self._sheet_for is not None:
@@ -531,6 +549,9 @@ class Director:
             mod += held
             notes.append(f"{held:+d} forward")
         mover = self._sheet_or_empty(actor)
+        if racial == "+1":
+            mod += 1
+            notes.append(f"+1 {mover.get('race')}")
         if (rules.key == "discern_realities" and advanced.has(mover, "Seeing Red")
                 and any(r["hp"] > 0 for r in self._monsters().values())):
             mod += 1
@@ -1835,10 +1856,15 @@ class Director:
             self._hits = getattr(self, "_hits", 0) + 1
             hit_id = f"{int(self.clock() * 1000):x}x{self._hits:x}"
             last_hit = {"id": hit_id, "by": name, "dealt": dealt, "down": after <= 0,
-                        "lost": int(sheet["hp"]) - max(after, 0)}  # overkill is not given back
+                        "lost": int(sheet["hp"]) - max(after, 0),  # overkill is not given back
+                        # what a reroll needs (Human Fighter)
+                        "hp_before": int(sheet["hp"]), "damage": creature["damage"], "armor": armor,
+                        "piercing": creature.get("piercing", 0), "ignores": creature.get("ignores_armor", False),
+                        "halve": halve}
             effects.append(UpdateSheet(channel_id, character, {"last_hit": last_hit}))
             struck = {**sheet, "hp": max(after, 0), "last_hit": last_hit}
-            if any(reactions.options(a, struck if a == character else s, character, struck)
+            up = [n for n, r in self._monsters().items() if r["hp"] > 0]
+            if any(reactions.options(a, struck if a == character else s, character, struck, up)
                    for a, s in self._party()):
                 return [SendMessage(channel_id, line, prompt=ReactPrompt(hit_id)), *effects], facts
         return [SendMessage(channel_id, line), *effects], facts
@@ -1948,7 +1974,8 @@ class Director:
     # -- Make Camp -------------------------------------------------------------------------
 
     def make_camp(
-        self, *, channel_id: int, approaches: bool = False, watcher: str = "", reason: str = ""
+        self, *, channel_id: int, approaches: bool = False, watcher: str = "", reason: str = "",
+        dungeon_or_city: bool = False,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """The party settles in to rest -- once for all of them, however many sleep.
 
@@ -2010,6 +2037,9 @@ class Director:
                 changes["forwards"] = []  # a forward is for the scene it came from
             fed = True
             sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
+            # Human Ranger: "When you make camp in a dungeon or city, you don't need to consume a ration."
+            sustained = sustained or (dungeon_or_city and sheet.get("class") == "Ranger"
+                                      and sheet.get("race") == "Human")
             if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
                 have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
                 fed = have > 0
@@ -2139,7 +2169,7 @@ class Director:
 
     def perilous_journey(
         self, *, channel_id: int, destination: str = "", days: int = 1, trailblazer: str = "",
-        scout: str = "", quartermaster: str = "",
+        scout: str = "", quartermaster: str = "", wilderness: bool = False,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """"When you travel through hostile territory, choose one member of the party to act as
         trailblazer, one to scout ahead, and one to be quartermaster (the same character
@@ -2212,9 +2242,22 @@ class Director:
                                  "A hired tracker guided them: every job counts as a 10+ -- the trip is "
                                  "shorter than expected (you say by how much), they get the drop on any "
                                  "trouble, and a ration is saved. Move the clock; narrate the arrival.")}
+        sure: Dict[str, str] = {}
         for job, actor in jobs.items():
+            js = self._sheet_or_empty(actor)
+            if wilderness and js.get("class") == "Ranger" and js.get("race") == "Elf":
+                # Elf Ranger: "When you undertake a perilous journey through wilderness whatever
+                # job you take you succeed as if you rolled a 10+."
+                sure[job] = actor
+                effects.append(SendMessage(channel_id, f"🌲 **{actor}** is at home in the wild: as "
+                                                       f"{job}, a 10+ without a roll."))
+                if job == "quartermaster" and "gear" in js:
+                    left = spent.get(actor, {}).get("rations_left", int(js.get("rations", 0)))
+                    effects.append(UpdateSheet(channel_id, actor, {"rations": left + 1}))
+                continue
             effects.extend(self._trigger(channel_id, actor, f"journey_{job}"))
         return effects, {"ok": True, "destination": destination, "days": days, "jobs": jobs,
+                         **({"succeeded_as_10_plus": sure} if sure else {}),
                          "rations": spent, "unfilled_jobs_count_as_6": unfilled, "note": (
             "The job rolls are open. Narrate setting out, not arriving: each result comes back as "
             "a rules event. Jobs nobody holds count as a miss -- a GM move each. When the "
@@ -2308,7 +2351,8 @@ class Director:
         if (theirs.get("last_hit") or {}).get("down") and int(theirs.get("hp", 0)) <= 0 \
                 and not self._dying(victim):
             return [], f"Too late: {victim}'s Last Breath has been rolled."
-        found = reactions.options(presser, theirs if presser == victim else mine, victim, theirs)
+        up = [n for n, r in self._monsters().items() if r["hp"] > 0]
+        found = reactions.options(presser, theirs if presser == victim else mine, victim, theirs, up)
         return found, "" if found else "You have no move that answers this blow."
 
     def _dying(self, actor: str) -> Optional[PendingCheck]:
@@ -2328,6 +2372,8 @@ class Director:
         effects: List[Effect] = []
         mine_changes: Dict[str, Any] = {}
         facts: Dict[str, Any] = {"move": chosen.move, "by": presser, "struck": victim, "attacker": hit["by"]}
+        if key == "reroll":
+            return self._reroll(channel_id, presser, victim, theirs, hit, facts)
         if key == "pain":
             more = self.dice.roll("1d4").total
             hp = max(1, int(theirs["hp"]) - more)
@@ -2393,6 +2439,39 @@ class Director:
             facts["spared"] = f"{victim} is no longer at 0 HP: there is no Last Breath."
         facts.update(hp=hp, instruction=("Narrate how the blow was turned, in a line or two; the HP is "
                                          "exact. Whatever it cost is real."))
+        return [*effects, PromptModel(channel_id, "rules_event", {"event": "A blow answered", **facts})]
+
+    def _reroll(self, channel_id: int, presser: str, victim: str, theirs: Dict[str, Any],
+                hit: Dict[str, Any], facts: Dict[str, Any]) -> List[Effect]:
+        """Human Fighter: "Once per battle you may reroll a single damage roll (yours or someone
+        else's)." The new roll stands, better or worse."""
+        again = damage.roll(self.dice, damage.parse(hit["damage"]))
+        dealt = damage.through_armor(again.total, hit["armor"], hit["piercing"], hit["ignores"])
+        if hit.get("halve"):
+            dealt //= 2
+        lost = min(int(hit["hp_before"]), dealt)
+        before = int(theirs["hp"])
+        hp = max(0, min(int(theirs["max_hp"]), before + int(hit["lost"]) - lost))
+        hit.update(dealt=dealt, lost=lost, rerolled=True, down=hp <= 0)
+        standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
+        effects: List[Effect] = [
+            SendMessage(channel_id, f"🎲 **{presser}** rerolls {hit['by']}'s damage ({again.render()}) — "
+                                    f"now {_damage_words(dealt)} — **{victim}** HP {before} → {hp}."
+                                    + (" — **down**." if hp <= 0 < before else "")),
+            ChangeHp(channel_id, "character", victim, hp),
+            UpdateSheet(channel_id, victim, {"last_hit": hit}),
+            UpdateSheet(channel_id, presser, {"reroll_used": standing}),
+        ]
+        if presser == victim:  # one sheet: fold both changes into one
+            effects[2:] = [UpdateSheet(channel_id, victim, {"last_hit": hit, "reroll_used": standing})]
+        dying = self._dying(victim)
+        if hp > 0 and dying is not None:
+            self.registry.cancel(dying.check_id)
+            facts["spared"] = f"{victim} is no longer at 0 HP: there is no Last Breath."
+        elif hp <= 0 < before:
+            effects.extend(self._trigger(channel_id, victim, "last_breath"))
+        facts.update(move="Human Fighter reroll", hp=hp, dealt=dealt, instruction=(
+            "The blow was rerolled; the new damage stands. Narrate the difference in a line."))
         return [*effects, PromptModel(channel_id, "rules_event", {"event": "A blow answered", **facts})]
 
     def cure(self, *, channel_id: int, user_id: int, debility: str) -> List[Effect]:

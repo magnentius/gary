@@ -28,7 +28,7 @@ answered, and only once; the pain is a separate choice from the reductions.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Sequence
 
 from . import advanced, spells
 from .sheets import DEBILITIES
@@ -42,8 +42,10 @@ class Reaction:
     move: str
 
 
-def options(presser: str, mine: Dict[str, Any], victim: str, theirs: Dict[str, Any]) -> List[Reaction]:
-    """What ``presser`` (sheet ``mine``) can do about the last blow ``victim`` took."""
+def options(presser: str, mine: Dict[str, Any], victim: str, theirs: Dict[str, Any],
+            standing: Sequence[str] = ()) -> List[Reaction]:
+    """What ``presser`` (sheet ``mine``) can do about the last blow ``victim`` took.
+    ``standing``: the creatures still up, which say whether this is the same battle."""
     hit = theirs.get("last_hit") or {}
     dealt = int(hit.get("dealt", 0))
     if mine.get("dead") or theirs.get("dead"):
@@ -58,6 +60,10 @@ def options(presser: str, mine: Dict[str, Any], victim: str, theirs: Dict[str, A
             whose = "you" if own else victim
             out.append(Reaction("deity", f"Call on {deity} to spare {whose} (no damage)"[:80], dealt,
                                 "Divine Intervention"))
+    if (mine.get("class") == "Fighter" and mine.get("race") == "Human" and hit.get("damage")
+            and not hit.get("rerolled") and not hit.get("reduced") and not _battle_reroll_spent(mine, standing)):
+        out.append(Reaction("reroll", "Reroll the damage (once per battle; the new roll stands)", 0,
+                            "Human Fighter"))
     if (own and not hit.get("pain") and (advanced.has(mine, "Martyr") or advanced.has(mine, "Penitent"))
             and int(mine.get("hp", 0)) > 4):
         out.append(Reaction("pain", "Embrace the pain: +1d4 damage, +1 forward to cast", 0,
@@ -91,6 +97,12 @@ def _own_reductions(sheet: Dict[str, Any], dealt: int) -> List[Reaction]:
     if advanced.has(sheet, "Man's Best Friend") and pet and not pet.get("spent") and int(pet.get("ferocity", 0)) > 0:
         out.append(Reaction("pet", f"{pet['name']} takes the blow (no damage)"[:80], dealt, "Man's Best Friend"))
     return out
+
+
+def _battle_reroll_spent(sheet: Dict[str, Any], standing: Sequence[str]) -> bool:
+    """A Human Fighter's reroll is spent while any creature that stood when it was used still
+    stands: the same battle. It comes back once they are all down or gone."""
+    return bool(set(sheet.get("reroll_used") or ()) & set(standing))
 
 
 def worn_down(item: Dict[str, Any]) -> Dict[str, Any]:

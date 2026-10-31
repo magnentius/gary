@@ -41,7 +41,7 @@ from gary import choices, spells
 from gary.adapters.gemini import GeminiNarrator
 from gary.adapters.runner import STALL_MESSAGE, EffectRunner
 from gary.fsm import (
-    ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, RollPrompt, SpellsPrompt,
+    ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, ReactPrompt, RollPrompt, SpellsPrompt,
 )
 from gary.models import Mutation, MutationKind
 from gary.ports import RandomDice
@@ -403,6 +403,10 @@ class Table:
             self.store.apply([Mutation(MutationKind.SHEET, prompt.actor, {"sheet": {**sheet, **changes}})],
                              reason="playtest chooses spells")
             self.report.say(f"  🖱️ *Choose spells* → {changes['spells']}")
+            return []
+        if isinstance(prompt, ReactPrompt):
+            # Optional: a table may always take the blow. The harness does, and says so.
+            self.report.say("  🛡️ *Reduce damage offered* — taken as it fell")
             return []
         self.report.flag(f"no way to click a {type(prompt).__name__}")
         return []

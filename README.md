@@ -560,6 +560,14 @@ use one, the hit carries a **🛡️ Reduce damage** button. It shows you, priva
 you can do about that hit, and gives the HP back at once — never more than the blow took.
 The fight never waits: ignore it and you take the blow. Only the latest hit on someone can
 be answered, once, and answering a blow that put them down cancels their Last Breath.
+A Human Fighter's button also offers to **reroll** a creature's damage on anyone — once per
+battle, and the new roll stands, better or worse.
+
+**Race moves with numbers** are applied too: an Elf Ranger's journey job through wilderness
+succeeds as a 10+ without a roll; a Human Ranger eats no ration camping in a dungeon or
+city; a Dwarf Fighter parleys with Con over a shared drink; a Halfling Fighter using their
+size to Defy Danger and a Human Thief on criminal matters take +1. The GM says when the
+fiction fits.
 
 **Loot, buying and selling.** Pick something up in the fiction and Gary adds it to your
 sheet. If the book lists it — a long sword, plate, a bundle of arrows — it comes with its

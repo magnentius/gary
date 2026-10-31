@@ -122,6 +122,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "useful one here. Each is +1."
                     ),
                 ),
+                "race_move": _s(
+                    type=types.Type.BOOLEAN,
+                    description=(
+                        "The character's race move applies, as the fiction shows it: a Dwarf Fighter "
+                        "parleying over a shared drink (Con instead of Cha), a Halfling Fighter using "
+                        "small size to Defy Danger (+1), a Human Thief spouting lore or discerning "
+                        "about criminal activity (+1)."
+                    ),
+                ),
                 "aide": _s(
                     type=_STRING,
                     description=(
@@ -279,6 +288,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Where they rest and why it is safe enough to sleep, e.g. 'the cleared guardroom, door barred'. Shown to the table."),
                 "something_approaches": _s(type=types.Type.BOOLEAN, description="True if something comes in the night."),
                 "watch": _s(type=_STRING, description="Who is on watch, if something approaches."),
+                "dungeon_or_city": _s(type=types.Type.BOOLEAN, description="True if they camp inside a dungeon or a city (a Human Ranger eats no ration there)."),
             },
             required=["reason"],
         ),
@@ -371,6 +381,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "trailblazer": _s(type=_STRING),
                 "scout": _s(type=_STRING),
                 "quartermaster": _s(type=_STRING),
+                "wilderness": _s(type=types.Type.BOOLEAN, description="True if the way runs through wilderness (an Elf Ranger's job then succeeds as a 10+), not roads or settled land."),
             },
             required=["destination", "days"],
         ),

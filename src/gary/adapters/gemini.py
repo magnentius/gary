@@ -368,6 +368,7 @@ class GeminiNarrator:
                     approaches=bool(args.get("something_approaches")),
                     watcher=str(args.get("watch", "") or ""),
                     reason=str(args.get("reason", "") or ""),
+                    dungeon_or_city=bool(args.get("dungeon_or_city")),
                 )
                 if result.get("ok") and not args.get("something_approaches"):
                     try:
@@ -383,7 +384,8 @@ class GeminiNarrator:
                 journey_effects, result = self._director.perilous_journey(
                     channel_id=channel_id, destination=str(args.get("destination", "") or ""),
                     days=int(args.get("days") or 0), trailblazer=str(args.get("trailblazer", "") or ""),
-                    scout=str(args.get("scout", "") or ""), quartermaster=str(args.get("quartermaster", "") or ""))
+                    scout=str(args.get("scout", "") or ""), quartermaster=str(args.get("quartermaster", "") or ""),
+                    wilderness=bool(args.get("wilderness")))
                 effects.extend(journey_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
@@ -561,6 +563,7 @@ class GeminiNarrator:
             offers=[str(o) for o in args.get("offers") or []],
             preparation=bool(args.get("preparation")),
             aide=str(args.get("aide", "") or ""),
+            race_move=bool(args.get("race_move")),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
