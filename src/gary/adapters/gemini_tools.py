@@ -48,6 +48,7 @@ DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
 START_QUEST = "start_quest"
+HAZARD_DAMAGE = "hazard_damage"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -534,6 +535,29 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                                                                      "truth", "hospitality"])),
             },
             required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=HAZARD_DAMAGE,
+        description=(
+            "Characters are hurt by something that is not a creature: a fall, a trap, fire, a "
+            "collapsing ceiling, bad water -- when the fiction makes it land (a missed Defy Danger, "
+            "a sprung trap). You say how bad; Gary rolls it for each one caught, through their armor "
+            "(plus any cover), and applies it. A creature's blow is monster_attacks instead."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Everyone caught by it."),
+                "severity": _s(type=_STRING, enum=["bruises", "blood", "bones", "lethal"], description=(
+                    "bruises: scrapes at worst (d4). blood: spills some blood, nothing horrendous (d6). "
+                    "bones: might break some bones (d8). lethal: could kill a common person (d10).")),
+                "reason": _s(type=_STRING, description="What hurt them, in a few words. Shown to the table."),
+                "ignores_armor": _s(type=types.Type.BOOLEAN, description=(
+                    "True if it is particularly large, or magic, or poison: armor does not help.")),
+                "cover": _s(type=_INTEGER, description="1 for partial cover, 2 for major cover."),
+            },
+            required=["characters", "severity", "reason"],
         ),
     ),
     types.FunctionDeclaration(

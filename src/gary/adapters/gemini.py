@@ -460,6 +460,15 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.HAZARD_DAMAGE:
+                hazard_effects, result = self._director.hazard_damage(
+                    channel_id=channel_id, characters=[str(c) for c in args.get("characters") or []],
+                    severity=str(args.get("severity", "")), reason=str(args.get("reason", "") or ""),
+                    ignores_armor=bool(args.get("ignores_armor")), cover=int(args.get("cover") or 0))
+                effects.extend(hazard_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.SWEAR_ENEMY:
                 oath_effects, result = self._director.swear_enemy(
                     channel_id=channel_id, character=str(args.get("character", "")),

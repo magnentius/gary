@@ -472,6 +472,12 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Hazards.** `hazard_damage` is damage from no creature: the model names the book's
+severity (`_HAZARDS`: bruises d4, blood d6, bones d8, lethal d10), whether it ignores armor,
+and cover (1-2); each character caught goes through `_attack(hazard=True)`, so armor,
+advanced-move armor, `last_hit`, the Reduce damage button and Last Breath all work as for a
+creature's blow.
+
 **Answering a blow** (`reactions.py`). `_attack` records each hit on the victim's sheet as
 `last_hit` (id, attacker, dealt, HP lost, down) and, when `reactions.options` finds anyone
 at the table with an answer, posts it with a `ReactPrompt`: a durable `ReactButton`
@@ -873,7 +879,7 @@ Flash; a turn is two model calls around a human click, so latency and cost matte
 The model sees narrow, typed tools, each with its own checks and failure message, each
 mapping to store mutations or Director calls:
 
-- **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
+- **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.

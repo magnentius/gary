@@ -614,6 +614,10 @@ heal anyone 7; both spend a use and are slow, so not while creatures are still s
 
 A creature is defeated at 0 HP and not before, however the narration reads. When a
 creature hurts you as the GM's move, Gary rolls that too and takes it off your sheet's HP.
+So does anything else that hurts you — a fall, a trap, fire, a collapsing ceiling: the GM
+says how bad, as the book does (bruises d4, some blood d6, broken bones d8, could kill a
+commoner d10), and Gary rolls it through your armor, plus any cover, unless it's big enough,
+magical or poisonous enough to ignore armor. It can be answered with Reduce damage like any blow.
 `?dm undo` takes a blow back like any other change.
 
 **At 0 HP you roll Last Breath** — Gary posts the button the moment you fall, and rolls it

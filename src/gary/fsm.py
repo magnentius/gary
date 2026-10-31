@@ -50,6 +50,14 @@ _RACE_MOVES = {
     ("Thief", "Human", "discern_realities"): "+1",
 }
 
+#: "Other sources of damage": how bad the GM says it is -> its die.
+_HAZARDS = {
+    "bruises": "d4",  # "It threatens bruises and scrapes at worst"
+    "blood": "d6",  # "It's likely to spill some blood, but nothing horrendous"
+    "bones": "d8",  # "It might break some bones"
+    "lethal": "d10",  # "It could kill a common person"
+}
+
 #: Every move rolls this.
 MOVE_DICE = "2d6"
 
@@ -1897,7 +1905,10 @@ class Director:
     def _attack(
         self, channel_id: int, name: str, creature: Dict[str, Any], character: str,
         extra_armor: int = 0, hit: Optional["damage.DamageRoll"] = None, halve: bool = False,
+        hazard: bool = False,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A blow landing on a character: a creature's (``name`` is it), or a hazard's
+        (``name`` is what happened -- a fall, a trap, fire)."""
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
@@ -1923,8 +1934,9 @@ class Director:
             # out that 4 was the damage.
             shield = "ignores armor" if creature.get("ignores_armor") else f"armor {armor}"
             line = (
-                f"🗡️ **{name}** hits **{character}** for {_damage_words(dealt)} "
-                f"({hit.render()}, {shield}) — HP {sheet['hp']} → {max(after, 0)}"
+                (f"💥 **{character}** is hurt — {name} — {_damage_words(dealt)} " if hazard else
+                 f"🗡️ **{name}** hits **{character}** for {_damage_words(dealt)} ")
+                + f"({hit.render()}, {shield}) — HP {sheet['hp']} → {max(after, 0)}"
                 + (" — **down**." if after <= 0 else ".")
             )
             if after <= 0:
@@ -1949,6 +1961,44 @@ class Director:
                    for a, s in self._party()):
                 return [SendMessage(channel_id, line, prompt=ReactPrompt(hit_id)), *effects], facts
         return [SendMessage(channel_id, line), *effects], facts
+
+    def hazard_damage(
+        self, *, channel_id: int, characters: Sequence[str], severity: str, reason: str,
+        ignores_armor: bool = False, cover: int = 0,
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Damage from no creature -- a fall, a trap, fire, a collapsing tower. "Other sources
+        of damage ... are left to the GM based on these options": the model says how bad,
+        Gary rolls it for each character caught, through their armor unless it ignores armor
+        ("if the source of the damage is particularly large or if the damage comes from
+        magic or poison"), with cover adding 1 or 2."""
+        die = _HAZARDS.get(str(severity or "").strip().lower())
+        if die is None:
+            return [], {"ok": False, "error": f"severity is one of: {', '.join(_HAZARDS)}."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say what hurt them (reason): 'the floor gave way'."}
+        cover = max(0, min(2, int(cover or 0)))
+        effects: List[Effect] = []
+        results: Dict[str, Any] = {}
+        for who in characters or ():
+            actor = self._character(who)
+            sheet = self._sheet_for(actor) if actor else None
+            if sheet is None:
+                return [], {"ok": False, "error": f"{who!r} has no character sheet."}
+            if sheet.get("dead") or int(sheet.get("hp", 0)) <= 0:
+                results[actor] = {"note": f"{actor} is already down; damage can never take them below 0 HP."}
+                continue
+            landed, facts = self._attack(channel_id, reason, {"damage": die, "ignores_armor": bool(ignores_armor)},
+                                         actor, extra_armor=cover, hazard=True)
+            effects.extend(landed)
+            if facts.get("down"):
+                effects.extend(self._trigger(channel_id, actor, "last_breath"))
+            results[actor] = facts
+        if not results:
+            return [], {"ok": False, "error": "Name who is caught (characters)."}
+        return effects, {"ok": True, "die": die, "hurt": results, "note": (
+            "Rolled and applied. Narrate it as bad as each severity says, and remember the hurt is "
+            "often more than HP: a specific harm -- a wrenched arm -- has consequences of its own.")}
 
     # -- shared --------------------------------------------------------------------------
 
