@@ -417,8 +417,8 @@ them; the GM gives or takes them as the fiction earns it. They expire at camp, r
 start of a journey.
 
 **Packs and free blows.** When several creatures strike one character at once, the GM
-rolls them as one blow — the biggest damage die among them, once per attacker, the highest
-counting — so a pack is dangerous without being certain death. And when the fiction hands
+rolls them as one blow, as the book says — the highest damage among them, rolled once, +1
+for each attacker beyond the first — so every extra attacker hurts a little more. And when the fiction hands
 you the blow (a pinned, helpless or surprised enemy), the GM has you just deal your damage,
 no roll, with the reason shown.
 

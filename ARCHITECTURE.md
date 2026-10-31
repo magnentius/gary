@@ -430,8 +430,9 @@ armor, piercing and ignores-armor; the dice line states the amount outright ("hi
 for **4 damage** (d6: 5, armor 1) — HP 18 → 14"). A weak Hack and Slash rolls the
 creature's blow back in the same breath — the trade is simultaneous, so it lands even if
 the creature died. `monster_attacks` is the GM-move version; with `also`, several
-creatures strike one character at once as one blow — the biggest damage die among them,
-rolled once per attacker, the highest counting (from the fan *Dungeon World Guide*).
+creatures strike one character at once as one blow, by the book's "Damage From Multiple
+Creatures": the highest damage among them, rolled once, +1 for each attacker beyond the
+first, with the leader's piercing and ignores-armor.
 `deal_damage` lands a character's damage with no move at all, when the fiction gives
 them the blow (a helpless or surprised enemy): weapon reach checked, reason shown.
 Every HP change is a journalled `ChangeHp`.

@@ -248,8 +248,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "character": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
                 "also": _s(type=_ARRAY, items=_s(type=_STRING), description=(
                     "Other creatures striking the same character at the same moment -- a pack, a "
-                    "surrounding ring. One combined blow: the biggest damage die among them, rolled "
-                    "once per attacker, highest counts. Not for blows at different moments.")),
+                    "surrounding ring. One combined blow: the highest damage among them, rolled once, "
+                    "+1 for each attacker beyond the first. Not for blows at different moments.")),
                 "protector": _s(type=_STRING, description=(
                     "A hired Protector standing between the character and this attack: +their skill "
                     "to armor, then their skill drops 1 until they rest.")),

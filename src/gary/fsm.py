@@ -1749,15 +1749,21 @@ class Director:
                                                   f"Standing: {listing}."}
             if found not in names:
                 names.append(found)
-        # The one with the biggest die leads: its die, piercing and armor-breaking count.
-        name = max(names, key=lambda n: damage.parse(scene[n]["damage"]).sides)
+        # "If multiple creatures attack at once roll the highest damage among them and add +1
+        # damage for each monster beyond the first." The one with the highest damage leads: its
+        # die, piercing and armor-breaking count.
+        def strength(n: str) -> Tuple[int, int]:
+            spec = damage.parse(scene[n]["damage"])
+            return spec.sides, spec.modifier
+
+        name = max(names, key=strength)
         hit, pack = None, ""
         if len(names) > 1:
             spec = damage.parse(scene[name]["damage"])
-            rolls = [damage.roll(self.dice, spec) for _ in names]
-            hit = max(rolls, key=lambda r: r.total)
-            pack = (f"{_and(names)} attack together — {spec} ×{len(names)}: "
-                    f"{', '.join(str(r.total) for r in rolls)}, the highest counts.")
+            extra = len(names) - 1
+            hit = damage.roll(self.dice, damage.DamageSpec(spec.sides, spec.mode, spec.modifier + extra))
+            pack = (f"{_and(names)} attack together — {name}'s {spec}, +{extra} for "
+                    f"{'the other' if extra == 1 else f'the {extra} others'}.")
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
         if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet to "

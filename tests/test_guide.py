@@ -32,13 +32,13 @@ def director(registry, clock, dice, sheets, scene):
                     players={ALICE: "Dorn"}, sheet_for=sheets.get, monsters=lambda: scene)
 
 
-def test_a_pack_rolls_the_biggest_die_once_each_and_keeps_the_highest(director, dice):
-    dice.queue(2, 7, 5)  # three d8s: the gnoll's die, one per attacker
+def test_a_pack_rolls_the_highest_damage_plus_one_per_extra_attacker(director, dice):
+    dice.queue(5)  # the gnoll's d8 once, +2 for the two goblins
     effects, result = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Dorn",
                                                also=["goblin 2", "Gnoll 1"])
     texts = [e.text for e in effects if isinstance(e, SendMessage)]
-    assert texts[0] == "Goblin 1, Goblin 2 and Gnoll 1 attack together — d8 ×3: 2, 7, 5, the highest counts."
-    assert ChangeHp(CHANNEL, "character", "Dorn", 19) in effects  # 7 - armor 1
+    assert texts[0] == "Goblin 1, Goblin 2 and Gnoll 1 attack together — Gnoll 1's d8, +2 for the 2 others."
+    assert ChangeHp(CHANNEL, "character", "Dorn", 19) in effects  # 5 + 2 - armor 1
     assert result["attackers"] == ["Goblin 1", "Goblin 2", "Gnoll 1"]
 
 
