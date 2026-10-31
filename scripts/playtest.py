@@ -38,6 +38,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from gary import choices, spells
+from gary.steadings import here
 from gary.adapters.gemini import GeminiNarrator
 from gary.adapters.runner import STALL_MESSAGE, EffectRunner
 from gary.fsm import (
@@ -315,6 +316,7 @@ class Table:
             freeform_channels={CHANNEL}, dice=RandomDice(random.Random(seed)),
             sheet_for=lambda a: (self.store.state().get("sheets") or {}).get(a),
             monsters=lambda: self.store.state().get("monsters") or {},
+            steading=lambda: here(self.store.state()),
         )
         self.narrator = RecordingNarrator(
             client=client, director=self.director,

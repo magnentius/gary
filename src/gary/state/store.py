@@ -691,6 +691,23 @@ def _h_front(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_steading(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"steading": record}, or None to drop it. Undone by putting back what was there."""
+    steadings = store._state.setdefault("steadings", {})
+    before = steadings.get(m.target)
+    record = m.payload.get("steading")
+    if record is None:
+        steadings.pop(m.target, None)
+    else:
+        steadings[m.target] = record
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.STEADING, m.target, {"steading": before}),
+        before=before,
+        after=record,
+    )
+
+
 def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = store._state.get("setting", "")
     store._state["setting"] = str(m.payload.get("text", ""))
@@ -754,6 +771,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.SCENE: _h_scene,
     MutationKind.SETTING: _h_setting,
     MutationKind.FRONT: _h_front,
+    MutationKind.STEADING: _h_steading,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,

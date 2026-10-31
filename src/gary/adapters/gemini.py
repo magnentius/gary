@@ -817,17 +817,38 @@ class GeminiNarrator:
             elif name == T.BUY:
                 price = args.get("price")
                 from .. import hirelings as hired
+                from .. import steadings as places
+                from ..gear import EQUIPMENT, item_for, price_of
 
+                town = places.here(store.state())
+                wanted, known = item_for(str(args.get("item", "")))
+                book = price_of(wanted.name) if known else None
+                kind = next((i.get("kind") for i in EQUIPMENT.values() if i["name"] == wanted.name), "")
+                refused = places.for_sale(town, wanted.name, kind, book) if known else ""
+                if refused:
+                    return [], {"ok": False, "error": refused + " (Supply finds what the steading lacks.)"}
+                factor, why = places.price_factor(town, wanted.name)
+                if price in (None, "") and book is not None and factor != 1.0:
+                    price = max(1, int(book * factor))
                 discount = hired.best(list(sheets.values()), "Minstrel")
                 new, label, cost = trade.buy(sheet, str(args.get("item", "")),
                                              int(price) if price not in (None, "") else None, discount)
-                line = f"🪙 **{actor}** buys {label} for {cost} coins."
+                line = f"🪙 **{actor}** buys {label} for {cost} coins" + (f" — {why}." if why else ".")
                 result = {"ok": True, "bought": label, "cost": cost}
             else:
                 offer = args.get("offer")
+                from .. import steadings as places
+
+                factor, why = places.price_factor(places.here(store.state()), str(args.get("item", "")))
+                if offer is None and factor != 1.0:
+                    # Need: "That resource sells for considerably more"; a Resource fetches less.
+                    from ..gear import price_of
+
+                    book = price_of(str(args.get("item", "")))
+                    offer = int(book // 2 * factor) if book else None
                 new, item, paid = trade.sell(sheet, str(args.get("item", "")),
                                              None if offer is None else int(offer))
-                line = f"🪙 **{actor}** sells {item} for {paid} coins."
+                line = f"🪙 **{actor}** sells {item} for {paid} coins" + (f" — {why}." if why else ".")
                 result = {"ok": True, "sold": item, "paid": paid}
         except trade.TradeError as exc:
             return [], {"ok": False, "error": str(exc)}
@@ -835,6 +856,43 @@ class GeminiNarrator:
         store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": new})], reason=line)
         result.update(coins=new.get("coins", 0), armor=new["armor"])
         return [SendMessage(channel_id, f"{line} ({new.get('coins', 0)} coins)")], result
+
+    def _steading_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Steadings: made and changed by the model, journalled, shown every turn."""
+        from .. import steadings as places
+        from ..sheets import SheetError
+
+        store = self._store
+        known = store.state().get("steadings") or {}
+        try:
+            if name == T.CREATE_STEADING:
+                kind = str(args.get("kind", "")).lower()
+                try:
+                    record = places.make(str(args.get("name", "")), kind, int(args.get("option", -1)),
+                                         int(args.get("problem", -1)), [str(d) for d in args.get("details") or []])
+                except SheetError as exc:
+                    hint = f" {places.options_text(kind)}" if kind in places.KINDS else ""
+                    return {"ok": False, "error": str(exc) + hint}
+                key = places.slug(record["name"])
+                if key in known:
+                    return {"ok": False, "error": f"{record['name']} already exists: adjust_steading changes it."}
+            else:
+                key = places.slug(str(args.get("name", "")))
+                if key not in known:
+                    return {"ok": False, "error": f"No steading {args.get('name')!r}. Known: "
+                                                  f"{', '.join(s['name'] for s in known.values()) or 'none'}."}
+                record = places.adjust(known[key], [str(x) for x in args.get("steps") or []],
+                                       [(str(a.get("tag", "")), str(a.get("detail", "") or "")) for a in args.get("add") or []],
+                                       [str(x) for x in args.get("remove") or []], str(args.get("kind", "") or ""))
+        except SheetError as exc:
+            return {"ok": False, "error": str(exc)}
+        diff = store.apply([Mutation(MutationKind.STEADING, key, {"steading": record})],
+                           reason=f"steading {record['name']}: {args.get('reason') or name}")
+        if not diff.ok:
+            return _diff_result(diff)
+        return {"ok": True, "steading": places.describe(record), "note": (
+            "Recorded. When the party is there, name it as steading in set_scene: what is for sale, "
+            "prices, Supply and Recruit follow its tags.")}
 
     def _front_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Fronts: the GM's own plans, so nothing is posted to the table -- only stored,
@@ -965,6 +1023,9 @@ class GeminiNarrator:
         if name in (T.CREATE_FRONT, T.ADVANCE_PORTENT, T.END_DANGER):
             return self._front_tool(name, args)
 
+        if name in (T.CREATE_STEADING, T.ADJUST_STEADING):
+            return self._steading_tool(name, args)
+
         if name == T.RECORD_NOTE:
             return _diff_result(store.apply(
                 [Mutation(MutationKind.NOTE, str(args.get("subject", "")),
@@ -976,6 +1037,14 @@ class GeminiNarrator:
             payload = {"location": str(args.get("location", ""))}
             if args.get("summary"):
                 payload["summary"] = str(args["summary"])
+            if "steading" in args:
+                # The steading they are in, or "" for none (the wilds, a dungeon).
+                from ..steadings import slug
+
+                named = str(args.get("steading") or "")
+                if named and slug(named) not in (store.state().get("steadings") or {}):
+                    return {"ok": False, "error": f"No steading {named!r} yet: create_steading first."}
+                payload["steading"] = named
             return _diff_result(store.apply(
                 [Mutation(MutationKind.SCENE, "", payload)], reason="scene change"
             ))

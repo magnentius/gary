@@ -415,6 +415,16 @@ a target matching it by name or kind (articles ignored) and -4 against anyone el
 character damage sites, and `_oath_kept` clears it when that target is defeated. A failure
 is released with `released=true` and a reason.
 
+**Steadings** (`steadings.py`). `create_steading` builds one from `KINDS` -- the book's
+defaults per kind, an option and a problem by number, every "your choice" filled in order
+from `details` (`blank_names` says which) -- into `state["steadings"]` (`STEADING`,
+journalled); `adjust_steading` steps the ranked tags and adds or removes the rest.
+`set_scene(steading=)` names where the party is, and `steadings.here` reads it: the
+Director's `steading` callable applies Market to Supply and `recruit_bonus` to Recruit
+(its `target` names who is sought), and buying checks `for_sale` (prosperity, Market,
+Exotic, Craft, Lawless for poison) and `price_factor` (Resource half, Need double, on sale
+too). The live state lists every steading and marks the party's.
+
 **Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
 trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --
 modified by its bestiary tags (hoarder, magical, divine, planar) and the model's flags (far
@@ -944,7 +954,8 @@ mapping to store mutations or Director calls:
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`,
   `roll_treasure`.
-- **World:** `advance_time`, `set_scene`, `upsert_npc`, `record_note`.
+- **World:** `advance_time`, `set_scene`, `upsert_npc`, `record_note`, `create_steading`,
+  `adjust_steading`.
 
 Rejections are reported back (`ok: false` with the reason), so the model narrates what
 actually happened — a refused sale, a potion nobody has.
@@ -962,6 +973,7 @@ src/gary/
   gear.py          class gear, signature weapon, equipment lookup                   §6.4
   trade.py         give/take/buy/sell on the sheet                                  §6.4
   treasure.py      the book's treasure table; magic items as ideas                  §6.4
+  steadings.py     villages, towns, keeps, cities: templates and tags               §6.4
   healing.py       potions, bandages, poultices                                     §6.4
   monsters.py      bestiary lookup, homebrew checks, instances                      §6.5
   damage.py        damage expressions, armor, severity                              §6.5

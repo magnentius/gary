@@ -93,7 +93,8 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
 - Call set_scene the first time you describe where the party is, and again whenever they
   move or the situation changes around them. Do this even if they have not travelled: a
   room you described but never recorded is gone by next session, and you will open the
-  next one blind. This is the one most easily forgotten.
+  next one blind. This is the one most easily forgotten. In a village, town, keep or city,
+  name it as steading (create_steading the first time); leaving it, steading "".
   Write the summary as STANDING STATE, not as a moment. You are shown it again on every
   later turn, so anything phrased as an arrival gets re-narrated forever. Third person,
   present tense, no "you", no verbs of entering. Staging only: what is here, who is
@@ -370,6 +371,15 @@ def render_live_state(state: Dict[str, Any]) -> str:
         if kinds:
             lines.append("- What they are (their moves are yours to make for them; play to their instinct):")
             lines.extend(f"    - {k}" for k in kinds)
+
+    from .steadings import describe as describe_steading, here as steading_here
+
+    known = state.get("steadings") or {}
+    if known:
+        current = steading_here(state)
+        lines.append("- Steadings (their tags decide what is for sale, prices, Supply and Recruit):")
+        lines += [f"    - {describe_steading(s)}" + (" ← the party is here" if s is current else "")
+                  for s in known.values()]
 
     from .fronts import render as render_fronts
 

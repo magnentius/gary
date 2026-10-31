@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 import discord
 
 from ..config import Settings
+from ..steadings import here
 from ..context import chunk_document, parse_proposal
 from ..fsm import (
     ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, PromptModel, ReactPrompt, RollPrompt,
@@ -1785,6 +1786,7 @@ def build_client(
         players=dict(settings.players),
         sheet_for=lambda actor: (store.state().get("sheets") or {}).get(actor),
         monsters=lambda: store.state().get("monsters") or {},
+        steading=lambda: here(store.state()),
     )
 
     if narrator is None:

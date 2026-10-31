@@ -52,6 +52,8 @@ HAZARD_DAMAGE = "hazard_damage"
 ONGOING = "ongoing"
 LEAD_THE_CHARGE = "lead_the_charge"
 CHANNEL_BALANCE = "channel_balance"
+CREATE_STEADING = "create_steading"
+ADJUST_STEADING = "adjust_steading"
 SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
@@ -974,8 +976,57 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             properties={
                 "location": _s(type=_STRING),
                 "summary": _s(type=_STRING, description="One line on the current situation."),
+                "steading": _s(type=_STRING, description=(
+                    "The steading they are in, as create_steading named it -- or \"\" when they leave "
+                    "for the wilds or a dungeon. What is for sale, prices, Supply and Recruit follow it.")),
             },
             required=["location"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=CREATE_STEADING,
+        description=(
+            "Make a steading -- a village, town, keep or city -- the first time the party reaches or "
+            "hears of it, by the book: its kind's defaults, then one option and one problem by number "
+            "(village options: 0 naturally defended, 1 abundant resources, 2 under another's protection, "
+            "3 on a major road, 4 a wizard's tower, 5 a religious site; problems: 0 arid land, 1 dedicated "
+            "to a deity, 2 recent battle, 3 monster problem, 4 absorbed another village, 5 remote. Towns, "
+            "keeps and cities: the error lists theirs). Fill every 'your choice' in details, in order -- "
+            "the error says which. Not secret: it shapes what they can buy and who they can hire."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "name": _s(type=_STRING),
+                "kind": _s(type=_STRING, enum=["village", "town", "keep", "city"]),
+                "option": _s(type=_INTEGER),
+                "problem": _s(type=_INTEGER),
+                "details": _s(type=_ARRAY, items=_s(type=_STRING),
+                              description=("Each 'your choice' in order. Oath, Trade and Enmity name OTHER "
+                                           "steadings; Resource and Need name goods; Blight a monster.")),
+            },
+            required=["name", "kind", "option", "problem"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ADJUST_STEADING,
+        description=(
+            "A steading changes, because the fiction changed it or between sessions by the book's "
+            "updates (growth, collapse, want, trade, capture, profit, surplus): step prosperity, "
+            "population or defenses up or down, add or remove tags, or change its kind."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "name": _s(type=_STRING),
+                "steps": _s(type=_ARRAY, items=_s(type=_STRING), description="e.g. '+prosperity', '-defenses'."),
+                "add": _s(type=_ARRAY, items=_s(type=_OBJECT, properties={
+                    "tag": _s(type=_STRING), "detail": _s(type=_STRING)}, required=["tag"])),
+                "remove": _s(type=_ARRAY, items=_s(type=_STRING), description="Tags to drop, e.g. 'need'."),
+                "kind": _s(type=_STRING, enum=["village", "town", "keep", "city"]),
+                "reason": _s(type=_STRING),
+            },
+            required=["name", "reason"],
         ),
     ),
 ]

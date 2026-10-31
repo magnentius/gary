@@ -597,6 +597,15 @@ the book's price, refused if you can't afford it; selling fetches half, or less 
 stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
 Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
 
+**Steadings.** Villages, towns, keeps and cities are made by the book as the party reaches
+or hears of them: each kind's defaults (a village is Poor, Steady, Militia, with a Resource
+and an Oath), one option and one problem. The GM records which one you're in, and its tags
+count: a Dirt village sells nothing, a Poor one only the bare necessities, a Moderate town
+most mundane goods but not plate; a Market widens what's for sale and gives +1 to Supply;
+a Resource is half price and a Need fetches double; Arcane, Divine or a matching Guild gives
++1 to Recruit an adept, a priest or that guild's kind. Steadings change as the story and the
+book's between-session rules change them, and `?dm state` lists them all.
+
 **Treasure** is rolled by the book. When you search a creature's belongings or lair, Gary
 rolls its damage die (twice for a hoarder, +1d4 for a lord or something ancient) on the
 book's treasure table and rolls every amount: a few coins, a gem worth 2d10×10, a chest

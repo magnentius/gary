@@ -29,7 +29,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import (
     advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, spells,
-    trade,
+    steadings, trade,
 )
 from .gear import armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
@@ -254,6 +254,7 @@ class Director:
         dice: Optional[Dice] = None,
         sheet_for: Optional[Callable[[str], Optional[dict]]] = None,
         monsters: Optional[Callable[[], Dict[str, dict]]] = None,
+        steading: Optional[Callable[[], Optional[dict]]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -272,6 +273,8 @@ class Director:
         # The creatures in the scene, by instance name. Read when an attack is aimed and
         # when its damage lands. None means none: an unconfigured Director cannot attack.
         self._monsters = monsters or (lambda: {})
+        # The steading the party is in, if any: its tags change Supply and Recruit.
+        self._steading = steading or (lambda: None)
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -471,7 +474,7 @@ class Director:
         if rules.key == "carouse":
             return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds)
         if rules.stat == OFFERS:
-            return self._open_recruit(channel_id, user_id, actor, offers, stakes, ttl_seconds, forward)
+            return self._open_recruit(channel_id, user_id, actor, offers, stakes, ttl_seconds, forward, target)
         if rules.stat == LOYALTY:
             return self._open_order(channel_id, user_id, actor, target, stakes, ttl_seconds)
 
@@ -621,6 +624,9 @@ class Director:
         if racial == "+1":
             mod += 1
             notes.append(f"+1 {mover.get('race')}")
+        if rules.key == "supply" and steadings.has(self._steading(), "market"):
+            mod += 1  # Market: "+1 to supply"
+            notes.append(f"+1 Market ({self._steading()['name']})")
         if (rules.key == "discern_realities" and advanced.has(mover, "Seeing Red")
                 and any(r["hp"] > 0 for r in self._monsters().values())):
             mod += 1
@@ -924,7 +930,7 @@ class Director:
 
     def _open_recruit(
         self, channel_id: int, user_id: int, actor: str, offers: Sequence[str], stakes: str,
-        ttl_seconds: Optional[float], forward: bool,
+        ttl_seconds: Optional[float], forward: bool, seeking: str = "",
     ) -> List[Effect]:
         """Recruit: +1 for each thing made known -- generous pay, the purpose, a share -- and +1
         for a useful reputation here."""
@@ -938,6 +944,11 @@ class Director:
             if key not in made:
                 made.append(key)
         notes = [f"+1 {k}" for k in made]
+        # Arcane, Divine, Guild: "+1 to recruit when you put out word you're looking for an adept".
+        local, why = steadings.recruit_bonus(self._steading(), seeking)
+        if local:
+            made.append(why)
+            notes.append(f"+1 {why} ({self._steading()['name']})")
         held, spend = self._forward(channel_id, actor) if forward else (0, [])
         if held:
             notes.append(f"{held:+d} forward")
