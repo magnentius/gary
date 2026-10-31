@@ -972,13 +972,22 @@ class GeminiNarrator:
                                        [str(x) for x in args.get("remove") or []], str(args.get("kind", "") or ""))
         except SheetError as exc:
             return {"ok": False, "error": str(exc)}
-        diff = store.apply([Mutation(MutationKind.STEADING, key, {"steading": record})],
-                           reason=f"steading {record['name']}: {args.get('reason') or name}")
+        mutations = [Mutation(MutationKind.STEADING, key, {"steading": record})]
+        # A steading made while the scene names none is where the party is: that is when the
+        # persona says to make one. Observed 2026-10-31 -- the model made a town and bought a
+        # potion in the same round, before set_scene, so the purchase missed the town's tags.
+        arrived = name == T.CREATE_STEADING and not (store.state().get("scene") or {}).get("steading")
+        if arrived:
+            mutations.append(Mutation(MutationKind.SCENE, "", {"steading": record["name"]}))
+        diff = store.apply(mutations, reason=f"steading {record['name']}: {args.get('reason') or name}")
         if not diff.ok:
             return _diff_result(diff)
-        return {"ok": True, "steading": places.describe(record), "note": (
-            "Recorded. When the party is there, name it as steading in set_scene: what is for sale, "
-            "prices, Supply and Recruit follow its tags.")}
+        note = (f"Recorded, and the party is now in {record['name']}: what is for sale, prices, Supply and "
+                "Recruit follow its tags. If they are not there, set_scene with steading \"\"."
+                if arrived else
+                "Recorded. When the party is there, name it as steading in set_scene: what is for sale, "
+                "prices, Supply and Recruit follow its tags.")
+        return {"ok": True, "steading": places.describe(record), "note": note}
 
     def _front_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Fronts: the GM's own plans, so nothing is posted to the table -- only stored,

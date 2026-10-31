@@ -349,8 +349,8 @@ out of hand. The coin goes when the party does.
 
 **Steadings.** Villages, towns, keeps and cities are made by the book as the party reaches
 or hears of them: each kind's defaults (a village is Poor, Steady, Militia, with a Resource
-and an Oath), one option and one problem. The GM records which one you're in, and its tags
-count: a Dirt village sells nothing, a Poor one only the bare necessities, a Moderate town
+and an Oath), one option and one problem. One made while you're in no steading is where you
+are; after that the GM records which one you're in, and its tags count: a Dirt village sells nothing, a Poor one only the bare necessities, a Moderate town
 most mundane goods but not plate; a Market widens what's for sale and gives +1 to Supply;
 a Resource is half price and a Need fetches double; Arcane, Divine or a matching Guild gives
 +1 to Recruit an adept, a priest or that guild's kind. Steadings change as the story and the

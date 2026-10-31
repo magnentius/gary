@@ -156,3 +156,29 @@ def test_supply_with_no_steading_tells_the_model_to_make_one(registry, clock, di
         notes = director._advanced_notes(check, Roll(spec="2d6", faces=(4, 4)))
         assert (NO_STEADING in notes) is expected
         registry.cancel(check.check_id)
+
+
+async def test_a_steading_made_with_none_on_the_scene_puts_the_party_there(table):
+    """Made and shopped in one round, before set_scene: the purchase still gets the town."""
+    director, store, history = table
+    n = narrator(table,
+                 _parallel(call_response(T.CREATE_STEADING, {"name": "Pigton", "kind": "village", "option": 0,
+                                                             "problem": 0, "details": ["eels", "Castonshire"]}),
+                           call_response(T.BUY, {"actor": "Dorn", "item": "long sword"})),
+                 call_response(T.CREATE_STEADING, {"name": "Curland", "kind": "village", "option": 0,
+                                                   "problem": 0, "details": ["wool", "Castonshire"]}),
+                 text_response("."))
+    await player(n, "we walk into the village and look for a smith")
+    answers = [p.function_response.response for p in n.client.calls[1]["contents"][-1].parts]
+    assert "party is now in Pigton" in answers[0]["note"]
+    assert "Only the bare necessities are for sale in Pigton" in answers[1]["error"]
+    # A second one, made while they stand in the first, is somewhere else.
+    assert store.state()["scene"]["steading"] == "Pigton"
+    later = n.client.calls[2]["contents"][-1].parts[0].function_response.response
+    assert later["note"].startswith("Recorded. When the party is there")
+
+
+def _parallel(*responses):
+    from tests.test_gemini import _Response
+
+    return _Response([part for r in responses for part in r.candidates[0].content.parts])
