@@ -48,6 +48,9 @@ DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
 BOLSTER = "bolster"
+CREATE_FRONT = "create_front"
+ADVANCE_PORTENT = "advance_portent"
+END_DANGER = "end_danger"
 UPDATE_HIRELING = "update_hireling"
 RECOVER = "recover"
 PERILOUS_JOURNEY = "perilous_journey"
@@ -374,6 +377,54 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Who rests. Omit for the whole party."),
             },
             required=["days", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=CREATE_FRONT,
+        description=(
+            "Write down a threat that will move whether the party looks or not -- a front -- as it "
+            "takes shape: at a campaign's start, from an imported setting, when a villain appears. "
+            "Each danger has an impulse (what it wants), 2-5 grim portents (escalating steps it takes "
+            "if unchecked, each something the party could notice and stop), and an impending doom. "
+            "Players never see fronts; you are shown each danger's next portent every turn."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "name": _s(type=_STRING, description="e.g. 'The Dragon of the Spear'."),
+                "dangers": _s(type=_ARRAY, items=_s(type=_OBJECT, properties={
+                    "name": _s(type=_STRING), "impulse": _s(type=_STRING, description="'to defend her young'"),
+                    "portents": _s(type=_ARRAY, items=_s(type=_STRING)),
+                    "doom": _s(type=_STRING, description="'destruction', 'usurpation', or what it means here"),
+                }, required=["name", "impulse", "portents", "doom"])),
+                "stakes": _s(type=_ARRAY, items=_s(type=_STRING),
+                             description="Questions play will answer, e.g. 'Will the lizardmen side with the dragon?'"),
+            },
+            required=["name", "dangers"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=ADVANCE_PORTENT,
+        description=(
+            "A danger's next grim portent comes true -- onscreen, or offscreen while the party is "
+            "elsewhere or ignores the signs. Then show its signs in the fiction. When the last one "
+            "falls, its impending doom comes to pass."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"front": _s(type=_STRING), "danger": _s(type=_STRING),
+                        "reason": _s(type=_STRING, description="What brought it about.")},
+            required=["front", "danger", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=END_DANGER,
+        description="A danger is stopped for good -- defeated, thwarted, made peace with.",
+        parameters=_s(
+            type=_OBJECT,
+            properties={"front": _s(type=_STRING), "danger": _s(type=_STRING),
+                        "reason": _s(type=_STRING, description="How it ended.")},
+            required=["front", "danger", "reason"],
         ),
     ),
     types.FunctionDeclaration(

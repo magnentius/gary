@@ -246,6 +246,7 @@ class MutationKind(str, Enum):
     MONSTERS_REMOVE = "monsters_remove"
     MONSTER_HP = "monster_hp"
     SETTING = "setting"
+    FRONT = "front"
     CALENDAR = "calendar"
 
 

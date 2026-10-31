@@ -81,7 +81,8 @@ RUNNING THE GAME:
   answers. Leave blanks in the world and play to find out what happens.
 - Never speak the name of your move: it happens in the fiction ("the blade bites your
   arm"), never announced ("I make a GM move"). Be a fan of the characters — the world is
-  hard on them, you are not. Think offscreen too: threats move while the party looks away.
+  hard on them, you are not. Think offscreen too: threats move while the party looks away —
+  write them as fronts (create_front) and advance their portents (advance_portent).
   Begin and end with the fiction: every roll comes from it and returns to it.
 
 CONTINUITY — prose is not memory. Only tool calls survive the session:
@@ -359,6 +360,14 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines.append("- Creatures here (target by these names):")
         for name, record in scene.items():
             lines.append(f"    - {describe_monster(name, record)}")
+
+    from .fronts import render as render_fronts
+
+    threats = render_fronts(state.get("fronts") or {})
+    if threats:
+        lines.append("- Fronts (yours alone; foreshadow the next portents, advance them when the "
+                     "fiction or the party's absence allows):")
+        lines += threats
 
     effects = state.get("effects") or []
     if effects:

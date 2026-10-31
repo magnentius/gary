@@ -474,7 +474,16 @@ defender's click lands it — redirected, halved, with the defender striking bac
 level, or as rolled — spends one hold (clearing the defense at 0) and tells the model as a
 rules event. Expiry spends nothing. Make Camp ends every defense.
 
-### 6.9 Forward
+### 6.9 Fronts
+
+`fronts.py` checks a front (1–4 dangers, each an impulse, 2–5 grim portents and an impending
+doom; stakes questions) and renders it. Fronts live in state as `fronts`, written only by the
+journalled `FRONT` mutation, whose inverse is the record as it was. The model's
+`create_front`, `advance_portent` (the next portent comes true; the last one returns the doom)
+and `end_danger` post nothing to the table; the live state shows each live danger's impulse,
+progress and next portent. `?dm fronts` answers through a button so only the clicker sees it.
+
+### 6.9a Forward
 
 `sheet["forwards"]` holds `{amount, reason}` (or `{damage, reason}`: Arcane Art's +1d4). Moves
 that grant them do it in `_forwards_from` (Discern Realities, Take Watch, I Am the Law,
@@ -806,6 +815,7 @@ mapping to store mutations or Director calls:
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `bolster`.
+- **Fronts:** `create_front`, `advance_portent`, `end_danger`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -835,6 +845,7 @@ src/gary/
   levelling.py     Level Up                                                         §6.10
   choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
   hirelings.py     hirelings: making, loyalty, skill rules                          §6.8
+  fronts.py        fronts, dangers, grim portents                                   §6.9
   bonds.py         bonds and +Bond                                                  §6.10
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
   ports.py         Narrator / transport / Dice seams, EchoNarrator, ScriptedDice    §12.2

@@ -364,6 +364,12 @@ for 100 coins or more, +1 for each extra 100; pick what comes of it (a useful fr
 rumours, information, not being tricked) — three on a 10+, one otherwise, and a miss gets
 out of hand. The coin goes when the party does.
 
+**Fronts.** The GM writes the threats that move on their own as fronts — dangers with an
+impulse, a few grim portents and an impending doom — and ticks portents off as the story
+goes, including while the party is elsewhere. Gemini is shown each danger's next portent
+every turn, so it can foreshadow it. Players never see them; `?dm fronts` offers a button
+that shows them privately to whoever clicks it. Every change undoes with `?dm undo`.
+
 **Outstanding Warrants and Bolster.** Returning somewhere you've caused trouble, the GM
 calls Outstanding Warrants (+Cha): on a hit everyone recognises you, and on a 7–9 the GM adds
 a complication — a warrant, a price on your head, or someone you care about in a bad spot.
@@ -730,6 +736,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm gear` | Choose starting gear for a character made before gear existed. |
 | `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
 | `?dm choices` | Your class's creation choices, for a character made before them. |
+| `?dm fronts` | The threats the GM is tracking, shown privately to whoever clicks (spoilers). |
 | `?dm companion` | A Ranger's animal companion: a private form, or shows the one you have. |
 | `?dm alignment` | Choose your alignment, for a character made before alignments existed. |
 | `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |

@@ -661,6 +661,59 @@ class GeminiNarrator:
         result.update(coins=new.get("coins", 0), armor=new["armor"])
         return [SendMessage(channel_id, f"{line} ({new.get('coins', 0)} coins)")], result
 
+    def _front_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Fronts: the GM's own plans, so nothing is posted to the table -- only stored,
+        journalled, and shown to the model each turn."""
+        from .. import fronts
+        from ..sheets import SheetError
+
+        store = self._store
+        current = dict(store.state().get("fronts") or {})
+        try:
+            if name == T.CREATE_FRONT:
+                front = fronts.make(str(args.get("name", "")), list(args.get("dangers") or []),
+                                    list(args.get("stakes") or []))
+                key = fronts.slug(front["name"])
+                if key in current:
+                    return {"ok": False, "error": f"There is already a front called {front['name']}."}
+                if len(current) >= fronts.MAX_FRONTS:
+                    return {"ok": False, "error": f"At most {fronts.MAX_FRONTS} fronts; end one first."}
+                store.apply([Mutation(MutationKind.FRONT, key, {"front": front})],
+                            reason=f"front: {front['name']}")
+                return {"ok": True, "front": front["name"],
+                        "note": "Foreshadow the first portents; the state shows what comes next."}
+            key = fronts.slug(str(args.get("front", "")))
+            if key not in current:
+                return {"ok": False, "error": f"No front {args.get('front')!r}. Fronts: "
+                                              f"{', '.join(f['name'] for f in current.values()) or 'none'}."}
+            front = json.loads(json.dumps(current[key]))
+            danger = fronts.danger_of(front, str(args.get("danger", "")))
+            reason = " ".join(str(args.get("reason", "") or "").split())
+            if not reason:
+                return {"ok": False, "error": "Say what happened (reason)."}
+            if name == T.END_DANGER:
+                danger["ended"] = reason
+                result = {"ok": True, "ended": danger["name"]}
+            else:
+                if danger.get("ended"):
+                    return {"ok": False, "error": f"{danger['name']} has ended: {danger['ended']}."}
+                if int(danger["reached"]) >= len(danger["portents"]):
+                    return {"ok": False, "error": f"{danger['name']}'s doom has already come."}
+                happened = danger["portents"][int(danger["reached"])]
+                danger["reached"] = int(danger["reached"]) + 1
+                result = {"ok": True, "portent": happened, "reached": danger["reached"],
+                          "of": len(danger["portents"])}
+                if danger["reached"] >= len(danger["portents"]):
+                    result["doom"] = (f"The impending doom comes to pass: {danger['doom']}. Make it "
+                                      "real in the fiction, now or as soon as the party can see it.")
+                else:
+                    result["next"] = danger["portents"][danger["reached"]]
+        except SheetError as exc:
+            return {"ok": False, "error": str(exc)}
+        store.apply([Mutation(MutationKind.FRONT, key, {"front": front})],
+                    reason=f"front {front['name']}: {danger['name']}")
+        return result
+
     def _call_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         store = self._store
 
@@ -732,6 +785,9 @@ class GeminiNarrator:
                           {"items": [str(i) for i in args.get("items", [])]})],
                 reason=str(args.get("reason", "")),
             ))
+
+        if name in (T.CREATE_FRONT, T.ADVANCE_PORTENT, T.END_DANGER):
+            return self._front_tool(name, args)
 
         if name == T.RECORD_NOTE:
             return _diff_result(store.apply(

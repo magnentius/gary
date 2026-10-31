@@ -367,6 +367,7 @@ __At the table__
 `{p}alignment` — choose your alignment, for a character made before alignments existed
 `{p}companion` — a Ranger's animal companion (a private form)
 `{p}choices` — your class's creation choices (deity, land, lore, poison…), for a character made before them
+`{p}fronts` — the threats the GM is tracking, shown only to whoever asks (spoilers)
 `{p}playing <character name>` — claim a character someone else made
 `{p}checks` — what Gary is waiting to be rolled
 `{p}cancel` — drop your own pending check
@@ -1366,6 +1367,29 @@ class GaryClient(discord.Client):
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
             )
             view.message = await message.channel.send(view.prompt(), view=view)
+            return
+
+        if command == "fronts":
+            from .. import fronts
+
+            known = self.store.state().get("fronts") or {}
+            if not known:
+                await self.sender.send(channel_id, "No fronts yet: the GM writes them as threats take shape.")
+                return
+            text = "\n\n".join(fronts.describe(f) for f in known.values())
+            if len(text) > 1900:
+                text = text[:1900].rsplit("\n", 1)[0] + "\n…"
+            view = discord.ui.View(timeout=15 * 60)
+            button = discord.ui.Button(label="Show fronts (only you will see them)", emoji="🗺️",
+                                       style=discord.ButtonStyle.secondary)
+
+            async def show(interaction: "discord.Interaction") -> None:
+                await interaction.response.send_message(text, ephemeral=True)
+
+            button.callback = show
+            view.add_item(button)
+            # A button, because only a click can be answered privately: fronts are spoilers.
+            await message.channel.send(f"{len(known)} front(s) in play.", view=view)
             return
 
         if command == "choices":
