@@ -364,6 +364,13 @@ for 100 coins or more, +1 for each extra 100; pick what comes of it (a useful fr
 rumours, information, not being tricked) — three on a 10+, one otherwise, and a miss gets
 out of hand. The coin goes when the party does.
 
+**Outstanding Warrants and Bolster.** Returning somewhere you've caused trouble, the GM
+calls Outstanding Warrants (+Cha): on a hit everyone recognises you, and on a 7–9 the GM adds
+a complication — a warrant, a price on your head, or someone you care about in a bad spot.
+Spending weeks in study, meditation or hard practice is Bolster: a week or two gives 1
+preparation, a month or more 3, shown on your sheet; each is +1 to one roll when the GM says
+it pays off ("+1 preparation"). The clock moves the weeks.
+
 **Hirelings.** Put out word that you're hiring and the GM calls Recruit: +1 each for
 generous pay, saying what you're setting out to do, offering a share, and a useful
 reputation. Whoever joins is made by the book — skills (Adept, Burglar, Minstrel, Priest,
@@ -583,8 +590,8 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Special moves:** not yet Outstanding Warrants or Bolster. Hireling skills are shown to
-  the GM, not wired to numbers.
+- **Special moves:** all of the book's are in. Hireling skills are shown to the GM, not wired
+  to numbers, and preparation is not spent on Cast a Spell, Recruit or Carouse rolls.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.

@@ -339,6 +339,17 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         miss=_MISS,
     ),
     Move(
+        "outstanding_warrants", "Outstanding Warrants",
+        "return to a civilized place in which you've caused trouble before", "cha",
+        strong=Band("Word has spread of your deeds and everyone recognizes you."),
+        # The complication is the GM's to choose, so it is the model's, not a button.
+        weak=Band("Word has spread of your deeds and everyone recognizes you — and the GM chooses a "
+                  "complication: the local constabulary has a warrant out for your arrest; someone "
+                  "has put a price on your head; or someone important to you has been put in a bad "
+                  "spot as a result of your actions."),
+        miss=_MISS,
+    ),
+    Move(
         "last_breath", "Last Breath", "are dying", NOTHING,
         strong=Band("You've cheated death—you're in a bad spot but you're still alive."),
         weak=Band(

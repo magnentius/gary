@@ -438,6 +438,12 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Outstanding Warrants and Bolster.** Outstanding Warrants is a +Cha move whose 7–9
+complication is the model's to choose. `bolster` (downtime, guarded like camp) adds 1
+preparation for a week or two of study and 3 for a month or more (`sheet["preparation"]`),
+and moves the clock a day at a time; `make_move(preparation=true)` spends one for +1, one
+per roll, on the moves that read a stat.
+
 **Hirelings.** `hirelings.py` makes them by the book (skills and ranks, loyalty, a cost, points
 by where they were found) and they live on the employer's sheet (`hirelings`), so every
 change journals as a `SHEET`. Recruit rolls `OFFERS` (+1 per offer made known, from
@@ -799,7 +805,7 @@ mapping to store mutations or Director calls:
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
-- **Hirelings:** `hire`, `update_hireling`.
+- **Hirelings and downtime:** `hire`, `update_hireling`, `bolster`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -878,8 +884,7 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
    `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   magic items, the special moves Outstanding Warrants and Bolster, and hireling skills as
-   numbers; encumbrance on rules-triggered moves; the companion's instinct on
+   magic items, and hireling skills as numbers; encumbrance on rules-triggered moves; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
    limit).

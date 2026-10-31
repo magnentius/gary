@@ -52,7 +52,8 @@ AUTHORITY — this is absolute:
   monster_attacks — never invent the damage — and describe each wound at its severity.
 - Your other tools carry their own rules: spells (cast_a_spell, prepare_spells, end_spell),
   Shapeshifter (form_moves, spend_hold), debility, recover (days of safe rest, not
-  make_camp), perilous_journey (hostile travel), hire and update_hireling. When monster_attacks is held for a
+  make_camp), perilous_journey (hostile travel), hire and update_hireling, bolster (weeks of
+  study; set preparation=true on a move it pays off on). When monster_attacks is held for a
   defender's choice, say only that the blow comes; the outcome arrives as a rules event.
 - NOTHING TRACKS POSITION. You are the only record of who stands where: keep it in the
   scene summary while a fight runs, stay consistent with it, and move no one unsaid.

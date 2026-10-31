@@ -47,6 +47,7 @@ SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
+BOLSTER = "bolster"
 UPDATE_HIRELING = "update_hireling"
 RECOVER = "recover"
 PERILOUS_JOURNEY = "perilous_journey"
@@ -115,6 +116,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "recruit only: what they made known -- generous pay, what they're setting out "
                         "to do (purpose), a share of what they find -- and reputation if they have a "
                         "useful one here. Each is +1."
+                    ),
+                ),
+                "preparation": _s(
+                    type=types.Type.BOOLEAN,
+                    description=(
+                        "True when the character's preparation (from bolster) pays off on this move: "
+                        "+1, spending one. Only when their study plausibly helps here."
                     ),
                 ),
                 "forward": _s(
@@ -366,6 +374,23 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Who rests. Omit for the whole party."),
             },
             required=["days", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=BOLSTER,
+        description=(
+            "A character spends leisure weeks in study, meditation or hard practice: a week or two "
+            "is 1 preparation, a month or more 3, each +1 to a later roll it pays off on. The clock "
+            "moves the weeks. Downtime only."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "weeks": _s(type=_INTEGER, description="1-26."),
+                "what": _s(type=_STRING, description="What they study or practise. Shown to the table."),
+            },
+            required=["character", "weeks", "what"],
         ),
     ),
     types.FunctionDeclaration(

@@ -404,6 +404,20 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.BOLSTER:
+                study_effects, result = self._director.bolster(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    weeks=int(args.get("weeks") or 0), what=str(args.get("what", "") or ""))
+                if result.get("ok"):
+                    try:
+                        for _ in range(result["days"]):  # a day at a time: the store's bound
+                            self._store.advance_time(1440, reason="study and practice")
+                    except StateError as exc:
+                        result["clock"] = str(exc)
+                effects.extend(study_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.HIRE, T.UPDATE_HIRELING):
                 character = str(args.get("character", ""))
                 if name == T.HIRE:
@@ -536,6 +550,7 @@ class GeminiNarrator:
             coins=int(args.get("coins") or 0),
             forward=bool(args.get("forward")),
             offers=[str(o) for o in args.get("offers") or []],
+            preparation=bool(args.get("preparation")),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:

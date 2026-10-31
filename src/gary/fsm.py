@@ -313,6 +313,7 @@ class Director:
         coins: int = 0,
         forward: bool = False,
         offers: Sequence[str] = (),
+        preparation: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -521,6 +522,11 @@ class Director:
         if held:
             mod += held
             notes.append(f"{held:+d} forward")
+        ready, prepared = self._preparation(channel_id, actor) if preparation else (0, [])
+        if ready:
+            mod += ready
+            notes.append("+1 preparation")
+            spend = [*spend, *prepared]
         pet = ""
         if companion and self._sheet_for is not None:
             sheet = self._sheet_for(actor) or {}
@@ -814,6 +820,42 @@ class Director:
             return 0, []
         left = [f for f in sheet["forwards"] if f.get("damage")]
         return sum(int(f["amount"]) for f in held), [UpdateSheet(channel_id, actor, {"forwards": left})]
+
+    def _preparation(self, channel_id: int, actor: str) -> Tuple[int, List[Effect]]:
+        """Bolster: "spend 1 preparation for +1 to any roll. You can only spend one preparation
+        per roll." (1, the spending) if they have some, else (0, [])."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        have = int((sheet or {}).get("preparation", 0))
+        if have <= 0:
+            return 0, []
+        return 1, [UpdateSheet(channel_id, actor, {"preparation": have - 1})]
+
+    def bolster(
+        self, *, channel_id: int, character: str, weeks: int, what: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Bolster: leisure time in study, meditation or hard practice. A week or two is 1
+        preparation; a month or longer, 3. Downtime, guarded like camp."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        unsettled = self.unsettled(channel_id, "spend weeks in study")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        what = " ".join(str(what or "").split())
+        if not what:
+            return [], {"ok": False, "error": "Say what they study, meditate on or practise (what)."}
+        weeks = int(weeks or 0)
+        if not 1 <= weeks <= 26:
+            return [], {"ok": False, "error": "Bolster takes 1 to 26 weeks."}
+        gained = 3 if weeks >= 4 else 1
+        total = int(sheet.get("preparation", 0)) + gained
+        return [
+            SendMessage(channel_id, f"📚 **{actor}** spends {weeks} week{'s' if weeks > 1 else ''} in {what} — "
+                                    f"+{gained} preparation ({total})."),
+            UpdateSheet(channel_id, actor, {"preparation": total}),
+        ], {"ok": True, "preparation": total, "days": weeks * 7, "note": (
+            "Preparation is +1 to one roll each, when it pays off: set preparation=true on that move.")}
 
     def _grant(self, channel_id: int, actor: str, reason: str, amount: int = 1,
                damage: str = "") -> List[Effect]:
