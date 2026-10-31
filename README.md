@@ -492,7 +492,15 @@ happens in the story: drink a dragon's heart-blood, return from the wraith lands
 hold. The GM records it, and at your next level the Level up form offers that class's starting
 move instead of a class move (only that level: skip it and the chance passes). Once you have
 it, the class's other moves count as class moves. Flux's Bind and Landed Gentry's Diplomat
-roll like any move; Wraithlander's Arm pierces the living; Tireless Blood ignores Sick.
+roll like any move; Wraithlander's Arm pierces the living; Tireless Blood ignores Sick. A
+Bearer writes bonds with their weapon (the Bonds form offers it), which Hunger adds to its
+damage and Its Name Is Dread uses to parley, and the weapon's boons heal, teach or mark XP. A
+Divine Bond writes bonds with a god and marks one off for its favor. A Dragonslayer has a Blood
+stat: calling on it is +Blood forward to Str rolls and a 1d4 against giving in to dragon
+nature; Dragon's Breath burns everything in its path, the breather too; Fury and Wake the Dragon
+add to it. Faraday's Law charges a weapon (+1d4, -1 to Bind) and Velocitas Eradico hurls
+anything with Con. Landed Gentry's stronghold goes on the map as a keep steading with your two
+benefits and the GM's complication, and Call the Banners turns a recruiting miss there into a 7–9.
 Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
 Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
 1 for spells, one level higher with each level after. Name your deity and choose spells from

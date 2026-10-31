@@ -494,6 +494,12 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     for o in sheet.get("ongoing_mods") or ():
         to = f" to {o['move']}" if o.get("move") else ""
         line += f" · {int(o['amount']):+d} ongoing{to} ({o['reason']})"
+    if "blood" in sheet:
+        line += f" · Blood +{int(sheet['blood'])}" + (" (Fury on the next attack)" if sheet.get("fury") else "")
+    if sheet.get("faraday"):
+        line += " · weapon charged (Faraday's Law: +1d4 damage, -1 to Bind)"
+    if sheet.get("stronghold"):
+        line += f" · stronghold: {sheet['stronghold_name']}"
     if sheet.get("wraith_marks"):
         line += f" · marked by the wraith lands: {', '.join(sheet['wraith_marks'])}"
     if sheet.get("compendium_qualified"):

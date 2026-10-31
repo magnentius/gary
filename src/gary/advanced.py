@@ -48,6 +48,18 @@ APPLIED: Dict[str, str] = {
     "Balance": "earning balance on damage; spend it with channel_balance",
     "Spell Augmentation": "it through spell_augmentation, onto the creature they last hit",
     "Tireless Blood": "ignoring the Sick debility's penalty",
+    "Whosoever Holdeth": "bonds with 'my weapon' (the Bonds form offers it) and the boons through compendium_power",
+    "Hunger": "the weapon bonds added to weapon damage",
+    "Its Name Is Dread": "+bonds with the weapon when make_move has weapon_leverage",
+    "Divine Bond": "deity bonds (the Bonds form offers the god) and marking one off through compendium_power",
+    "Dovahkiin": "the Blood stat, its forward and the 1d4 through compendium_power",
+    "Dragon's Breath": "it through compendium_power dragons_breath",
+    "Fury": "the next attack's +1 piercing after dragon blood",
+    "Wake the Dragon": "+Blood when make_move has dragon_nature",
+    "Faraday's Law": "the +1d4 and the -1 to Bind while charged (compendium_power faraday)",
+    "Velocitas Eradico": "Con, no ammo, no weapon when make_move has hurl",
+    "Landed": "the stronghold steading through compendium_power found_stronghold",
+    "Call the Banners": "no miss on Recruit at their stronghold",
     "From The Forbidden Land Returned": "the Arm's +2 piercing against the living (the other marks are yours)",
     **{n: "the note on each Trap Expert result (the hold is yours to keep)" for n in ("Cautious", "Extremely Cautious")},
     "Impervious Defender": "the +1 hold, and the 12+ (no hold: the attacker is stymied)",
@@ -150,6 +162,15 @@ def damage_dice(sheet: Dict[str, Any], move: str, weapon_tags: Sequence[str]) ->
         out.append(("1d4", "Merciless"))
     if (sheet.get("shape") or {}).get("boon") == "damage":
         out.append(("1d4", "Formshaper"))
+    if weapon_tags or move in ("hack_and_slash", "volley"):
+        from .bonds import weapon_bonds
+
+        # Hunger: "Add your bonds with your weapon to any damage you deal with your weapon."
+        if has(sheet, "Hunger") and weapon_bonds(sheet):
+            out.append((str(weapon_bonds(sheet)), "Hunger"))
+        # Faraday's Law: "When you stir the charge within a weapon you hold it does +1d4 damage ongoing."
+        if sheet.get("faraday"):
+            out.append(("1d4", "Faraday's Law"))
     if sheet.get("quest"):
         if has(sheet, "Holy Smite"):
             out.append(("1d8", "Holy Smite"))

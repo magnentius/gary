@@ -390,6 +390,9 @@ class Director:
         form_boon: str = "",
         form_plus: str = "",
         form_minus: str = "",
+        weapon_leverage: bool = False,
+        dragon_nature: bool = False,
+        hurl: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -442,6 +445,11 @@ class Director:
                                  "Re-issue make_move without race_move.")]
         if racial == "con":
             stat = "con"  # Dwarf Fighter: "you may parley with them using CON instead of CHA"
+        compendium_why = self._compendium_situation(rules.key, actor, weapon_leverage, dragon_nature, hurl)
+        if compendium_why:
+            return [self._refuse(channel_id, compendium_why, "Re-issue make_move without it.")]
+        if hurl:
+            stat = "con"  # Velocitas Eradico: "When volleying this way use Con instead of Dex."
 
         # A class move is that class's alone: a Fighter cannot Backstab.
         if rules.classes and self._sheet_for is not None:
@@ -607,7 +615,8 @@ class Director:
                 )]
             # A sheet made before gear existed has no gear to check, and is let through
             # as before; `?dm gear` gives it some.
-            if rules.attacks and not rules.damage_die and "gear" in sheet and self._weapon(sheet, rules.key) is None:
+            if (rules.attacks and not rules.damage_die and not hurl and "gear" in sheet
+                    and self._weapon(sheet, rules.key) is None):
                 needs = "a near, far or thrown weapon (and ammo, for a bow)" \
                     if rules.ranged else "a hand, close or reach weapon"
                 return [self._refuse(
@@ -635,6 +644,16 @@ class Director:
         if racial == "+1":
             mod += 1
             notes.append(f"+1 {mover.get('race')}")
+        if weapon_leverage:
+            # Its Name Is Dread: "you can parley with +bonds with your weapon instead of +Cha".
+            mod += bonds.weapon_bonds(mover) - stat_modifier(mover, "cha")
+            notes.append(f"+{bonds.weapon_bonds(mover)} bonds with their weapon, not Cha")
+        if dragon_nature:
+            mod += int(mover.get("blood", 0))  # Wake the Dragon: "+Blood to the roll"
+            notes.append(f"+{int(mover.get('blood', 0))} Blood")
+        if rules.key == "bind" and mover.get("faraday"):
+            mod -= 1  # Faraday's Law: "Until you dismiss this effect you take -1 to bind."
+            notes.append("-1 Faraday's Law")
         if rules.key == "supply" and steadings.has(self._steading(), "market"):
             mod += 1  # Market: "+1 to supply"
             notes.append(f"+1 Market ({self._steading()['name']})")
@@ -681,6 +700,8 @@ class Director:
             rules.key, actor, target, weak_point, two_weapons, extra_targets, form_boon, form_plus, form_minus)
         if situation:
             return [self._refuse(channel_id, situation, "Re-issue make_move without it.")]
+        if hurl:
+            flags.append("hurl")
         if "spread" in flags:
             target = ", ".join([target, *[n for n in self._standing() for e in extra_targets
                                           if n.lower() == str(e).strip().lower()]])
@@ -1368,11 +1389,35 @@ class Director:
             return []
 
         dice, capped = self._intervened(check, self.dice.roll(check.dice, modifier=check.modifier))
+        dice, capped = self._banners(check, dice, capped)
         rolled = SendMessage(
             channel_id,
             f"🎲 **{check.actor}** rolls {dice.render()} — {_RESULT[band(dice)]}." + capped,
         )
         return [rolled, *self._next(channel_id, check, dice)]
+
+    def _banners(self, check: PendingCheck, dice: Roll, said: str) -> Tuple[Roll, str]:
+        """Call the Banners: "When you recruit from your stronghold or the lands it protects you
+        cannot get a 6-, treat that as a 7-9." Here, in the steading that is their stronghold."""
+        here = self._steading()
+        sheet = self._sheet_or_empty(check.actor)
+        if (check.move != "recruit" or dice.total >= 7 or not advanced.has(sheet, "Call the Banners")
+                or here is None or steadings.slug(here["name"]) != sheet.get("stronghold")):
+            return dice, said
+        lifted = Roll(spec=dice.spec, faces=dice.faces, modifier=7 - sum(dice.faces))
+        return lifted, said + " (Call the Banners: no miss at their stronghold, a 7–9)"
+
+    def _compendium_situation(self, move: str, actor: str, weapon_leverage: bool, dragon_nature: bool,
+                              hurl: bool) -> str:
+        """Why a compendium flag on make_move does not apply, or ""."""
+        sheet = self._sheet_or_empty(actor)
+        if weapon_leverage and (move != "parley" or not advanced.has(sheet, "Its Name Is Dread")):
+            return f"{actor} cannot parley with their weapon (Its Name Is Dread)."
+        if dragon_nature and (move != "parley" or not advanced.has(sheet, "Wake the Dragon")):
+            return f"{actor} cannot parley with dragon nature (Wake the Dragon)."
+        if hurl and (move != "volley" or not advanced.has(sheet, "Velocitas Eradico")):
+            return f"{actor} cannot hurl objects with a volley (Velocitas Eradico)."
+        return ""
 
     def _intervened(self, check: PendingCheck, dice: Roll) -> Tuple[Roll, str]:
         """Protector, Intervene: "you may take +1 from their aid. If you do you cannot get a
@@ -1891,11 +1936,13 @@ class Director:
             sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
             weapon = self._weapon(sheet, check.move) if sheet and "gear" in sheet else None
             for dice_spec, why in advanced.damage_dice(sheet or {}, check.move, weapon.tags if weapon else ()):
-                extra = self.dice.roll(dice_spec).total
+                extra = int(dice_spec) if dice_spec.isdigit() else self.dice.roll(dice_spec).total
                 total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
             total, shown = self._sworn_damage(sheet or {}, check.target, total, shown)
             total, shown, spent_marks = self._use_marks(channel_id, check.actor, check.target, total, shown)
             effects.extend(spent_marks)
+            if (sheet or {}).get("fury"):
+                effects.append(UpdateSheet(channel_id, check.actor, {"fury": None}))  # spent on this attack
             if "two_weapons" in check.flags:
                 # Viper's Strike: "add an extra 1d4 damage for your off-hand strike" (Fangs: 1d8).
                 fangs = advanced.has(sheet or {}, "Viper\u2019s Fangs")
@@ -2129,11 +2176,14 @@ class Director:
         # Wraithlander's Arm: "It gains +2 piercing against living creatures" -- on top of the weapon's.
         arm = 2 if ("Arm" in (sheet.get("wraith_marks") or ())
                     and _living(self._monsters().get(check.target))) else 0
+        arm += 1 if sheet.get("fury") else 0  # Fury: "your next attack also becomes messy, forceful, and +1 piercing"
         if weapon is None:
             return boosted, weak + arm, ""
         return boosted, max(weapon.piercing, weak) + arm, weapon.name
 
     def _spend_ammo(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        if "hurl" in check.flags:
+            return []  # Velocitas Eradico throws whatever is to hand, not arrows
         choice = MOVES[check.move].band(band(dice)).choice
         if not choice or not any(choice.options[p].spends_ammo for p in check.picks):
             return []
@@ -2284,7 +2334,7 @@ class Director:
         total, shown = self._serpents_tears(name, die, total, shown)
         weapon_now = self._weapon(sheet, move) if "gear" in sheet else None
         for dice_spec, why in advanced.damage_dice(sheet, move, weapon_now.tags if weapon_now else ()):
-            extra = self.dice.roll(dice_spec).total
+            extra = int(dice_spec) if dice_spec.isdigit() else self.dice.roll(dice_spec).total
             total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
         total, shown = self._sworn_damage(sheet, name, total, shown)
         total, shown, spent_marks = self._use_marks(channel_id, actor, name, total, shown)
@@ -2293,6 +2343,8 @@ class Director:
             total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
         effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
         effects.extend(spent_marks)
+        if sheet.get("fury"):
+            effects.append(UpdateSheet(channel_id, actor, {"fury": None}))
         effects.extend(self._oath_kept(channel_id, actor, name, facts))
         effects.extend(self._after_strike(channel_id, actor, [facts]))
         with_what = f" with {weapon}" if weapon else ""
@@ -3376,6 +3428,148 @@ class Director:
         ], {"ok": True, "ended": quest["text"], "how": how}
 
     # -- the Thief's poison -------------------------------------------------------------------
+
+    # -- compendium powers -------------------------------------------------------------------
+
+    def compendium_power(
+        self, *, channel_id: int, character: str, power: str, boons: Sequence[str] = (),
+        targets: Sequence[str] = (), deity: str = "", on: Optional[bool] = None,
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """What a compendium move does when the fiction calls on it: a weapon's boons, a god's
+        favor, dragon blood, dragon fire, a weapon's stirred charge."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        handler = {"weapon_boons": self._weapon_boons, "deity_favor": self._deity_favor,
+                   "dragon_blood": self._dragon_blood, "drink_heart_blood": self._drink_heart_blood,
+                   "dragons_breath": self._dragons_breath, "faraday": self._faraday}.get(str(power))
+        if handler is None:
+            return [], {"ok": False, "error": f"No compendium power {power!r}."}
+        return handler(channel_id, actor, sheet, boons=boons, targets=targets, deity=deity, on=on)
+
+    def _needs(self, sheet: Dict[str, Any], actor: str, move: str) -> str:
+        return "" if advanced.has(sheet, move) else f"{actor} does not have {move}."
+
+    def _weapon_boons(self, channel_id, actor, sheet, boons, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Whosoever Holdeth: "When you accomplish something your weapon desires, it bestows boons
+        on you -- choose as many different boons as you have bonds with your weapon"."""
+        why = self._needs(sheet, actor, "Whosoever Holdeth")
+        if why:
+            return [], {"ok": False, "error": why}
+        chosen = list(dict.fromkeys(str(b).lower() for b in boons))
+        allowed = {"heal", "knowledge", "insight", "peace"}
+        if not chosen or not set(chosen) <= allowed:
+            return [], {"ok": False, "error": f"Boons are some of: {', '.join(sorted(allowed))}."}
+        most = bonds.weapon_bonds(sheet)
+        if len(chosen) > most:
+            return [], {"ok": False, "error": f"{actor} has {most} bond(s) with their weapon: that many boons."}
+        effects: List[Effect] = []
+        facts: Dict[str, Any] = {"ok": True, "boons": chosen}
+        if "heal" in chosen:
+            rolled = self.dice.roll("3d6")
+            hp = min(int(sheet["max_hp"]), int(sheet["hp"]) + rolled.total)
+            effects += [SendMessage(channel_id, f"🗡️ **{actor}**'s weapon restores them — 3d6: {rolled.render()}, "
+                                                f"HP {sheet['hp']} → {hp}."),
+                        ChangeHp(channel_id, "character", actor, hp)]
+        if "insight" in chosen:
+            xp = int(sheet.get("xp", 0)) + 1
+            effects += [SendMessage(channel_id, f"🗡️ **{actor}**'s weapon bestows insight — marks XP ({xp})."),
+                        UpdateSheet(channel_id, actor, {"xp": xp})]
+        facts["note"] = ("Narrate the boons. Knowledge: you describe what the weapon tells them. Peace: the "
+                         "weapon does not intrude on them, for a time.")
+        return effects, facts
+
+    def _deity_favor(self, channel_id, actor, sheet, deity, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Divine Bond: mark off a bond with a deity "to call on the deity's favor in a clear and
+        decisive way that the GM describes"."""
+        why = self._needs(sheet, actor, "Divine Bond")
+        if why:
+            return [], {"ok": False, "error": why}
+        held = list(sheet.get("bonds") or [])
+        match = next((b for b in held if normalize_actor(b["with"]) == normalize_actor(deity)), None) if deity else \
+            next((b for b in held if b["with"] in bonds.partners(sheet) and b["with"] != bonds.WEAPON), None)
+        if match is None:
+            return [], {"ok": False, "error": f"{actor} has no bond with {deity or 'a deity'} to mark off."}
+        held.remove(match)
+        return [SendMessage(channel_id, f"🙏 **{actor}** calls on {match['with']} — the bond is marked off."),
+                UpdateSheet(channel_id, actor, {"bonds": held})], {
+            "ok": True, "note": ("Describe the deity's favor, clear and decisive. They write a new bond -- with a "
+                                 "deity or a character -- at the end of the session.")}
+
+    def _nature(self, actor: str, blood: int) -> Tuple[str, bool]:
+        """"Then roll 1d4, if the result is less than or equal to your Blood you must give in to
+        dragon nature: greed, wrath, or disdain"."""
+        rolled = self.dice.roll("1d4").total
+        gave_in = rolled <= blood
+        return (f"1d4: {rolled} against Blood {blood} — " + ("**gives in to dragon nature**: greed, wrath or disdain."
+                                                            if gave_in else "holds the dragon down.")), gave_in
+
+    def _dragon_blood(self, channel_id, actor, sheet, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Dovahkiin: "When you call on your dragon blood for strength you take +Blood forward to
+        Str rolls." Fury makes their next attack messy, forceful and +1 piercing."""
+        why = self._needs(sheet, actor, "Dovahkiin")
+        if why:
+            return [], {"ok": False, "error": why}
+        blood = int(sheet.get("blood", 1))
+        line, gave_in = self._nature(actor, blood)
+        effects: List[Effect] = [SendMessage(channel_id, f"🐉 **{actor}** calls on their dragon blood. {line}"),
+                                 *self._grant(channel_id, actor, "Str rolls, from dragon blood", amount=blood)]
+        if advanced.has(sheet, "Fury"):
+            effects.append(UpdateSheet(channel_id, actor, {"fury": True}))
+        return effects, {"ok": True, "gave_in": gave_in, "note": (
+            "Gary set the +Blood forward (spend it on a Str roll with forward=true)"
+            + (" and Fury: their next attack is messy, forceful and +1 piercing" if advanced.has(sheet, "Fury") else "")
+            + ("; they give in to greed, wrath or disdain -- play it." if gave_in else "."))}
+
+    def _drink_heart_blood(self, channel_id, actor, sheet, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """"When you drink the still burning heart-blood of a dragon your Blood increases by 1"."""
+        why = self._needs(sheet, actor, "Dovahkiin")
+        if why:
+            return [], {"ok": False, "error": why}
+        blood = int(sheet.get("blood", 1)) + 1
+        return [SendMessage(channel_id, f"🐉 **{actor}** drinks the burning heart-blood — Blood {blood}."),
+                UpdateSheet(channel_id, actor, {"blood": blood})], {"ok": True, "blood": blood}
+
+    def _dragons_breath(self, channel_id, actor, sheet, targets, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Dragon's Breath: "deal your damage to all creatures in the path of the flames and to
+        yourself. Then roll 1d4..." One roll, on everyone it reaches."""
+        why = self._needs(sheet, actor, "Dragon\u2019s Breath")
+        if why:
+            return [], {"ok": False, "error": why}
+        scene = self._monsters()
+        named = [next((n for n in scene if n.lower() == str(t).strip().lower() and scene[n]["hp"] > 0), None)
+                 for t in targets]
+        if not named or None in named:
+            return [], {"ok": False, "error": f"Name the standing creatures in the flames' path. Standing: "
+                                              f"{', '.join(self._standing()) or 'none'}."}
+        hit = damage.roll(self.dice, damage.parse(sheet["damage"]))
+        line = f"🔥 **{actor}** breathes fire — {hit.render()}"
+        effects: List[Effect] = []
+        hurt = []
+        for name in named:
+            landed, facts, said = self._hurt(channel_id, name, hit.total, 0, False)
+            effects += landed
+            hurt.append(facts)
+            line += said
+        burned, self_facts = self._attack(channel_id, "their own dragon fire", {"damage": sheet["damage"]},
+                                          actor, hit=hit, hazard=True)
+        nature, gave_in = self._nature(actor, int(sheet.get("blood", 1)))
+        effects = [SendMessage(channel_id, line), *effects, *burned, SendMessage(channel_id, nature)]
+        if self_facts.get("down"):
+            effects += self._trigger(channel_id, actor, "last_breath")
+        return effects, {"ok": True, "targets": hurt, "self": self_facts, "gave_in": gave_in}
+
+    def _faraday(self, channel_id, actor, sheet, on, **_) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Faraday's Law: the weapon held "does +1d4 damage ongoing. Until you dismiss this effect
+        you take -1 to bind"."""
+        why = self._needs(sheet, actor, "Faraday\u2019s Law")
+        if why:
+            return [], {"ok": False, "error": why}
+        on = True if on is None else bool(on)
+        return [SendMessage(channel_id, f"⚡ **{actor}** " + ("stirs the charge in their weapon: +1d4 damage, -1 to Bind."
+                                                           if on else "lets the charge settle.")),
+                UpdateSheet(channel_id, actor, {"faraday": on})], {"ok": True, "faraday": on}
 
     def qualify_compendium(
         self, *, channel_id: int, character: str, compendium_class: str, reason: str = ""

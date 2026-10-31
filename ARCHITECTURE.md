@@ -646,7 +646,13 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   of a qualified class; the follow-on moves of a started one), and a level-up empties
   `compendium_qualified` -- "the next time you level up". Taken moves go on `advanced_moves`, so
   `advanced.has`, `class_moves.render` and `moves.ADVANCED_ROLLS` (Bind, Diplomat) read them.
-  Wraithlander's mark is a `move_choice` step into `wraith_marks`.
+  Wraithlander's mark is a `move_choice` step into `wraith_marks`. `bonds.partners` adds
+  "my weapon" (Whosoever Holdeth) and the deity (Divine Bond) to whom a bond may name;
+  `compendium_power` runs what the fiction calls on (weapon boons, deity favor, dragon blood,
+  heart-blood, Dragon's Breath, Faraday's Law; `found_stronghold` makes `steadings.make_stronghold`
+  and sets the sheet's `stronghold`), and `make_move` takes `weapon_leverage`, `dragon_nature` and
+  `hurl`. Hunger and Faraday's Law are `advanced.damage_dice`; Fury is a one-attack +1 piercing;
+  Call the Banners lifts a Recruit miss at the stronghold to 7 (`_banners`).
 - **Bonds** — the sheet's Bonds button: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

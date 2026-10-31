@@ -288,6 +288,39 @@ def describe(record: Dict[str, Any]) -> str:
             f"{record['defenses'].title()}" + (f"; {tags}" if tags else ""))
 
 
+#: Landed (Landed Gentry): a stronghold's benefits and the GM's complication.
+STRONGHOLD_BENEFITS = ("taxation", "fortified", "garrisoned", "prestigious", "skilled")
+STRONGHOLD_COMPLICATIONS = ("infested", "unrest", "disputed")
+
+
+def make_stronghold(name: str, owner: str, benefits: Sequence[str], complication: str,
+                    craft: str = "") -> Dict[str, Any]:
+    """Landed: "Add it to the world map as a keep steading with these tags: Poor, Steady,
+    Guard, Oath (protection for nearby lands). Choose 2 benefits ... The GM will also give
+    you one complication"."""
+    chosen = list(dict.fromkeys(str(b).strip().lower() for b in benefits))
+    if len(chosen) != 2 or not set(chosen) <= set(STRONGHOLD_BENEFITS):
+        raise SheetError(f"Choose 2 benefits: {', '.join(STRONGHOLD_BENEFITS)}.")
+    complication = str(complication or "").strip().lower()
+    if complication not in STRONGHOLD_COMPLICATIONS:
+        raise SheetError(f"The GM gives one complication: {', '.join(STRONGHOLD_COMPLICATIONS)}.")
+    record = {"name": " ".join(str(name or "").split())[:MAX_TEXT], "kind": "keep", "prosperity": "poor",
+              "population": "steady", "defenses": "guard", "tags": [], "stronghold_of": owner,
+              "benefits": chosen, "complication": complication}
+    if not record["name"]:
+        raise SheetError("Give the stronghold a name!")
+    _add(record, "oath", "protection for nearby lands")
+    if "garrisoned" in chosen:
+        record["defenses"] = "garrison"
+    if "prestigious" in chosen:
+        _add(record, "personage", owner)
+    if "skilled" in chosen:
+        _add(record, "craft", craft or "")
+    if complication == "infested":
+        _add(record, "blight", "monsters about")
+    return record
+
+
 def here(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     """The steading the party is in: the one the scene names, if it is known."""
     key = slug((state.get("scene") or {}).get("steading") or "")

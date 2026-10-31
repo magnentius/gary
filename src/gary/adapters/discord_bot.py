@@ -1088,7 +1088,7 @@ class GaryClient(discord.Client):
             out["companion"] = ("Choose companion", "🐺", lambda i: show(i, CompanionForm(
                 actor, lambda pet: self._finish_companion(actor, pet, channel_id))))
         others = sorted(a for a in set(self.director.players.values())
-                        if a != actor and a in sheets and not sheets[a].get("dead"))
+                        if a != actor and a in sheets and not sheets[a].get("dead")) + bonds.partners(sheet)
         out["bonds"] = ("Bonds", "🤝", lambda i: show(i, BondsForm(
             sheets.get(actor, sheet), others, lambda edited: self._finish_bonds(edited, channel_id)))) if others else (
             "Bonds are with your companions, and nobody else at the table has a character yet.")

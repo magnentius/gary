@@ -30,6 +30,26 @@ def written(bond: Dict[str, str]) -> str:
     return bond["line"].replace(BLANK, bond["with"], 1)
 
 
+#: Bearer's Whosoever Holdeth: "you may write them with your weapon instead of a player character".
+WEAPON = "my weapon"
+
+
+def partners(sheet: Dict[str, Any]) -> List[str]:
+    """Who else this character may write a bond with: their weapon (Whosoever Holdeth), their
+    god (Divine Bond: "the name of a deity you've had contact with")."""
+    names = set(sheet.get("advanced_moves") or ())
+    out = []
+    if "Whosoever Holdeth" in names:
+        out.append(WEAPON)
+    if "Divine Bond" in names:
+        out.append((sheet.get("choices") or {}).get("deity") or "the god I met")
+    return out
+
+
+def weapon_bonds(sheet: Dict[str, Any]) -> int:
+    return bond_with(sheet, WEAPON)
+
+
 def bond_with(sheet: Dict[str, Any], other: str) -> int:
     """+Bond: how many bonds this character has with ``other``."""
     folded = normalize_actor(other)

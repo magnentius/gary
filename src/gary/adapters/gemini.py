@@ -460,6 +460,19 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.COMPENDIUM_POWER:
+                if args.get("power") == "found_stronghold":
+                    responses.append(types.Part.from_function_response(
+                        name=name, response=self._found_stronghold(args)))
+                    continue
+                power_effects, result = self._director.compendium_power(
+                    channel_id=channel_id, character=str(args.get("character", "")), power=str(args.get("power", "")),
+                    boons=[str(b) for b in args.get("boons") or []], targets=[str(t) for t in args.get("targets") or []],
+                    deity=str(args.get("deity", "") or ""), on=args.get("on"))
+                effects.extend(power_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.QUALIFY_COMPENDIUM:
                 q_effects, result = self._director.qualify_compendium(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -656,6 +669,9 @@ class GeminiNarrator:
             aide=str(args.get("aide", "") or ""),
             race_move=bool(args.get("race_move")),
             ally=str(args.get("ally", "") or ""),
+            weapon_leverage=bool(args.get("weapon_leverage")),
+            dragon_nature=bool(args.get("dragon_nature")),
+            hurl=bool(args.get("hurl")),
             weak_point=bool(args.get("weak_point")),
             two_weapons=bool(args.get("two_weapons")),
             extra_targets=[str(t) for t in args.get("extra_targets") or []],
@@ -864,6 +880,39 @@ class GeminiNarrator:
         store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": new})], reason=line)
         result.update(coins=new.get("coins", 0), armor=new["armor"])
         return [SendMessage(channel_id, f"{line} ({new.get('coins', 0)} coins)")], result
+
+    def _found_stronghold(self, args: Dict[str, Any]) -> Dict[str, Any]:
+        """Landed: the stronghold goes on the map as a keep steading, and on the sheet."""
+        from .. import steadings as places
+        from ..sheets import SheetError
+
+        store = self._store
+        sheets = store.state().get("sheets") or {}
+        actor = next((a for a in sheets if a.lower() == str(args.get("character", "")).strip().lower()), None)
+        if actor is None:
+            return {"ok": False, "error": f"{args.get('character')!r} has no character sheet."}
+        sheet = sheets[actor]
+        if "Landed" not in (sheet.get("advanced_moves") or ()):
+            return {"ok": False, "error": f"{actor} does not have Landed."}
+        if sheet.get("stronghold"):
+            return {"ok": False, "error": f"{actor} already holds {sheet['stronghold_name']}."}
+        try:
+            record = places.make_stronghold(str(args.get("name", "")), actor, list(args.get("benefits") or []),
+                                            str(args.get("complication", "")), str(args.get("craft", "") or ""))
+        except SheetError as exc:
+            return {"ok": False, "error": str(exc)}
+        key = places.slug(record["name"])
+        if key in (store.state().get("steadings") or {}):
+            return {"ok": False, "error": f"There is already a steading called {record['name']}."}
+        diff = store.apply([Mutation(MutationKind.STEADING, key, {"steading": record}),
+                            Mutation(MutationKind.SHEET, actor, {"sheet": {**sheet, "stronghold": key,
+                                                                           "stronghold_name": record["name"]}})],
+                           reason=f"{actor} is granted {record['name']}")
+        if not diff.ok:
+            return _diff_result(diff)
+        return {"ok": True, "stronghold": places.describe(record), "note": (
+            f"Benefits: {', '.join(record['benefits'])}; complication: {record['complication']}. Taxation is "
+            "roughly a coin per family a year; Fortified makes it nearly impregnable. Play the complication.")}
 
     def _steading_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Steadings: made and changed by the model, journalled, shown every turn."""

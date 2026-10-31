@@ -55,6 +55,7 @@ LEAD_THE_CHARGE = "lead_the_charge"
 CHANNEL_BALANCE = "channel_balance"
 CREATE_STEADING = "create_steading"
 QUALIFY_COMPENDIUM = "qualify_compendium"
+COMPENDIUM_POWER = "compendium_power"
 ADJUST_STEADING = "adjust_steading"
 SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
@@ -148,6 +149,12 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "shapeshifter with Formcrafter: the stat they take +1 ongoing in while shifted.")),
                 "form_minus": _s(type=_STRING, enum=list(STATS), description=(
                     "shapeshifter with Formcrafter: the stat YOU choose for -1 ongoing while shifted.")),
+                "weapon_leverage": _s(type=types.Type.BOOLEAN, description=(
+                    "parley with Its Name Is Dread, using the weapon's reputation: +bonds with the weapon, not Cha.")),
+                "dragon_nature": _s(type=types.Type.BOOLEAN, description=(
+                    "parley with Wake the Dragon, using greed, wrath or disdain: +Blood.")),
+                "hurl": _s(type=types.Type.BOOLEAN, description=(
+                    "volley with Velocitas Eradico: any object up to 2 weight, far only, +Con, no ammo.")),
                 "ally": _s(
                     type=_STRING,
                     description=(
@@ -983,6 +990,36 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "for the wilds or a dungeon. What is for sale, prices, Supply and Recruit follow it.")),
             },
             required=["location"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=COMPENDIUM_POWER,
+        description=(
+            "A compendium move called on in the fiction. weapon_boons: a Bearer's weapon rewards a deed it "
+            "desired (boons, at most their bonds with it: heal, knowledge, insight, peace). deity_favor: Divine "
+            "Bond marks off a bond with a deity for its clear, decisive favor. dragon_blood: a Dragonslayer "
+            "calls on their blood (+Blood forward to Str rolls, then the 1d4 against dragon nature). "
+            "drink_heart_blood: Blood +1. dragons_breath: fire on the creatures in its path (targets) and "
+            "themselves. faraday: stir (on) or settle (off) the charge in their weapon. found_stronghold: "
+            "Landed Gentry's keep (name, 2 benefits, your complication, craft if skilled)."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "power": _s(type=_STRING, enum=["weapon_boons", "deity_favor", "dragon_blood", "drink_heart_blood",
+                                                "dragons_breath", "faraday", "found_stronghold"]),
+                "boons": _s(type=_ARRAY, items=_s(type=_STRING, enum=["heal", "knowledge", "insight", "peace"])),
+                "targets": _s(type=_ARRAY, items=_s(type=_STRING)),
+                "deity": _s(type=_STRING),
+                "on": _s(type=types.Type.BOOLEAN),
+                "name": _s(type=_STRING, description="found_stronghold: its name."),
+                "benefits": _s(type=_ARRAY, items=_s(type=_STRING, enum=["taxation", "fortified", "garrisoned",
+                                                                         "prestigious", "skilled"])),
+                "complication": _s(type=_STRING, enum=["infested", "unrest", "disputed"]),
+                "craft": _s(type=_STRING),
+            },
+            required=["character", "power"],
         ),
     ),
     types.FunctionDeclaration(

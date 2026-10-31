@@ -202,6 +202,8 @@ class Advance:
             pet = sheet["companion"]
             sheet["companion"] = {**pet, "ferocity": int(pet["ferocity"]) + 2, "instinct": int(pet["instinct"]) + 1,
                                   "monster": True}
+        if self.move == "Dovahkiin":
+            sheet["blood"] = 1  # "You gain a new stat called Blood, which starts at +1."
         if self.move_choice:
             sheet["wraith_marks"] = [*(sheet.get("wraith_marks") or ()), self.move_choice]
         # "...the next time you level up you may choose this move": a requirement met is
