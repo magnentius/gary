@@ -146,6 +146,16 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
                 done = advanced.applied(sheet, name)
                 lines.append(f"    - {name} (advanced): {text}"
                              + (f" [Gary applies {done}; do not add it again.]" if done else ""))
+        from .multiclass import text_of
+
+        for entry in sheet.get("multiclass_moves") or ():
+            key = _KINDS.get(entry["class"], {}).get(entry["name"])
+            text = text_of(entry).replace("\n", " ")
+            how = (f" Call make_move with move={key}." if key and key not in (NOT_YET, PREPARE, COMPANION)
+                   else "")
+            done = advanced.applied(sheet, entry["name"])
+            lines.append(f"    - {entry['name']} (from the {entry['class'].title()}, by Multiclass): {text}{how}"
+                         + (f" [Gary applies {done}; do not add it again.]" if done else ""))
         if spells.caster_class(sheet):
             have = spells.castable(sheet)
             lines.append(f"    - Spells {actor} can cast now (make_move cast_a_spell, spell=…):"

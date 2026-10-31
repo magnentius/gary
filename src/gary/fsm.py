@@ -27,7 +27,10 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import advanced, bonds, choices, companion as companions, damage, hirelings, quests, reactions, spells, trade
+from . import (
+    advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, spells,
+    trade,
+)
 from .gear import armor_of as gear_armor, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
@@ -388,7 +391,8 @@ class Director:
         # A class move is that class's alone: a Fighter cannot Backstab.
         if rules.classes and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
-            if sheet is not None and sheet.get("class") not in rules.classes:
+            if (sheet is not None and sheet.get("class") not in rules.classes
+                    and not multiclass.grants_key(sheet, rules.key)):  # Multiclass Dabbler's move
                 return [self._refuse(
                     channel_id,
                     f"{rules.name} is the {' or '.join(rules.classes)}'s move; {actor} is a "

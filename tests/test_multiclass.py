@@ -1,0 +1,57 @@
+"""Multiclass Dabbler, Initiate and Master: one move from another class each."""
+
+from __future__ import annotations
+
+
+from gary import advanced, class_moves, multiclass
+from gary.fsm import Director, SendMessage
+from gary.levelling import Advance
+
+CHANNEL, ALICE = 555, 111
+
+DORN = {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 3, "xp": 10, "hp": 20, "max_hp": 20,
+        "stats": {"str": 16, "dex": 15, "con": 15, "int": 8, "wis": 12, "cha": 13}, "armor": 0,
+        "damage": "d10"}
+
+
+def test_the_level_counts_as_one_lower():
+    at_two = [m["name"] for m in multiclass.options(DORN, "thief", 2)]
+    assert "Backstab" in at_two and "Cheap Shot" not in at_two  # effective level 1: starting moves only
+    at_four = [m["name"] for m in multiclass.options(DORN, "thief", 4)]
+    assert "Cheap Shot" in at_four and "Dirty Fighter" not in at_four  # 6-10 needs an effective 6
+    cleric = [m["name"] for m in multiclass.options(DORN, "cleric", 4)]
+    assert "Commune" not in cleric and "Cast a Spell" not in cleric and "Turn Undead" in cleric
+
+
+def test_dabbling_on_the_level_up_form_records_the_move():
+    a = Advance(DORN)
+    a.choose_stat("dex")
+    a.choose_move("Multiclass Dabbler")
+    assert a.step() == "multi_class"
+    assert "fighter" not in a.multi_class_options()
+    a.choose_multi_class("thief")
+    assert a.step() == "multi_move"
+    a.choose_multi_move("Backstab")
+    sheet = a.result()
+    assert sheet["multiclass_moves"] == [{"class": "thief", "name": "Backstab"}]
+    assert a.summary() == "level 4, Dexterity +1, Multiclass Dabbler (Backstab, from the Thief)"
+
+
+def test_a_dabbled_move_can_be_rolled_and_is_shown_to_the_model(registry, clock, dice):
+    sheet = dict(DORN, multiclass_moves=[{"class": "thief", "name": "Backstab"},
+                                         {"class": "fighter", "name": "Iron Hide"}])
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+                        players={ALICE: "Dorn"}, sheet_for={"Dorn": sheet}.get,
+                        monsters=lambda: {"Orc 1": {"kind": "Orc", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"}})
+    effects = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Dorn", move="backstab", target="Orc 1")
+    assert any(isinstance(e, SendMessage) and "Backstab" in e.text for e in effects)
+    text = class_moves.render({"Dorn": sheet})
+    assert "Backstab (from the Thief, by Multiclass):" in text and "move=backstab" in text
+    assert advanced.has(sheet, "Iron Hide")
+
+
+def test_without_the_move_the_class_gate_holds(registry, clock, dice):
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+                        players={ALICE: "Dorn"}, sheet_for={"Dorn": dict(DORN)}.get, monsters=lambda: {})
+    (note,) = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Dorn", move="backstab", target="x")
+    assert "Backstab is the Thief's move" in note.payload["error"]

@@ -560,7 +560,12 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   `levelling.SPELL_MOVES` adds a `move_spell` step: Chosen One / Anointed / Prodigy / Master
   append to `lowered_spells` (`spells.lowered` takes a level off wherever a spell is found,
   so a first-level one is `free`), Expanded Spellbook appends any class's spell to the
-  spellbook (`spells._named_any`). Spell dropdowns run to four of 25.
+  spellbook (`spells._named_any`). Spell dropdowns run to four of 25. Multiclass Dabbler /
+  Initiate / Master add `multi_class` and `multi_move` steps (`multiclass.options`: another
+  class's starting moves and the advanced tiers its level less one reaches, minus the
+  spellcasting core and the companion) and append `{class, name}` to `multiclass_moves`,
+  which `advanced.has`, `class_moves.render` and the class gate in `open_move`
+  (`multiclass.grants_key`) all read.
 - **Bonds** — `?dm bonds`: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

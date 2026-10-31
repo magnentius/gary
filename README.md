@@ -488,7 +488,11 @@ opens at level 6; "Requires" and "Replaces" are honoured), and for a Wizard a sp
 spellbook. A move that names a spell asks for it next: Chosen One and Prodigy (and Anointed
 and Master) make that spell count one level lower — a first-level one becomes a rote or
 cantrip, always ready — and Expanded Spellbook puts a spell from any class's list in a
-Wizard's book. The XP is spent and the level is announced to the table.
+Wizard's book. Multiclass Dabbler, Initiate and Master ask for a class and then one of its
+moves, your level counting as one lower; the move is yours from then on — shown to the GM,
+counted where Gary applies it, and if Gary rolls it (Backstab, Called Shot) you can make it.
+Spellcasting moves and the Ranger's companion aren't offered: Divine Favor and God Amidst
+the Wastes are how a non-caster gets spells. The XP is spent and the level is announced to the table.
 
 ### Talk to Gary
 

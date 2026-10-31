@@ -66,7 +66,9 @@ def applied(sheet: Dict[str, Any], name: str) -> str:
 
 
 def has(sheet: Dict[str, Any], name: str) -> bool:
-    return name in (sheet.get("advanced_moves") or ())
+    """An advanced move of their own, or one taken from another class (Multiclass)."""
+    return name in (sheet.get("advanced_moves") or ()) or any(
+        m["name"] == name for m in sheet.get("multiclass_moves") or ())
 
 
 def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str]]:

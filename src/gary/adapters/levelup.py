@@ -41,6 +41,10 @@ class LevelUpForm(discord.ui.View):
                                           if SPELL_MOVES[a.move] == "spellbook" else
                                           "choose the spell you will have as if it were one level lower "
                                           "(a first-level one becomes a rote or cantrip)."))
+        elif step == "multi_class":
+            lines.append(f"{a.move}: choose a class to take a move from (your level counts as {a.level - 1}).")
+        elif step == "multi_move":
+            lines.append(f"Choose a {a.multi_class.title()} move.")
         elif step == "spell":
             lines.append(f"Add a spell of level {a.level} or lower to your spellbook.")
         else:
@@ -61,6 +65,15 @@ class LevelUpForm(discord.ui.View):
                 for m in move_options(self.sheet, a.level)[:25]], a.choose_move)
         elif step == "move_spell":
             self._spell_selects(a.move_spell_options(), a.choose_move_spell, with_class=True)
+        elif step == "multi_class":
+            self._select("Class", [discord.SelectOption(label=c.title(), value=c)
+                                   for c in a.multi_class_options()], a.choose_multi_class)
+        elif step == "multi_move":
+            offered = a.multi_move_options()
+            for i in range(0, min(len(offered), 100), 25):
+                self._select("Move" if len(offered) <= 25 else f"Move ({i // 25 + 1})", [discord.SelectOption(
+                    label=m["name"][:100], value=m["name"], description=m["text"][:100])
+                    for m in offered[i:i + 25]], a.choose_multi_move)
         elif step == "spell":
             self._spell_selects(a.spell_options(), a.choose_spell)
         else:

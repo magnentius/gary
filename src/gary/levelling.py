@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from . import spells
+from . import multiclass, spells
 from .class_moves import TEXTS
 from .sheets import STAT_NAMES, STATS, SheetError, xp_needed
 
@@ -81,6 +81,8 @@ class Advance:
         self.stat: Optional[str] = None
         self.move: Optional[str] = None
         self.move_spell: Optional[str] = None  # what Chosen One, Prodigy... chose
+        self.multi_class: Optional[str] = None  # Multiclass: the class, then the move
+        self.multi_move: Optional[str] = None
         self.spell: Optional[str] = None
 
     def step(self) -> Optional[str]:
@@ -91,6 +93,11 @@ class Advance:
             return "move"
         if self.move in SPELL_MOVES and self.move_spell is None and self.move_spell_options():
             return "move_spell"
+        if self.move in multiclass.MOVES:
+            if self.multi_class is None:
+                return "multi_class"
+            if self.multi_move is None:
+                return "multi_move"
         if spells.caster_class(self.sheet) == "wizard" and self.spell is None and self.spell_options():
             return "spell"
         return None
@@ -120,6 +127,22 @@ class Advance:
         if name not in [s.name for s in self.move_spell_options()]:
             raise SheetError(f"{name} is not a spell {self.move} can take.")
         self.move_spell = name
+
+    def multi_class_options(self) -> List[str]:
+        return [c for c in multiclass.classes(self.sheet) if multiclass.options(self.sheet, c, self.level)]
+
+    def multi_move_options(self) -> List[Dict[str, Any]]:
+        return multiclass.options(self.sheet, self.multi_class, self.level) if self.multi_class else []
+
+    def choose_multi_class(self, cls: str) -> None:
+        if cls not in self.multi_class_options():
+            raise SheetError(f"{cls} is not a class you can take a move from.")
+        self.multi_class = cls
+
+    def choose_multi_move(self, name: str) -> None:
+        if name not in [m["name"] for m in self.multi_move_options()]:
+            raise SheetError(f"{name} is not a {self.multi_class} move you can take.")
+        self.multi_move = name
 
     def choose_stat(self, stat: str) -> None:
         if stat not in self.stat_options():
@@ -157,10 +180,14 @@ class Advance:
             sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.move_spell]
         if self.spell:
             sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.spell]
+        if self.multi_move:
+            sheet["multiclass_moves"] = [*(sheet.get("multiclass_moves") or ()),
+                                         {"class": self.multi_class, "name": self.multi_move}]
         return sheet
 
     def summary(self) -> str:
-        move = self.move + (f" ({self.move_spell})" if self.move_spell else "")
+        move = self.move + (f" ({self.move_spell})" if self.move_spell else "") + (
+            f" ({self.multi_move}, from the {self.multi_class.title()})" if self.multi_move else "")
         parts = [f"level {self.level}", f"{STAT_NAMES[self.stat]} +1", move]
         if self.spell:
             parts.append(f"{self.spell} in the spellbook")
