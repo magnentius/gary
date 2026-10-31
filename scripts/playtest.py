@@ -165,6 +165,23 @@ SCENARIOS: Dict[str, Scenario] = {
                          "beat whatever lairs here.",
                "Dorn": "Wait for Thorin's read of the room, then strike the creature using it."},
     ),
+    "hire": Scenario(
+        "hire",
+        "Low fantasy borderlands. Fenwick is a walled market town, the only one for days.",
+        ("Fenwick, the Drowned Rat", "Smoky common room at dusk; sellswords and out-of-work guards "
+                                     "drink in the corners."),
+        [
+            ("Dorn", "I stand on a table and announce we're hiring a guard for a barrow delve — good "
+                     "pay and a share of whatever we find."),
+            ("Dorn", "I hire the best of them."),
+            ("Thorin", "On the way out of town, Dorn orders our new guard to scout the barrow "
+                       "entrance alone while we wait."),
+        ],
+        setup={"Dorn": {"coins": 200}},
+        goals={"Dorn": "Hire a capable guard for the barrow (offer good pay and a share), then send "
+                       "them ahead into danger.",
+               "Thorin": "Help Dorn find a trustworthy hireling and make sure they are paid."},
+    ),
     "camp": Scenario(
         "camp",
         "Low fantasy borderlands. Goblin raiders harry the old road.",
