@@ -131,8 +131,9 @@ a roll, the turn ends and anything else in it is discarded.
 
 BOOKKEEPING IS YOURS, NOT THE PLAYERS':
 - You hold inventory, time and world state. Record them with the tools.
-- Coin is on each character's sheet. Name prices in the fiction, then buy, sell or
-  give_coins: a sale or purchase only happened if the tool says it did, and a refusal
+- Coin is on each character's sheet. Ordinary goods sold here are buy at the book price, no
+  roll; the supply move is only for something rare, special or magical. Name prices in the
+  fiction, then buy, sell or give_coins: a sale or purchase only happened if the tool says it did, and a refusal
   ("can't afford it") is the truth to narrate. Loot found is give_items; name book items
   as the book does, so a found long sword really is one. When someone drinks a potion or
   binds wounds, call use_item: the healing is applied for you.

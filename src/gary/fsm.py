@@ -1713,7 +1713,8 @@ class Director:
                 entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
                 lines.append(
                     f"**{actor}** eats" + (f" ({changes['rations']} rations left)" if "rations" in changes else "")
-                    + f" and heals {healed} — HP {changes['hp']}/{sheet['max_hp']}."
+                    + (f" and heals {healed} — HP {changes['hp']}/{sheet['max_hp']}." if healed
+                       else f", already whole — HP {changes['hp']}/{sheet['max_hp']}.")
                 )
             elif fed:
                 lines.append(f"**{actor}** eats" + (f" ({changes['rations']} rations left)." if "rations" in changes else "."))

@@ -788,6 +788,21 @@ than mysteries at the table.
 
 ---
 
+## Playtesting without Discord
+
+`scripts/playtest.py` plays scripted scenes against the real rules and the real Gemini, in a
+throwaway campaign: player lines go in as messages, and every button Gary posts is clicked
+by the player it belongs to. It writes a Markdown transcript with each tool call and its
+answer, and flags tool errors, refused moves, stalls, model loops and crashes.
+
+```bash
+set -a && . ~/.config/gary/env && set +a
+PYTHONPATH=src .venv/bin/python scripts/playtest.py fight --out fight.md   # or camp, journey, town, all
+```
+
+It spends real Gemini calls, and cannot see Discord itself (how buttons and dropdowns look).
+Scripted lines don't react to the GM, so a scene that escalates leaves later lines behind.
+
 ## Design
 
 How Gary works, and why it is built this way, is [`ARCHITECTURE.md`](ARCHITECTURE.md).
