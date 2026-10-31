@@ -804,7 +804,7 @@ answer, and flags tool errors, refused moves, stalls, model loops and crashes.
 
 ```bash
 set -a && . ~/.config/gary/env && set +a
-PYTHONPATH=src .venv/bin/python scripts/playtest.py fight --out fight.md   # or camp, journey, town, all
+PYTHONPATH=src .venv/bin/python scripts/playtest.py fight --out fight.md   # or discern, camp, journey, town, all
 ```
 
 Add `--llm-players` and a second model plays the characters instead, each with a goal for the

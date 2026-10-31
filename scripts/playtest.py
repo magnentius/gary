@@ -148,6 +148,23 @@ SCENARIOS: Dict[str, Scenario] = {
         goals={"Dorn": "Get past the ambush alive and kill or drive off every goblin.",
                "Thorin": "Keep Dorn alive: bless him, defend him, heal him if he is hurt."},
     ),
+    "discern": Scenario(
+        "discern",
+        "Low fantasy borderlands. An old barrow-crypt under the hill; something lairs there.",
+        ("The barrow-crypt", "A low stone hall lit by one guttering torch. Bones heaped by a sealed "
+                             "sarcophagus; a great shape breathes slowly in the dark beyond it."),
+        [
+            ("Thorin", "Before anyone moves, I study the hall carefully. What here is not what it "
+                       "appears to be?"),
+            ("Dorn", "I keep watch on that breathing shape while Thorin looks."),
+            ("Thorin", "Knowing that, I act on it — I go for what we just learned."),
+            ("Dorn", "I strike the thing while it is still unaware of us."),
+            ("Thorin", "I fight beside Dorn until it is down."),
+        ],
+        goals={"Thorin": "Study the crypt closely before acting, then use exactly what you learn to "
+                         "beat whatever lairs here.",
+               "Dorn": "Wait for Thorin's read of the room, then strike the creature using it."},
+    ),
     "camp": Scenario(
         "camp",
         "Low fantasy borderlands. Goblin raiders harry the old road.",
@@ -201,6 +218,8 @@ class Report:
     lines: List[str] = field(default_factory=list)
     flags: List[str] = field(default_factory=list)
     tool_calls: Dict[str, int] = field(default_factory=dict)
+    forwards_granted: int = 0
+    forwards_used: int = 0
 
     def say(self, text: str) -> None:
         self.lines.append(text)
@@ -223,6 +242,8 @@ class Transport:
         if text == STALL_MESSAGE:
             self.report.flag("Gary stalled (the model failed or said nothing).")
         self.heard.append(text)
+        if text.startswith("➕ "):
+            self.report.forwards_granted += 1
         self.report.say(f"**Gary:** {text}")
         if prompt is not None:
             self.prompts.append(prompt)
@@ -241,12 +262,15 @@ class RecordingNarrator(GeminiNarrator):
         for call in calls:
             args = dict(call.args or {})
             self.report.tool_calls[call.name] = self.report.tool_calls.get(call.name, 0) + 1
+            if call.name == "make_move" and args.get("forward"):
+                self.report.forwards_used += 1
             answer = answers.get(call.name)
             shown = json.dumps(args, ensure_ascii=False)
             self.report.say(f"  🔧 `{call.name}` {shown}" + (f" → `{json.dumps(answer, ensure_ascii=False)[:300]}`"
                                                            if answer is not None else " (deferred)"))
             if isinstance(answer, dict) and answer.get("ok") is False:
-                self.report.flag(f"`{call.name}` refused: {answer.get('error')}")
+                why = answer.get("error") or "; ".join(answer.get("refused") or ()) or "no reason given"
+                self.report.flag(f"`{call.name}` refused: {why}")
         return deferred, responses
 
     async def narrate(self, *, channel_id, kind, payload):
@@ -482,6 +506,9 @@ async def run(names: Sequence[str], seed: int, client: Any = None,
                 await table.play(actor, text)
             except Exception:  # noqa: BLE001 - a crash is a finding, not the end of the run
                 report.flag(f"exception on {actor}'s line {text!r}:\n```\n{traceback.format_exc()}```")
+    if report.forwards_granted and not report.forwards_used:
+        report.flag(f"{report.forwards_granted} forward(s) granted and none used: did the model "
+                    "ever set forward=true when acting on one?")
     stats = table.runner.stats
     if stats.depth_exceeded:
         report.flag(f"effect depth exceeded {stats.depth_exceeded} time(s): the model looped.")
@@ -498,6 +525,7 @@ def render(report: Report, names: Sequence[str], seed: int) -> str:
     head.append(f"**Flags: {len(report.flags)}**")
     head += [f"- {f.splitlines()[0]}" for f in report.flags] or ["- none"]
     head.append("")
+    head.append(f"**Forwards:** {report.forwards_granted} granted, {report.forwards_used} used")
     head.append("**Tool calls:** " + (", ".join(f"{k} ×{v}" for k, v in sorted(report.tool_calls.items()))
                                       or "none"))
     return "\n".join(head + report.lines) + "\n"
