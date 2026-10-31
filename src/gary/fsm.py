@@ -410,6 +410,12 @@ class Director:
                     "their class.",
                 )]
 
+        if rules.requires and self._sheet_for is not None:
+            sheet = self._sheet_for(actor)
+            if sheet is not None and not advanced.has(sheet, rules.requires):
+                return [self._refuse(channel_id, f"{rules.name} is an advanced move {actor} has not taken.",
+                                     "Choose a move this character has.")]
+
         if rules.stat == CASTER:
             cast = self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
             if forward and any(isinstance(e, SendMessage) and isinstance(e.prompt, RollPrompt) for e in cast):
@@ -544,7 +550,7 @@ class Director:
                 )]
             # A sheet made before gear existed has no gear to check, and is let through
             # as before; `?dm gear` gives it some.
-            if rules.attacks and "gear" in sheet and self._weapon(sheet, rules.key) is None:
+            if rules.attacks and not rules.damage_die and "gear" in sheet and self._weapon(sheet, rules.key) is None:
                 needs = "a near, far or thrown weapon (and ammo, for a bow)" \
                     if rules.ranged else "a hand, close or reach weapon"
                 return [self._refuse(
@@ -608,9 +614,22 @@ class Director:
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
               else f" into a {target}" if rules.names_form else f" {target}" if rules.defends
               else f" at {target}") if target else ""
+        staked = ""
+        if rules.key == "counterspell":
+            # "...stake one of your prepared spells on the defense": named as spell.
+            mover = self._sheet_or_empty(actor)
+            found = spells.find(mover, spell) if spell else None
+            if found is None or found.free or found.name not in [s.name for s in spells.castable(mover)]:
+                held = ", ".join(s.name for s in spells.castable(mover) if not s.free) or "none"
+                return [self._refuse(channel_id, f"Counterspell stakes one of {actor}'s prepared spells "
+                                                 f"(spell). Prepared: {held}.",
+                                     "Re-issue make_move with spell set to the one they stake.")]
+            staked = found.name
+            notes.append(f"staking {staked}")
         return [*spend, *self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                                     ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
-                                    notes, companion=pet, overloaded=burden == "overloaded", aide=helper)]
+                                    notes, spell=staked, companion=pet, overloaded=burden == "overloaded",
+                                    aide=helper)]
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
@@ -957,6 +976,8 @@ class Director:
             return self._grant(channel_id, actor, "for helping a friend (A Little Help From My Friends)")
         if check.move == "discern_realities" and b != "miss":
             return self._grant(channel_id, actor, "when acting on what Discern Realities showed")
+        if check.move == "communion_of_whispers" and b == "miss":
+            return self._grant(channel_id, actor, "shaken by the vision", amount=-1)
         if check.move == "i_am_the_law" and b == "strong":
             return self._grant(channel_id, actor, "against the one they gave the order")
         if check.move == "i_am_the_law" and b == "miss":
@@ -1133,10 +1154,19 @@ class Director:
         shift, shape = self._shift(channel_id, check, dice)
         guard = self._guard(channel_id, check, dice)
         ahead = self._forwards_from(channel_id, check, dice)
+        staked = self._counterspell(channel_id, check, dice)
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
                           healing=self._healing(check, dice), spell=spell, shape=shape)
-        return [*self._consequences(channel_id, outcome), *cast, *shift, *guard, *ahead,
+        return [*self._consequences(channel_id, outcome), *cast, *shift, *guard, *ahead, *staked,
                 *self._resolved(channel_id, outcome)]
+
+    def _counterspell(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Counterspell, 7-9: "the spell is countered and you forget the spell you staked"."""
+        if check.move != "counterspell" or band(dice) != "weak" or not check.spell:
+            return []
+        sheet = self._sheet_or_empty(check.actor)
+        return [SendMessage(channel_id, f"✨ **{check.actor}** forgets {check.spell} — staked on the defense."),
+                UpdateSheet(channel_id, check.actor, {"lost": [*(sheet.get("lost") or []), check.spell]})]
 
     def _guard(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """Defend: hold 3 on a 10+, 1 on a 7-9, against attacks on the defender or their
@@ -1178,7 +1208,8 @@ class Director:
         ], facts
 
     def _spell_of(self, check: PendingCheck) -> Optional["spells.Spell"]:
-        if not check.spell or self._sheet_for is None:
+        """The spell being cast. Only Cast a Spell casts: Counterspell's spell is staked."""
+        if not check.spell or check.move != "cast_a_spell" or self._sheet_for is None:
             return None
         sheet = self._sheet_for(check.actor)
         return spells.find(sheet, check.spell) if sheet is not None else None
@@ -1652,6 +1683,9 @@ class Director:
         spell = self._spell_of(check)
         if spell is not None and spell.damage:
             return spell.damage, 0, spell.name + (", ignores armor" if spell.ignores_armor else "")
+        if MOVES[check.move].damage_die:
+            # "If a move specifies an amount of damage, use that in place of the class's damage roll."
+            return MOVES[check.move].damage_die, 0, MOVES[check.move].name
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet:
             return "d6", 0, ""

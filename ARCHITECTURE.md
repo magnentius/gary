@@ -355,7 +355,13 @@ once-per-battle reroll is a `reroll` reaction on a creature's hit; `reroll_used`
 creatures standing when it was spent, and it returns once none of them stands. The advanced moves with a number Gary runs live in `advanced.py`
 (armor, damage dice, a shaped die, healing dice, spell-penalty relief, rotes) and are
 called where that number is computed; `advanced.APPLIED` says, in the class-moves block,
-what Gary applies of each so the model does not apply it twice.
+what Gary applies of each so the model does not apply it twice. The eleven advanced moves
+with a roll of their own are generated in `moves.py` (`ADVANCED_ROLLS`) from the book's text
+-- trigger, stat, the three results, "choose two / choose one" as a `Choice` -- each with
+`requires` (only someone who has the move, `advanced.has`, may make it). Their numbers are
+wired by key: Metal Hurlant's `damage_die` (rolled in place of the class die, no weapon
+needed), Communion of Whispers' -1 forward on a miss, Counterspell's staked spell (the check's
+`spell`, which `_spell_of` ignores for anything but Cast a Spell) lost on a 7-9.
 
 ### 6.3 Sheets and creation
 

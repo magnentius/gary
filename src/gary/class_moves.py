@@ -62,6 +62,14 @@ _KINDS: Dict[str, Dict[str, str]] = {
 }
 
 
+def _rolls(name: str) -> str:
+    """For an advanced move with a roll of its own: how the model makes it."""
+    from .moves import ADVANCED_ROLLS, move_key
+
+    key = move_key(name)
+    return f" Call make_move with move={key}." if key in ADVANCED_ROLLS else ""
+
+
 def moves_of(class_name: str, race: str) -> List[Dict[str, Any]]:
     """A character's starting moves: their race move first, then their class's.
 
@@ -144,7 +152,7 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             if name in book:
                 text = book[name]["text"].replace("\n", " ")
                 done = advanced.applied(sheet, name)
-                lines.append(f"    - {name} (advanced): {text}"
+                lines.append(f"    - {name} (advanced): {text}" + _rolls(name)
                              + (f" [Gary applies {done}; do not add it again.]" if done else ""))
         from .multiclass import text_of
 
@@ -152,7 +160,7 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             key = _KINDS.get(entry["class"], {}).get(entry["name"])
             text = text_of(entry).replace("\n", " ")
             how = (f" Call make_move with move={key}." if key and key not in (NOT_YET, PREPARE, COMPANION)
-                   else "")
+                   else _rolls(entry["name"]))
             done = advanced.applied(sheet, entry["name"])
             lines.append(f"    - {entry['name']} (from the {entry['class'].title()}, by Multiclass): {text}{how}"
                          + (f" [Gary applies {done}; do not add it again.]" if done else ""))

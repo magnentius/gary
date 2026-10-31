@@ -661,6 +661,10 @@ waiting on; `?dm cancel` drops your own.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.
+- **Advanced moves with a roll of their own** — Heirloom, Evil Eye, Counterspell, Escape
+  Route, Elemental Mastery and the rest — roll like any move once you've taken them, with
+  the book's results; Metal Hurlant deals its own 1d10, a troubling Communion of Whispers is
+  -1 forward, and a 7–9 Counterspell forgets the spell you staked.
 - **About a quarter of advanced moves are wired.** Gary applies the ones that change a number
   it runs: armor (Iron Hide, Barkskin, Arcane Ward, Underdog…), extra damage (Merciless,
   Cheap Shot…), a Druid's bigger animal die, extra healing (Hospitaller, Healing Song,

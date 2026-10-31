@@ -18,7 +18,10 @@ Dungeon World is CC-BY 3.0, by Sage LaTorra and Adam Koebel.
 
 from __future__ import annotations
 
+import json
+import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 #: Sentinel stats. ANY: the player's approach picks one of the six (Defy Danger). BOND:
@@ -111,6 +114,11 @@ class Move:
     names_form: bool = False
     # The target names who or what is defended: a character, an item, a place (Defend).
     defends: bool = False
+    # A move that names its own damage ("the target takes 1d10 damage") rolls that in place of
+    # the class's die, and needs no weapon.
+    damage_die: Optional[str] = None
+    # An advanced move's own roll: only a character who has that advanced move may make it.
+    requires: str = ""
 
     def band(self, name: str) -> Band:
         return {STRONG: self.strong, WEAK: self.weak, MISS: self.miss}[name]
@@ -536,3 +544,69 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         miss=_MISS, classes=("Cleric", "Wizard"),
     ),
 )}
+
+
+# -- advanced moves with a roll of their own ------------------------------------------------
+#
+# Eleven advanced moves roll 2d6 themselves (Heirloom, Evil Eye, Counterspell...). They are
+# read from the book's data rather than written out: the trigger, the stat, and each
+# result's text, with Elemental Mastery's "choose two / choose one" as buttons. The few
+# numbers they carry are wired by key in the Director (Metal Hurlant's 1d10 below,
+# Communion of Whispers' -1 forward, Counterspell's staked spell).
+
+_ROLL = re.compile(r"roll\s*\+\s*(str|dex|con|int|wis|cha)", re.IGNORECASE)
+_RESULT = re.compile(r"✴\s*On an? (10\+|7\s*[–-]\s*9|miss|6-)[,:]?\s*", re.IGNORECASE)
+_CHOOSE = re.compile(r"choose (one|two|three)", re.IGNORECASE)
+_COUNT = {"one": 1, "two": 2, "three": 3}
+
+#: What the generated moves carry beyond their text.
+_EXTRA = {
+    "metal_hurlant": {"damage_die": "d10", "deals": True},
+}
+
+
+def move_key(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", name.lower().replace("\u2019", "").replace("'", "")).strip("_")
+
+
+def _generated() -> Dict[str, Move]:
+    path = Path(__file__).parent / "data" / "class_moves.json"
+    book = json.loads(path.read_text(encoding="utf-8"))["classes"]
+    out: Dict[str, Move] = {}
+    for moves in book.values():
+        for m in moves["advanced"]:
+            text = m["text"].replace("\n", " ")
+            stat = _ROLL.search(text)
+            if not stat or move_key(m["name"]) in out:
+                continue
+            key = move_key(m["name"])
+            trigger = re.sub(r"^When\s+", "", text[:stat.start()].strip().rstrip(","))
+            trigger = re.sub(r"\s+and$", "", re.sub(r"^you\s+", "", trigger))
+            parts = _RESULT.split(text[stat.end():])
+            bands: Dict[str, str] = {}
+            for label, body in zip(parts[1::2], parts[2::2]):
+                name = (STRONG if label.startswith("10") else MISS if label.lower() in ("miss", "6-")
+                        else WEAK)
+                bands[name] = body.strip()
+            bullets = [b.strip() for b in text.split("•")[1:]]
+            extra = _EXTRA.get(key, {})
+
+            def band(name: str) -> Band:
+                body = bands.get(name, "")
+                if bullets:
+                    body = body.split("•")[0].strip()
+                choose = _CHOOSE.search(body) if name != MISS else None
+                choice = Choice(_COUNT[choose[1].lower()], tuple(Option(b) for b in bullets)) \
+                    if choose and bullets else None
+                if name == MISS and not body:
+                    return _MISS
+                return Band(body or "The GM makes a move.", choice=choice,
+                            deals_damage=bool(extra.get("deals")) and name != MISS)
+
+            out[key] = Move(key, m["name"], trigger, stat[1].lower(), strong=band(STRONG), weak=band(WEAK),
+                            miss=band(MISS), damage_die=extra.get("damage_die"), requires=m["name"])
+    return out
+
+
+ADVANCED_ROLLS: Dict[str, Move] = {k: m for k, m in _generated().items() if k not in MOVES}
+MOVES.update(ADVANCED_ROLLS)

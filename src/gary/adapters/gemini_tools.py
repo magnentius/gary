@@ -176,8 +176,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "spell": _s(
                     type=_STRING,
                     description=(
-                        "cast_a_spell only: the spell, exactly as the caster's spell list in "
-                        "the state names it. Only a spell they have now can be cast."
+                        "cast_a_spell: the spell, exactly as the caster's spell list in the state "
+                        "names it. Only a spell they have now can be cast. counterspell: the "
+                        "prepared spell they stake on the defense."
                     ),
                 ),
                 "stakes": _s(type=_STRING, description="Optional. The danger or what is at risk, for your own later reference."),

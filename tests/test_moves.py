@@ -10,7 +10,8 @@ from gary.sheets import STATS
 
 def test_the_eight_basic_moves_and_their_stats():
     special = {"supply", "carouse", "recruit", "order_hirelings", "outstanding_warrants"}
-    assert {k: m.stat for k, m in MOVES.items() if m.callable and not m.classes and k not in special} == {
+    assert {k: m.stat for k, m in MOVES.items()
+            if m.callable and not m.classes and not m.requires and k not in special} == {
         "hack_and_slash": "str", "volley": "dex", "defy_danger": ANY, "defend": "con",
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,
