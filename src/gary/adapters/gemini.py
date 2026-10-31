@@ -460,6 +460,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.QUALIFY_COMPENDIUM:
+                q_effects, result = self._director.qualify_compendium(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    compendium_class=str(args.get("compendium_class", "")), reason=str(args.get("reason", "") or ""))
+                effects.extend(q_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.STUN:
                 stun_effects, result = self._director.stun(
                     channel_id=channel_id, character=str(args.get("character", "")),

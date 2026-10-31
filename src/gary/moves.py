@@ -555,9 +555,10 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
 # Communion of Whispers' -1 forward, Counterspell's staked spell).
 
 _ROLL = re.compile(r"roll\s*\+\s*(str|dex|con|int|wis|cha)", re.IGNORECASE)
-_RESULT = re.compile(r"✴\s*On an? (10\+|7\s*[–-]\s*9|miss|6-)[,:]?\s*", re.IGNORECASE)
-_CHOOSE = re.compile(r"choose (one|two|three)", re.IGNORECASE)
-_COUNT = {"one": 1, "two": 2, "three": 3}
+# The ✴ is optional: the compendium's Diplomat writes its results without one.
+_RESULT = re.compile(r"(?:✴\s*|(?<=\. ))On an? (10\+|7\s*[–-]\s*9|miss|6-)[,:]?\s*", re.IGNORECASE)
+_CHOOSE = re.compile(r"choose (one|two|three|[1-3])\b", re.IGNORECASE)
+_COUNT = {"one": 1, "two": 2, "three": 3, "1": 1, "2": 2, "3": 3}
 
 #: What the generated moves carry beyond their text.
 _EXTRA = {
@@ -572,9 +573,11 @@ def move_key(name: str) -> str:
 def _generated() -> Dict[str, Move]:
     path = Path(__file__).parent / "data" / "class_moves.json"
     book = json.loads(path.read_text(encoding="utf-8"))["classes"]
+    extra = json.loads((Path(__file__).parent / "data" / "compendium.json").read_text(encoding="utf-8"))["classes"]
     out: Dict[str, Move] = {}
-    for moves in book.values():
-        for m in moves["advanced"]:
+    lists = [moves["advanced"] for moves in book.values()] + [[c["starting"], *c["moves"]] for c in extra]
+    for advanced_list in lists:
+        for m in advanced_list:
             text = m["text"].replace("\n", " ")
             stat = _ROLL.search(text)
             if not stat or move_key(m["name"]) in out:

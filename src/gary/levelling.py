@@ -21,7 +21,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from . import multiclass, spells
+from . import compendium, multiclass, spells
 from .class_moves import TEXTS
 from .sheets import STAT_NAMES, STATS, SheetError, xp_needed
 
@@ -43,9 +43,11 @@ def ready(sheet: Dict[str, Any]) -> bool:
 
 
 def advanced_moves(sheet: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """The advanced moves this character has taken, with the book's text."""
+    """The advanced moves this character has taken, with the book's text -- compendium
+    moves included."""
     book = {m["name"]: m for m in TEXTS.get(sheet.get("class", "").lower(), {}).get("advanced", ())}
-    return [book[n] for n in sheet.get("advanced_moves") or () if n in book]
+    return [book.get(n) or compendium.move(n) for n in sheet.get("advanced_moves") or ()
+            if n in book or compendium.move(n)]
 
 
 def move_options(sheet: Dict[str, Any], level: int) -> List[Dict[str, Any]]:
@@ -62,7 +64,9 @@ def move_options(sheet: Dict[str, Any], level: int) -> List[Dict[str, Any]]:
         if m.get("requires") and m["requires"] not in taken:
             continue
         out.append(m)
-    return out
+    # Compendium classes: a starting move "the next time you level up" after the requirement
+    # is met, and its follow-on moves, which "count as class moves", ever after.
+    return out + compendium.options(sheet)
 
 
 class Advance:
@@ -81,6 +85,7 @@ class Advance:
         self.stat: Optional[str] = None
         self.move: Optional[str] = None
         self.move_spell: Optional[str] = None  # what Chosen One, Prodigy... chose
+        self.move_choice: Optional[str] = None  # Wraithlander's mark
         self.multi_class: Optional[str] = None  # Multiclass: the class, then the move
         self.multi_move: Optional[str] = None
         self.spell: Optional[str] = None
@@ -93,6 +98,8 @@ class Advance:
             return "move"
         if self.move in SPELL_MOVES and self.move_spell is None and self.move_spell_options():
             return "move_spell"
+        if self.move in compendium.MOVE_CHOICES and self.move_choice is None and self.move_choice_options():
+            return "move_choice"
         if self.move in multiclass.MOVES:
             if self.multi_class is None:
                 return "multi_class"
@@ -127,6 +134,16 @@ class Advance:
         if name not in [s.name for s in self.move_spell_options()]:
             raise SheetError(f"{name} is not a spell {self.move} can take.")
         self.move_spell = name
+
+    def move_choice_options(self) -> List[str]:
+        """Wraithlander: the body part that bears the mark -- one not already marked."""
+        have = set(self.sheet.get("wraith_marks") or ())
+        return [c for c in compendium.MOVE_CHOICES.get(self.move, ()) if c not in have]
+
+    def choose_move_choice(self, choice: str) -> None:
+        if choice not in self.move_choice_options():
+            raise SheetError(f"{choice} is not a choice {self.move} offers.")
+        self.move_choice = choice
 
     def multi_class_options(self) -> List[str]:
         return [c for c in multiclass.classes(self.sheet) if multiclass.options(self.sheet, c, self.level)]
@@ -185,6 +202,12 @@ class Advance:
             pet = sheet["companion"]
             sheet["companion"] = {**pet, "ferocity": int(pet["ferocity"]) + 2, "instinct": int(pet["instinct"]) + 1,
                                   "monster": True}
+        if self.move_choice:
+            sheet["wraith_marks"] = [*(sheet.get("wraith_marks") or ()), self.move_choice]
+        # "...the next time you level up you may choose this move": a requirement met is
+        # spent on this level whether or not its move was taken.
+        if sheet.get("compendium_qualified"):
+            sheet["compendium_qualified"] = []
         if self.move in spells.FAVOR_MOVES:
             sheet["favor_from"] = self.level  # a cleric of level 1 for spells, from here on
         if self.multi_move:
@@ -194,6 +217,7 @@ class Advance:
 
     def summary(self) -> str:
         move = self.move + (f" ({self.move_spell})" if self.move_spell else "") + (
+            f" ({self.move_choice})" if self.move_choice else "") + (
             f" ({self.multi_move}, from the {self.multi_class.title()})" if self.multi_move else "")
         parts = [f"level {self.level}", f"{STAT_NAMES[self.stat]} +1", move]
         if self.spell:

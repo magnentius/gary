@@ -486,6 +486,13 @@ cantrip, always ready — and Expanded Spellbook puts a spell from any class's l
 Wizard's book. Multiclass Dabbler, Initiate and Master ask for a class and then one of its
 moves, your level counting as one lower; the move is yours from then on — shown to the GM,
 counted where Gary applies it, and if Gary rolls it (Backstab, Called Shot) you can make it.
+**Compendium classes** — Divine Bond from the core book, and the Player Compendium's Awakened
+Mind, Bearer, Blob, Dragonslayer, Flux, Landed Gentry and Wraithlander — open when something
+happens in the story: drink a dragon's heart-blood, return from the wraith lands, be granted a
+hold. The GM records it, and at your next level the Level up form offers that class's starting
+move instead of a class move (only that level: skip it and the chance passes). Once you have
+it, the class's other moves count as class moves. Flux's Bind and Landed Gentry's Diplomat
+roll like any move; Wraithlander's Arm pierces the living; Tireless Blood ignores Sick.
 Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
 Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
 1 for spells, one level higher with each level after. Name your deity and choose spells from

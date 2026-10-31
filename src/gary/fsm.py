@@ -58,6 +58,17 @@ _HAZARDS = {
     "lethal": "d10",  # "It could kill a common person"
 }
 
+def _living(creature: Optional[Dict[str, Any]]) -> bool:
+    """Is this creature alive -- not undead, not a construct? Read from the bestiary."""
+    if creature is None:
+        return False
+    from .monsters import lookup
+
+    known = lookup(creature.get("kind", "")) or {}
+    tags = {t.lower() for t in known.get("tags") or ()}
+    return known.get("setting") != "Undead" and "construct" not in tags
+
+
 def _race_move_of(sheet: Dict[str, Any], race: str) -> bool:
     """Do they have this race's move? Half-Elven: "You gain the elf starting move if you took
     the human one at character creation or vice versa." """
@@ -2115,9 +2126,12 @@ class Director:
         boosted = str(damage.DamageSpec(spec.sides, spec.mode, spec.modifier + bonus)) if bonus else die
         # Smaug's Belly: "When you know your target's weakest point your arrows have 2 piercing."
         weak = 2 if "weak_point" in check.flags else 0
+        # Wraithlander's Arm: "It gains +2 piercing against living creatures" -- on top of the weapon's.
+        arm = 2 if ("Arm" in (sheet.get("wraith_marks") or ())
+                    and _living(self._monsters().get(check.target))) else 0
         if weapon is None:
-            return boosted, weak, ""
-        return boosted, max(weapon.piercing, weak), weapon.name
+            return boosted, weak + arm, ""
+        return boosted, max(weapon.piercing, weak) + arm, weapon.name
 
     def _spend_ammo(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         choice = MOVES[check.move].band(band(dice)).choice
@@ -2263,7 +2277,7 @@ class Director:
             needs = "a near, far or thrown weapon" if ranged else "a hand, close or reach weapon"
             return [], {"ok": False, "error": f"{actor} has nothing to strike with: it needs {needs}."}
         blow = PendingCheck(check_id="", channel_id=channel_id, user_id=0, actor=actor, move=move,
-                            stat="", modifier=0, stakes="", dice="", created_at=0, expires_at=0)
+                            stat="", modifier=0, stakes="", dice="", created_at=0, expires_at=0, target=name)
         die, piercing, weapon = self._damage_die(blow)
         hit = damage.roll(self.dice, damage.parse(die))
         total, shown = hit.total, hit.render()
@@ -3362,6 +3376,34 @@ class Director:
         ], {"ok": True, "ended": quest["text"], "how": how}
 
     # -- the Thief's poison -------------------------------------------------------------------
+
+    def qualify_compendium(
+        self, *, channel_id: int, character: str, compendium_class: str, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The fiction met a compendium class's requirement: its starting move may be taken
+        "the next time you level up"."""
+        from . import compendium
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        found = compendium.find_class(compendium_class)
+        if found is None:
+            return [], {"ok": False, "error": f"No compendium class {compendium_class!r}. They are: "
+                                              f"{', '.join(compendium.CLASSES)}."}
+        if found["starting"]["name"] in (sheet.get("advanced_moves") or ()):
+            return [], {"ok": False, "error": f"{actor} already has {found['name']}."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say what happened that meets the requirement (reason)."}
+        have = list(sheet.get("compendium_qualified") or [])
+        if found["name"] not in have:
+            have.append(found["name"])
+        return [SendMessage(channel_id, f"🌟 **{actor}** — {reason}. At their next level they may take "
+                                        f"**{found['starting']['name']}** ({found['name']}) instead of a class move."),
+                UpdateSheet(channel_id, actor, {"compendium_qualified": have})], {
+            "ok": True, "note": "Only at their next level-up; it lapses if they take something else."}
 
     def stun(
         self, *, channel_id: int, character: str, reason: str = "", end: bool = False

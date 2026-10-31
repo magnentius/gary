@@ -41,6 +41,8 @@ class LevelUpForm(discord.ui.View):
                                           if SPELL_MOVES[a.move] == "spellbook" else
                                           "choose the spell you will have as if it were one level lower "
                                           "(a first-level one becomes a rote or cantrip)."))
+        elif step == "move_choice":
+            lines.append(f"{a.move}: choose the part of your body that bears the mark of the wraith lands.")
         elif step == "multi_class":
             lines.append(f"{a.move}: choose a class to take a move from (your level counts as {a.level - 1}).")
         elif step == "multi_move":
@@ -61,10 +63,14 @@ class LevelUpForm(discord.ui.View):
                 for s in a.stat_options()], a.choose_stat)
         elif step == "move":
             self._select("Advanced move", [discord.SelectOption(
-                label=m["name"][:100], value=m["name"], description=m["text"][:100])
+                label=(m["name"] + (f" ({m['compendium']})" if m.get("compendium") else ""))[:100],
+                value=m["name"], description=m["text"][:100])
                 for m in move_options(self.sheet, a.level)[:25]], a.choose_move)
         elif step == "move_spell":
             self._spell_selects(a.move_spell_options(), a.choose_move_spell, with_class=True)
+        elif step == "move_choice":
+            self._select("Mark", [discord.SelectOption(label=c, value=c) for c in a.move_choice_options()],
+                         a.choose_move_choice)
         elif step == "multi_class":
             self._select("Class", [discord.SelectOption(label=c.title(), value=c)
                                    for c in a.multi_class_options()], a.choose_multi_class)

@@ -47,6 +47,8 @@ APPLIED: Dict[str, str] = {
     "Formcrafter": "the +1 and -1 when Shapeshifter has form_plus and form_minus",
     "Balance": "earning balance on damage; spend it with channel_balance",
     "Spell Augmentation": "it through spell_augmentation, onto the creature they last hit",
+    "Tireless Blood": "ignoring the Sick debility's penalty",
+    "From The Forbidden Land Returned": "the Arm's +2 piercing against the living (the other marks are yours)",
     **{n: "the note on each Trap Expert result (the hold is yours to keep)" for n in ("Cautious", "Extremely Cautious")},
     "Impervious Defender": "the +1 hold, and the 12+ (no hold: the attacker is stymied)",
     **{n: "the offer on a 10+ cast, as a note (doubling is yours)" for n in (

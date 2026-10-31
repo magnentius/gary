@@ -20,6 +20,7 @@ from typing import Any, Dict, List
 from google.genai import types
 
 from ..moves import MOVES
+from ..compendium import CLASSES as COMPENDIUM_CLASSES, describe_requirements
 from ..sheets import STATS
 
 MAKE_MOVE = "make_move"
@@ -53,6 +54,7 @@ ONGOING = "ongoing"
 LEAD_THE_CHARGE = "lead_the_charge"
 CHANNEL_BALANCE = "channel_balance"
 CREATE_STEADING = "create_steading"
+QUALIFY_COMPENDIUM = "qualify_compendium"
 ADJUST_STEADING = "adjust_steading"
 SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
@@ -981,6 +983,24 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "for the wilds or a dungeon. What is for sale, prices, Supply and Recruit follow it.")),
             },
             required=["location"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=QUALIFY_COMPENDIUM,
+        description=(
+            "A character has just met a compendium class's requirement in the fiction, so at their "
+            "next level-up they may take its starting move instead of a class move. The classes and "
+            "what qualifies: " + describe_requirements()
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "compendium_class": _s(type=_STRING,
+                                       enum=list(COMPENDIUM_CLASSES)),
+                "reason": _s(type=_STRING, description="What happened, in a few words. Shown to the table."),
+            },
+            required=["character", "compendium_class", "reason"],
         ),
     ),
     types.FunctionDeclaration(

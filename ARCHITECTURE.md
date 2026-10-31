@@ -640,6 +640,13 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   `favor_from` to the level taken: `spells.favored` makes `caster_class` "cleric" and
   `caster_level` (level - favor_from + 1) drives what can be prepared and the budget; the
   cast gate lets them Cast a Spell, and the sheet's Class choices button asks for their deity.
+  Compendium classes (`compendium.py`, `data/compendium.json` from the CC-BY Player
+  Compendium and the core book's Divine Bond): `qualify_compendium` adds the class to
+  `compendium_qualified`; `levelling.move_options` adds `compendium.options` (the starting move
+  of a qualified class; the follow-on moves of a started one), and a level-up empties
+  `compendium_qualified` -- "the next time you level up". Taken moves go on `advanced_moves`, so
+  `advanced.has`, `class_moves.render` and `moves.ADVANCED_ROLLS` (Bind, Diplomat) read them.
+  Wraithlander's mark is a `move_choice` step into `wraith_marks`.
 - **Bonds** — the sheet's Bonds button: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

@@ -87,8 +87,12 @@ def debility_on(sheet: Dict[str, Any], stat: str) -> Optional[str]:
 
 
 def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
-    """What a roll adds for this stat: its modifier, -1 for a debility on it."""
-    return modifier(int(sheet["stats"][stat])) - (1 if debility_on(sheet, stat) else 0)
+    """What a roll adds for this stat: its modifier, -1 for a debility on it -- except Sick
+    for a Dragonslayer with Tireless Blood: "you get the debility, but it gives you no penalty"."""
+    penalty = 1 if debility_on(sheet, stat) else 0
+    if stat == "con" and "Tireless Blood" in (sheet.get("advanced_moves") or ()):
+        penalty = 0
+    return modifier(int(sheet["stats"][stat])) - penalty
 
 
 #: Armored (Fighter, Paladin): "You ignore the clumsy tag on any armor you wear."
@@ -490,6 +494,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     for o in sheet.get("ongoing_mods") or ():
         to = f" to {o['move']}" if o.get("move") else ""
         line += f" · {int(o['amount']):+d} ongoing{to} ({o['reason']})"
+    if sheet.get("wraith_marks"):
+        line += f" · marked by the wraith lands: {', '.join(sheet['wraith_marks'])}"
+    if sheet.get("compendium_qualified"):
+        line += f" · may take at next level: {', '.join(sheet['compendium_qualified'])} (compendium)"
     if sheet.get("sworn_enemy"):
         line += f" · sworn to defeat {sheet['sworn_enemy']} (Exterminatus)"
     if sheet.get("quest"):

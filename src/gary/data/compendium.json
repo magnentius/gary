@@ -1,0 +1,216 @@
+{
+ "attribution": "Dungeon World and the Player Compendium are the work of Sage LaTorra and Adam Koebel and are licensed under the Creative Commons Attribution 3.0 Unported License (http://creativecommons.org/licenses/by/3.0/). Compendium classes by Mattie Casper (Awakened Mind), Fred Hicks (Bearer), Joseph \"UserClone\" LeMay (Blob), Stras Acimovic (Dragonslayer), Jeffrey J.A. Fuller II (Flux), Markus Wagner (Landed Gentry) and MC3 (Wraithlander); Divine Bond from Dungeon World's Advanced Delving. Extracted by scripts/extract_dw_compendium.py.",
+ "classes": [
+  {
+   "name": "Awakened Mind",
+   "requirement": "When you discover the latent abilities that lie within your mind, the next time you level up you may choose this move:",
+   "starting": {
+    "name": "Expanded Consciousness",
+    "text": "When you project your mind from your body choose two to describe your mind’s form (it’s always insubstantial):\n• It’s invisible\n• It moves quickly\n• Its senses are not clouded Your mental form can roam the physical world for as long as you like. While it does your body lies comatose. While in your mental form you have no access to your body’s senses."
+   },
+   "moves": [
+    {
+     "name": "Talisman",
+     "text": "Choose an item of importance to you. From now on you can hear the thoughts of whomever holds that item."
+    },
+    {
+     "name": "Sleep Walk With Me",
+     "text": "When your mental form passes through the body of a sleeping person you may choose to inhabit their body. Your control is limited as if they were sleepwalking: movement, maybe even simple conversations at most. The eyes of the body you inhabit never open; if they do open you are immediately expelled."
+    },
+    {
+     "name": "Thoughts Beyond",
+     "text": "While you unleash your expanded consciousness, you can choose 1 of these:\n• You hear nearby thoughts instead of sounds.\n• You can move small physical objects that have recently been touched by someone.\n• You can communicate with the minds of people you are near."
+    },
+    {
+     "name": "Mindmeld",
+     "text": "When you touch a willing or sleeping subject your senses are tuned to their thoughts. The GM will give you an impression of what’s going on inside their head."
+    }
+   ]
+  },
+  {
+   "name": "Bearer",
+   "requirement": "When you embrace the fate of carrying an intelligent weapon, the next time you level up you may choose to gain this move:",
+   "starting": {
+    "name": "Whosoever Holdeth",
+    "text": "You are bonded to your weapon. Write a new bond with your weapon. From now on, when you write new bonds, you may write them with your weapon instead of a player character. Your weapon cannot leave your possession. Your weapon will make its desires known to you in a manner befitting its construction and purpose. When you accomplish something your weapon desires, it bestows boons on you—choose as many different boons as you have bonds with your weapon:\n• The weapon restores your health: heal 3d6 HP\n• The weapon grants you knowledge, the GM will describe it\n• The weapon bestows insight, mark XP\n• The weapon does not intrude on you, for a time If your weapon resists your actions, take -bonds with that weapon to any rolls made for that action."
+   },
+   "moves": [
+    {
+     "name": "Hunger",
+     "text": "Add your bonds with your weapon to any damage you deal with your weapon."
+    },
+    {
+     "name": "All That Power",
+     "text": "When you roll a 12+ while wielding your weapon you gain some insight into the origin, history, or purpose of your weapon. The GM will describe it."
+    },
+    {
+     "name": "Its Name Is Dread",
+     "text": "When you use your weapon (including its history and reputation) for leverage, you can parley with +bonds with your weapon instead of +Cha."
+    },
+    {
+     "name": "Bound for Life",
+     "text": "When you would take your last breath while wielding your weapon you instead have a choice: give up your weapon and take your last breath, or take a permanent debility of the weapon’s choice as it returns you to life."
+    }
+   ]
+  },
+  {
+   "name": "Blob",
+   "requirement": "When you are engulfed by a slime, ooze, or pudding, and some of it stays with you, the next time you level up you may choose this move:",
+   "starting": {
+    "name": "Ambeoid Overlord",
+    "text": "A piece of the thing that engulfed you is now yours to command. Treat it as your character: you say what it does and it triggers basic moves as a character would. Slime, ooze, or pudding characters have +1 STR, +0 DEX, +2 Con, and no Int, Wis, or CHA (they cannot make moves with those stats). They have d4 damage and 4 HP but if they reach 0 HP they splatter and become inert instead of dying—scoop it together again and it’ll be fine. They do not gain XP."
+   },
+   "moves": [
+    {
+     "name": "Scuzzy Metamorphosis",
+     "text": "You can turn yourself into an ooze. While in ooze form you can squeeze and slide like an ooze (fitting through any space a mouse could) and you gain +1 armor, but you take -1 ongoing to Int, Wis, and Cha."
+    },
+    {
+     "name": "Slime Recruiter",
+     "text": "You can keep a piece of any slime, ooze, or pudding you defeat and use it as your minion. It becomes your character, as described in ambeoid overlord. You can command at most 2+Cha slime minions. If your Cha changes such that you can’t control some of your minions you choose which to lose control of—they act as slimes would, though you may still be able to convince them to do as you say."
+    },
+    {
+     "name": "Slime Shaper",
+     "text": "When you spend time in communion with your slime minions you may adapt their stats. For each slime minion, choose one of Str, Dex, or Con to be +2, the others are +1. Your slime minions never have Int, Wis, or Cha scores."
+    },
+    {
+     "name": "Divide and Conquer",
+     "text": "You can create slime copies of yourself. Each copy reduces your Int, Wis, and Cha by -1. Your copies are your characters: you get to say what they do and they use your stats, but they cannot use any moves based on Int, Wis, or Cha. You can only create more copies so long as one of your Int, Wis, or Cha is +1 or greater."
+    }
+   ]
+  },
+  {
+   "name": "Dragonslayer",
+   "requirement": "When you drink the still-warm heart-blood of a dragon the next time you level up you may choose this move:",
+   "starting": {
+    "name": "Dovahkiin",
+    "text": "You gain a new stat called Blood, which starts at +1. When you call on your dragon blood for strength you take +Blood forward to Str rolls. Then roll 1d4, if the result is less than or equal to your Blood you must give in to dragon nature: greed, wrath, or disdain. When you drink the still burning heart-blood of a dragon your Blood increases by 1."
+   },
+   "moves": [
+    {
+     "name": "Dragon’s Breath",
+     "text": "When you unleash the fire in your belly you breath fire: deal your damage to all creatures in the path of the flames and to yourself. Then roll 1d4, if the result is less than or equal to your Blood you must give in to dragon nature: greed, wrath, or disdain."
+    },
+    {
+     "name": "Wyrm-Tongue",
+     "text": "You speak the language of dragons. Any creature of this world will understand what you say, and you can understand them."
+    },
+    {
+     "name": "Tireless Blood",
+     "text": "The sick debility no longer applies to you. If something would cause you to become sick you get the debility, but it gives you no penalty."
+    },
+    {
+     "name": "Fury",
+     "text": "When you call on your dragon blood for strength your next attack also becomes messy, forceful, and +1 piercing."
+    },
+    {
+     "name": "Fiery Veins",
+     "text": "Heat and flame can no longer harm you (though they can still burn or melt your possessions)."
+    },
+    {
+     "name": "Wake the Dragon",
+     "text": "When you parley using greed, wrath, or disdain, take +Blood to the roll."
+    }
+   ]
+  },
+  {
+   "name": "Flux",
+   "requirement": "You touched the mind of god. That cloak of phasing tickled that rift of chaos just right, and in that moment before you rematerialized a slice of the foundation of reality was captured within you. The next time you level up you can choose to take this move:",
+   "starting": {
+    "name": "Bind",
+    "text": "When you call upon the fundamental force within yourself while touching two objects no heavier than yourself, roll+Con. ✴On a 10+ choose 3. ✴On a 7-9 choose 2.\n• The objects are attracted to each other like Newton’s apple to the ground\n• The bond lasts until you choose to break it\n• You are able to weaken the bond without breaking it\n• There are no adverse side effects"
+   },
+   "moves": [
+    {
+     "name": "Binding Field",
+     "text": "You can bind any two objects you can see, not just those you touch."
+    },
+    {
+     "name": "Faraday’s Law",
+     "text": "Magnetism pulses from your flesh stirring loose the charge that lives in all metal. When you stir the charge within a weapon you hold it does +1d4 damage ongoing. Until you dismiss this effect you take -1 to bind."
+    },
+    {
+     "name": "Repel",
+     "text": "When you bind two objects you can choose to have them repel each other instead of attracting each other. The force is the same."
+    },
+    {
+     "name": "Due North",
+     "text": "You always know where you are with respect to the northernmost point of the world."
+    },
+    {
+     "name": "Subtle Sense",
+     "text": "When you discern realities you can also choose to ask “what nearby is metal?”"
+    },
+    {
+     "name": "Velocitas Eradico",
+     "text": "You can volley with any object up to 2 weight by repelling it from youself. Objects launched this way are far range only. When volleying this way use Con instead of Dex."
+    }
+   ]
+  },
+  {
+   "name": "Landed Gentry",
+   "requirement": "When you are granted a hold by your betters, you may choose this move when you level up:",
+   "starting": {
+    "name": "Landed",
+    "text": "You own a stronghold. Give it a name! Add it to the world map as a keep steading with these tags: Poor, Steady, Guard, Oath (protection for nearby lands). Choose 2 benefits:\n• Taxation: Your stronghold provides income, roughly one coin per family within its domain per year.\n• Fortified: Your stronghold is nearly impregnable, its walls and siege defenses are strong.\n• Garrisoned: Your stronghold is Garrison instead of Guard.\n• Prestigious: Your stronghold is well-known and therefore you are too. Add Personage (you).\n• Skilled: Your stronghold has people with exceptional skills, such as blacksmithing or magic. Add Craft. The GM will also give you one complication:\n• Infested: There are monsters about\n• Unrest: The people are unhappy with the stronghold\n• Disputed: Someone else has a claim to your stronghold too."
+   },
+   "moves": [
+    {
+     "name": "Diplomat",
+     "text": "When you send a letter requesting a person’s presence in your stronghold, roll+Cha. On a 10+ they agree to visit with the expectation of hospitality. On a 7–9 they name some terms, you must meet them or they refuse."
+    },
+    {
+     "name": "Call the Banners",
+     "text": "When you recruit from your stronghold or the lands it protects you cannot get a 6-, treat that as a 7–9."
+    },
+    {
+     "name": "Hold Court",
+     "text": "When you hold court and hear the problems of the people the GM will tell you of at least one opportunity within you stronghold or the areas surrounding it."
+    },
+    {
+     "name": "Long Road Home",
+     "text": "No matter where you are, you always know either a long and safe way or a shorter and more dangerous road home to your stronghold. Your choice."
+    },
+    {
+     "name": "In the Service of the People",
+     "text": "When you either successfully deal with a problem in your realm set forth by the GM or successfully pursue an opportunity you heard while holding court, change any one tag for your stronghold."
+    }
+   ]
+  },
+  {
+   "name": "Wraithlander",
+   "requirement": "When you return from the wraith lands the next time you level up you can embrace your experience and choose this move:",
+   "starting": {
+    "name": "From The Forbidden Land Returned",
+    "text": "You bear a mark of your time in the wraith lands. Choose a part of your body that takes on the visible aspects of death while remaining fully functional:\n• Eye: When you touch a corpse you see what it saw in its last moments. The GM will describe it.\n• Tongue: You may lace any spell, prayer, or oath with a link to the forbidden land. Its effects on the dying or dead will be amplified, as described by the GM.\n• Arm: Any weapon you grasp flows into the other world. It gains +2 piercing against living creatures.\n• Legs: Your passing leaves no mark or scent as a living person would. Dead spirits see your mark and know you as their own. Any dead spirit that still clings to the mortal plane will speak with you, sharing openly. The living, especially the devout, see your mark as a sign of sin. You take -1 ongoing to Cha rolls with the devout who see your mark."
+   },
+   "moves": [
+    {
+     "name": "Final Tether",
+     "text": "When you speak to a dead spirit you take +1 forward with all who knew that spirit in life."
+    },
+    {
+     "name": "Indelible",
+     "text": "The mark of the wraith lands grows such that it may not be concealed, describe it. The dead will seek you out, giving you what aid they can. The undead will not harm you. The devout will treat you as a heretic."
+    },
+    {
+     "name": "Death’s Friend",
+     "text": "When another player character meets death you may immediately resolve a bond you have with them, marking XP and writing a new bond (maybe “___ knows something about death I do not, they will tell me”) as usual."
+    },
+    {
+     "name": "Branded",
+     "text": "Choose another body part for from the forbidden land returned."
+    }
+   ]
+  },
+  {
+   "name": "Divine Bond",
+   "requirement": "When you enter the bodily presence of a god or their avatar the next time you gain a level you can choose this move instead of a move from your class.",
+   "starting": {
+    "name": "Divine Bond",
+    "text": "When you write a new bond, instead of using the name of another character you can use the name of a deity you've had contact with. Anytime a bond with a deity applies to the current situation you can mark it off (as if it was resolved) to call on the deity's favor in a clear and decisive way that the GM describes. At the end of the session you then replace the marked off bond with a new one, with a deity or player character."
+   },
+   "moves": []
+  }
+ ]
+}

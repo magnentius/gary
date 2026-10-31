@@ -148,8 +148,16 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
                 lines.append(f"    - {m['name']}: {text}"
                              + (f" [Gary applies {done}; do not add it again.]" if done else ""))
         book = {m["name"]: m for m in TEXTS.get(sheet["class"].lower(), {}).get("advanced", ())}
+        from .compendium import move as compendium_move
+
         for name in sheet.get("advanced_moves") or ():
-            if name in book:
+            extra = compendium_move(name)
+            if extra and name not in book:
+                text = extra["text"].replace("\n", " ")
+                done = advanced.applied(sheet, name)
+                lines.append(f"    - {name} ({extra['class']}, compendium): {text}" + _rolls(name)
+                             + (f" [Gary applies {done}; do not add it again.]" if done else ""))
+            elif name in book:
                 text = book[name]["text"].replace("\n", " ")
                 done = advanced.applied(sheet, name)
                 lines.append(f"    - {name} (advanced): {text}" + _rolls(name)
