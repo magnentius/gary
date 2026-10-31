@@ -551,6 +551,16 @@ Gary   **Thorin**, roll your damage (d6) against Goblin 1.   [⚔️ Roll damage
 Gary   🎲 **Thorin** damage — d6: 5 → Goblin 1: 4 through armor 1, HP 3 → 0 — **defeated**.
 ```
 
+**Answering a blow.** Some moves let you turn a hit once it lands: a Wizard's Spell Defense
+(end an ongoing spell, take its level less), Armor Mastery (your armor or shield takes it and
+loses a point), Bloody Aegis (a debility instead), Shed (drop your animal form), Man's Best
+Friend (your companion takes it), a Cleric's Divine Intervention (Commune's hold, for you or
+an ally) and Penitent (take more for +1 forward to cast). When someone at the table could
+use one, the hit carries a **🛡️ Reduce damage** button. It shows you, privately, only what
+you can do about that hit, and gives the HP back at once — never more than the blow took.
+The fight never waits: ignore it and you take the blow. Only the latest hit on someone can
+be answered, once, and answering a blow that put them down cancels their Last Breath.
+
 **Loot, buying and selling.** Pick something up in the fiction and Gary adds it to your
 sheet. If the book lists it — a long sword, plate, a bundle of arrows — it comes with its
 real stats, so a found long sword hits harder and plate is armor at once; anything else (a

@@ -131,7 +131,7 @@ def test_silence_spends_nothing(director, dice, sheets, scene, registry, clock):
     effects = director.sweep()
     assert "**Dorn** didn't spend hold in time." in texts(effects)
     assert ChangeHp(CHANNEL, "character", "Eva", 5) in effects
-    assert not [e for e in effects if isinstance(e, UpdateSheet)]
+    assert not [e for e in effects if isinstance(e, UpdateSheet) and "last_hit" not in e.changes]
 
 
 def test_camp_ends_a_defense(director, dice, sheets, scene):

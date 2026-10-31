@@ -80,7 +80,7 @@ def test_a_protector_standing_sentry_adds_armor_then_strains(director, dice, she
                                                protector="Bram")
     assert result["armor"] == 3  # 1 + Bram's 2
     assert ChangeHp(CHANNEL, "character", "Dorn", 8) in effects  # 5 - 3
-    (strain,) = [e for e in effects if isinstance(e, UpdateSheet)]
+    (strain,) = [e for e in effects if isinstance(e, UpdateSheet) and "hirelings" in e.changes]
     assert strain.changes["hirelings"][0]["strain"] == 1
 
 

@@ -26,8 +26,8 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import advanced, bonds, choices, companion as companions, damage, hirelings, spells, trade
-from .gear import rations_of, weapon_for
+from . import advanced, bonds, choices, companion as companions, damage, hirelings, reactions, spells, trade
+from .gear import armor_of as gear_armor, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
@@ -106,6 +106,13 @@ class CurePrompt:
 
     user_id: int
     debilities: tuple
+
+
+@dataclass(frozen=True)
+class ReactPrompt:
+    """A Reduce damage button on a hit, for whoever has a move that answers it."""
+
+    hit_id: str
 
 
 # -- effects ------------------------------------------------------------------------------
@@ -1199,6 +1206,8 @@ class Director:
         """Command: "...and you attack the same target, add its ferocity to your damage.\""""
         pet = self._companion_of(check)
         rule = companions.COMMANDS.get(check.move)
+        if pet and pet.get("spent"):
+            return 0  # Man's Best Friend: it took a blow and its ferocity is 0 until a rest
         return int(pet["ferocity"]) if pet and rule and rule.damage else 0
 
     def _companion_armor(self, check: PendingCheck) -> int:
@@ -1822,6 +1831,16 @@ class Director:
                     "them falling, and leave whether they live open."
                 )
             effects.append(ChangeHp(channel_id, "character", character, max(after, 0)))
+            # Unique across restarts (the time) and within one instant (the count).
+            self._hits = getattr(self, "_hits", 0) + 1
+            hit_id = f"{int(self.clock() * 1000):x}x{self._hits:x}"
+            last_hit = {"id": hit_id, "by": name, "dealt": dealt, "down": after <= 0,
+                        "lost": int(sheet["hp"]) - max(after, 0)}  # overkill is not given back
+            effects.append(UpdateSheet(channel_id, character, {"last_hit": last_hit}))
+            struck = {**sheet, "hp": max(after, 0), "last_hit": last_hit}
+            if any(reactions.options(a, struck if a == character else s, character, struck)
+                   for a, s in self._party()):
+                return [SendMessage(channel_id, line, prompt=ReactPrompt(hit_id)), *effects], facts
         return [SendMessage(channel_id, line), *effects], facts
 
     # -- shared --------------------------------------------------------------------------
@@ -1983,6 +2002,8 @@ class Director:
             if any(h.get("strain") for h in sheet.get("hirelings") or ()):
                 # A night's rest: a protector's sentry strain mends.
                 changes["hirelings"] = [{**h, "strain": 0} for h in sheet["hirelings"]]
+            if (sheet.get("companion") or {}).get("spent"):
+                changes["companion"] = {**sheet["companion"], "spent": False}  # a few hours' rest
             if sheet.get("defending"):
                 changes["defending"] = None  # nobody stands in defense through the night
             if sheet.get("forwards"):
@@ -2077,8 +2098,11 @@ class Director:
         user_id = next((uid for uid, a in self.players.items()
                         if normalize_actor(a) == normalize_actor(actor)), 0)
         verb = "communes with their deity" if cls == "cleric" else "studies their spellbook"
+        forgetting = spells.forgetting()
+        if cls == "cleric" and reactions.hold_from_commune(sheet):
+            forgetting["intervention"] = reactions.hold_from_commune(sheet)
         return [
-            UpdateSheet(channel_id, actor, spells.forgetting()),
+            UpdateSheet(channel_id, actor, forgetting),
             SendMessage(
                 channel_id,
                 f"🕯️ **{actor}** {verb} — {reason}\nThe spells they held are gone. "
@@ -2263,6 +2287,113 @@ class Director:
         effects.insert(0, SendMessage(channel_id, "\n".join(lines)))
         return effects, {"ok": True, "party": report, "days": days, "note": (
             f"{days} day(s) pass; the clock has moved for everyone. Narrate the rest briefly.")}
+
+    # -- answering a blow (reactions.py) --------------------------------------------------------
+
+    def _struck(self, hit_id: str) -> Tuple[Optional[str], Optional[Dict[str, Any]]]:
+        for actor, sheet in self._party():
+            if (sheet.get("last_hit") or {}).get("id") == hit_id:
+                return actor, sheet
+        return None, None
+
+    def reactions(self, *, user_id: int, hit_id: str) -> Tuple[List[reactions.Reaction], str]:
+        """What this player can do about this hit, or why nothing."""
+        presser = self.players.get(user_id)
+        mine = self._sheet_for(presser) if presser and self._sheet_for is not None else None
+        if mine is None:
+            return [], "You have no character here."
+        victim, theirs = self._struck(hit_id)
+        if victim is None:
+            return [], "That blow is past answering: another has landed since, or it has been answered."
+        if (theirs.get("last_hit") or {}).get("down") and int(theirs.get("hp", 0)) <= 0 \
+                and not self._dying(victim):
+            return [], f"Too late: {victim}'s Last Breath has been rolled."
+        found = reactions.options(presser, theirs if presser == victim else mine, victim, theirs)
+        return found, "" if found else "You have no move that answers this blow."
+
+    def _dying(self, actor: str) -> Optional[PendingCheck]:
+        return next((c for c in self.registry.open_checks()
+                     if c.move == "last_breath" and normalize_actor(c.actor) == normalize_actor(actor)), None)
+
+    def react(self, *, channel_id: int, user_id: int, hit_id: str, key: str) -> List[Effect]:
+        """Apply one answer to a blow. [] if it is no longer on offer."""
+        found, _ = self.reactions(user_id=user_id, hit_id=hit_id)
+        chosen = next((r for r in found if r.key == key), None)
+        if chosen is None:
+            return []
+        presser = self.players[user_id]
+        victim, theirs = self._struck(hit_id)
+        mine = theirs if presser == victim else self._sheet_for(presser)
+        hit = dict(theirs["last_hit"])
+        effects: List[Effect] = []
+        mine_changes: Dict[str, Any] = {}
+        facts: Dict[str, Any] = {"move": chosen.move, "by": presser, "struck": victim, "attacker": hit["by"]}
+        if key == "pain":
+            more = self.dice.roll("1d4").total
+            hp = max(1, int(theirs["hp"]) - more)
+            hit["pain"] = True
+            effects += [SendMessage(channel_id, f"🩸 **{victim}** embraces the pain — {more} more damage, "
+                                                f"HP {theirs['hp']} → {hp}."),
+                        ChangeHp(channel_id, "character", victim, hp),
+                        UpdateSheet(channel_id, victim, {"last_hit": hit}),
+                        *self._grant(channel_id, victim, f"to cast a spell ({chosen.move})")]
+            facts["instruction"] = "They took the pain willingly for their deity. Narrate it in a line."
+            return [*effects, PromptModel(channel_id, "rules_event", {"event": "A blow answered", **facts})]
+        hp = min(int(theirs["max_hp"]), int(theirs["hp"]) + min(chosen.restores, int(hit.get("lost", chosen.restores))))
+        hit["reduced"] = True
+        what = ""
+        if key.startswith("spell:"):
+            spell, _ = spells.running(mine)[int(key.split(":")[1])]
+            kept = list(mine.get("ongoing") or [])
+            del kept[int(key.split(":")[1])]
+            mine_changes["ongoing"] = kept
+            what = f"ends {spell.name} and turns {chosen.restores} of the damage aside"
+        elif key.startswith("armor:"):
+            index = int(key.split(":")[1])
+            gear = list(mine["gear"])
+            item = gear[index]
+            worn = reactions.worn_down(item)
+            if worn:
+                gear[index] = worn
+            else:
+                del gear[index]
+            before, after = gear_armor(mine["gear"]), gear_armor(gear)
+            mine_changes.update(gear=gear, armor=max(0, int(mine.get("armor", 0)) - (before - after)))
+            what = (f"lets their {item['name']} take the blow" + (" — it is **destroyed**" if not worn else
+                    f" — armor now {mine_changes['armor']}"))
+            if chosen.move == "Armored Perfection":
+                effects += self._grant(channel_id, presser, f"against {hit['by']}")
+        elif key.startswith("aegis:"):
+            name = key.split(":")[1]
+            mine_changes["debilities"] = [*(mine.get("debilities") or []), name]
+            what = f"grits their teeth and takes it as **{name.title()}** (-1 {STAT_NAMES[DEBILITIES[name]]})"
+            if advanced.has(mine, "Indomitable"):
+                effects += self._grant(channel_id, presser, f"against {hit['by']} (Indomitable)")
+        elif key == "shed":
+            mine_changes["shape"] = None
+            what = f"sheds the {mine['shape'].get('form', 'form')} and the blow with it"
+        elif key == "pet":
+            mine_changes["companion"] = {**mine["companion"], "spent": True}
+            what = f"lets {mine['companion']['name']} take the blow — its ferocity is 0 until they rest"
+        elif key == "deity":
+            mine_changes["intervention"] = int(mine["intervention"]) - 1
+            deity = (mine.get("choices") or {}).get("deity") or "their deity"
+            what = f"calls on {deity}, who spares {'them' if presser == victim else victim}"
+        line = f"✨ **{presser}** {what} — **{victim}** HP {theirs['hp']} → {hp}."
+        effects.insert(0, SendMessage(channel_id, line))
+        effects.append(ChangeHp(channel_id, "character", victim, hp))
+        if presser == victim:
+            mine_changes["last_hit"] = hit
+        else:
+            effects.append(UpdateSheet(channel_id, victim, {"last_hit": hit}))
+        effects.append(UpdateSheet(channel_id, presser, mine_changes))
+        dying = self._dying(victim) if int(theirs["hp"]) <= 0 < hp else None
+        if dying is not None:
+            self.registry.cancel(dying.check_id)
+            facts["spared"] = f"{victim} is no longer at 0 HP: there is no Last Breath."
+        facts.update(hp=hp, instruction=("Narrate how the blow was turned, in a line or two; the HP is "
+                                         "exact. Whatever it cost is real."))
+        return [*effects, PromptModel(channel_id, "rules_event", {"event": "A blow answered", **facts})]
 
     def cure(self, *, channel_id: int, user_id: int, debility: str) -> List[Effect]:
         """The player picks a debility Recover clears. Only theirs, only while one is owed."""

@@ -29,6 +29,12 @@ APPLIED: Dict[str, str] = {
     **{n: "the +1 hold" for n in ("Staunch Defender", "Impervious Defender")},
     "Embracing No Form": "the extra hold",
     **{n: "the +1 forward" for n in ("Bamboozle", "Con", "A Little Help From My Friends")},
+    # Answering a blow: the player presses Reduce damage on the hit (reactions.py).
+    **{n: "it through the Reduce damage button on a hit" for n in (
+        "Spell Defense", "Armor Mastery", "Armored Perfection", "Bloody Aegis", "Shed",
+        "Man's Best Friend", "Divine Intervention", "Divine Invincibility", "Penitent")},
+    "Martyr": "the pain and the forward through the Reduce damage button (adding their level to "
+              "the spell is yours)",
 }
 
 

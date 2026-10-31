@@ -28,7 +28,8 @@ import discord
 from ..config import Settings
 from ..context import chunk_document, parse_proposal
 from ..fsm import (
-    ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, PromptModel, RollPrompt, SpellsPrompt,
+    ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, PromptModel, ReactPrompt, RollPrompt,
+    SpellsPrompt,
 )
 from ..moves import MOVES
 from ..models import CancelReason, Mutation, MutationKind
@@ -291,6 +292,28 @@ class CureButton(
         await interaction.client.on_cure(interaction, self.user_id, self.debility)
 
 
+class ReactButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:react:(?P<hit_id>[0-9a-z]+)",
+):
+    """Reduce damage, on a hit someone at the table has a move to answer. Anyone may press
+    it; each sees only what they can do (a Cleric's deity can spare an ally)."""
+
+    def __init__(self, hit_id: str) -> None:
+        super().__init__(discord.ui.Button(
+            label="Reduce damage", style=discord.ButtonStyle.secondary, emoji="🛡️",
+            custom_id=f"gary:react:{hit_id}",
+        ))
+        self.hit_id = hit_id
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "ReactButton":
+        return cls(match["hit_id"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_react(interaction, self.hit_id)
+
+
 def spells_view(user_id: int) -> "discord.ui.View":
     view = discord.ui.View(timeout=None)
     view.add_item(SpellsButton(user_id))
@@ -335,6 +358,10 @@ class DiscordTransport:
             await channel.send(text, view=spells_view(prompt.user_id))
         elif isinstance(prompt, OverloadPrompt):
             await channel.send(text, view=overload_view(prompt))
+        elif isinstance(prompt, ReactPrompt):
+            view = discord.ui.View(timeout=None)
+            view.add_item(ReactButton(prompt.hit_id))
+            await channel.send(text, view=view)
         elif isinstance(prompt, CurePrompt):
             view = discord.ui.View(timeout=None)
             for debility in prompt.debilities:
@@ -430,7 +457,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton,
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton,
                                DropButton, FailButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
@@ -858,6 +885,28 @@ class GaryClient(discord.Client):
         except discord.HTTPException:
             log.warning("could not update the debility buttons")
         await self.runner.run(effects)
+
+    async def on_react(self, interaction: "discord.Interaction", hit_id: str) -> None:
+        """Reduce damage was pressed: show this player, privately, what they can do about
+        the blow; their pick is applied at once."""
+        found, why = self.director.reactions(user_id=interaction.user.id, hit_id=hit_id)
+        if not found:
+            await interaction.response.send_message(why, ephemeral=True)
+            return
+        view = discord.ui.View(timeout=300)
+        for reaction in found[:25]:
+            button = discord.ui.Button(label=reaction.label[:MAX_LABEL], style=discord.ButtonStyle.primary)
+
+            async def picked(inner: "discord.Interaction", key: str = reaction.key) -> None:
+                effects = self.director.react(channel_id=inner.channel_id, user_id=inner.user.id,
+                                              hit_id=hit_id, key=key)
+                await inner.response.edit_message(
+                    content="Done." if effects else "That is no longer on offer.", view=None)
+                await self.runner.run(effects)
+
+            button.callback = picked
+            view.add_item(button)
+        await interaction.response.send_message("What do you do about the blow?", view=view, ephemeral=True)
 
     async def on_spells(self, interaction: "discord.Interaction", owner_id: int) -> None:
         """Choose spells was clicked. Only its owner, and only when there is something to

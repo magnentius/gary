@@ -136,7 +136,9 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
                 )
             else:
                 text = m["text"].replace("\n", " ")
-                lines.append(f"    - {m['name']}: {text}")
+                done = advanced.applied(sheet, m["name"])
+                lines.append(f"    - {m['name']}: {text}"
+                             + (f" [Gary applies {done}; do not add it again.]" if done else ""))
         book = {m["name"]: m for m in TEXTS.get(sheet["class"].lower(), {}).get("advanced", ())}
         for name in sheet.get("advanced_moves") or ():
             if name in book:

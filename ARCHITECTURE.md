@@ -444,6 +444,17 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Answering a blow** (`reactions.py`). `_attack` records each hit on the victim's sheet as
+`last_hit` (id, attacker, dealt, HP lost, down) and, when `reactions.options` finds anyone
+at the table with an answer, posts it with a `ReactPrompt`: a durable `ReactButton`
+(`gary:react:<hit id>`) anyone may press. `Director.reactions` lists what the presser can do
+about that hit -- their own Spell Defense, Armor Mastery, Bloody Aegis, Shed, Man's Best
+Friend or Penitent, or Divine Intervention for anyone -- shown as an ephemeral picker;
+`Director.react` applies one, refunding at most `lost`, marking the hit `reduced` (the pain
+is a separate `pain` flag), paying the cost on the sheet, cancelling an open Last Breath,
+and telling the model as a `rules_event`. Commune sets `intervention` hold; a spent
+companion (`companion.spent`) adds no ferocity until camp.
+
 **Outstanding Warrants and Bolster.** Outstanding Warrants is a +Cha move whose 7–9
 complication is the model's to choose. `bolster` (downtime, guarded like camp) adds 1
 preparation for a week or two of study and 3 for a month or more (`sheet["preparation"]`),
