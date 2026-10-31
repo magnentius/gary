@@ -24,6 +24,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from .monsters import describe as describe_monster
 from .sheets import describe
 from .bonds import describe as describe_bonds
+from .hirelings import describe as describe_hirelings
 from .choices import describe as describe_choices
 from .companion import describe as describe_companion
 from .spells import describe as describe_spells
@@ -51,7 +52,7 @@ AUTHORITY — this is absolute:
   monster_attacks — never invent the damage — and describe each wound at its severity.
 - Your other tools carry their own rules: spells (cast_a_spell, prepare_spells, end_spell),
   Shapeshifter (form_moves, spend_hold), debility, recover (days of safe rest, not
-  make_camp), perilous_journey (hostile travel). When monster_attacks is held for a
+  make_camp), perilous_journey (hostile travel), hire and update_hireling. When monster_attacks is held for a
   defender's choice, say only that the blow comes; the outcome arrives as a rules event.
 - NOTHING TRACKS POSITION. You are the only record of who stands where: keep it in the
   scene summary while a fight runs, stay consistent with it, and move no one unsaid.
@@ -346,7 +347,8 @@ def render_live_state(state: Dict[str, Any]) -> str:
             who = describe(sheets[actor]) if actor in sheets else actor
             lines.append(f"    - {who}: {carried}")
             for extra in ((describe_choices(sheets[actor]), describe_spells(sheets[actor]),
-                           describe_companion(sheets[actor]), describe_bonds(sheets[actor]))
+                           describe_companion(sheets[actor]), describe_bonds(sheets[actor]),
+                           describe_hirelings(sheets[actor]))
                           if actor in sheets else ()):
                 if extra:
                     lines.append(f"      {extra}")

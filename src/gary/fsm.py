@@ -26,16 +26,16 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import bonds, choices, companion as companions, damage, spells, trade
+from . import bonds, choices, companion as companions, damage, hirelings, spells, trade
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
-from .moves import ANY, BOND, CASTER, MOVES, NOTHING
+from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
 from .sheets import (
-    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, debility_on, encumbrance, stat_modifier, xp_line,
-    xp_needed,
+    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, SheetError, debility_on, encumbrance, stat_modifier,
+    xp_line, xp_needed,
 )
 
 #: Every move rolls this.
@@ -312,6 +312,7 @@ class Director:
         companion: bool = False,
         coins: int = 0,
         forward: bool = False,
+        offers: Sequence[str] = (),
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -382,6 +383,10 @@ class Director:
             return cast
         if rules.key == "carouse":
             return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds)
+        if rules.stat == OFFERS:
+            return self._open_recruit(channel_id, user_id, actor, offers, stakes, ttl_seconds, forward)
+        if rules.stat == LOYALTY:
+            return self._open_order(channel_id, user_id, actor, target, stakes, ttl_seconds)
 
         # A healing move lands on a character with a sheet: the one named, or the mover.
         if rules.heals_target:
@@ -567,8 +572,9 @@ class Director:
                 channel_id,
                 f"(Superseding {displaced.actor}'s pending {MOVES[displaced.move].name}.)",
             ))
-        rolled_with = f"+Bond {mod:+d}" if stat == BOND else f"{mod:+d}" if stat == NOTHING else \
-            f"+{STAT_NAMES[stat][:3].title()} {mod:+d}"
+        rolled_with = (f"+Bond {mod:+d}" if stat == BOND else f"+Loyalty {mod:+d}" if stat == LOYALTY
+                       else f"{mod:+d}" if stat in (NOTHING, OFFERS)
+                       else f"+{STAT_NAMES[stat][:3].title()} {mod:+d}")
         if notes:
             rolled_with += f" ({', '.join(notes)})"
         if overloaded:
@@ -749,6 +755,46 @@ class Director:
         return self._open(channel_id, user_id, actor, "carouse", NOTHING, extra, stakes, "",
                           ttl_seconds, f"Carouse with {spend} coins", ["+1 for each 100 past the first"]
                           if extra else ())
+
+    def _open_recruit(
+        self, channel_id: int, user_id: int, actor: str, offers: Sequence[str], stakes: str,
+        ttl_seconds: Optional[float], forward: bool,
+    ) -> List[Effect]:
+        """Recruit: +1 for each thing made known -- generous pay, the purpose, a share -- and +1
+        for a useful reputation here."""
+        made = []
+        for offer in offers or ():
+            key = str(offer).strip().lower()
+            if key not in hirelings.OFFERS:
+                return [self._refuse(channel_id, f"No Recruit offer {offer!r}. They are: "
+                                                 f"{', '.join(hirelings.OFFERS)}.",
+                                     "Re-issue make_move with offers from that list.")]
+            if key not in made:
+                made.append(key)
+        notes = [f"+1 {k}" for k in made]
+        held, spend = self._forward(channel_id, actor) if forward else (0, [])
+        if held:
+            notes.append(f"{held:+d} forward")
+        return [*spend, *self._open(channel_id, user_id, actor, "recruit", OFFERS, len(made) + held,
+                                    stakes, "", ttl_seconds, "Recruit", notes)]
+
+    def _open_order(
+        self, channel_id: int, user_id: int, actor: str, target: str, stakes: str,
+        ttl_seconds: Optional[float],
+    ) -> List[Effect]:
+        """Order Hirelings: +loyalty of the hireling given the order -- one of this
+        character's own."""
+        sheet = self._sheet_for(actor) if self._sheet_for is not None else None
+        hired = hirelings.find(sheet or {}, target)
+        if hired is None:
+            have = ", ".join(h["name"] for h in (sheet or {}).get("hirelings") or ()) or "none"
+            return [self._refuse(channel_id, f"{actor} has no hireling named {target!r}. Theirs: {have}.",
+                                 "Re-issue make_move with target set to one of their hirelings, or "
+                                 "hire one first with hire.")]
+        mod = hirelings.loyalty_of(hired)
+        notes = ["-1 unpaid"] if hired.get("unpaid") else []
+        return self._open(channel_id, user_id, actor, "order_hirelings", LOYALTY, mod, stakes,
+                          hired["name"], ttl_seconds, f"Order Hirelings: {hired['name']}", notes)
 
     def _party(self) -> List[Tuple[str, Dict[str, Any]]]:
         """Every character at the table with a sheet, living."""
@@ -2037,6 +2083,63 @@ class Director:
             SendMessage(channel_id, f"🩹 **{actor}** is no longer {debility.title()}."),
             UpdateSheet(channel_id, actor, {"debilities": have, "cures_owed": owed if have else 0}),
         ]
+
+    # -- hirelings --------------------------------------------------------------------------------
+
+    def hire(
+        self, *, channel_id: int, character: str, name: str, skills: Dict[str, int], loyalty: int,
+        cost: str, found_in: str,
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A hireling joins a character, made as the book makes one."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        try:
+            hired = hirelings.make(name, skills, loyalty, cost, found_in)
+        except SheetError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        existing = hirelings.find(sheet, hired["name"])
+        if existing:
+            return [], {"ok": False, "error": f"{actor} already employs {existing['name']}."}
+        return [
+            SendMessage(channel_id, f"🤝 **{actor}** hires {hirelings.label(hired)}."),
+            UpdateSheet(channel_id, actor, {"hirelings": [*(sheet.get("hirelings") or []), hired]}),
+        ], {"ok": True, "hired": hired}
+
+    def update_hireling(
+        self, *, channel_id: int, character: str, name: str, loyalty: int = 0,
+        paid: Optional[bool] = None, leaves: bool = False, reason: str = "",
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Pay them, let their pay lapse, change their loyalty for a great deed or a bad
+        beating, or see them go."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        hired = hirelings.find(sheet or {}, name) if sheet else None
+        if hired is None:
+            return [], {"ok": False, "error": f"{character!r} employs no hireling named {name!r}."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say what happened (reason)."}
+        others = [h for h in sheet["hirelings"] if h is not hired]
+        if leaves:
+            return [SendMessage(channel_id, f"🤝 {hired['name']} leaves **{actor}**'s service — {reason}."),
+                    UpdateSheet(channel_id, actor, {"hirelings": others})], {"ok": True, "left": hired["name"]}
+        loyalty = int(loyalty or 0)
+        if loyalty not in (-1, 0, 1):
+            return [], {"ok": False, "error": "Loyalty changes by 1 at a time."}
+        changed = {**hired, "loyalty": int(hired["loyalty"]) + loyalty}
+        if paid is not None:
+            changed["unpaid"] = not paid
+        parts = []
+        if loyalty:
+            parts.append(f"loyalty {changed['loyalty']:+d}")
+        if paid is not None:
+            parts.append("paid" if paid else "unpaid: -1 loyalty until paid")
+        index = sheet["hirelings"].index(hired)
+        updated = [*sheet["hirelings"][:index], changed, *sheet["hirelings"][index + 1:]]
+        return [SendMessage(channel_id, f"🤝 {hired['name']} — {', '.join(parts) or 'unchanged'} — {reason}."),
+                UpdateSheet(channel_id, actor, {"hirelings": updated})], {"ok": True, "hireling": changed}
 
     # -- forwards ---------------------------------------------------------------------------------
 

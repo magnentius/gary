@@ -438,6 +438,13 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Hirelings.** `hirelings.py` makes them by the book (skills and ranks, loyalty, a cost, points
+by where they were found) and they live on the employer's sheet (`hirelings`), so every
+change journals as a `SHEET`. Recruit rolls `OFFERS` (+1 per offer made known, from
+`make_move(offers=)`); Order Hirelings rolls `LOYALTY` (the named hireling's, -1 while
+`unpaid`). `hire` and `update_hireling` (paid, loyalty ±1, leaves) are the model's tools;
+the rules of every skill at the table reach the model with the class moves block.
+
 **Supply and Carouse.** Supply is a +Cha move; its result tells the model what to charge,
 and `buy(price=)` bounds it (book price to twice it; up to 500 for something unpriced).
 Carouse takes `make_move(coins=)`: whole hundreds, +1 per hundred past the first, refused
@@ -792,6 +799,7 @@ mapping to store mutations or Director calls:
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`, `forward`.
+- **Hirelings:** `hire`, `update_hireling`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,
   `use_poison`, `brew_poison`.
 - **Items and coin:** `give_items`, `take_items`, `use_item`, `give_coins`, `buy`, `sell`.
@@ -820,6 +828,7 @@ src/gary/
   companion.py     animal companion and Command                                     §6.7
   levelling.py     Level Up                                                         §6.10
   choices.py       creation choices: deity, land, lore, poison, precise weapon      §6.3
+  hirelings.py     hirelings: making, loyalty, skill rules                          §6.8
   bonds.py         bonds and +Bond                                                  §6.10
   context.py       persona, live state, retrieval, budget, injection defence        §8, §9.1
   ports.py         Narrator / transport / Dice seams, EchoNarrator, ScriptedDice    §12.2
@@ -869,7 +878,8 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    are narrated, not tracked on creatures.
 5. **Gaps in the rules engine.** Defend spends one hold per attack and only against
    `monster_attacks`. A potion cannot cure a debility. Not built: antitoxin,
-   magic items, and the special moves Recruit, Outstanding Warrants and Bolster; encumbrance on rules-triggered moves; the companion's instinct on
+   magic items, the special moves Outstanding Warrants and Bolster, and hireling skills as
+   numbers; encumbrance on rules-triggered moves; the companion's instinct on
    interference; companion armor against `monster_attacks`. Only Fireball hits several
    creatures. A Human's borrowed spell is offered from levels 1–5 (Discord's 25-option
    limit).

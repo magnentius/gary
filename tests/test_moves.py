@@ -4,18 +4,18 @@ from __future__ import annotations
 
 import pytest
 
-from gary.moves import ANY, BOND, CASTER, MOVES, band_of
+from gary.moves import ANY, BOND, CASTER, LOYALTY, MOVES, OFFERS, band_of
 from gary.sheets import STATS
 
 
 def test_the_eight_basic_moves_and_their_stats():
-    special = {"supply", "carouse"}
+    special = {"supply", "carouse", "recruit", "order_hirelings"}
     assert {k: m.stat for k, m in MOVES.items() if m.callable and not m.classes and k not in special} == {
         "hack_and_slash": "str", "volley": "dex", "defy_danger": ANY, "defend": "con",
         "spout_lore": "int", "discern_realities": "wis", "parley": "cha",
         "aid_or_interfere": BOND,
     }
-    assert all(m.stat in (*STATS, ANY, BOND, CASTER, "nothing") for m in MOVES.values())
+    assert all(m.stat in (*STATS, ANY, BOND, CASTER, OFFERS, LOYALTY, "nothing") for m in MOVES.values())
     assert {k for k, m in MOVES.items() if not m.callable} == {
         "last_breath", "take_watch", "defend_charge", "defend_self",
         "journey_trailblazer", "journey_scout", "journey_quartermaster"}

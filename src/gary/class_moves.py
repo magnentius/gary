@@ -149,6 +149,12 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
             for spell in have:
                 text = spell.text.replace("\n", " ")
                 lines.append(f"        - {spell.label()}: {text}")
+    from .hirelings import skill_rules
+
+    rules = skill_rules(list(sheets.values()))
+    if rules:
+        lines.append("Hireling skills at this table (honour them):")
+        lines += [f"    - {r}" for r in rules]
     return "\n".join(lines) if len(lines) > 1 else ""
 
 

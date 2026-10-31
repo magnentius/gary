@@ -41,7 +41,7 @@ from ..state.schema import format_world_time, parse_world_time
 from ..state.store import CampaignStore, StateError
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
-from .. import bonds, choices, companion as companions, spells
+from .. import bonds, choices, companion as companions, hirelings, spells
 from .creator import AlignmentForm, ChoicesForm, GearButton, StartButton
 from .bonds_form import BondsForm
 from .companion_form import CompanionForm
@@ -1346,7 +1346,8 @@ class GaryClient(discord.Client):
                 return
             extra = [line for line in (alignment_line(sheet), choices.describe(sheet), carrying_line(sheet),
                                        spells.describe(sheet),
-                                       companions.describe(sheet), bonds.describe(sheet)) if line]
+                                       companions.describe(sheet), bonds.describe(sheet),
+                                       hirelings.describe(sheet)) if line]
             if not sheet.get("alignment"):
                 extra.append(f"No alignment yet: `{prefix}alignment` chooses one.")
             if choices.missing(sheet):

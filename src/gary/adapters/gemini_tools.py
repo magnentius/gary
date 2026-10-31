@@ -46,6 +46,8 @@ FORM_MOVES = "form_moves"
 SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 FORWARD = "forward"
+HIRE = "hire"
+UPDATE_HIRELING = "update_hireling"
 RECOVER = "recover"
 PERILOUS_JOURNEY = "perilous_journey"
 USE_POISON = "use_poison"
@@ -103,7 +105,16 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "For cast_a_spell: the creature a damaging spell hits (for "
                         "Fireball every creature caught in it, comma-separated), or the "
                         "character a healing spell or Bless is cast on. For shapeshifter: the "
-                        "species to become ('bear', 'hawk'). Omit otherwise."
+                        "species to become ('bear', 'hawk'). For order_hirelings: the hireling given "
+                        "the order. Omit otherwise."
+                    ),
+                ),
+                "offers": _s(
+                    type=_ARRAY, items=_s(type=_STRING, enum=["generous pay", "purpose", "share", "reputation"]),
+                    description=(
+                        "recruit only: what they made known -- generous pay, what they're setting out "
+                        "to do (purpose), a share of what they find -- and reputation if they have a "
+                        "useful one here. Each is +1."
                     ),
                 ),
                 "forward": _s(
@@ -355,6 +366,50 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "characters": _s(type=_ARRAY, items=_s(type=_STRING), description="Who rests. Omit for the whole party."),
             },
             required=["days", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=HIRE,
+        description=(
+            "Someone joins a character as a hireling, after a recruit roll or a deal in the fiction. "
+            "Give their skills with ranks (Adept, Burglar, Minstrel, Priest, Protector, Tracker, "
+            "Warrior), loyalty, cost (The Thrill of Victory, Money, Uncovered Knowledge, Fame and Glory, "
+            "Debauchery, Good Accomplished) and where they were found: their loyalty and skill ranks "
+            "share village 5, town 6, keep 8 or city 10 points. Starting loyalty is usually 0-2."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING, description="The employer."),
+                "name": _s(type=_STRING),
+                "skills": _s(type=_OBJECT, description="Skill -> rank, e.g. {\"Protector\": 3}.",
+                             properties={s: _s(type=_INTEGER) for s in
+                                         ("Adept", "Burglar", "Minstrel", "Priest", "Protector", "Tracker", "Warrior")}),
+                "loyalty": _s(type=_INTEGER),
+                "cost": _s(type=_STRING),
+                "found_in": _s(type=_STRING, enum=["village", "town", "keep", "city"]),
+            },
+            required=["character", "name", "skills", "loyalty", "cost", "found_in"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=UPDATE_HIRELING,
+        description=(
+            "A hireling's standing changes: paid=true when their cost is met (usually once a session), "
+            "paid=false when it lapses (-1 loyalty until paid); loyalty +1 or -1 for a great deed shared "
+            "or a bad beating; leaves=true when they quit, are dismissed or die."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING, description="The employer."),
+                "name": _s(type=_STRING),
+                "paid": _s(type=types.Type.BOOLEAN),
+                "loyalty": _s(type=_INTEGER, description="+1 or -1, permanently."),
+                "leaves": _s(type=types.Type.BOOLEAN),
+                "reason": _s(type=_STRING),
+            },
+            required=["character", "name", "reason"],
         ),
     ),
     types.FunctionDeclaration(

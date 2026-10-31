@@ -364,6 +364,14 @@ for 100 coins or more, +1 for each extra 100; pick what comes of it (a useful fr
 rumours, information, not being tricked) — three on a 10+, one otherwise, and a miss gets
 out of hand. The coin goes when the party does.
 
+**Hirelings.** Put out word that you're hiring and the GM calls Recruit: +1 each for
+generous pay, saying what you're setting out to do, offering a share, and a useful
+reputation. Whoever joins is made by the book — skills (Adept, Burglar, Minstrel, Priest,
+Protector, Tracker, Warrior) with ranks, loyalty and a cost, their points set by where you
+found them (village 5 up to city 10) — and kept on your sheet. Ordering one into something
+dangerous or degrading is Order Hirelings, +their loyalty (-1 while their pay lapses). The
+GM sees each skill's rule and honours it; none is wired to a number yet.
+
 **Encumbrance.** Your load is your class's base plus Str (a Fighter 12+Str, a Wizard
 7+Str); everything you carry has a weight, and 100 coins weigh 1. The sheet shows "weight
 11/13". One or two over and every move takes -1; more than two over and the roll waits on
@@ -575,7 +583,8 @@ waiting on; `?dm cancel` drops your own.
   apply — it ends spells with `end_spell`. A Human's borrowed spell is chosen from levels
   1–5 only (Discord lists 25 options at most, and nobody reaches level 7 yet). Only
   Fireball hits several creatures.
-- **Special moves:** not yet Recruit (hirelings), Outstanding Warrants or Bolster.
+- **Special moves:** not yet Outstanding Warrants or Bolster. Hireling skills are shown to
+  the GM, not wired to numbers.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.

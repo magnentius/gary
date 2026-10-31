@@ -29,6 +29,9 @@ ANY = "any"
 BOND = "bond"
 NOTHING = "nothing"
 CASTER = "caster"
+#: Recruit rolls +1 for each thing made known; Order Hirelings rolls the hireling's loyalty.
+OFFERS = "offers"
+LOYALTY = "loyalty"
 
 STRONG, WEAK, MISS = "strong", "weak", "miss"
 
@@ -317,6 +320,23 @@ MOVES: Dict[str, Move] = {m.key: m for m in (
         weak=Band("Choose 1.", choice=Choice(1, _CAROUSE)),
         # Another miss that still chooses.
         miss=Band("You still choose one, but things get really out of hand.", choice=Choice(1, _CAROUSE)),
+    ),
+    Move(
+        "recruit", "Recruit", "put out word that you're looking to hire help", OFFERS,
+        strong=Band("You've got your pick of a number of skilled applicants, your choice who you "
+                    "hire, no penalty for not taking them along."),
+        weak=Band("You'll have to settle for someone close or turn them away."),
+        miss=Band("Someone influential and ill-suited declares they'd like to come along (a "
+                  "foolhardy youth, a loose-cannon, or a veiled enemy, for example): bring them and "
+                  "take the consequences, or turn them away."),
+    ),
+    Move(
+        "order_hirelings", "Order Hirelings",
+        "order a hireling into something dangerous, degrading, or just flat-out crazy", LOYALTY,
+        strong=Band("They stand firm and carry out the order."),
+        weak=Band("They do it for now, but come back with serious demands later. Meet them or the "
+                  "hireling quits on the worst terms."),
+        miss=_MISS,
     ),
     Move(
         "last_breath", "Last Breath", "are dying", NOTHING,

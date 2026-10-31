@@ -404,6 +404,24 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.HIRE, T.UPDATE_HIRELING):
+                character = str(args.get("character", ""))
+                if name == T.HIRE:
+                    hire_effects, result = self._director.hire(
+                        channel_id=channel_id, character=character, name=str(args.get("name", "")),
+                        skills={k: int(v) for k, v in dict(args.get("skills") or {}).items() if v},
+                        loyalty=int(args.get("loyalty") or 0), cost=str(args.get("cost", "")),
+                        found_in=str(args.get("found_in", "")))
+                else:
+                    paid = args.get("paid")
+                    hire_effects, result = self._director.update_hireling(
+                        channel_id=channel_id, character=character, name=str(args.get("name", "")),
+                        loyalty=int(args.get("loyalty") or 0), paid=None if paid is None else bool(paid),
+                        leaves=bool(args.get("leaves")), reason=str(args.get("reason", "") or ""))
+                effects.extend(hire_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.FORWARD:
                 fwd_effects, result = self._director.give_forward(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -517,6 +535,7 @@ class GeminiNarrator:
             companion=bool(args.get("companion")),
             coins=int(args.get("coins") or 0),
             forward=bool(args.get("forward")),
+            offers=[str(o) for o in args.get("offers") or []],
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:
