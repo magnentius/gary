@@ -386,7 +386,10 @@ creatures stand.
 
 `add_monsters` puts creatures in the scene as numbered instances ("Goblin 2") with their own
 HP, never reusing a name already used at this location (`monster_names_used`, reset when
-the scene's location changes), so a second wave is "Goblin 4", not another "Goblin 1"; SRD creatures are looked up, homebrew is checked against the monster-making rules. An
+the scene's location changes), so a second wave is "Goblin 4", not another "Goblin 1"; SRD creatures are looked up, homebrew is checked against the monster-making rules. Each
+living kind's nature -- instinct, moves, qualities, tags, attack -- reaches the model once
+per kind in the live state and in `add_monsters`' result (`monsters.natures`); a homebrew
+creature keeps the instinct and moves the model gave it on its record. An
 attack targets an instance by name; at 0 HP it is defeated, told to the model as fact.
 `damage.py` rolls `d`, `b[2d]` and `w[2d]` expressions with the option's ±1d6, and applies
 armor, piercing and ignores-armor; the dice line states the amount outright ("hits Thorin

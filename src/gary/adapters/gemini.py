@@ -45,7 +45,7 @@ from .. import healing, trade
 from ..class_moves import render as render_class_moves
 from ..fsm import SendMessage
 from ..models import Mutation, MutationKind
-from ..monsters import describe as describe_monster, prepare as prepare_monsters
+from ..monsters import describe as describe_monster, natures, prepare as prepare_monsters
 from ..registry import normalize_actor
 from ..ports import NarrationResult
 from ..state.history import DEFAULT_WINDOW, trim
@@ -749,6 +749,7 @@ class GeminiNarrator:
             return {
                 "ok": not errors,
                 "added": [describe_monster(n, r) for n, r in added.items()],
+                "what_they_are": natures(added),
                 "refused": errors,
             }
 

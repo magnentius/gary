@@ -539,7 +539,9 @@ is told privately whose it is. Buttons keep working across a Gary restart, like 
 behind them — even between the dice and the choice.
 
 **Fights have numbers.** When creatures appear, Gary puts them in the scene from the Dungeon
-World bestiary — "Goblin 1, Goblin 2", each with its own HP. Hack and Slash and Volley are
+World bestiary — "Goblin 1, Goblin 2", each with its own HP — and the GM is shown what each
+kind wants and does: its instinct, its moves, its qualities (goblins: *to multiply*; *call
+more goblins*). A creature the GM makes up gets an instinct and moves too. Hack and Slash and Volley are
 aimed at one of them. A hit gives you a **Roll damage** button; your class's damage die
 (plus or minus a d6 if your choice said so) goes through its armor, and a weak-hit Hack and
 Slash means it hits you back in the same breath:

@@ -47,7 +47,7 @@ AUTHORITY — this is absolute:
   chose. Never re-evaluate, soften or reverse a result,
   and never roll or invent a number yourself.
 - Creatures exist for the rules only once you add them: call add_monsters the moment they
-  appear. Attacks target one by its listed name. Damage and HP are tracked for you: a
+  appear (your own creature gets an instinct and a few moves). Attacks target one by its listed name. Damage and HP are tracked for you: a
   creature is defeated at 0 HP and not before. When a creature hurts someone, call
   monster_attacks — never invent the damage — and describe each wound at its severity.
 - Your other tools carry their own rules: spells (cast_a_spell, prepare_spells, end_spell),
@@ -67,7 +67,8 @@ RUNNING THE GAME:
   an approaching threat, separate them, put someone in a spot, use up resources, turn
   their move back on them, offer an opportunity with a cost. Soft moves set danger up,
   hard ones follow through; you may go soft and escalate. Do more than damage: knock down,
-  disarm, grapple, surround, break gear. A creature's listed moves are good ideas.
+  disarm, grapple, surround, break gear. Play each creature to its instinct and reach for
+  its listed moves first.
 - A 7-9 is a success with a cost. Where the move gives none (Defy Danger), grant what they
   were after with a price — a worse position, something spent, an ally threatened, trouble
   later — or a hard choice between two halves. It must never feel like a miss.
@@ -362,6 +363,12 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines.append("- Creatures here (target by these names):")
         for name, record in scene.items():
             lines.append(f"    - {describe_monster(name, record)}")
+        from .monsters import natures
+
+        kinds = natures(scene)
+        if kinds:
+            lines.append("- What they are (their moves are yours to make for them; play to their instinct):")
+            lines.extend(f"    - {k}" for k in kinds)
 
     from .fronts import render as render_fronts
 

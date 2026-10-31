@@ -576,6 +576,15 @@ def test_the_creatures_here_are_shown_with_their_hp():
     assert "Goblin 2 (defeated)" in rendered
 
 
+def test_the_creatures_here_come_with_their_instinct_and_moves():
+    state = empty_state()
+    state["monsters"] = {"Goblin 1": {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1,
+                                      "damage": "d6", "srd": True}}
+    rendered = render_live_state(state)
+    assert "- What they are (their moves are yours to make for them; play to their instinct):" in rendered
+    assert "    - Goblin — instinct: To multiply · moves: Charge!" in rendered
+
+
 def test_the_persona_says_creatures_must_be_added_and_damage_never_invented():
     text = DM_SYSTEM_INSTRUCTION
     assert "call add_monsters the moment they" in text

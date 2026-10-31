@@ -44,6 +44,11 @@ ARMOR_RANGE = (0, 5)
 DAMAGE_SIDES = (4, 6, 8, 10, 12)
 
 
+#: A homebrew creature's instinct and each move, at most this long; at most this many moves.
+MAX_NATURE_TEXT = 160
+MAX_MOVES = 4
+
+
 def lookup(name: str) -> Optional[Dict[str, Any]]:
     return BESTIARY.get(" ".join(str(name or "").lower().split()))
 
@@ -72,8 +77,16 @@ def _homebrew(entry: Dict[str, Any]) -> Dict[str, Any]:
         raise MonsterError(f"{name}: {exc}") from exc
     if spec.sides not in DAMAGE_SIDES:
         raise MonsterError(f"{name}: damage dice are d4 to d12, not d{spec.sides}.")
-    return {"kind": name, "hp": hp, "armor": armor, "damage": str(spec),
-            "piercing": 0, "ignores_armor": False, "srd": False}
+    record = {"kind": name, "hp": hp, "armor": armor, "damage": str(spec),
+              "piercing": 0, "ignores_armor": False, "srd": False}
+    # What the GM does with it, when the model gives it: kept so the next turn still knows.
+    instinct = " ".join(str(entry.get("instinct") or "").split())[:MAX_NATURE_TEXT]
+    moves = [" ".join(str(m).split())[:MAX_NATURE_TEXT] for m in entry.get("moves") or () if str(m).strip()]
+    if instinct:
+        record["instinct"] = instinct
+    if moves:
+        record["moves"] = moves[:MAX_MOVES]
+    return record
 
 
 def stats_for(entry: Dict[str, Any]) -> Dict[str, Any]:
@@ -124,6 +137,41 @@ def prepare(
             taken.add(name.lower())
             out[name] = {**stats, "max_hp": stats["hp"]}
     return out, errors
+
+
+def nature(record: Dict[str, Any]) -> str:
+    """What a kind of creature wants and does, for the GM: instinct, moves, qualities, tags
+    and how it attacks -- from the bestiary, or what the model gave a homebrew one. ""
+    when there is nothing to say."""
+    known = lookup(record.get("kind", "")) if record.get("srd", True) else None
+    source = known or record
+    parts = []
+    if source.get("instinct"):
+        parts.append(f"instinct: {source['instinct']}")
+    if source.get("moves"):
+        parts.append("moves: " + "; ".join(source["moves"]))
+    if source.get("qualities"):
+        parts.append("qualities: " + ", ".join(source["qualities"]))
+    if known and known.get("tags"):
+        parts.append("tags: " + ", ".join(known["tags"]))
+    if known and known.get("attack"):
+        reach = ", ".join(known.get("attack_tags") or ())
+        parts.append(f"attacks with {known['attack']}" + (f" ({reach})" if reach else ""))
+    return f"{record.get('kind', '')} — " + " · ".join(parts) if parts else ""
+
+
+def natures(scene: Dict[str, Dict[str, Any]]) -> List[str]:
+    """One nature line per kind of creature still standing in the scene."""
+    seen, out = set(), []
+    for record in scene.values():
+        kind = record.get("kind", "")
+        if record.get("hp", 0) <= 0 or kind in seen:
+            continue
+        seen.add(kind)
+        line = nature(record)
+        if line:
+            out.append(line)
+    return out
 
 
 def describe(name: str, record: Dict[str, Any]) -> str:
