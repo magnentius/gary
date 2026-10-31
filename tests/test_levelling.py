@@ -73,12 +73,15 @@ def test_a_wizard_adds_a_spell_of_their_new_level_or_lower():
     a = Advance(EVA)
     a.choose_stat("wis")
     a.choose_move("Prodigy")
+    assert a.step() == "move_spell"  # Prodigy names a spell first
+    a.choose_move_spell("Magic Missile")
     assert a.step() == "spell"
     offered = [s.name for s in a.spell_options()]
     assert "Magic Missile" not in offered and "Fireball" not in offered and "Charm Person" in offered
     a.choose_spell("Charm Person")
     assert a.result()["spellbook"][-1] == "Charm Person"
-    assert a.summary() == "level 2, Wisdom +1, Prodigy, Charm Person in the spellbook"
+    assert a.result()["lowered_spells"] == ["Magic Missile"]
+    assert a.summary() == "level 2, Wisdom +1, Prodigy (Magic Missile), Charm Person in the spellbook"
 
 
 def test_the_model_sees_advanced_moves_in_the_books_words():
@@ -86,3 +89,57 @@ def test_the_model_sees_advanced_moves_in_the_books_words():
     assert advanced_moves(sheet)[0]["name"] == "Divine Protection"
     assert "- Divine Protection (advanced): When you wear no armor or shield you get 2 armor." \
         in render({"Thorin": sheet})
+
+
+def test_chosen_one_lowers_a_spell_and_a_first_level_one_becomes_a_rote():
+    from gary import spells
+
+    a = Advance(THORIN)
+    a.choose_stat("wis")
+    a.choose_move("Chosen One")
+    assert a.step() == "move_spell"
+    a.choose_move_spell("Bless")
+    sheet = {**a.result(), "spells": []}
+    assert sheet["lowered_spells"] == ["Bless"]
+    bless = next(s for s in spells.free_spells(sheet) if s.name == "Bless")
+    assert bless.free and "Bless" not in [s.name for s in spells.preparable(sheet)]
+
+
+def test_a_lowered_spell_can_be_prepared_a_level_early():
+    from gary import spells
+
+    cleric = {**THORIN, "level": 2, "spells": [], "lowered_spells": ["Cure Moderate Wounds"]}  # level 3
+    heal = next(s for s in spells.preparable(cleric) if s.name == "Cure Moderate Wounds")
+    assert heal.level == 2
+
+
+def test_expanded_spellbook_takes_a_clerics_spell_into_a_wizards_book():
+    from gary import spells
+
+    a = Advance(EVA)
+    a.choose_stat("wis")
+    a.choose_move("Expanded Spellbook")
+    a.choose_move_spell("Cure Light Wounds")
+    a.choose_spell("Charm Person")
+    sheet = {**a.result(), "spells": []}
+    assert sheet["spellbook"][-2:] == ["Cure Light Wounds", "Charm Person"]
+    cure = next(s for s in spells.preparable(sheet) if s.name == "Cure Light Wounds")
+    assert cure.cls == "cleric" and spells.find({**sheet, "spells": ["Cure Light Wounds"]}, "cure light wounds")
+
+
+def test_the_level_up_form_splits_a_long_spell_list():
+    import asyncio
+
+    from gary.adapters.levelup import LevelUpForm
+
+    async def run():
+        form = LevelUpForm(THORIN, lambda *a: None)
+        form.advance.choose_stat("wis")
+        form.advance.choose_move("Chosen One")
+        form._build()
+        selects = [c for c in form.children if hasattr(c, "options")]
+        assert [s.placeholder for s in selects] == ["Spell (1/2)", "Spell (2/2)"]
+        assert sum(len(s.options) for s in selects) == 30
+        assert "one level lower" in form.prompt()
+
+    asyncio.run(run())

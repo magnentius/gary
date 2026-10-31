@@ -10,8 +10,11 @@
 Advanced moves are recorded on the sheet (``advanced_moves``) and shown to the model in
 the book's words, like the narrative starting moves. Most change something only the
 fiction tracks; the few that change a number Gary tracks get wired up one at a time.
-A move that names another ("Choose one spell", "Get one move from another class") is
-recorded with its text, and the choice is the table's to honour.
+Chosen One, Anointed, Prodigy and Master name a spell as they are taken (``lowered_spells``:
+it counts one level lower, so a first-level one becomes a rote or cantrip), and Expanded
+Spellbook adds a spell from any class's list. A move that names another class's move
+("Get one move from another class") is recorded with its text, and the choice is the
+table's to honour.
 """
 
 from __future__ import annotations
@@ -24,6 +27,15 @@ from .sheets import STAT_NAMES, STATS, SheetError, xp_needed
 
 MAX_LEVEL = 10
 MAX_SCORE = 18
+
+#: Advanced moves that need a spell chosen as they are taken: what the choice does.
+SPELL_MOVES = {
+    "Chosen One": "lower",  # Cleric: "granted that spell as if it was one level lower"
+    "Anointed": "lower",
+    "Prodigy": "lower",  # Wizard: "You prepare that spell as if it were one level lower"
+    "Master": "lower",
+    "Expanded Spellbook": "spellbook",  # "a new spell from the spell list of any class"
+}
 
 
 def ready(sheet: Dict[str, Any]) -> bool:
@@ -68,14 +80,17 @@ class Advance:
         self.level = int(sheet.get("level", 1)) + 1
         self.stat: Optional[str] = None
         self.move: Optional[str] = None
+        self.move_spell: Optional[str] = None  # what Chosen One, Prodigy... chose
         self.spell: Optional[str] = None
 
     def step(self) -> Optional[str]:
-        """"stat", "move", "spell", or None when done."""
+        """"stat", "move", "move_spell", "spell", or None when done."""
         if self.stat is None:
             return "stat"
         if self.move is None:
             return "move"
+        if self.move in SPELL_MOVES and self.move_spell is None and self.move_spell_options():
+            return "move_spell"
         if spells.caster_class(self.sheet) == "wizard" and self.spell is None and self.spell_options():
             return "spell"
         return None
@@ -89,6 +104,22 @@ class Advance:
         have = set(self.sheet.get("spellbook") or ())
         return [s for s in spells.SPELLS["wizard"]
                 if 0 < s.level <= self.level and s.name not in have]
+
+    def move_spell_options(self) -> List["spells.Spell"]:
+        """The spells the chosen advanced move may name."""
+        cls = spells.caster_class(self.sheet)
+        if self.move not in SPELL_MOVES or cls is None:
+            return []
+        if SPELL_MOVES[self.move] == "spellbook":
+            have = set(self.sheet.get("spellbook") or ())
+            return [s for c in ("wizard", "cleric") for s in spells.SPELLS[c] if s.level > 0 and s.name not in have]
+        taken = set(self.sheet.get("lowered_spells") or ())
+        return [s for s in spells.SPELLS[cls] if s.level > 0 and s.name not in taken]
+
+    def choose_move_spell(self, name: str) -> None:
+        if name not in [s.name for s in self.move_spell_options()]:
+            raise SheetError(f"{name} is not a spell {self.move} can take.")
+        self.move_spell = name
 
     def choose_stat(self, stat: str) -> None:
         if stat not in self.stat_options():
@@ -120,12 +151,17 @@ class Advance:
         chosen = next(m for m in move_options(self.sheet, self.level) if m["name"] == self.move)
         moves = [n for n in sheet.get("advanced_moves") or () if n != chosen.get("replaces")]
         sheet["advanced_moves"] = [*moves, self.move]
+        if self.move_spell and SPELL_MOVES[self.move] == "lower":
+            sheet["lowered_spells"] = [*(sheet.get("lowered_spells") or ()), self.move_spell]
+        elif self.move_spell:
+            sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.move_spell]
         if self.spell:
             sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.spell]
         return sheet
 
     def summary(self) -> str:
-        parts = [f"level {self.level}", f"{STAT_NAMES[self.stat]} +1", self.move]
+        move = self.move + (f" ({self.move_spell})" if self.move_spell else "")
+        parts = [f"level {self.level}", f"{STAT_NAMES[self.stat]} +1", move]
         if self.spell:
             parts.append(f"{self.spell} in the spellbook")
         return ", ".join(parts)

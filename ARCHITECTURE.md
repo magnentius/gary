@@ -552,7 +552,11 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   privately; the companion's player must press Agree). Award XP applies it all in one apply.
 - **Level Up** — `?dm levelup` in downtime: a private form (`levelling.Advance`) for a stat
   (18 at most; Con raises HP), an advanced move (the 6–10 list from level 6; Requires and
-  Replaces honoured) and a Wizard's spellbook spell; level + 7 XP is spent.
+  Replaces honoured) and a Wizard's spellbook spell; level + 7 XP is spent. A move in
+  `levelling.SPELL_MOVES` adds a `move_spell` step: Chosen One / Anointed / Prodigy / Master
+  append to `lowered_spells` (`spells.lowered` takes a level off wherever a spell is found,
+  so a first-level one is `free`), Expanded Spellbook appends any class's spell to the
+  spellbook (`spells._named_any`). Spell dropdowns run to four of 25.
 - **Bonds** — `?dm bonds`: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

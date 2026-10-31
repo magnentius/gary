@@ -28,6 +28,8 @@ APPLIED: Dict[str, str] = {
                              "A Safer Place", "The Scales of Life and Death")},
     **{n: "the +1 hold" for n in ("Staunch Defender", "Impervious Defender")},
     "Embracing No Form": "the extra hold",
+    **{n: "the chosen spell's lower level (lowered_spells)" for n in ("Chosen One", "Anointed", "Prodigy", "Master")},
+    "Expanded Spellbook": "the spell, added to the spellbook",
     **{n: "it while start_quest has them on a quest" for n in ("Smite", "Holy Smite", "Holy Protection")},
     "Quest": "it once you record it with start_quest (and end it with end_quest): Smite and "
              "Holy Protection, and freedom from hunger at camp and on journeys",

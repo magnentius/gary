@@ -27,7 +27,7 @@ narrate from the text.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -147,6 +147,20 @@ def _named(cls: str, name: str) -> Optional[Spell]:
     return next((s for s in SPELLS.get(cls, ()) if s.name.lower() == folded), None)
 
 
+def _named_any(name: str, first: str) -> Optional[Spell]:
+    """A spell from ``first``'s list, else any class's: Expanded Spellbook takes "a new
+    spell from the spell list of any class"."""
+    return _named(first, name) or next((s for c in SPELLS if c != first for s in [_named(c, name)] if s), None)
+
+
+def lowered(sheet: Dict[str, Any], spell: Optional[Spell]) -> Optional[Spell]:
+    """Chosen One, Anointed, Prodigy, Master: the chosen spell is "granted (or prepared) as
+    if it was one level lower". A first-level spell lowered so becomes a rote or cantrip."""
+    if spell is None or spell.name not in (sheet.get("lowered_spells") or ()):
+        return spell
+    return replace(spell, level=max(0, spell.level - 1))
+
+
 def _other(cls: str) -> str:
     return "wizard" if cls == "cleric" else "cleric"
 
@@ -180,6 +194,14 @@ def free_spells(sheet: Dict[str, Any]) -> List[Spell]:
         spell = _named("cleric", name)
         if spell is not None:
             out.append(Spell(**{**spell.__dict__, "level": 0}))
+    for name in sheet.get("lowered_spells") or ():
+        # A first-level spell made one level lower: always theirs now. A Wizard's must be in
+        # their spellbook, as anything they prepare must.
+        if cls == "wizard" and name not in (sheet.get("spellbook") or ()):
+            continue
+        spell = lowered(sheet, _named_any(name, cls))
+        if spell is not None and spell.free and spell.name not in {s.name for s in out}:
+            out.append(spell)
     return out
 
 
@@ -204,10 +226,11 @@ def preparable(sheet: Dict[str, Any]) -> List[Spell]:
     if cls == "cleric":
         pool = [s for s in SPELLS["cleric"] if not s.free]
     else:
-        pool = [s for s in (_named("wizard", n) for n in sheet.get("spellbook") or ()) if s]
+        pool = [s for s in (_named_any(n, "wizard") for n in sheet.get("spellbook") or ()) if s]
     borrowed = _borrowed(sheet)
     if borrowed is not None:
         pool.append(borrowed)
+    pool = [lowered(sheet, s) for s in pool]
     return [s for s in pool if s.level <= level and s.name not in free]
 
 
@@ -227,8 +250,10 @@ def find(sheet: Dict[str, Any], name: str) -> Optional[Spell]:
         return None
     borrowed = _borrowed(sheet)
     if borrowed is not None and borrowed.name.lower() == folded:
-        return borrowed
-    return _named(cls, name)
+        return lowered(sheet, borrowed)
+    if cls == "wizard" and any(n.lower() == folded for n in sheet.get("spellbook") or ()):
+        return lowered(sheet, _named_any(name, "wizard"))  # Expanded Spellbook's other-class spell
+    return lowered(sheet, _named(cls, name))
 
 
 def castable(sheet: Dict[str, Any]) -> List[Spell]:

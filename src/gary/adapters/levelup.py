@@ -11,7 +11,7 @@ from typing import Awaitable, Callable, Optional
 
 import discord
 
-from ..levelling import Advance, move_options
+from ..levelling import SPELL_MOVES, Advance, move_options
 from ..sheets import STAT_NAMES, SheetError
 from .creator import FORM_TIMEOUT_SECONDS
 
@@ -36,6 +36,11 @@ class LevelUpForm(discord.ui.View):
             lines.append("Raise one stat by 1 (no higher than 18).")
         elif step == "move":
             lines.append(f"Choose an advanced move. {_moves_text(self.sheet, a.level)}")
+        elif step == "move_spell":
+            lines.append(f"{a.move}: " + ("add a spell from any class's list to your spellbook."
+                                          if SPELL_MOVES[a.move] == "spellbook" else
+                                          "choose the spell you will have as if it were one level lower "
+                                          "(a first-level one becomes a rote or cantrip)."))
         elif step == "spell":
             lines.append(f"Add a spell of level {a.level} or lower to your spellbook.")
         else:
@@ -54,10 +59,10 @@ class LevelUpForm(discord.ui.View):
             self._select("Advanced move", [discord.SelectOption(
                 label=m["name"][:100], value=m["name"], description=m["text"][:100])
                 for m in move_options(self.sheet, a.level)[:25]], a.choose_move)
+        elif step == "move_spell":
+            self._spell_selects(a.move_spell_options(), a.choose_move_spell, with_class=True)
         elif step == "spell":
-            self._select("Spell", [discord.SelectOption(label=s.label()[:100], value=s.name,
-                                                        description=s.text[:100])
-                                   for s in a.spell_options()[:25]], a.choose_spell)
+            self._spell_selects(a.spell_options(), a.choose_spell)
         else:
             confirm = discord.ui.Button(label="Level up", emoji="⭐", style=discord.ButtonStyle.success)
             confirm.callback = self._on_confirm
@@ -66,6 +71,16 @@ class LevelUpForm(discord.ui.View):
             again = discord.ui.Button(label="Start over", style=discord.ButtonStyle.secondary)
             again.callback = self._on_restart
             self.add_item(again)
+
+    def _spell_selects(self, offered, choose, with_class: bool = False) -> None:
+        """25 to a dropdown, and a spell list can run past that (the Cleric's has 30;
+        Expanded Spellbook offers every list), so as many dropdowns as it takes, up to four."""
+        chunks = [offered[i:i + 25] for i in range(0, min(len(offered), 100), 25)]
+        for i, chunk in enumerate(chunks):
+            self._select(f"Spell ({i + 1}/{len(chunks)})" if len(chunks) > 1 else "Spell",
+                         [discord.SelectOption(label=(f"{sp.label()} ({sp.cls})" if with_class else sp.label())[:100],
+                                               value=sp.name, description=sp.text[:100]) for sp in chunk],
+                         choose)
 
     def _select(self, placeholder: str, options, choose) -> None:
         select = discord.ui.Select(placeholder=placeholder, options=options)

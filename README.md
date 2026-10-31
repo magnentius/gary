@@ -485,7 +485,10 @@ alignment and 1 for a resolved bond — which is cleared, so write a new one wit
 pending, because levelling takes downtime. A private form asks for a stat to raise (18 at
 most; Constitution raises HP too), an advanced move from your class's list (the 6–10 list
 opens at level 6; "Requires" and "Replaces" are honoured), and for a Wizard a spell for the
-spellbook. The XP is spent and the level is announced to the table.
+spellbook. A move that names a spell asks for it next: Chosen One and Prodigy (and Anointed
+and Master) make that spell count one level lower — a first-level one becomes a rote or
+cantrip, always ready — and Expanded Spellbook puts a spell from any class's list in a
+Wizard's book. The XP is spent and the level is announced to the table.
 
 ### Talk to Gary
 
