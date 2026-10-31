@@ -92,6 +92,10 @@ def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
     penalty = 1 if debility_on(sheet, stat) else 0
     if stat == "con" and "Tireless Blood" in (sheet.get("advanced_moves") or ()):
         penalty = 0
+    if sheet.get("ooze") or sheet.get("minions"):
+        from .slimes import penalty as slime_penalty
+
+        penalty += slime_penalty(sheet, stat)  # Blob: ooze form, slime copies
     return modifier(int(sheet["stats"][stat])) - penalty
 
 
@@ -494,6 +498,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     for o in sheet.get("ongoing_mods") or ():
         to = f" to {o['move']}" if o.get("move") else ""
         line += f" · {int(o['amount']):+d} ongoing{to} ({o['reason']})"
+    if sheet.get("minions") or sheet.get("ooze"):
+        from .slimes import describe as slime_line
+
+        line += " · " + slime_line(sheet)
     if "blood" in sheet:
         line += f" · Blood +{int(sheet['blood'])}" + (" (Fury on the next attack)" if sheet.get("fury") else "")
     if sheet.get("faraday"):

@@ -60,6 +60,11 @@ APPLIED: Dict[str, str] = {
     "Velocitas Eradico": "Con, no ammo, no weapon when make_move has hurl",
     "Landed": "the stronghold steading through compendium_power found_stronghold",
     "Call the Banners": "no miss on Recruit at their stronghold",
+    "Ambeoid Overlord": "the slime minion: make_move with minion rolls its stats and d4; monster_attacks with minion hits it",
+    "Scuzzy Metamorphosis": "ooze form's +1 armor and -1 Int/Wis/Cha (compendium_power ooze_form)",
+    "Slime Recruiter": "up to 2+Cha minions (compendium_power add_minion)",
+    "Slime Shaper": "reshaping a minion (compendium_power shape_minion)",
+    "Divide and Conquer": "the copies and their -1 Int/Wis/Cha each (compendium_power slime_copy)",
     "From The Forbidden Land Returned": "the Arm's +2 piercing against the living (the other marks are yours)",
     **{n: "the note on each Trap Expert result (the hold is yours to keep)" for n in ("Cautious", "Extremely Cautious")},
     "Impervious Defender": "the +1 hold, and the 12+ (no hold: the attacker is stymied)",
@@ -131,6 +136,8 @@ def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str
         bonus.append((1, "Barkskin"))
     if (sheet.get("shape") or {}).get("boon") == "armor":
         bonus.append((1, "Formshaper"))
+    if sheet.get("ooze"):
+        bonus.append((1, "ooze form"))  # Scuzzy Metamorphosis
     questing = bool(sheet.get("quest"))
     if questing and sheet.get("class") == "Paladin" and has(sheet, "Divine Protection"):
         bonus.append((2, "Divine Protection"))  # the Paladin's: "+2 armor while on a quest"

@@ -202,6 +202,11 @@ class Advance:
             pet = sheet["companion"]
             sheet["companion"] = {**pet, "ferocity": int(pet["ferocity"]) + 2, "instinct": int(pet["instinct"]) + 1,
                                   "monster": True}
+        if self.move == "Ambeoid Overlord":
+            # "A piece of the thing that engulfed you is now yours to command."
+            from .slimes import make as slime
+
+            sheet["minions"] = [*(sheet.get("minions") or []), slime(f"{sheet['name']}'s slime")]
         if self.move == "Dovahkiin":
             sheet["blood"] = 1  # "You gain a new stat called Blood, which starts at +1."
         if self.move_choice:

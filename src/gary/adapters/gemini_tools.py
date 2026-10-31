@@ -149,6 +149,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "shapeshifter with Formcrafter: the stat they take +1 ongoing in while shifted.")),
                 "form_minus": _s(type=_STRING, enum=list(STATS), description=(
                     "shapeshifter with Formcrafter: the stat YOU choose for -1 ongoing while shifted.")),
+                "minion": _s(type=_STRING, description=(
+                    "A Blob's slime minion making this move: it rolls its own Str, Dex or Con and deals d4.")),
                 "weapon_leverage": _s(type=types.Type.BOOLEAN, description=(
                     "parley with Its Name Is Dread, using the weapon's reputation: +bonds with the weapon, not Cha.")),
                 "dragon_nature": _s(type=types.Type.BOOLEAN, description=(
@@ -287,6 +289,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "+1 for each attacker beyond the first. Not for blows at different moments.")),
                 "cover": _s(type=_INTEGER, description=(
                     "The character's cover against this attack: 1 partial, 2 major.")),
+                "minion": _s(type=_STRING, description="The character's slime minion this blow falls on (Blob)."),
                 "protector": _s(type=_STRING, description=(
                     "A hired Protector standing between the character and this attack: +their skill "
                     "to armor, then their skill drops 1 until they rest.")),
@@ -1001,14 +1004,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "calls on their blood (+Blood forward to Str rolls, then the 1d4 against dragon nature). "
             "drink_heart_blood: Blood +1. dragons_breath: fire on the creatures in its path (targets) and "
             "themselves. faraday: stir (on) or settle (off) the charge in their weapon. found_stronghold: "
-            "Landed Gentry's keep (name, 2 benefits, your complication, craft if skilled)."
+            "Landed Gentry's keep (name, 2 benefits, your complication, craft if skilled). Blob: add_minion "
+            "(name; a slime kept from one defeated), shape_minion (name, stat), rescoop (a splattered one), "
+            "ooze_form (on/off), slime_copy (name; on=false reabsorbs it)."
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
                 "character": _s(type=_STRING),
                 "power": _s(type=_STRING, enum=["weapon_boons", "deity_favor", "dragon_blood", "drink_heart_blood",
-                                                "dragons_breath", "faraday", "found_stronghold"]),
+                                                "dragons_breath", "faraday", "found_stronghold", "add_minion",
+                                                "shape_minion", "rescoop", "ooze_form", "slime_copy"]),
+                "stat": _s(type=_STRING, enum=["str", "dex", "con"], description="shape_minion: the stat made +2."),
                 "boons": _s(type=_ARRAY, items=_s(type=_STRING, enum=["heal", "knowledge", "insight", "peace"])),
                 "targets": _s(type=_ARRAY, items=_s(type=_STRING)),
                 "deity": _s(type=_STRING),

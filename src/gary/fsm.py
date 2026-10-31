@@ -28,8 +28,8 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import (
-    advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, spells,
-    steadings, trade,
+    advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, slimes,
+    spells, steadings, trade,
 )
 from .gear import armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
@@ -390,6 +390,7 @@ class Director:
         form_boon: str = "",
         form_plus: str = "",
         form_minus: str = "",
+        minion: str = "",
         weapon_leverage: bool = False,
         dragon_nature: bool = False,
         hurl: bool = False,
@@ -591,6 +592,17 @@ class Director:
                     "they roll. Do not resolve the action.",
                 )]
             mod = stat_modifier(sheet, stat)
+            if minion:
+                # Ambeoid Overlord: a slime "triggers basic moves as a character would", with its stats.
+                pet = slimes.find(sheet, minion)
+                if pet is None or pet["hp"] <= 0:
+                    return [self._refuse(channel_id, f"{actor} has no slime minion {minion!r} able to act.",
+                                         "Re-issue make_move without minion.")]
+                try:
+                    mod = slimes.modifier(pet, sheet, stat)
+                except SheetError as exc:
+                    return [self._refuse(channel_id, str(exc), "Choose a move the slime can make.")]
+                notes.append(f"{pet['name']} acts")
             # A precise weapon hacks and slashes with Dex, not Str -- where Dex is better.
             if rules.key == "hack_and_slash" and "gear" in sheet:
                 weapon = self._weapon(sheet, rules.key)
@@ -615,7 +627,7 @@ class Director:
                 )]
             # A sheet made before gear existed has no gear to check, and is let through
             # as before; `?dm gear` gives it some.
-            if (rules.attacks and not rules.damage_die and not hurl and "gear" in sheet
+            if (rules.attacks and not rules.damage_die and not hurl and not minion and "gear" in sheet
                     and self._weapon(sheet, rules.key) is None):
                 needs = "a near, far or thrown weapon (and ammo, for a bow)" \
                     if rules.ranged else "a hand, close or reach weapon"
@@ -702,6 +714,8 @@ class Director:
             return [self._refuse(channel_id, situation, "Re-issue make_move without it.")]
         if hurl:
             flags.append("hurl")
+        if minion:
+            flags.append(f"minion:{slimes.find(self._sheet_or_empty(actor), minion)['name']}")
         if "spread" in flags:
             target = ", ".join([target, *[n for n in self._standing() for e in extra_targets
                                           if n.lower() == str(e).strip().lower()]])
@@ -2006,6 +2020,12 @@ class Director:
                                                    f"{check.target}'s counter-attack."))
             facts["counter_attack"] = (f"{warrior['name']} (a hireling) took the brunt of the "
                                        "counter-attack instead; narrate what it cost them.")
+        elif outcome.enemy_attacks and target is not None and any(f.startswith("minion:") for f in check.flags):
+            # A slime's attack draws the blow back onto the slime.
+            slime = next(f.split(":", 1)[1] for f in check.flags if f.startswith("minion:"))
+            attack_effects, back = self._hit_minion(channel_id, check.target, check.actor, slime)
+            effects.extend(attack_effects)
+            back = {**back, "minion": slime}
         elif outcome.enemy_attacks and target is not None:
             # The trade is simultaneous: on a 7-9 the enemy's blow lands even if yours
             # finished it. The rules say both happen, so both do.
@@ -2160,6 +2180,11 @@ class Director:
         if MOVES[check.move].damage_die:
             # "If a move specifies an amount of damage, use that in place of the class's damage roll."
             return MOVES[check.move].damage_die, 0, MOVES[check.move].name
+        slime = next((f.split(":", 1)[1] for f in check.flags if f.startswith("minion:")), "")
+        if slime:
+            pet = slimes.find(self._sheet_or_empty(check.actor), slime) or {}
+            if not pet.get("copy"):
+                return slimes.MINION_DAMAGE, 0, slime  # "They have d4 damage"
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet:
             return "d6", 0, ""
@@ -2205,7 +2230,7 @@ class Director:
 
     def monster_attacks(
         self, *, channel_id: int, monster: str, character: str, also: Sequence[str] = (),
-        protector: str = "", cover: int = 0,
+        protector: str = "", cover: int = 0, minion: str = "",
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """A creature deals its damage to a character -- the GM move "deal damage", on a
         miss or when everyone looks to the GM.
@@ -2213,14 +2238,16 @@ class Director:
         Whether it happens is the model's call. How much is not: Gary rolls the creature's
         damage, takes the character's armor off, and reports the result as fact.
 
-        ``also``: more creatures attacking the same character at once. Their damage is
-        not added up -- a pack would shred anyone -- but rolled as the guide to Dungeon World
-        has it: the largest damage die among them, one roll per attacker, the highest one
-        counts. High, but not overwhelming.
+        ``also``: more creatures attacking the same character at once, by the book's "Damage
+        From Multiple Creatures": the highest damage among them, rolled once, +1 for each
+        attacker beyond the first. ``minion``: the blow falls on one of the character's slime
+        minions instead (Blob).
 
         Returns (effects, the tool result for the model).
         """
         scene = self._monsters()
+        if minion:
+            return self._hit_minion(channel_id, monster, character, minion)
         standing = {n.lower(): n for n, r in scene.items() if r["hp"] > 0}
         names = []
         for wanted in [monster, *also]:
@@ -3433,7 +3460,7 @@ class Director:
 
     def compendium_power(
         self, *, channel_id: int, character: str, power: str, boons: Sequence[str] = (),
-        targets: Sequence[str] = (), deity: str = "", on: Optional[bool] = None,
+        targets: Sequence[str] = (), deity: str = "", on: Optional[bool] = None, name: str = "", stat: str = "",
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """What a compendium move does when the fiction calls on it: a weapon's boons, a god's
         favor, dragon blood, dragon fire, a weapon's stirred charge."""
@@ -3441,12 +3468,91 @@ class Director:
         sheet = self._sheet_for(actor) if actor else None
         if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if power in ("add_minion", "shape_minion", "rescoop", "ooze_form", "slime_copy"):
+            return self._slime_power(channel_id, actor, sheet, power, name=name, stat=stat, on=on)
         handler = {"weapon_boons": self._weapon_boons, "deity_favor": self._deity_favor,
                    "dragon_blood": self._dragon_blood, "drink_heart_blood": self._drink_heart_blood,
                    "dragons_breath": self._dragons_breath, "faraday": self._faraday}.get(str(power))
         if handler is None:
             return [], {"ok": False, "error": f"No compendium power {power!r}."}
         return handler(channel_id, actor, sheet, boons=boons, targets=targets, deity=deity, on=on)
+
+    def _hit_minion(self, channel_id: int, monster: str, character: str,
+                    minion: str) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A creature's blow on a slime minion: no armor; at 0 HP it "splatters and becomes inert
+        instead of dying"."""
+        actor = self._character(character)
+        sheet = self._sheet_or_empty(actor) if actor else {}
+        pet = slimes.find(sheet, minion)
+        scene = self._monsters()
+        name = next((n for n in scene if n.lower() == str(monster).strip().lower() and scene[n]["hp"] > 0), None)
+        if pet is None or name is None:
+            return [], {"ok": False, "error": f"Need a standing creature and one of {character}'s minions."}
+        hit = damage.roll(self.dice, damage.parse(scene[name]["damage"]))
+        hp = max(0, int(pet["hp"]) - hit.total)
+        minions = [{**m, "hp": hp} if m is pet else m for m in sheet["minions"]]
+        line = (f"🗡️ **{name}** hits {pet['name']} for {_damage_words(hit.total)} ({hit.render()}) — HP {pet['hp']} → {hp}"
+                + (" — it **splatters**, inert until scooped together." if hp <= 0 else "."))
+        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"minions": minions})], {
+            "ok": True, "dealt": hit.total, "hp_after": hp, "inert": hp <= 0}
+
+    def _slime_power(self, channel_id, actor, sheet, power, name="", stat="", on=None):
+        """Blob's powers: gain a minion, shape one, scoop one back together, ooze form, a copy."""
+        minions = list(sheet.get("minions") or [])
+        if power == "ooze_form":
+            why = self._needs(sheet, actor, "Scuzzy Metamorphosis")
+            if why:
+                return [], {"ok": False, "error": why}
+            on = True if on is None else bool(on)
+            return [SendMessage(channel_id, f"🟢 **{actor}** " + ("slumps into an ooze: +1 armor, -1 Int, Wis and Cha."
+                                                               if on else "pulls back into shape.")),
+                    UpdateSheet(channel_id, actor, {"ooze": on})], {"ok": True, "ooze": on}
+        why = self._needs(sheet, actor, "Ambeoid Overlord")
+        if why:
+            return [], {"ok": False, "error": why}
+        try:
+            if power == "add_minion":
+                if not advanced.has(sheet, "Slime Recruiter") and any(not m.get("copy") for m in minions):
+                    return [], {"ok": False, "error": f"{actor} commands one slime; Slime Recruiter keeps more."}
+                if sum(1 for m in minions if not m.get("copy")) >= slimes.limit(sheet):
+                    return [], {"ok": False, "error": f"{actor} can command at most {slimes.limit(sheet)} (2+Cha)."}
+                pet = slimes.make(name)
+                minions.append(pet)
+                line = f"🟢 **{actor}** keeps a piece of it: **{pet['name']}** obeys (STR +1, DEX +0, CON +2, 4 HP)."
+            elif power == "slime_copy":
+                why = self._needs(sheet, actor, "Divide and Conquer")
+                if why:
+                    return [], {"ok": False, "error": why}
+                if on is False:
+                    gone = slimes.find(sheet, name)
+                    if gone is None or not gone.get("copy"):
+                        return [], {"ok": False, "error": f"{actor} has no copy named {name!r}."}
+                    minions.remove(gone)
+                    line = f"🟢 **{actor}** takes {gone['name']} back into themselves."
+                else:
+                    copy = slimes.make_copy(sheet, name)
+                    minions.append(copy)
+                    line = f"🟢 **{actor}** divides: **{copy['name']}** — -1 to their Int, Wis and Cha for each copy."
+            elif power == "shape_minion":
+                why = self._needs(sheet, actor, "Slime Shaper")
+                pet = slimes.find(sheet, name)
+                stat = str(stat or "").lower()
+                if why or pet is None or pet.get("copy") or stat not in slimes.BODY:
+                    return [], {"ok": False, "error": why or "Shape a slime minion: one of str, dex, con becomes +2."}
+                minions = [{**m, **{s: (2 if s == stat else 1) for s in slimes.BODY}} if m is pet else m
+                           for m in minions]
+                line = f"🟢 **{actor}** reshapes {pet['name']}: {stat.upper()} +2, the rest +1."
+            elif power == "rescoop":
+                pet = slimes.find(sheet, name)
+                if pet is None or pet["hp"] > 0:
+                    return [], {"ok": False, "error": f"{name!r} is not a splattered minion of {actor}'s."}
+                minions = [{**m, "hp": m["max_hp"]} if m is pet else m for m in minions]
+                line = f"🟢 **{actor}** scoops {pet['name']} back together — it'll be fine."
+            else:
+                return [], {"ok": False, "error": f"No compendium power {power!r}."}
+        except SheetError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"minions": minions})], {"ok": True}
 
     def _needs(self, sheet: Dict[str, Any], actor: str, move: str) -> str:
         return "" if advanced.has(sheet, move) else f"{actor} does not have {move}."

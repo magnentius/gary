@@ -501,6 +501,9 @@ nature; Dragon's Breath burns everything in its path, the breather too; Fury and
 add to it. Faraday's Law charges a weapon (+1d4, -1 to Bind) and Velocitas Eradico hurls
 anything with Con. Landed Gentry's stronghold goes on the map as a keep steading with your two
 benefits and the GM's complication, and Call the Banners turns a recruiting miss there into a 7–9.
+A Blob commands slime minions that make moves with their own Str, Dex and Con and deal d4; a
+creature's blow splatters one at 0 HP, inert until scooped together. Ooze form is +1 armor and
+-1 to Int, Wis and Cha, and each slime copy of yourself costs -1 to all three.
 Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
 Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
 1 for spells, one level higher with each level after. Name your deity and choose spells from

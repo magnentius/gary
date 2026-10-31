@@ -652,7 +652,11 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   heart-blood, Dragon's Breath, Faraday's Law; `found_stronghold` makes `steadings.make_stronghold`
   and sets the sheet's `stronghold`), and `make_move` takes `weapon_leverage`, `dragon_nature` and
   `hurl`. Hunger and Faraday's Law are `advanced.damage_dice`; Fury is a one-attack +1 piercing;
-  Call the Banners lifts a Recruit miss at the stronghold to 7 (`_banners`).
+  Call the Banners lifts a Recruit miss at the stronghold to 7 (`_banners`). Blob (`slimes.py`):
+  `minions` on the owner's sheet; `make_move(minion=)` rolls the slime's own stat (a copy, the
+  owner's) and a `minion:` flag makes its damage d4 and sends any counter-attack to it
+  (`_hit_minion`, as does `monster_attacks(minion=)`); `slimes.penalty` takes ooze form and each
+  copy off Int, Wis and Cha in `stat_modifier`.
 - **Bonds** — the sheet's Bonds button: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 

@@ -468,7 +468,8 @@ class GeminiNarrator:
                 power_effects, result = self._director.compendium_power(
                     channel_id=channel_id, character=str(args.get("character", "")), power=str(args.get("power", "")),
                     boons=[str(b) for b in args.get("boons") or []], targets=[str(t) for t in args.get("targets") or []],
-                    deity=str(args.get("deity", "") or ""), on=args.get("on"))
+                    deity=str(args.get("deity", "") or ""), on=args.get("on"),
+                    name=str(args.get("name", "") or ""), stat=str(args.get("stat", "") or ""))
                 effects.extend(power_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
@@ -628,6 +629,7 @@ class GeminiNarrator:
                     also=[str(a) for a in args.get("also") or []],
                     protector=str(args.get("protector", "") or ""),
                     cover=int(args.get("cover") or 0),
+                    minion=str(args.get("minion", "") or ""),
                 )
                 effects.extend(attack_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -669,6 +671,7 @@ class GeminiNarrator:
             aide=str(args.get("aide", "") or ""),
             race_move=bool(args.get("race_move")),
             ally=str(args.get("ally", "") or ""),
+            minion=str(args.get("minion", "") or ""),
             weapon_leverage=bool(args.get("weapon_leverage")),
             dragon_nature=bool(args.get("dragon_nature")),
             hurl=bool(args.get("hurl")),
