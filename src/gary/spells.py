@@ -174,6 +174,12 @@ def free_spells(sheet: Dict[str, Any]) -> List[Spell]:
         words = _named("cleric", "Words of the Unspeaking")
         out.append(Spell(name="Words of the Unspeaking (stone)", level=0, cls="cleric",
                          ongoing=False, school="", text=words.text + " Only works on stone."))
+    from .advanced import rote_spells
+
+    for name in rote_spells(sheet):  # First Aid, Greater First Aid
+        spell = _named("cleric", name)
+        if spell is not None:
+            out.append(Spell(**{**spell.__dict__, "level": 0}))
     return out
 
 
@@ -248,8 +254,14 @@ def casting_modifier(sheet: Dict[str, Any]) -> tuple:
     n = int(sheet.get("cast_penalty", 0))
     if n:
         reasons.append(f"-{n} ongoing")
+    from .advanced import ongoing_relief
+
+    relief = ongoing_relief(sheet)  # Serenity, Providence: the first penalties are ignored
     for spell, _ in running(sheet):
         if spell.penalty:
+            if relief:
+                relief -= 1
+                continue
             n += 1
             reasons.append(f"-1 {spell.name}")
     return -n, reasons

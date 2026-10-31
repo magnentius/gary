@@ -346,7 +346,10 @@ Narrative class moves (no roll, or nothing Gary tracks) and advanced moves reach
 every turn in the book's words, in a "class moves" block per character (`class_moves.py`).
 A few touch a number Gary already runs and are wired where that number is: precise weapons
 hack with Dex, a Halfling Thief deals +2 at range, Druids eat no rations, a Halfling Druid
-adds 1d6 to camp healing.
+adds 1d6 to camp healing. The advanced moves with a number Gary runs live in `advanced.py`
+(armor, damage dice, a shaped die, healing dice, spell-penalty relief, rotes) and are
+called where that number is computed; `advanced.APPLIED` says, in the class-moves block,
+what Gary applies of each so the model does not apply it twice.
 
 ### 6.3 Sheets and creation
 
@@ -892,9 +895,9 @@ scripts/extract_dw_*.py   XML → data/*.json                                   
    move at all. Gary bounds *how much* but not *whether*.
 3. **Nothing tracks position.** Reach and range are only as consistent as the scene summary
    the model keeps.
-4. **Advanced moves are text, not rules.** None change a number yet (Divine Protection's
-   armor, Serenity's casting penalty); the model honours them or does not. Choices inside a
-   move (Chosen One's spell, Multiclass Dabbler's move) are not recorded. Of the creation
+4. **Most advanced moves are text, not rules.** About a quarter are wired (`advanced.py`);
+   the conditional rest ("while on a quest", "when acting on the answers") the model
+   honours or does not. Choices inside a move (Chosen One's spell, Multiclass Dabbler's move) are not recorded. Of the creation
    choices only the Elf's precise weapon and the Thief's poison uses are wired; a deity's
    petition, a Druid's land and a Bard's lore are the model's to honour, and poison effects
    are narrated, not tracked on creatures.

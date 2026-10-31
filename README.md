@@ -606,10 +606,16 @@ waiting on; `?dm cancel` drops your own.
   Encumbrance applies to the moves you make, not to ones the rules trigger (Last Breath,
   Take Watch, a journey's jobs). End of Session covers the three
   group questions, alignment and bonds. A journey's length is the GM's to set on the clock.
-- **Advanced moves are recorded and shown to the GM, not wired.** None changes a number
-  Gary tracks yet (Divine Protection's armor, Serenity's casting penalty…); the GM honours
-  them from their text. A move that names another ("choose one spell", a move from another
-  class) is recorded without that second choice — tell the GM which.
+- **About a quarter of advanced moves are wired.** Gary applies the ones that change a number
+  it runs: armor (Iron Hide, Barkskin, Arcane Ward, Underdog…), extra damage (Merciless,
+  Cheap Shot…), a Druid's bigger animal die, extra healing (Hospitaller, Healing Song,
+  Devoted Healer), Serenity and Providence on spell penalties, First Aid's rote, Staunch
+  Defender's hold, Embracing No Form's hold, and the +1s and +1 forwards with a clear
+  trigger (Seeing Red, Voice of Authority, A Safe Place, Bamboozle…). The GM is told which
+  it need not apply again. The rest — conditional ones like "while on a quest" or "when
+  acting on the answers" — stay with the GM. A move that names another ("choose one
+  spell", a move from another class) is recorded without that second choice — tell the GM
+  which.
 - **Defend's hold** is spent one point per attack, and only against `monster_attacks` — not
   the blow back on a weak Hack and Slash. Defending an item or a place records it, but
   nothing attacks those through the rules. Ammo is one count shared by bows and throwing daggers, and

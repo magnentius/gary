@@ -27,7 +27,7 @@ import json
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from . import spells
+from . import advanced, spells
 
 _DATA = Path(__file__).parent / "data" / "class_moves.json"
 
@@ -141,7 +141,9 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
         for name in sheet.get("advanced_moves") or ():
             if name in book:
                 text = book[name]["text"].replace("\n", " ")
-                lines.append(f"    - {name} (advanced): {text}")
+                done = advanced.applied(sheet, name)
+                lines.append(f"    - {name} (advanced): {text}"
+                             + (f" [Gary applies {done}; do not add it again.]" if done else ""))
         if spells.caster_class(sheet):
             have = spells.castable(sheet)
             lines.append(f"    - Spells {actor} can cast now (make_move cast_a_spell, spell=…):"

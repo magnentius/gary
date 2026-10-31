@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import bonds, choices, companion as companions, damage, hirelings, spells, trade
+from . import advanced, bonds, choices, companion as companions, damage, hirelings, spells, trade
 from .gear import rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
@@ -523,6 +523,11 @@ class Director:
         if held:
             mod += held
             notes.append(f"{held:+d} forward")
+        mover = self._sheet_or_empty(actor)
+        if (rules.key == "discern_realities" and advanced.has(mover, "Seeing Red")
+                and any(r["hp"] > 0 for r in self._monsters().values())):
+            mod += 1
+            notes.append("+1 Seeing Red")
         ready, prepared = self._preparation(channel_id, actor) if preparation else (0, [])
         if ready:
             mod += ready
@@ -814,8 +819,15 @@ class Director:
                                  "hire one first with hire.")]
         mod = hirelings.loyalty_of(hired)
         notes = ["-1 unpaid"] if hired.get("unpaid") else []
+        authority = next((n for n in ("Divine Authority", "Voice of Authority") if advanced.has(sheet, n)), None)
+        if authority:
+            mod += 1
+            notes.append(f"+1 {authority}")
         return self._open(channel_id, user_id, actor, "order_hirelings", LOYALTY, mod, stakes,
                           hired["name"], ttl_seconds, f"Order Hirelings: {hired['name']}", notes)
+
+    def _sheet_or_empty(self, actor: str) -> Dict[str, Any]:
+        return (self._sheet_for(actor) or {}) if self._sheet_for is not None else {}
 
     def _party(self) -> List[Tuple[str, Dict[str, Any]]]:
         """Every character at the table with a sheet, living."""
@@ -889,6 +901,12 @@ class Director:
         rules = MOVES[check.move].band(b)
         picked = [rules.choice.options[p].text for p in check.picks] if rules.choice else []
         actor = check.actor
+        mover = self._sheet_or_empty(actor)
+        if check.move == "parley" and b != "miss" and (advanced.has(mover, "Bamboozle") or advanced.has(mover, "Con")):
+            return self._grant(channel_id, actor, "with the one they parleyed")
+        if check.move == "aid_or_interfere" and b != "miss" and advanced.has(mover, "A Little Help From My Friends") \
+                and any(t.startswith("Help them") for t in picked):
+            return self._grant(channel_id, actor, "for helping a friend (A Little Help From My Friends)")
         if check.move == "discern_realities" and b != "miss":
             return self._grant(channel_id, actor, "when acting on what Discern Realities showed")
         if check.move == "i_am_the_law" and b == "strong":
@@ -1075,9 +1093,14 @@ class Director:
     def _guard(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """Defend: hold 3 on a 10+, 1 on a 7-9, against attacks on the defender or their
         charge, for as long as they stand in defense."""
-        if check.move != "defend" or band(dice) == "miss" or not check.target:
+        if check.move != "defend" or not check.target:
             return []
-        hold = 3 if band(dice) == "strong" else 1
+        defender = self._sheet_or_empty(check.actor)
+        staunch = advanced.has(defender, "Staunch Defender") or advanced.has(defender, "Impervious Defender")
+        if band(dice) == "miss" and not staunch:
+            return []
+        # Staunch Defender: "you always get +1 hold, even on a 6-".
+        hold = {"strong": 3, "weak": 1, "miss": 0}[band(dice)] + (1 if staunch else 0)
         return [
             SendMessage(channel_id, f"🛡️ **{check.actor}** stands in defense of {check.target} — hold {hold}."),
             UpdateSheet(channel_id, check.actor, {"defending": {"charge": check.target, "hold": hold}}),
@@ -1088,12 +1111,14 @@ class Director:
         if check.move != "shapeshifter":
             return [], None
         hold = _SHAPE_HOLD[band(dice)]
+        if advanced.has(self._sheet_or_empty(check.actor), "Embracing No Form"):
+            hold += self.dice.roll("1d4").total  # "roll 1d4 and add that total to your hold"
         shape = {"form": check.target, "hold": hold, "moves": []}
         facts = {**shape, "instruction": (
             f"Describe {check.actor} becoming a {check.target}: its innate abilities and "
             f"weaknesses are theirs, though they keep their own stats. "
             + (f"Their land is {land}: an animal that might live there is theirs to take. "
-               if (land := ((self._sheet_for(check.actor) or {}).get("choices") or {}).get("land")) else "")
+               if (land := ((self._sheet_or_empty(check.actor)).get("choices") or {}).get("land")) else "")
             + "Then name one to three "
             "moves this form can make and record them with form_moves. Each use of one costs "
             "1 hold (spend_hold); at 0 they return to their natural form."
@@ -1168,7 +1193,7 @@ class Director:
     def _companion_of(self, check: PendingCheck) -> Optional[Dict[str, Any]]:
         if not check.companion or self._sheet_for is None:
             return None
-        return (self._sheet_for(check.actor) or {}).get("companion")
+        return (self._sheet_or_empty(check.actor)).get("companion")
 
     def _ferocity(self, check: PendingCheck) -> int:
         """Command: "...and you attack the same target, add its ferocity to your damage.\""""
@@ -1270,6 +1295,11 @@ class Director:
         else:
             roll = self.dice.roll(spec)
             amount, render = roll.total, f"{spec}: {roll.render()}"
+        healer = self._sheet_or_empty(check.actor)
+        other = normalize_actor(patient["name"]) != normalize_actor(check.actor)
+        for spec_more, why in advanced.healing_dice(healer, check.move, check.spell, other):
+            more = int(spec_more) if spec_more.isdigit() else self.dice.roll(spec_more).total
+            amount, render = amount + more, f"{render}, +{spec_more} {why}: {more}"
         healed = max(0, min(amount, int(patient["max_hp"]) - int(patient["hp"])))
         facts: Dict[str, Any] = {
             "target": patient["name"], "rolled": amount, "rolled_render": render,
@@ -1296,11 +1326,17 @@ class Director:
             sheet = self._sheet_for(actor)
             if sheet is not None:
                 mod = stat_modifier(sheet, rules.stat)
+        others = [s for a, s in self._party() if normalize_actor(a) != normalize_actor(actor)]
+        if move == "take_watch" and any(advanced.has(s, "A Safe Place") or advanced.has(s, "A Safer Place")
+                                        for _, s in self._party()):
+            mod += 1  # A Safe Place: "everyone takes +1 to take watch"
+        if move == "last_breath" and any(advanced.has(s, "The Scales of Life and Death") for s in others):
+            mod += 1  # "When someone takes their last breath in your presence, they take +1"
         check, _ = self.registry.open(
             channel_id=channel_id, user_id=user_id, actor=actor, move=move,
             stat=rules.stat, modifier=mod, stakes="", dice=MOVE_DICE,
         )
-        with_what = "+nothing" if rules.stat == NOTHING else \
+        with_what = ("+nothing" + (f" {mod:+d}" if mod else "")) if rules.stat == NOTHING else \
             f"+{STAT_NAMES[rules.stat][:3].title()} {mod:+d}"
         return [SendMessage(
             channel_id,
@@ -1403,8 +1439,12 @@ class Director:
             might = hirelings.skill(warrior, "Warrior") if warrior else 0
             if might:
                 total, shown = total + might, f"{shown}, +{might} {warrior['name']} = {total + might}"
-            # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
+            weapon = self._weapon(sheet, check.move) if sheet and "gear" in sheet else None
+            for dice_spec, why in advanced.damage_dice(sheet or {}, check.move, weapon.tags if weapon else ()):
+                extra = self.dice.roll(dice_spec).total
+                total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
+            # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
             for boost in boosts:
                 extra = self.dice.roll(boost["damage"]).total
@@ -1498,7 +1538,7 @@ class Director:
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet:
             return "d6", 0, ""
-        die = sheet["damage"]
+        die = advanced.shaped_die(sheet, sheet["damage"])
         # Halfling Thief: "When you attack with a ranged weapon, deal +2 damage."
         knack = 2 if (MOVES[check.move].ranged and sheet.get("class") == "Thief"
                       and sheet.get("race") == "Halfling") else 0
@@ -1650,6 +1690,10 @@ class Director:
         die, piercing, weapon = self._damage_die(blow)
         hit = damage.roll(self.dice, damage.parse(die))
         total, shown = hit.total, hit.render()
+        weapon_now = self._weapon(sheet, move) if "gear" in sheet else None
+        for dice_spec, why in advanced.damage_dice(sheet, move, weapon_now.tags if weapon_now else ()):
+            extra = self.dice.roll(dice_spec).total
+            total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
         if self._magic_weapon(blow):
             bonus = self.dice.roll("1d4").total
             total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
@@ -1747,6 +1791,10 @@ class Director:
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         armor = (int(sheet["armor"]) if sheet else 0) + extra_armor
+        if sheet:
+            standing = sum(1 for r in self._monsters().values() if r["hp"] > 0)
+            more, _ = advanced.armor_bonus(sheet, outnumbered=standing > len(self._party()))
+            armor += more
         dealt = damage.through_armor(
             hit.total, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
         )
