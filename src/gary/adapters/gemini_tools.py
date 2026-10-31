@@ -47,6 +47,8 @@ SPEND_HOLD = "spend_hold"
 DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
+START_QUEST = "start_quest"
+END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
 BOLSTER = "bolster"
@@ -505,6 +507,45 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "ancient": _s(type=types.Type.BOOLEAN, description="It is ancient and noteworthy: +1d4."),
             },
             required=["finder", "creature"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=START_QUEST,
+        description=(
+            "A Paladin dedicates themselves to a mission through prayer and ritual cleansing "
+            "(their Quest move). Record what they swore -- slay a blight, defend someone, or "
+            "discover a truth -- the up to two boons THEY chose, and the vow or vows YOU name as "
+            "GM to keep the blessing. Gary applies what has a number while it lasts."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "mission": _s(type=_STRING, enum=["slay", "defend", "discover"]),
+                "subject": _s(type=_STRING, description="The blank: who or what -- 'the Wyrm of Hollowmere'."),
+                "boons": _s(type=_ARRAY, items=_s(type=_OBJECT, properties={
+                    "boon": _s(type=_STRING, enum=["direction", "invulnerability", "authority", "truth",
+                                                   "tongues", "sustenance"]),
+                    "detail": _s(type=_STRING, description="For direction (to where) and invulnerability "
+                                                           "(to what: edged weapons, fire, enchantment)."),
+                }, required=["boon"])),
+                "vows": _s(type=_ARRAY, items=_s(type=_STRING, enum=["honor", "temperance", "piety", "valor",
+                                                                     "truth", "hospitality"])),
+            },
+            required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=END_QUEST,
+        description="A Paladin's quest ends: fulfilled, a vow broken (the blessing leaves them), or abandoned.",
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "how": _s(type=_STRING, enum=["fulfilled", "broken", "abandoned"]),
+                "reason": _s(type=_STRING, description="What happened, in a few words. Shown to the table."),
+            },
+            required=["character", "how"],
         ),
     ),
     types.FunctionDeclaration(

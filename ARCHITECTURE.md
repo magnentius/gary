@@ -389,6 +389,13 @@ someone else 4 and poultices anyone 7, spending counted uses, and both are refus
 creatures stand; a potion's `cure` removes a debility instead. `sheets.clumsy` names a
 clumsy item worn by anyone but a Fighter or Paladin (Armored), and every roll takes -1 for it.
 
+**The Paladin's Quest** (`quests.py`). `start_quest` records `sheet["quest"]`: the mission
+(slay / defend / discover and its blank), up to two boons the player chose (two take a
+blank) and the vows the model names; `end_quest` clears it as fulfilled, broken or
+abandoned. Gary reads it in `advanced.py` (Smite, Holy Smite, Holy Protection, the Paladin's
+Divine Protection count only `on_quest`) and in camp and journeys (`sustenance` eats nothing).
+The other boons reach the model on the sheet line.
+
 **Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
 trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --
 modified by its bestiary tags (hoarder, magical, divine, planar) and the model's flags (far

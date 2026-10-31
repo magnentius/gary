@@ -26,7 +26,7 @@ from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
-from . import advanced, bonds, choices, companion as companions, damage, hirelings, reactions, spells, trade
+from . import advanced, bonds, choices, companion as companions, damage, hirelings, quests, reactions, spells, trade
 from .gear import armor_of as gear_armor, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
@@ -2046,6 +2046,7 @@ class Director:
             # Human Ranger: "When you make camp in a dungeon or city, you don't need to consume a ration."
             sustained = sustained or (dungeon_or_city and sheet.get("class") == "Ranger"
                                       and sheet.get("race") == "Human")
+            sustained = sustained or quests.has_boon(sheet, "sustenance")  # Quest: no hunger
             if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
                 have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
                 fed = have > 0
@@ -2218,6 +2219,8 @@ class Director:
         spent: Dict[str, Any] = {}
         for actor, sheet in party:
             if "gear" not in sheet or sheet.get("class") == "Druid":  # By Nature Sustained
+                continue
+            if quests.has_boon(sheet, "sustenance"):  # Quest: freedom from hunger and thirst
                 continue
             have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
             used = min(have, days)
@@ -2625,6 +2628,62 @@ class Director:
         return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"debilities": have})], {
             "ok": True, "debilities": have,
             "note": f"{stat} rolls take -1 while it lasts." if not cured else f"{stat} is whole again."}
+
+    # -- the Paladin's Quest (quests.py) ---------------------------------------------------------
+
+    def start_quest(
+        self, *, channel_id: int, character: str, mission: str, subject: str,
+        boons: Sequence[Dict[str, Any]] = (), vows: Sequence[str] = (),
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The Paladin dedicates themselves to a mission; the model records what they swore,
+        the boons they chose and the vows it named."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if sheet.get("class") != "Paladin":
+            return [], {"ok": False, "error": f"{actor} is a {sheet.get('class')}: Quest is a Paladin's move."}
+        if sheet.get("quest"):
+            return [], {"ok": False, "error": (f"{actor} is already on a quest ({sheet['quest']['text']}). "
+                                               "End it with end_quest first.")}
+        try:
+            quest = quests.make(mission, subject, boons, vows)
+        except SheetError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        boons_text = "; ".join(b["text"] for b in quest["boons"]) or "none"
+        vows_text = ", ".join(quests.VOWS[v].split(" (")[0] for v in quest["vows"])
+        return [
+            SendMessage(channel_id, f"⚜️ **{actor}** sets out on a quest: {quest['text']}.\n"
+                                    f"Boons: {boons_text}. Vows: {vows_text}."),
+            UpdateSheet(channel_id, actor, {"quest": quest}),
+        ], {"ok": True, "quest": quest["text"], "note": (
+            "Recorded. Gary applies Smite and Holy Protection while it lasts, and freedom from hunger "
+            "at camp and on journeys; honour the other boons yourself (invulnerability: an attack of "
+            "that kind does them no harm -- do not call monster_attacks for it). Hold them to the "
+            "vows: breaking one ends the blessing (end_quest).")}
+
+    def end_quest(
+        self, *, channel_id: int, character: str, how: str, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The quest is fulfilled, or a vow is broken and the blessing goes, or they give it up."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        quest = sheet.get("quest")
+        if not quest:
+            return [], {"ok": False, "error": f"{actor} is not on a quest."}
+        how = str(how or "").strip().lower()
+        words = {"fulfilled": "fulfils their quest", "broken": "breaks a vow — the blessing leaves them",
+                 "abandoned": "gives up their quest"}
+        if how not in words:
+            return [], {"ok": False, "error": f"How it ended is one of: {', '.join(words)}."}
+        reason = " ".join(str(reason or "").split())
+        return [
+            SendMessage(channel_id, f"⚜️ **{actor}** {words[how]}: {quest['text']}."
+                                    + (f" — {reason}" if reason else "")),
+            UpdateSheet(channel_id, actor, {"quest": None}),
+        ], {"ok": True, "ended": quest["text"], "how": how}
 
     # -- the Thief's poison -------------------------------------------------------------------
 

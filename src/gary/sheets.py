@@ -481,6 +481,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     if shape:
         moves = f": {', '.join(shape['moves'])}" if shape.get("moves") else ""
         line += f" · in the shape of a {shape['form']} (hold {shape['hold']}{moves})"
+    if sheet.get("quest"):
+        from .quests import describe as quest_line
+
+        line += " · " + quest_line(sheet)
     if sheet.get("dead"):
         line += " · DEAD"
     elif int(sheet.get("hp", 1)) <= 0:

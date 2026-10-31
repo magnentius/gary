@@ -460,6 +460,21 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.START_QUEST, T.END_QUEST):
+                if name == T.START_QUEST:
+                    quest_effects, result = self._director.start_quest(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        mission=str(args.get("mission", "")), subject=str(args.get("subject", "")),
+                        boons=[dict(b) for b in args.get("boons") or []],
+                        vows=[str(v) for v in args.get("vows") or []])
+                else:
+                    quest_effects, result = self._director.end_quest(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        how=str(args.get("how", "")), reason=str(args.get("reason", "") or ""))
+                effects.extend(quest_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.DEBILITY:
                 debility_effects, result = self._director.debility(
                     channel_id=channel_id, character=str(args.get("character", "")),

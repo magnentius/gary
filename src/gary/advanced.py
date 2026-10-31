@@ -28,6 +28,9 @@ APPLIED: Dict[str, str] = {
                              "A Safer Place", "The Scales of Life and Death")},
     **{n: "the +1 hold" for n in ("Staunch Defender", "Impervious Defender")},
     "Embracing No Form": "the extra hold",
+    **{n: "it while start_quest has them on a quest" for n in ("Smite", "Holy Smite", "Holy Protection")},
+    "Quest": "it once you record it with start_quest (and end it with end_quest): Smite and "
+             "Holy Protection, and freedom from hunger at camp and on journeys",
     **{n: "the +1 forward" for n in ("Bamboozle", "Con", "A Little Help From My Friends")},
     # Answering a blow: the player presses Reduce damage on the hit (reactions.py).
     **{n: "it through the Reduce damage button on a hit" for n in (
@@ -54,8 +57,8 @@ APPLIED: Dict[str, str] = {
 
 def applied(sheet: Dict[str, Any], name: str) -> str:
     """What Gary applies of this advanced move for this character, or ""."""
-    if name == "Divine Protection":  # two moves share the name; only the Cleric's is armor
-        return "the armor" if sheet.get("class") == "Cleric" else ""
+    if name == "Divine Protection":  # two moves share the name: the Cleric's, and the Paladin's on a quest
+        return "the armor" if sheet.get("class") in ("Cleric", "Paladin") else ""
     return APPLIED.get(name, "")
 
 
@@ -74,6 +77,11 @@ def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str
         bonus.append((1, "Iron Hide"))
     if has(sheet, "Barkskin"):
         bonus.append((1, "Barkskin"))
+    questing = bool(sheet.get("quest"))
+    if questing and sheet.get("class") == "Paladin" and has(sheet, "Divine Protection"):
+        bonus.append((2, "Divine Protection"))  # the Paladin's: "+2 armor while on a quest"
+    elif questing and has(sheet, "Holy Protection"):
+        bonus.append((1, "Holy Protection"))
     worn = int(sheet.get("armor", 0))
     if worn == 0 and has(sheet, "Divine Armor"):
         bonus.append((3, "Divine Armor"))
@@ -98,6 +106,11 @@ def damage_dice(sheet: Dict[str, Any], move: str, weapon_tags: Sequence[str]) ->
         out.append(("1d8", "Bloodthirsty"))
     elif has(sheet, "Merciless"):
         out.append(("1d4", "Merciless"))
+    if sheet.get("quest"):
+        if has(sheet, "Holy Smite"):
+            out.append(("1d8", "Holy Smite"))
+        elif has(sheet, "Smite"):
+            out.append(("1d4", "Smite"))
     precise_or_hand = "precise" in weapon_tags or "hand" in weapon_tags
     if move == "backstab" and precise_or_hand:
         if has(sheet, "Dirty Fighter"):

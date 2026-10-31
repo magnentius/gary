@@ -563,6 +563,12 @@ be answered, once, and answering a blow that put them down cancels their Last Br
 A Human Fighter's button also offers to **reroll** a creature's damage on anyone — once per
 battle, and the new roll stands, better or worse.
 
+**A Paladin's Quest.** Swear it in play — what you set out to do and up to two boons — and
+the GM records it and names your vows. It shows on your sheet. While it lasts, Smite and Holy
+Protection (and their stronger versions) count, and freedom from hunger means no rations at
+camp or on a journey; the other boons are the GM's to honour. The GM ends it when it's
+fulfilled — or when you break a vow.
+
 **Race moves with numbers** are applied too: an Elf Ranger's journey job through wilderness
 succeeds as a 10+ without a roll; a Human Ranger eats no ration camping in a dungeon or
 city; a Dwarf Fighter parleys with Con over a shared drink; a Halfling Fighter using their

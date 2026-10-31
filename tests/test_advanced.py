@@ -112,7 +112,7 @@ def test_the_model_is_told_what_gary_already_applies():
     text = class_moves.render({"Dorn": sheet})
     assert "Merciless (advanced): When you deal damage, deal +1d4 damage. [Gary applies the extra damage" in text
     assert "Heirloom (advanced)" in text and "Heirloom" not in advanced.APPLIED
-    assert advanced.applied({"class": "Paladin"}, "Divine Protection") == ""
+    assert advanced.applied({"class": "Ranger"}, "Divine Protection") == ""
 
 
 def test_clumsy_armor_weighs_on_every_roll_but_the_armored(director, sheets):
