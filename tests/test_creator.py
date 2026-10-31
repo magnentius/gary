@@ -299,6 +299,8 @@ def _dispatcher(table):
         settings = _Settings()
         _finish_character = GaryClient._finish_character
         _finish_gear = GaryClient._finish_gear
+        _sheet_hub = GaryClient._sheet_hub
+        _sheet_actions = GaryClient._sheet_actions
 
     client = _Client()
     client.store, client.director, client.sender = store, director, save.__self__.sender
@@ -316,16 +318,19 @@ async def test_dm_new_posts_a_start_button_for_whoever_asked(table):
 
 async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
     save, store, director, sent = table
-    msg, dispatch, _ = _dispatcher(table)
+    msg, dispatch, posted = _dispatcher(table)
 
     await dispatch(msg("?dm sheet"))
     assert sent[-1] == "You have no sheet yet. `?dm new` makes one."
 
     await save(_Interaction(ALICE), await _kael_sheet(), CHANNEL)
     await dispatch(msg("?dm sheet"))
-    assert sent[-1].startswith("Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25")
-    assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Dungeon rations" in sent[-1]
-    assert "2 × Healing Potion" in sent[-1]
+    text, view = posted[-1]
+    assert text.startswith("Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25")
+    assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Dungeon rations" in text
+    assert "2 × Healing Potion" in text
+    # Alone at the table, a made Fighter has only alignment to revisit: no bonds yet, no level.
+    assert [b.label for b in view.children] == ["Alignment"]
 
 
 
@@ -358,7 +363,6 @@ async def test_the_gear_form_asks_only_for_gear_and_keeps_everything_else():
 
 
 async def test_dm_gear_posts_a_button_and_saving_journals_the_sheet(table):
-    from gary.adapters.creator import GearButton
     from gary.models import Mutation, MutationKind
     from gary.sheets import with_gear
     from gary.gear import CHAINMAIL
@@ -370,9 +374,9 @@ async def test_dm_gear_posts_a_button_and_saving_journals_the_sheet(table):
 
     await dispatch(msg("?dm gear"))
     ((text, view),) = posted
-    assert isinstance(view, GearButton) and "Thorin" in text
+    assert [b.label for b in view.children] == ["Choose gear"] and "Thorin" in text
 
-    await view.finish(None, with_gear(THORIN, [CHAINMAIL]))
+    await dispatch.__self__._finish_gear(with_gear(THORIN, [CHAINMAIL]), CHANNEL)
     assert store.state()["sheets"]["Thorin"]["armor"] == 1
     assert sent[-1].startswith("**Thorin** gears up — Dwarf Cleric 1 (0/8 XP), HP 18/21, armor 1")
     store.undo_last()

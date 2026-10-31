@@ -12,7 +12,7 @@ the model's to honour; two are numbers Gary runs: the Elf's precise weapon (Hack
 with Dex) and the Thief's poison uses (``use_poison``, ``brew_poison``).
 
 Made step by step in ``Choices``, checked like a sheets.Draft: by ``?dm new``, and by
-``?dm choices`` for a character made before.
+the Class choices button on ``?dm sheet`` for a character made before.
 """
 
 from __future__ import annotations

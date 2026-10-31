@@ -374,8 +374,13 @@ Fighter's signature weapon in full), alignment, the class's own choices (`choice
 a Cleric's god, domain and precept; a Druid's land and tell; a Bard's lore; a Thief's
 poison; a Fighter's weapon look and an Elf's precise weapon type, read from the move
 texts), name. Creating a character also claims it
-for the creator, in the same apply. Older sheets get the missing parts without a remake:
-`?dm gear`, `?dm spells`, `?dm alignment`, `?dm choices`, `?dm companion`.
+for the creator, in the same apply. Everything else about a character opens from `?dm sheet`
+(`GaryClient._sheet_hub`): `_sheet_actions` returns, per action, a button (its form built on
+click, from the sheet as it is then) or why it does not apply -- spells, companion, bonds,
+alignment, class choices, gear, level up -- and the sheet shows every button that applies.
+Older sheets get their missing parts the same way, without a remake. The typed names
+(`?dm spells`, `?dm levelup`...) post one button each; with `?dm accept`, `?dm cancel` and
+`?dm stats` they are `HIDDEN_COMMANDS`, answered but left out of the help.
 
 Every form is **private** (ephemeral), opened from a public button only its owner can use,
 and held in memory: a half-made choice is cheap to start again. Each save writes only what
@@ -606,7 +611,7 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   `?dm endsession`: the book's three questions as toggles anyone may flip, a per-character
   "acted on alignment" toggle only that player may flip, and Resolve a bond (picked
   privately; the companion's player must press Agree). Award XP applies it all in one apply.
-- **Level Up** — `?dm levelup` in downtime: a private form (`levelling.Advance`) for a stat
+- **Level Up** — the sheet's Level up button, in downtime: a private form (`levelling.Advance`) for a stat
   (18 at most; Con raises HP), an advanced move (the 6–10 list from level 6; Requires and
   Replaces honoured) and a Wizard's spellbook spell; level + 7 XP is spent. A move in
   `levelling.SPELL_MOVES` adds a `move_spell` step: Chosen One / Anointed / Prodigy / Master
@@ -620,8 +625,8 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   (`multiclass.grants_key`) all read. Divine Favor and God Amidst the Wastes set
   `favor_from` to the level taken: `spells.favored` makes `caster_class` "cleric" and
   `caster_level` (level - favor_from + 1) drives what can be prepared and the budget; the
-  cast gate lets them Cast a Spell, and `?dm choices` asks for their deity.
-- **Bonds** — `?dm bonds`: the class's lines, each filled once with a companion at the
+  cast gate lets them Cast a Spell, and the sheet's Class choices button asks for their deity.
+- **Bonds** — the sheet's Bonds button: the class's lines, each filled once with a companion at the
   table. Aid or Interfere rolls +Bond, the bonds held with the character helped.
 
 ---
@@ -751,7 +756,7 @@ half writes an NPC twice) and fanned into notes and NPCs, one model call per chu
 **Proposals.** Bare `?dm scene`, or an import finishing on a campaign with no setting, asks
 the model for one line. A proposal decides nothing: `EffectRunner.ask` returns the text
 and drops any effects, so it cannot act on its own suggestion. The line is held until
-`?dm accept`, parsed rather than trusted (lead-ins, fences and labels stripped, since the
+someone presses its Accept button (`AcceptButton`, or types `?dm accept`), parsed rather than trusted (lead-ins, fences and labels stripped, since the
 field is read to the model every turn), and asking again names the rejected lines back so
 the model offers a different place, not a paraphrase.
 
@@ -821,8 +826,8 @@ belongs in Secret Manager.
 | Gary restart mid-move | Pending moves and their buttons survive (§5.3, §7.4). In-memory forms (creation, level up, bonds, End of Session) are lost and reopened by the command. |
 | Interaction not answered in 3 s | Clicks are acknowledged before narration starts. |
 
-**Observability.** Structured logs; `?dm stats` shows messages sent, turns narrated and
-model failures.
+**Observability.** Structured logs; the last line of `?dm state` shows messages sent, turns
+narrated, model failures and moves journalled since start.
 
 ---
 
@@ -980,11 +985,11 @@ src/gary/
     sender.py      2000-char splitting + per-channel pacing                         §10
     runner.py      performs Effects; bounds model recursion                         §12.2
     discord_bot.py discord.py glue, buttons, ?dm commands, sweep loop               §5.3
-    creator.py     ?dm new / gear / alignment / choices forms                       §6.3
+    creator.py     ?dm new, and the sheet's gear / alignment / choices forms        §6.3
     spellbook.py   Choose spells                                                    §6.6
-    companion_form.py  ?dm companion                                                §6.7
-    levelup.py     ?dm levelup                                                      §6.10
-    bonds_form.py  ?dm bonds                                                        §6.10
+    companion_form.py  the sheet's Choose companion                                 §6.7
+    levelup.py     the sheet's Level up                                             §6.10
+    bonds_form.py  the sheet's Bonds                                                §6.10
     session.py     ?dm endsession                                                   §6.10
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6

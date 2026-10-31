@@ -21,6 +21,7 @@ import asyncio
 import logging
 import signal
 import time
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple
 
 import discord
@@ -43,7 +44,7 @@ from ..state.store import CampaignStore, StateError
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
 from .. import bonds, choices, companion as companions, hirelings, spells
-from .creator import AlignmentForm, ChoicesForm, GearButton, StartButton
+from .creator import FORM_TIMEOUT_SECONDS, AlignmentForm, CharacterCreator, ChoicesForm, StartButton
 from .bonds_form import BondsForm
 from .companion_form import CompanionForm
 from .levelup import LevelUpForm
@@ -292,6 +293,35 @@ class CureButton(
         await interaction.client.on_cure(interaction, self.user_id, self.debility)
 
 
+@dataclass(frozen=True)
+class AcceptPrompt:
+    """An Accept button on a setting or scene Gary has suggested."""
+
+    kind: str  # "setting" | "scene"
+
+
+class AcceptButton(
+    discord.ui.DynamicItem[discord.ui.Button],
+    template=r"gary:accept:(?P<kind>setting|scene)",
+):
+    """Take the suggestion it is posted under. Durable; whether one is still held is the
+    client's to say -- a newer suggestion, or a restart, leaves nothing to take."""
+
+    def __init__(self, kind: str) -> None:
+        super().__init__(discord.ui.Button(
+            label=f"Accept this {kind}", emoji="✅", style=discord.ButtonStyle.success,
+            custom_id=f"gary:accept:{kind}",
+        ))
+        self.kind = kind
+
+    @classmethod
+    async def from_custom_id(cls, interaction, item, match) -> "AcceptButton":
+        return cls(match["kind"])
+
+    async def callback(self, interaction: "discord.Interaction") -> None:
+        await interaction.client.on_accept(interaction, self.kind)
+
+
 class ReactButton(
     discord.ui.DynamicItem[discord.ui.Button],
     template=r"gary:react:(?P<hit_id>[0-9a-z]+)",
@@ -358,6 +388,10 @@ class DiscordTransport:
             await channel.send(text, view=spells_view(prompt.user_id))
         elif isinstance(prompt, OverloadPrompt):
             await channel.send(text, view=overload_view(prompt))
+        elif isinstance(prompt, AcceptPrompt):
+            view = discord.ui.View(timeout=None)
+            view.add_item(AcceptButton(prompt.kind))
+            await channel.send(text, view=view)
         elif isinstance(prompt, ReactPrompt):
             view = discord.ui.View(timeout=None)
             view.add_item(ReactButton(prompt.hit_id))
@@ -380,30 +414,33 @@ __Opening a campaign__
 `{p}import` *(attach a `.md` or `.txt`)* — read a whole setting document and file its people as NPCs, its places, factions and lore as notes
 `{p}setting <premise>` — the standing premise, ≤600 chars. Shown to the DM every turn
 `{p}scene` — suggest a scene · `{p}scene <location> | <what is true while you are there>` — set one
-`{p}accept [setting|scene]` — take a suggestion Gary has offered
+Gary's suggestions come with an **Accept** button; nothing is written until someone presses it
 `{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
 
 __At the table__
 `{p}new` — make a character (a private form)
-`{p}sheet` — your character's sheet
-`{p}spells` · `{p}bonds` · `{p}companion` — spells, bonds, a Ranger's companion
-`{p}alignment` · `{p}choices` · `{p}gear` — for a character made before these existed
-`{p}levelup` — spend XP on a level, in downtime
+`{p}sheet` — your sheet, with buttons for your spells, bonds, companion, alignment and level-up
 `{p}endsession` — the end-of-session questions and XP
 `{p}fronts` — the GM's threats, shown privately (spoilers)
 `{p}dice` · `{p}dice <character>` — the dice so far, against fair 2d6
 `{p}playing <character name>` — claim a character someone else made
-`{p}checks` · `{p}cancel` — what Gary is waiting on; drop your own
+`{p}checks` — what Gary is waiting on, with a button to cancel your own
 `{p}undo` — reverse the last change to the world
 
 __Looking in__
-`{p}state` — clock, scene, party, and what is stored
+`{p}state` — clock, scene, party, what is stored, and Gary's counters
 `{p}notes` — what has been filed, by subject
-`{p}stats` — messages sent, turns narrated, model failures
 `{p}help` — this list. So does `{bare}` on its own
 
 __Starting over__
 `{p}reset` — **deletes the campaign**, the journal and every channel's memory. Two-step, and the one thing here with no undo."""
+
+
+#: Typed commands that open one of the sheet's buttons -- kept so habits keep working.
+_SHEET_ACTIONS = ("spells", "companion", "bonds", "alignment", "choices", "gear", "levelup")
+#: Answered but not in the help: each is a button now (the sheet's, Accept, Cancel) or a
+#: line of `?dm state`, and the typed form stays only for habit's sake.
+HIDDEN_COMMANDS = frozenset({"accept", "cancel", "stats", *_SHEET_ACTIONS})
 
 
 def render_help(prefix: str) -> str:
@@ -457,7 +494,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton,
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton, AcceptButton,
                                DropButton, FailButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
 
@@ -589,6 +626,43 @@ class GaryClient(discord.Client):
         self._pending_proposals.pop((channel_id, kind), None)
         self._declined_proposals.pop((channel_id, kind), None)
 
+    def _stats_line(self) -> str:
+        """Since Gary started: messages sent, turns narrated, model failures, moves journalled."""
+        s = self.runner.stats
+        return (f"Since start: {s.sent} sent · {s.narrated} narrated · {s.narrator_failures} model "
+                f"failure{'s' if s.narrator_failures != 1 else ''} · {s.outcomes_recorded} moves journalled")
+
+    def _cancel_mine(self, channel_id: int, user_id: int) -> str:
+        """Drop this player's own pending move."""
+        mine = [c for c in self.director.registry.open_checks(channel_id) if c.user_id == user_id]
+        if not mine:
+            return "You have no pending check."
+        self.director.registry.cancel(mine[0].check_id, CancelReason.MANUAL)
+        return f"Cancelled {mine[0].actor}'s {MOVES[mine[0].move].name}."
+
+    def _accept(self, channel_id: int, kinds, who: str) -> List[str]:
+        """Write the suggestions held for these kinds; the confirmations, or [] if none."""
+        taken = [(kind, self._pending_proposals[(channel_id, kind)])
+                 for kind in kinds if (channel_id, kind) in self._pending_proposals]
+        for kind, _ in taken:
+            self._forget_proposals(channel_id, kind)
+        return [self._apply_setting(line, who) if kind == "setting" else self._apply_scene(line, who)
+                for kind, line in taken]
+
+    async def on_accept(self, interaction: "discord.Interaction", kind: str) -> None:
+        """The Accept button on a suggestion."""
+        said = self._accept(interaction.channel_id, [kind], interaction.user.display_name)
+        if not said:
+            await interaction.response.send_message(
+                f"That {kind} is no longer on offer -- a newer one replaced it, or it was taken.", ephemeral=True)
+            return
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            log.warning("could not remove the Accept button")
+        for confirmation in said:
+            await self.sender.send(interaction.channel_id, confirmation)
+
     async def _propose(self, channel_id: int, kind: str) -> bool:
         """Ask the model for a setting or a scene and hold it for the DM to accept.
 
@@ -639,7 +713,8 @@ class GaryClient(discord.Client):
         await self.sender.send(
             channel_id,
             f"Suggested {kind}:\n{preview}\n"
-            f"`{prefix}accept` to take it, {own}. Nothing is written until you do.",
+            f"Accept it below, or {own}. Nothing is written until you do.",
+            prompt=AcceptPrompt(kind),
         )
         return True
 
@@ -840,7 +915,7 @@ class GaryClient(discord.Client):
             await self._offer_spells(channel_id, user_id, name)
         if sheet.get("class") == "Ranger":
             await self.sender.send(channel_id, f"**{name}**, your animal companion awaits: "
-                                               f"`{self.settings.command_prefix}companion`.")
+                                               f"`{self.settings.command_prefix}sheet` has the button.")
         return None
 
     async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
@@ -961,10 +1036,114 @@ class GaryClient(discord.Client):
         line = "⭐ End of session — " + "; ".join(
             f"**{s['name']}** +{gains[s['name']]} ({xp_line(s)})" for s in updated) + "."
         if resolved:
-            line += f" {', '.join(sorted(resolved))}: write a new bond with `{self.settings.command_prefix}bonds`."
+            line += (f" {', '.join(sorted(resolved))}: write a new bond from `{self.settings.command_prefix}sheet` "
+                     "(the Bonds button).")
         if any(int(s["xp"]) >= xp_needed(s) for s in updated):
             line += LEVEL_UP_HINT
         return line
+
+    def _sheet_actions(self, channel_id: int, owner: int, actor: str, sheet: dict, prefix: str) -> dict:
+        """What this character can open from their sheet: name -> (label, emoji, opener), or
+        the reason it does not apply. Each form is built when its button is clicked, from the
+        sheet as it is then."""
+        sheets = self.store.state().get("sheets") or {}
+        out: dict = {}
+
+        async def show(interaction, form, prompt=None):
+            await interaction.response.send_message(prompt or form.prompt(), view=form, ephemeral=True)
+
+        if spells.caster_class(sheet) is None:
+            out["spells"] = f"**{actor}** casts no spells."
+        elif sheet.get("preparing") or spells.needs_setup(sheet):
+            out["spells"] = ("Choose spells", "✨", lambda i: self.on_spells(i, owner))
+        else:
+            out["spells"] = f"**{actor}** — {spells.describe(sheet)}"
+        if sheet.get("class") != "Ranger":
+            out["companion"] = f"Only a Ranger has an animal companion; {actor} is a {sheet.get('class')}."
+        elif sheet.get("companion"):
+            out["companion"] = f"**{actor}** — {companions.describe(sheet)}."
+        else:
+            out["companion"] = ("Choose companion", "🐺", lambda i: show(i, CompanionForm(
+                actor, lambda pet: self._finish_companion(actor, pet, channel_id))))
+        others = sorted(a for a in set(self.director.players.values())
+                        if a != actor and a in sheets and not sheets[a].get("dead"))
+        out["bonds"] = ("Bonds", "🤝", lambda i: show(i, BondsForm(
+            sheets.get(actor, sheet), others, lambda edited: self._finish_bonds(edited, channel_id)))) if others else (
+            "Bonds are with your companions, and nobody else at the table has a character yet.")
+        out["alignment"] = ("Alignment", "⚖️", lambda i: show(i, AlignmentForm(
+            (self.store.state().get("sheets") or {}).get(actor, sheet),
+            lambda chosen: self._finish_alignment(actor, chosen, channel_id))))
+        out["choices"] = ("Class choices", "📜", lambda i: show(i, ChoicesForm(
+            sheet, lambda made: self._finish_choices(actor, made, channel_id)))) if choices.missing(sheet) else (
+            f"**{actor}** — {choices.describe(sheet) or 'nothing to choose'}.")
+        out["gear"] = (f"**{actor}** already has their gear. `{prefix}sheet` shows it." if "gear" in sheet else
+                       ("Choose gear", "🛡️", lambda i: show(i, CharacterCreator(
+                           lambda _i, geared: self._finish_gear(geared, channel_id), sheet=sheet))))
+
+        async def level_up(interaction):
+            busy = self.director.unsettled(channel_id, "level up")
+            if busy:
+                await interaction.response.send_message(f"{busy} Levelling up takes downtime.", ephemeral=True)
+                return
+            current = (self.store.state().get("sheets") or {}).get(actor, sheet)
+            try:
+                form = LevelUpForm(current, lambda levelled: self._finish_level_up(levelled, channel_id))
+            except SheetError as exc:
+                await interaction.response.send_message(str(exc), ephemeral=True)
+                return
+            await show(interaction, form)
+
+        if ready(sheet):
+            out["levelup"] = ("Level up", "⭐", level_up)
+        else:
+            try:
+                LevelUpForm(sheet, lambda _: None)
+            except SheetError as exc:
+                out["levelup"] = str(exc)
+        return out
+
+    async def _sheet_hub(self, message, channel_id: int, prefix: str, only: Optional[str] = None) -> None:
+        """`?dm sheet`: the sheet, with a button for everything this character can open --
+        spells, companion, bonds, alignment, class choices, gear, a level. `?dm spells` and
+        the rest are the same buttons one at a time, kept for habit's sake."""
+        actor = self.director.players.get(message.author.id)
+        sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+        if sheet is None:
+            await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+            return
+        actions = self._sheet_actions(channel_id, message.author.id, actor, sheet, prefix)
+        if only is not None:
+            action = actions[only]
+            busy = self.director.unsettled(channel_id, "level up") if only == "levelup" else ""
+            if busy or isinstance(action, str):
+                await self.sender.send(channel_id, f"{busy} Levelling up takes downtime." if busy else action)
+                return
+            buttons = {only: action}
+            text = (f"**{actor}** — {spells.describe(sheet)}" if only == "spells" else
+                    f"**{actor}** is ready for level {int(sheet.get('level', 1)) + 1}:" if only == "levelup" else
+                    f"**{actor}**:")
+        else:
+            extra = [line for line in (alignment_line(sheet), choices.describe(sheet), carrying_line(sheet),
+                                       spells.describe(sheet), companions.describe(sheet), bonds.describe(sheet),
+                                       hirelings.describe(sheet)) if line]
+            # Bonds and alignment always; the rest only while there is something to do.
+            buttons = {k: a for k, a in actions.items() if not isinstance(a, str)}
+            text = "\n".join([describe(sheet), *extra])
+        owner = message.author.id
+        view = discord.ui.View(timeout=FORM_TIMEOUT_SECONDS)
+        for label, emoji, opener in buttons.values():
+            button = discord.ui.Button(label=label, emoji=emoji, style=discord.ButtonStyle.primary)
+
+            async def clicked(interaction, opener=opener):
+                if interaction.user.id != owner:
+                    await interaction.response.send_message(f"This is {actor}'s sheet. `{prefix}sheet` for yours.",
+                                                            ephemeral=True)
+                    return
+                await opener(interaction)
+
+            button.callback = clicked
+            view.add_item(button)
+        await message.channel.send(text, view=view if buttons else None)
 
     async def _private_button(self, message, text: str, label: str, emoji: str, form, prompt: str) -> None:
         """Post a button only the asker can use, opening ``form`` privately. A typed command
@@ -1053,9 +1232,9 @@ class GaryClient(discord.Client):
         await self.sender.send(channel_id, f"⭐ **{actor}** reaches level {levelled['level']} — "
                                            f"{moves[-1] if moves else ''}. {describe(levelled, with_name=False)}")
         if moves and moves[-1] in spells.FAVOR_MOVES:
-            await self.sender.send(channel_id, f"🙏 **{actor}** is a cleric of level 1 for spells now: name "
-                                               f"your deity with `{self.settings.command_prefix}choices` and choose your spells "
-                                               f"with `{self.settings.command_prefix}spells`.")
+            await self.sender.send(channel_id, f"🙏 **{actor}** is a cleric of level 1 for spells now: "
+                                               f"`{self.settings.command_prefix}sheet` has the buttons to name "
+                                               "your deity and choose your spells.")
         return None
 
     async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:
@@ -1287,15 +1466,9 @@ class GaryClient(discord.Client):
                     f"`{prefix}accept scene` to take just one of them.",
                 )
                 return
-            kinds = [wanted] if wanted else ["setting", "scene"]
-            taken = [
-                (kind, self._pending_proposals[(channel_id, kind)])
-                for kind in kinds
-                if (channel_id, kind) in self._pending_proposals
-            ]
-            for kind, _ in taken:
-                self._forget_proposals(channel_id, kind)
-            if not taken:
+            said = self._accept(channel_id, [wanted] if wanted else ["setting", "scene"],
+                                message.author.display_name)
+            if not said:
                 await self.sender.send(
                     channel_id,
                     f"Nothing to accept — I haven't suggested "
@@ -1304,12 +1477,7 @@ class GaryClient(discord.Client):
                     "no arguments, and I'll offer one.",
                 )
                 return
-            who = message.author.display_name
-            for kind, line in taken:
-                confirmation = (
-                    self._apply_setting(line, who) if kind == "setting"
-                    else self._apply_scene(line, who)
-                )
+            for confirmation in said:
                 await self.sender.send(channel_id, confirmation)
             return
 
@@ -1370,39 +1538,8 @@ class GaryClient(discord.Client):
             )
             return
 
-        if command == "gear":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            if "gear" in sheet:
-                await self.sender.send(
-                    channel_id, f"**{actor}** already has their gear. `{prefix}sheet` shows it."
-                )
-                return
-            view = GearButton(
-                message.author.id, message.author.display_name, sheet,
-                lambda interaction, geared: self._finish_gear(geared, channel_id),
-            )
-            await message.channel.send(f"**{actor}** — choose your gear:", view=view)
-            return
-
-        if command == "sheet":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            extra = [line for line in (alignment_line(sheet), choices.describe(sheet), carrying_line(sheet),
-                                       spells.describe(sheet),
-                                       companions.describe(sheet), bonds.describe(sheet),
-                                       hirelings.describe(sheet)) if line]
-            if not sheet.get("alignment"):
-                extra.append(f"No alignment yet: `{prefix}alignment` chooses one.")
-            if choices.missing(sheet):
-                extra.append(f"Your class's choices aren't made yet: `{prefix}choices`.")
-            await self.sender.send(channel_id, "\n".join([describe(sheet), *extra]))
+        if command == "sheet" or command in _SHEET_ACTIONS:
+            await self._sheet_hub(message, channel_id, prefix, only=None if command == "sheet" else command)
             return
 
         if command == "endsession":
@@ -1448,122 +1585,6 @@ class GaryClient(discord.Client):
             await message.channel.send(f"{len(known)} front(s) in play.", view=view)
             return
 
-        if command == "choices":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            if not choices.missing(sheet):
-                await self.sender.send(channel_id, f"**{actor}** — {choices.describe(sheet) or 'nothing to choose'}.")
-                return
-            form = ChoicesForm(sheet, lambda made: self._finish_choices(actor, made, channel_id))
-            await self._private_button(message, f"**{actor}** — your class's choices:", "Choose",
-                                       "📜", form, form.prompt())
-            return
-
-        if command == "companion":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            if sheet.get("class") != "Ranger":
-                await self.sender.send(channel_id, f"Only a Ranger has an animal companion; {actor} "
-                                                   f"is a {sheet.get('class')}.")
-                return
-            if sheet.get("companion"):
-                await self.sender.send(channel_id, f"**{actor}** — {companions.describe(sheet)}.")
-                return
-            form = CompanionForm(actor, lambda pet: self._finish_companion(actor, pet, channel_id))
-            await self._private_button(message, f"**{actor}** — your animal companion:", "Choose companion",
-                                       "🐺", form, form.prompt())
-            return
-
-        if command == "alignment":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            form = AlignmentForm(sheet, lambda chosen: self._finish_alignment(actor, chosen, channel_id))
-            await self._private_button(message, f"**{actor}** — your alignment:", "Choose alignment",
-                                       "⚖️", form, form.prompt())
-            return
-
-        if command == "bonds":
-            actor = self.director.players.get(message.author.id)
-            sheets = self.store.state().get("sheets") or {}
-            sheet = sheets.get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            others = sorted(a for a in set(self.director.players.values())
-                            if a != actor and a in sheets and not sheets[a].get("dead"))
-            if not others:
-                await self.sender.send(channel_id, "Bonds are with your companions, and nobody else at "
-                                                   "the table has a character yet.")
-                return
-            form = BondsForm(sheet, others, lambda edited: self._finish_bonds(edited, channel_id))
-            view = discord.ui.View(timeout=form.timeout)
-            button = discord.ui.Button(label="Write bonds", emoji="🤝", style=discord.ButtonStyle.primary)
-            owner = message.author.id
-
-            async def open_form(interaction: "discord.Interaction") -> None:
-                if interaction.user.id != owner:
-                    await interaction.response.send_message(f"These are {actor}'s.", ephemeral=True)
-                    return
-                await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
-
-            button.callback = open_form
-            view.add_item(button)
-            await message.channel.send(f"**{actor}** — your bonds:", view=view)
-            return
-
-        if command == "levelup":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            busy = self.director.unsettled(channel_id, "level up")
-            if busy:
-                await self.sender.send(channel_id, f"{busy} Levelling up takes downtime.")
-                return
-            try:
-                form = LevelUpForm(sheet, lambda levelled: self._finish_level_up(levelled, channel_id))
-            except SheetError as exc:
-                await self.sender.send(channel_id, str(exc))
-                return
-            view = discord.ui.View(timeout=form.timeout)
-            button = discord.ui.Button(label="Level up", emoji="⭐", style=discord.ButtonStyle.primary)
-            owner = message.author.id
-
-            async def open_form(interaction: "discord.Interaction") -> None:
-                if interaction.user.id != owner:
-                    await interaction.response.send_message(f"This one is {actor}'s.", ephemeral=True)
-                    return
-                await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
-
-            button.callback = open_form
-            view.add_item(button)
-            await message.channel.send(f"**{actor}** is ready for level {form.advance.level}:", view=view)
-            return
-
-        if command == "spells":
-            actor = self.director.players.get(message.author.id)
-            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
-            if sheet is None:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
-                return
-            if spells.caster_class(sheet) is None:
-                await self.sender.send(channel_id, f"**{actor}** casts no spells.")
-                return
-            await self.sender.send(channel_id, f"**{actor}** — {spells.describe(sheet)}")
-            if sheet.get("preparing") or spells.needs_setup(sheet):
-                await self._offer_spells(channel_id, message.author.id, actor)
-            return
-
         if command == "playing":
             actor = body[len("playing"):].strip()
             if not actor:
@@ -1595,18 +1616,7 @@ class GaryClient(discord.Client):
                 )
 
         elif command == "cancel":
-            mine = [
-                c
-                for c in self.director.registry.open_checks(channel_id)
-                if c.user_id == message.author.id
-            ]
-            if not mine:
-                await self.sender.send(channel_id, "You have no pending check.")
-            else:
-                self.director.registry.cancel(mine[0].check_id, CancelReason.MANUAL)
-                await self.sender.send(
-                    channel_id, f"Cancelled {mine[0].actor}'s {MOVES[mine[0].move].name}."
-                )
+            await self.sender.send(channel_id, self._cancel_mine(channel_id, message.author.id))
 
         elif command == "checks":
             open_checks = list(self.director.registry.open_checks(channel_id))
@@ -1620,7 +1630,24 @@ class GaryClient(discord.Client):
                     + f" ({max(0, int(c.expires_at - now))}s left)"
                     for c in open_checks
                 ]
-                await self.sender.send(channel_id, "\n".join(lines))
+                owner = message.author.id
+                if not any(c.user_id == owner for c in open_checks):
+                    await self.sender.send(channel_id, "\n".join(lines))
+                else:
+                    view = discord.ui.View(timeout=FORM_TIMEOUT_SECONDS)
+                    button = discord.ui.Button(label="Cancel my move", emoji="✖️", style=discord.ButtonStyle.danger)
+
+                    async def cancel(interaction: "discord.Interaction") -> None:
+                        if interaction.user.id != owner:
+                            await interaction.response.send_message("That button cancels the asker's own move.",
+                                                                    ephemeral=True)
+                            return
+                        await interaction.response.edit_message(view=None)
+                        await self.sender.send(channel_id, self._cancel_mine(channel_id, owner))
+
+                    button.callback = cancel
+                    view.add_item(button)
+                    await message.channel.send("\n".join(lines), view=view)
 
         elif command == "state":
             from ..context import render_live_state
@@ -1640,6 +1667,7 @@ class GaryClient(discord.Client):
                     "retrieved when their subject is mentioned rather than shown every "
                     f"turn, so they are not in the block above. `{prefix}notes` lists them."
                 )
+            body += "\n" + self._stats_line()
             await self.sender.send(channel_id, body)
 
         elif command == "notes":
@@ -1663,14 +1691,8 @@ class GaryClient(discord.Client):
                 else f"Nothing filed yet. `{prefix}import` a setting file, or just tell me.",
             )
 
-        elif command == "stats":
-            s = self.runner.stats
-            await self.sender.send(
-                channel_id,
-                f"sent={s.sent} narrated={s.narrated} "
-                f"narrator_failures={s.narrator_failures} "
-                f"outcomes_recorded={s.outcomes_recorded}",
-            )
+        elif command == "stats":  # now the last line of ?dm state; kept for habit's sake
+            await self.sender.send(channel_id, self._stats_line())
 
         elif command == "help":
             await self.sender.send(channel_id, render_help(prefix))

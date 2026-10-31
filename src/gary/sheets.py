@@ -432,7 +432,7 @@ def alignment_line(sheet: Dict[str, Any]) -> str:
 
 
 #: Said once, when XP first reaches the mark.
-LEVEL_UP_HINT = " Run `?dm levelup` when there's downtime."
+LEVEL_UP_HINT = " When there's downtime, `?dm sheet` has the Level up button."
 
 
 def xp_line(sheet: Dict[str, Any]) -> str:

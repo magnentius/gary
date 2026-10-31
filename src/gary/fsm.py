@@ -829,7 +829,7 @@ class Director:
                 why = f"{actor} does not have {known.name} prepared."
             else:
                 why = f"{actor} has no spell called {name!r}."
-            setup = " They have not chosen spells yet: tell them `?dm spells`." \
+            setup = " They have not chosen spells yet: tell them `?dm sheet` has the Choose spells button." \
                 if spells.needs_setup(sheet) else ""
             return [self._refuse(
                 channel_id, f"{why} They can cast: {listing}.{setup}",

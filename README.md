@@ -256,8 +256,8 @@ the document is about:
 Suggested setting:
 > Siltgard, a drowned fen county under a dyke-lord whose sea walls are failing.
   Salt, conscription and slow retreat; low magic, wet, feudal.
-`?dm accept` to take it, `?dm setting <premise>` to write your own.
-Nothing is written until you do.
+Accept it below, or `?dm setting <premise>` to write your own.
+Nothing is written until you do.                                  [✅ Accept this setting]
 ```
 
 `?dm scene` with **no arguments** does the same for a scene, at any point in the campaign,
@@ -270,18 +270,13 @@ from where the story actually is:
 Suggested scene:
 > **The Eel-Runs, Siltgard** — Fever-mist off the ditches, tide sounding against the
   timbered wall. Two dyke-wardens watching the road.
-`?dm accept` to take it, `?dm scene <location> | <standing state>` to write your own.
+Accept it below, or `?dm scene <location> | <standing state>` to write your own.
+                                                                    [✅ Accept this scene]
 ```
 
-Then:
-
-```
-?dm accept
-```
-
-Both are suggestions and neither is written until you accept. `?dm accept setting` /
-`?dm accept scene` takes one when both are waiting; typing your own `?dm setting` or
-`?dm scene` discards the suggestion it overrules; ignoring it does nothing.
+Both are suggestions and neither is written until someone presses **Accept** (typing
+`?dm accept` works too). Typing your own `?dm setting` or `?dm scene` discards the
+suggestion it overrules; ignoring it does nothing.
 
 **Don't like it? Ask again.** Running `?dm scene` a second time is itself a rejection —
 Gary is told what it already offered and asked for a different place or a different
@@ -345,10 +340,10 @@ The sheet tracks what rolls need — class, race, stats, HP, damage, armor, leve
 gear. Gear does real work: your best armor plus a shield is your armor; a weapon's +damage
 and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
 and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
-spends ammo. A character made before gear existed runs `?dm gear` once to pick theirs.
+spends ammo. A character made before gear existed gets a **Choose gear** button on `?dm sheet`.
 **Alignment.** `?dm new` asks for one from your class's list, each with what fulfils it
-("Good: endanger yourself to heal another"); a character made before that runs
-`?dm alignment`. The GM sees it.
+("Good: endanger yourself to heal another"); the **Alignment** button on `?dm sheet` changes it
+whenever your view of the world shifts. The GM sees it.
 
 **Debilities.** When the fiction weakens you — a numbing claw, a sickening poison, a blow to
 the head — the GM gives a debility: Weak, Shaky, Sick, Stunned, Confused or Scarred, each
@@ -432,10 +427,10 @@ nothing. No answer spends nothing. Hold runs out, or ends when you make camp.
 and picks a domain and precept, a Druid their land and tell, a Bard their lore, a Thief
 their poison (three uses to start), a Fighter their weapon's look — and an Elf Fighter a
 weapon type that is always precise, so it hacks and slashes with Dex. A character made
-before runs `?dm choices`. The GM sees them all; a Thief's poison is spent with each use
+before gets a **Class choices** button on `?dm sheet`. The GM sees them all; a Thief's poison is spent with each use
 and brewed three at a time somewhere quiet.
 
-**Animal Companion.** A Ranger runs `?dm companion` (Gary reminds them after `?dm new`): a
+**Animal Companion.** A Ranger presses **Choose companion** on `?dm sheet` (Gary reminds them after `?dm new`): a
 private form for species, base, strengths, trainings and weaknesses — as many as its
 numbers say — and a name. When you work with it ("Fang and I go for the goblin"), the GM
 flags the move and Gary checks the training and applies Command: +ferocity to damage and
@@ -450,7 +445,7 @@ and shows on your sheet ("in the shape of a bear (hold 2: maul, roar)"); each us
 hold with no roll, and at 0 you turn back. You can turn back early. Which species you
 know (your land, Studied Essence) is the GM's to judge — your land isn't recorded yet.
 
-**Bonds.** Once there's another character at the table, run `?dm bonds`: a private form
+**Bonds.** Once there's another character at the table, press **Bonds** on `?dm sheet`: a private form
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
 the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
 Aid or Interfere names who you help or hinder and rolls +Bond — the number of bonds you
@@ -459,8 +454,8 @@ have with them. `?dm sheet` shows your bonds, and the GM sees them.
 **Spells.** A new Cleric or Wizard gets a **Choose spells** button after joining: a Wizard
 fills their spellbook (three first-level spells), a Human picks one spell from the other
 class's list, and both choose what they hold — total levels up to level + 1. Rotes and
-cantrips come free. A caster made before spells existed runs `?dm spells` for the same
-button; `?dm spells` and `?dm sheet` show what you hold, what's lost and what's running.
+cantrips come free. A caster made before spells existed gets the same button on `?dm sheet`,
+which also shows what you hold, what's lost and what's running.
 New spells come only with an undisturbed hour in the story — say your character prays or
 studies, and the GM calls Commune or Prepare Spells (refused mid-fight, like camp), which
 clears your spells and posts the button again. Casting is a move: +Wis for a Cleric, +Int
@@ -478,10 +473,10 @@ something important, overcame a notable enemy, looted a memorable treasure), and
 player ticks whether their own character acted on their alignment (only they can). A
 player can also **Resolve a bond**: pick it privately, and the companion it names gets an
 Agree button only their player can press. Award XP gives everyone 1 XP per yes, plus 1 for
-alignment and 1 for a resolved bond — which is cleared, so write a new one with `?dm bonds`. `?dm sheet` shows XP against what you need
+alignment and 1 for a resolved bond — which is cleared, so write a new one from `?dm sheet`. `?dm sheet` shows XP against what you need
 (level + 7).
 
-**Level Up.** With enough XP, run `?dm levelup` — refused while creatures stand or a move is
+**Level Up.** With enough XP, `?dm sheet` shows a **Level up** button — refused while creatures stand or a move is
 pending, because levelling takes downtime. A private form asks for a stat to raise (18 at
 most; Constitution raises HP too), an advanced move from your class's list (the 6–10 list
 opens at level 6; "Requires" and "Replaces" are honoured), and for a Wizard a spell for the
@@ -493,8 +488,8 @@ moves, your level counting as one lower; the move is yours from then on — show
 counted where Gary applies it, and if Gary rolls it (Backstab, Called Shot) you can make it.
 Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
 Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
-1 for spells, one level higher with each level after. Name your deity with `?dm choices`,
-choose spells with `?dm spells`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
+1 for spells, one level higher with each level after. Name your deity and choose spells from
+the buttons on `?dm sheet`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
 
 ### Talk to Gary
 
@@ -652,7 +647,7 @@ If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is n
 hesitation or the moment passing — never as a success. If you rolled but never chose or
 never rolled damage, the dice stand: Gary takes the first option(s), rolls the damage for
 you, and says so. `?dm checks` shows what Gary is
-waiting on; `?dm cancel` drops your own.
+waiting on, with a button to cancel your own.
 
 ### What is not built yet
 
@@ -796,7 +791,7 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 1. **Make the characters again.** Everyone runs `?dm new`.
    The roster went with everything else. *(If `GARY_PLAYERS` is set, restarting Gary
    restores it instead — that is the one piece of setup an env var can hand back.)*
-2. **`?dm import`** the new setting document, and `?dm accept` the premise Gary proposes
+2. **`?dm import`** the new setting document, and **Accept** the premise Gary proposes
    from it.
 3. **`?dm scene`** and **`?dm time`** before the first turn, for the reasons in
    [step 5](#5-open-the-campaign) — an empty setting and a midnight clock are exactly the
@@ -819,8 +814,7 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | `?dm setting <premise>` | Set it. ≤600 chars, shown to the model every turn. |
 | `?dm scene` | **Suggest** a scene from the campaign so far. Nothing is written. |
 | `?dm scene <location> \| <standing state>` | Set it. The summary is re-read every turn. |
-| `?dm accept` | Take whatever Gary has suggested here. |
-| `?dm accept setting` / `?dm accept scene` | Take one when both are waiting. |
+| **Accept** button | On each setting or scene Gary suggests: takes it. (`?dm accept` still works.) |
 | `?dm time` | Show the world clock. |
 | `?dm time 18:30` | Later today. |
 | `?dm time 4 Harvest Moon 1026 06:00` | A date. Also accepts `1026-09-04 06:00` and `day 2 06:00`. Forward only. |
@@ -830,28 +824,19 @@ not recognise. The prefix is configurable (`GARY_COMMAND_PREFIX`); it may not st
 | Command | What it does |
 |---|---|
 | `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
-| `?dm sheet` | Your character's sheet. |
-| `?dm gear` | Choose starting gear for a character made before gear existed. |
-| `?dm spells` | A Cleric's or Wizard's spells, and the Choose spells button the first time. |
-| `?dm choices` | Your class's creation choices, for a character made before them. |
+| `?dm sheet` | Your character's sheet, with a private button for everything you can open: **Bonds**, **Alignment**, and whenever they apply **Choose spells**, **Choose companion** (Ranger), **Level up** (with the XP), **Class choices** and **Choose gear** (for a character made before those existed). The old `?dm spells`, `bonds`, `companion`, `alignment`, `choices`, `gear` and `levelup` still work, each posting its one button. |
 | `?dm fronts` | The threats the GM is tracking, shown privately to whoever clicks (spoilers). |
-| `?dm companion` | A Ranger's animal companion: a private form, or shows the one you have. |
-| `?dm alignment` | Choose your alignment, for a character made before alignments existed. |
-| `?dm bonds` | Write your bonds with the other characters: a private form with your class's lines. |
-| `?dm levelup` | Spend XP on a level in downtime: a private form for a stat, an advanced move and (Wizards) a spell. |
 | `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
-| `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left. |
-| `?dm cancel` | Drop **your own** pending check. Each player cancels their own. |
+| `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left — with a **Cancel my move** button if one of them is yours. (`?dm cancel` still works.) |
 | `?dm undo` | Reverse the last change to the world. |
 
 ### Looking in
 
 | Command | What it does |
 |---|---|
-| `?dm state` | Clock, scene, party, and counts of what is stored. |
+| `?dm state` | Clock, scene, party, counts of what is stored, and Gary's counters since it started (messages sent, turns narrated, model failures, moves journalled — what `?dm stats` showed). |
 | `?dm notes` | What has been filed, by subject, plus the people. These are the words that retrieve them. |
-| `?dm stats` | Messages sent, turns narrated, narrator failures, outcomes recorded. |
 | `?dm help` | This reference. |
 
 ### Starting over

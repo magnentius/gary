@@ -38,25 +38,6 @@ FORM_TIMEOUT_SECONDS = 15 * 60
 Finish = Callable[["discord.Interaction", dict], Awaitable[Optional[str]]]
 
 
-class GearButton(discord.ui.View):
-    """`?dm gear`: the public button that opens the gear form for an existing character.
-    Like StartButton, only its owner can use it."""
-
-    def __init__(self, owner_id: int, owner_name: str, sheet: dict, finish: Finish) -> None:
-        super().__init__(timeout=FORM_TIMEOUT_SECONDS)
-        self.owner_id, self.owner_name, self.sheet, self.finish = owner_id, owner_name, sheet, finish
-
-    @discord.ui.button(label="Choose gear", emoji="🛡️", style=discord.ButtonStyle.primary)
-    async def start(self, interaction: "discord.Interaction", _button) -> None:
-        if interaction.user.id != self.owner_id:
-            await interaction.response.send_message(
-                f"This one is {self.owner_name}'s. `?dm gear` for your own.", ephemeral=True
-            )
-            return
-        form = CharacterCreator(self.finish, sheet=self.sheet)
-        await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
-
-
 class StartButton(discord.ui.View):
     """The public button `?dm new` posts. Only the person who asked can use it.
 

@@ -408,10 +408,13 @@ class _Runner:
     that reads the wrong attribute name is a guard that never fires."""
 
     def __init__(self, narrator, answer=""):
+        from gary.adapters.runner import RunnerStats
+
         self._narrator = narrator
         self.effects = []
         self.asked = []
         self._answer = answer
+        self.stats = RunnerStats()
 
     async def run(self, effects):
         self.effects.extend(effects)
@@ -425,7 +428,7 @@ def _import_client(narrator, sent, state=None, answer=""):
     from gary.adapters.discord_bot import GaryClient
 
     class _Sender:
-        async def send(self, channel_id, text):
+        async def send(self, channel_id, text, prompt=None):
             sent.append(text)
 
     class _Settings:
@@ -451,6 +454,9 @@ def _import_client(narrator, sent, state=None, answer=""):
         _has_model = GaryClient._has_model
         _propose = GaryClient._propose
         _forget_proposals = GaryClient._forget_proposals
+        _accept = GaryClient._accept
+        _cancel_mine = GaryClient._cancel_mine
+        _stats_line = GaryClient._stats_line
         MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
         MAX_IMPORT_BYTES = GaryClient.MAX_IMPORT_BYTES
         IMPORT_CHUNK_CHARS = GaryClient.IMPORT_CHUNK_CHARS
@@ -540,7 +546,7 @@ def _dm_client(state, sent, narrator=None, answer=""):
     from gary.adapters.discord_bot import GaryClient
 
     class _Sender:
-        async def send(self, channel_id, text):
+        async def send(self, channel_id, text, prompt=None):
             sent.append(text)
 
     class _Settings:
@@ -558,6 +564,9 @@ def _dm_client(state, sent, narrator=None, answer=""):
     class _Channel:
         id = 7
 
+        async def send(self, text, view=None):
+            sent.append(text)
+
     class _Author:
         display_name = "John"
         id = 11
@@ -566,12 +575,17 @@ def _dm_client(state, sent, narrator=None, answer=""):
         settings = _Settings()
         sender = _Sender()
         store = _Store()
+        _sheet_hub = GaryClient._sheet_hub
+        _sheet_actions = GaryClient._sheet_actions
         runner = _Runner(narrator or EchoNarrator(), answer)
         _pending_proposals = {}
         _declined_proposals = {}
         _has_model = GaryClient._has_model
         _propose = GaryClient._propose
         _forget_proposals = GaryClient._forget_proposals
+        _accept = GaryClient._accept
+        _cancel_mine = GaryClient._cancel_mine
+        _stats_line = GaryClient._stats_line
         MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
         _apply_setting = GaryClient._apply_setting
         _apply_scene = GaryClient._apply_scene
@@ -628,6 +642,7 @@ def test_dm_state_stays_quiet_when_nothing_is_stored():
     Msg, dispatch, _ = _dm_client(state, sent)
     asyncio.run(dispatch(Msg("?dm state")))
     assert "Also stored" not in " ".join(sent)
+    assert sent[-1].endswith("Since start: 0 sent · 0 narrated · 0 model failures · 0 moves journalled")
 
 
 def test_dm_notes_lists_subjects_a_player_would_say():
@@ -678,7 +693,7 @@ def test_import_proposes_a_premise_it_could_not_have_filed():
     assert client._pending_proposals[(7, "setting")] == "The Fen Marches, drowned and feudal."
     # Proposed, not written: the store saw nothing.
     assert client.store.applied == []
-    assert "?dm accept" in " ".join(sent)
+    assert "Accept it below" in " ".join(sent)
 
 
 def test_import_leaves_an_established_premise_alone():
@@ -813,14 +828,17 @@ def test_dm_help_covers_every_command_the_dispatcher_answers():
     looking for a command that was renamed. Pin it to the branches themselves."""
     import re
 
-    from gary.adapters.discord_bot import GaryClient, render_help
+    from gary.adapters.discord_bot import HIDDEN_COMMANDS, GaryClient, _SHEET_ACTIONS, render_help
 
     source = inspect.getsource(GaryClient._on_dm_command)
-    answered = set(re.findall(r'command == "(\w+)"', source))
+    answered = set(re.findall(r'command == "(\w+)"', source)) | set(_SHEET_ACTIONS)
     assert len(answered) > 10, "the regex stopped matching the dispatcher"
     text = render_help("?dm ")
-    missing = {c for c in answered if f"?dm {c}" not in text} - {"help"}
+    missing = {c for c in answered if f"?dm {c}" not in text} - {"help"} - HIDDEN_COMMANDS
     assert not missing, missing
+    # A hidden shortcut is still answered, and really is out of the list.
+    assert HIDDEN_COMMANDS <= answered
+    assert not {c for c in HIDDEN_COMMANDS if f"?dm {c}`" in text}
 
 
 def test_dm_help_is_one_discord_message():
@@ -1020,18 +1038,13 @@ _THORIN = {"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 1, "hp
 def test_dm_spells_shows_them_and_offers_the_choice_to_a_caster_who_never_chose():
     import asyncio
 
-    sent, offered = [], []
+    sent = []
     Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": {"Thorin": dict(_THORIN)}}, sent)
-    client.director = type("D", (), {"players": {11: "Thorin"}})()
-
-    async def offer(channel_id, user_id, actor):
-        offered.append((user_id, actor))
-
-    client._offer_spells = offer
+    client.director = type("D", (), {"players": {11: "Thorin"}, "unsettled": lambda self, c, d: ""})()
     asyncio.run(dispatch(Msg("?dm spells")))
+    # The spells, with the Choose spells button under them (it opens the picker on click).
     assert sent == ["**Thorin** — Spells — Granted: none · rotes: Light, Sanctify, Guidance, "
                     "Words of the Unspeaking (stone)."]
-    assert offered == [(11, "Thorin")]
 
 
 def test_choosing_spells_is_the_owners_and_saves_once():
@@ -1054,7 +1067,7 @@ def test_choosing_spells_is_the_owners_and_saves_once():
             return type("Diff", (), {"ok": True, "rejected": ()})()
 
     class _Sender:
-        async def send(self, channel_id, text):
+        async def send(self, channel_id, text, prompt=None):
             sent.append(text)
 
     class _Client:
@@ -1200,7 +1213,7 @@ def test_a_level_is_saved_once():
             return type("Diff", (), {"ok": True, "rejected": ()})()
 
     class _Sender:
-        async def send(self, channel_id, text):
+        async def send(self, channel_id, text, prompt=None):
             sent.append(text)
 
     class _Client:
@@ -1226,7 +1239,7 @@ def test_dm_bonds_needs_a_companion():
 
     sent = []
     Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": {"Thorin": dict(_THORIN)}}, sent)
-    client.director = type("D", (), {"players": {11: "Thorin"}})()
+    client.director = type("D", (), {"players": {11: "Thorin"}, "unsettled": lambda self, c, d: ""})()
     asyncio.run(dispatch(Msg("?dm bonds")))
     assert "nobody else at the table has a character yet" in sent[-1]
 
@@ -1249,7 +1262,7 @@ def test_saving_bonds_keeps_everything_else_as_it_is_now():
             return type("Diff", (), {"ok": True, "rejected": ()})()
 
     class _Sender:
-        async def send(self, channel_id, text):
+        async def send(self, channel_id, text, prompt=None):
             sent.append(text)
 
     class _Client:
@@ -1328,5 +1341,32 @@ def test_a_resolved_bond_needs_the_companion_and_is_worth_xp():
     end = GaryClient._end_session.__get__(_Client(), _Client)
     said = asyncio.run(end(1, set(), {"Thorin": bond["line"]}))
     assert said == ("⭐ End of session — **Eva** +1 (1/8 XP); **Thorin** +2 (2/8 XP). "
-                    "Thorin: write a new bond with `?dm bonds`.")
+                    "Thorin: write a new bond from `?dm sheet` (the Bonds button).")
     assert sheets["Thorin"]["bonds"] == []
+
+
+def test_dm_checks_offers_the_asker_a_cancel_button_for_their_own_move():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    sent = []
+    Msg, dispatch, client = _dm_client({**_seeded_state(), "sheets": {}}, sent)
+    check = type("C", (), {"user_id": 11, "actor": "Thorin", "move": "spout_lore", "rolled": False,
+                           "expires_at": 100.0, "check_id": "X"})()
+    cancelled = []
+    registry = type("R", (), {"open_checks": lambda self, c=None: [check],
+                              "cancel": lambda self, cid, reason=None: cancelled.append(cid)})()
+    client.director = type("D", (), {"registry": registry, "players": {}})()
+    client.clock = lambda: 40.0
+    posted = []
+
+    async def post(text, view=None):
+        posted.append((text, view))
+
+    Msg.channel.send = staticmethod(post)
+    asyncio.run(dispatch(Msg("?dm checks")))
+    ((text, view),) = posted
+    assert text == "- **Thorin** Spout Lore — waiting on the roll (60s left)"
+    assert [b.label for b in view.children] == ["Cancel my move"]
+    assert GaryClient._cancel_mine(client, 7, 11) == "Cancelled Thorin's Spout Lore." and cancelled == ["X"]
