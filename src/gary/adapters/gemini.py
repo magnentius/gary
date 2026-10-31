@@ -460,6 +460,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.LEAD_THE_CHARGE:
+                charge_effects, result = self._director.lead_the_charge(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    led=[str(x) for x in args.get("led") or []])
+                effects.extend(charge_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.ONGOING:
                 ongoing_effects, result = self._director.give_ongoing(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -613,6 +621,7 @@ class GeminiNarrator:
             preparation=bool(args.get("preparation")),
             aide=str(args.get("aide", "") or ""),
             race_move=bool(args.get("race_move")),
+            ally=str(args.get("ally", "") or ""),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:

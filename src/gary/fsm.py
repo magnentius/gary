@@ -343,6 +343,7 @@ class Director:
         preparation: bool = False,
         aide: str = "",
         race_move: bool = False,
+        ally: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -617,6 +618,19 @@ class Director:
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
               else f" into a {target}" if rules.names_form else f" {target}" if rules.defends
               else f" at {target}") if target else ""
+        striker = ""
+        if ally:
+            # Setup Strike, Tandem Strike: "When you hack and slash, choose an ally."
+            mover = self._sheet_or_empty(actor)
+            who = self._character(ally)
+            if rules.key != "hack_and_slash" or not (advanced.has(mover, "Setup Strike")
+                                                     or advanced.has(mover, "Tandem Strike")):
+                return [self._refuse(channel_id, f"{actor} has no move that sets up an ally's strike.",
+                                     "Re-issue make_move without ally.")]
+            if who is None or normalize_actor(who) == normalize_actor(actor):
+                return [self._refuse(channel_id, f"{ally!r} is not another character at the table.",
+                                     "Name the ally by their character name.")]
+            striker = who
         staked = ""
         if rules.key == "counterspell":
             # "...stake one of your prepared spells on the defense": named as spell.
@@ -632,13 +646,13 @@ class Director:
         return [*spend, *self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                                     ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
                                     notes, spell=staked, companion=pet, overloaded=burden == "overloaded",
-                                    aide=helper)]
+                                    aide=helper, ally=striker)]
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
         stakes: str, target: str, ttl_seconds: Optional[float], what: str,
         notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
-        aide: str = "",
+        aide: str = "", ally: str = "",
     ) -> List[Effect]:
         """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
@@ -654,6 +668,7 @@ class Director:
             spell=spell,
             companion=companion,
             aide=aide,
+            ally=ally,
             ttl_seconds=ttl_seconds,
         )
 
@@ -969,6 +984,107 @@ class Director:
                 UpdateSheet(channel_id, actor, {"forwards": [*(sheet.get("forwards") or []), entry]})]
 
     def _forwards_from(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """What a resolved move leaves behind for later: the book's forwards, and what
+        a Hack and Slash sets up (armor forward, a marked foe, an ally's strike)."""
+        return [*self._book_forwards(channel_id, check, dice), *self._after_hack(channel_id, check),
+                *self._invigorate(channel_id, check, dice)]
+
+    def _after_hack(self, channel_id: int, check: PendingCheck) -> List[Effect]:
+        """"When you hack and slash..." -- whatever the result."""
+        if check.move != "hack_and_slash":
+            return []
+        sheet = self._sheet_or_empty(check.actor)
+        effects: List[Effect] = []
+        parry = 2 if advanced.has(sheet, "Duelist\u2019s Block") else 1 if advanced.has(sheet, "Duelist\u2019s Parry") else 0
+        if parry:
+            effects += self._armor_forward(channel_id, check.actor, parry, "Duelist's " + ("Block" if parry == 2 else "Parry"))
+        blood = "1d8" if advanced.has(sheet, "Taste of Blood") else "1d4" if advanced.has(sheet, "Scent of Blood") else ""
+        if blood and check.target:
+            # "...your next attack against that same foe deals +1d4 damage."
+            why = "Taste of Blood" if blood == "1d8" else "Scent of Blood"
+            effects += self._mark(channel_id, check.actor, check.target, blood, why)
+        if check.ally and check.target:
+            tandem = advanced.has(sheet, "Tandem Strike")
+            why = "Tandem Strike" if tandem else "Setup Strike"
+            effects += self._mark(channel_id, check.ally, check.target, "1d4", f"{check.actor}'s {why}")
+            if tandem:
+                effects += self._grant(channel_id, check.ally, f"against {check.target} ({check.actor}'s Tandem Strike)")
+        return effects
+
+    def _mark(self, channel_id: int, actor: str, target: str, dice: str, why: str) -> List[Effect]:
+        """A bonus waiting on this character's next attack against one foe."""
+        sheet = self._sheet_or_empty(actor)
+        if not sheet:
+            return []
+        kept = [m for m in sheet.get("marks") or () if not (m["target"] == target and m["reason"] == why)]
+        return [SendMessage(channel_id, f"🎯 **{actor}**'s next attack on {target}: +{dice} damage ({why})."),
+                UpdateSheet(channel_id, actor, {"marks": [*kept, {"target": target, "damage": dice, "reason": why}]})]
+
+    def _use_marks(self, channel_id: int, actor: str, target: str, total: int,
+                   shown: str) -> Tuple[int, str, List[Effect]]:
+        """Spend the bonuses waiting on an attack against ``target``."""
+        sheet = self._sheet_or_empty(actor)
+        marks = sheet.get("marks") or []
+        hit = [m for m in marks if normalize_actor(m["target"]) == normalize_actor(target or "")]
+        for m in hit:
+            extra = self.dice.roll(m["damage"]).total
+            total, shown = total + extra, f"{shown}, +{m['damage']} {m['reason']}: {extra} = {total + extra}"
+        if not hit:
+            return total, shown, []
+        return total, shown, [UpdateSheet(channel_id, actor, {"marks": [m for m in marks if m not in hit]})]
+
+    def _armor_forward(self, channel_id: int, actor: str, amount: int, why: str) -> List[Effect]:
+        """"Take +1 armor forward": more armor against the next blow that lands on them."""
+        sheet = self._sheet_or_empty(actor)
+        if not sheet:
+            return []
+        return [SendMessage(channel_id, f"🛡️ **{actor}** takes +{amount} armor forward — {why}."),
+                UpdateSheet(channel_id, actor, {"armor_forward": [*(sheet.get("armor_forward") or []),
+                                                                   {"amount": amount, "reason": why}]})]
+
+    def _invigorate(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Invigorate: "When you heal someone they take +2 forward to their damage"."""
+        if band(dice) == "miss" or not check.target:
+            return []
+        healer = self._sheet_or_empty(check.actor)
+        if not advanced.has(healer, "Invigorate"):
+            return []
+        rules = MOVES[check.move].band(band(dice))
+        picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
+        spell = self._spell_of(check) if rules.casts else None
+        heals = rules.heals or any(o.heals for o in picked) or (spell is not None and spell.heals)
+        patient = self._character(check.target)
+        if not heals or patient is None or normalize_actor(patient) == normalize_actor(check.actor):
+            return []
+        return self._grant(channel_id, patient, f"{check.actor}'s Invigorate", damage="2")
+
+    def lead_the_charge(
+        self, *, channel_id: int, character: str, led: Sequence[str]
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Charge!: "When you lead the charge into combat, those you lead take +1 forward."
+        Ever Onward adds "+2 armor forward"."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        onward = advanced.has(sheet, "Ever Onward")
+        if not onward and not advanced.has(sheet, "Charge!"):
+            return [], {"ok": False, "error": f"{actor} has neither Charge! nor Ever Onward."}
+        effects: List[Effect] = []
+        followers = []
+        for who in led or ():
+            name = self._character(who)
+            if name is None or normalize_actor(name) == normalize_actor(actor):
+                return [], {"ok": False, "error": f"{who!r} is not another character at the table."}
+            followers.append(name)
+            effects += self._grant(channel_id, name, f"following {actor}'s charge")
+            if onward:
+                effects += self._armor_forward(channel_id, name, 2, f"following {actor}'s charge (Ever Onward)")
+        if not followers:
+            return [], {"ok": False, "error": "Name who follows the charge (led)."}
+        return effects, {"ok": True, "led": followers}
+
+    def _book_forwards(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """The forwards a move's result grants, as the book writes them."""
         b = band(dice)
         rules = MOVES[check.move].band(b)
@@ -996,7 +1112,9 @@ class Director:
         if check.move == "backstab" and any(t.startswith("You create an advantage") for t in picked):
             return self._grant(channel_id, actor, "acting on the advantage Backstab made")
         if check.move == "arcane_art" and any(t.startswith("+1d4 forward") for t in picked):
-            return self._grant(channel_id, check.target or actor, "Arcane Art", damage="1d4")
+            # Vicious Cacophony: "an extra +1d4"; Vicious Blast: "an extra +2d4".
+            dice = "3d4" if advanced.has(mover, "Vicious Blast") else "2d4" if advanced.has(mover, "Vicious Cacophony") else "1d4"
+            return self._grant(channel_id, check.target or actor, "Arcane Art", damage=dice)
         return []
 
     def _blessed(self, actor: str) -> bool:
@@ -1537,10 +1655,13 @@ class Director:
                 extra = self.dice.roll(dice_spec).total
                 total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
             total, shown = self._sworn_damage(sheet or {}, check.target, total, shown)
+            total, shown, spent_marks = self._use_marks(channel_id, check.actor, check.target, total, shown)
+            effects.extend(spent_marks)
             # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
             for boost in boosts:
-                extra = self.dice.roll(boost["damage"]).total
+                extra = (int(boost["damage"]) if str(boost["damage"]).isdigit()
+                         else self.dice.roll(boost["damage"]).total)
                 total, shown = total + extra, f"{shown}, +{boost['damage']} forward: {extra} = {total + extra}"
             if boosts:
                 effects.append(UpdateSheet(channel_id, check.actor, {
@@ -1577,6 +1698,13 @@ class Director:
 
         back = None
         target = self._monsters().get(check.target)  # as it stood before this blow
+        if (outcome.enemy_attacks and check.move == "hack_and_slash" and dice.total >= 12
+                and advanced.has(self._sheet_or_empty(check.actor), "Superior Warrior")):
+            # "When you hack and slash on a 12+ you deal your damage, avoid their attack, and
+            # impress, dismay, or frighten your enemy."
+            outcome = replace(outcome, enemy_attacks=False)
+            facts["superior_warrior"] = (f"A 12+: {check.actor} avoids the counter-attack and impresses, "
+                                         "dismays or frightens their enemy. Narrate it.")
         _, warrior = self._hireling_named(check.aide) if check.aide and spell is None else (None, None)
         if outcome.enemy_attacks and target is not None and warrior and hirelings.skill(warrior, "Warrior"):
             # "If your attack results in consequences (like a counter attack) the man-at-arms
@@ -1863,10 +1991,12 @@ class Director:
             extra = self.dice.roll(dice_spec).total
             total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
         total, shown = self._sworn_damage(sheet, name, total, shown)
+        total, shown, spent_marks = self._use_marks(channel_id, actor, name, total, shown)
         if self._magic_weapon(blow):
             bonus = self.dice.roll("1d4").total
             total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
         effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
+        effects.extend(spent_marks)
         effects.extend(self._oath_kept(channel_id, actor, name, facts))
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
@@ -1964,6 +2094,8 @@ class Director:
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         armor = (int(sheet["armor"]) if sheet else 0) + extra_armor
+        braced = (sheet or {}).get("armor_forward") or []
+        armor += sum(int(b["amount"]) for b in braced)
         if sheet:
             standing = sum(1 for r in self._monsters().values() if r["hp"] > 0)
             more, _ = advanced.armor_bonus(sheet, outnumbered=standing > len(self._party()))
@@ -1996,6 +2128,9 @@ class Director:
                     "them falling, and leave whether they live open."
                 )
             effects.append(ChangeHp(channel_id, "character", character, max(after, 0)))
+            if braced:
+                effects.append(UpdateSheet(channel_id, character, {"armor_forward": []}))  # spent on this blow
+                facts["armor_forward"] = [b["reason"] for b in braced]
             # Unique across restarts (the time) and within one instant (the count).
             self._hits = getattr(self, "_hits", 0) + 1
             hit_id = f"{int(self.clock() * 1000):x}x{self._hits:x}"
@@ -2874,7 +3009,10 @@ class Director:
                 return [], {"ok": False, "error": f"{actor} is already {name}; a debility does not stack."}
             have.append(name)
             line = f"🩸 **{actor}** is {name.title()} (-1 {stat}) — {cause}."
-        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"debilities": have})], {
+        indomitable = (self._grant(channel_id, actor, f"against {cause} (Indomitable)")
+                       if not cured and advanced.has(sheet, "Indomitable") else [])
+        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {"debilities": have}),
+                *indomitable], {
             "ok": True, "debilities": have,
             "note": f"{stat} rolls take -1 while it lasts." if not cured else f"{stat} is whole again."}
 

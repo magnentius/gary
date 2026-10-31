@@ -50,6 +50,7 @@ HIRE = "hire"
 START_QUEST = "start_quest"
 HAZARD_DAMAGE = "hazard_damage"
 ONGOING = "ongoing"
+LEAD_THE_CHARGE = "lead_the_charge"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -126,6 +127,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "recruit only: what they made known -- generous pay, what they're setting out "
                         "to do (purpose), a share of what they find -- and reputation if they have a "
                         "useful one here. Each is +1."
+                    ),
+                ),
+                "ally": _s(
+                    type=_STRING,
+                    description=(
+                        "hack_and_slash with Setup Strike or Tandem Strike: the ally whose next attack "
+                        "on the same target gets +1d4 damage."
                     ),
                 ),
                 "race_move": _s(
@@ -537,6 +545,19 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                                                                      "truth", "hospitality"])),
             },
             required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=LEAD_THE_CHARGE,
+        description=(
+            "A Paladin with Charge! or Ever Onward leads the charge into combat: those who follow "
+            "take +1 forward (and +2 armor forward with Ever Onward), applied by Gary."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING, description="Who leads."),
+                        "led": _s(type=_ARRAY, items=_s(type=_STRING), description="Who follows the charge.")},
+            required=["character", "led"],
         ),
     ),
     types.FunctionDeclaration(

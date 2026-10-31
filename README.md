@@ -670,6 +670,11 @@ waiting on; `?dm cancel` drops your own.
   Route, Elemental Mastery and the rest — roll like any move once you've taken them, with
   the book's results; Metal Hurlant deals its own 1d10, a troubling Communion of Whispers is
   -1 forward, and a 7–9 Counterspell forgets the spell you staked.
+- **Moves that set up the next blow:** Duelist's Parry and Block give armor against the next
+  blow after any Hack and Slash; Scent and Taste of Blood mark the foe for your next attack;
+  Setup and Tandem Strike mark it for an ally; Charge! and Ever Onward brace those who follow
+  your charge; Vicious Cacophony and Blast strengthen Arcane Art's damage; Invigorate gives
+  whoever you heal +2 damage forward; Superior Warrior's 12+ dodges the counter-attack.
 - **About a quarter of advanced moves are wired.** Gary applies the ones that change a number
   it runs: armor (Iron Hide, Barkskin, Arcane Ward, Underdog…), extra damage (Merciless,
   Cheap Shot…), a Druid's bigger animal die, extra healing (Hospitaller, Healing Song,

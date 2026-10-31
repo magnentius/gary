@@ -481,6 +481,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     if shape:
         moves = f": {', '.join(shape['moves'])}" if shape.get("moves") else ""
         line += f" · in the shape of a {shape['form']} (hold {shape['hold']}{moves})"
+    for b in sheet.get("armor_forward") or ():
+        line += f" · +{b['amount']} armor forward ({b['reason']})"
+    for m in sheet.get("marks") or ():
+        line += f" · next attack on {m['target']} +{m['damage']} ({m['reason']})"
     for o in sheet.get("ongoing_mods") or ():
         to = f" to {o['move']}" if o.get("move") else ""
         line += f" · {int(o['amount']):+d} ongoing{to} ({o['reason']})"

@@ -479,6 +479,13 @@ and say so. Past load+2 the check is opened with the -1 but posted with an `Over
 instead of a Roll button: a durable `DropButton` per item (dropping it through
 `trade.remove_items`, then rolling) and a `FailButton` (a miss with no dice, so no XP).
 
+**Setting up the next blow.** `_forwards_from` also runs `_after_hack` (any Hack and Slash:
+Duelist's Parry/Block `armor_forward`, Scent/Taste of Blood and Setup/Tandem Strike `marks`
+via `make_move(ally=)`) and `_invigorate`. `armor_forward` is added in `_attack` and spent on
+the next blow; `marks` ({target, damage, reason}) are spent by `_use_marks` at both character
+damage sites. `lead_the_charge` grants Charge!'s forward and Ever Onward's armor. Superior
+Warrior drops the counter-attack on a 12+; damage forwards may be flat ("2", Invigorate).
+
 **Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
 `ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
 records the creatures standing (`battle`) and is live while any of them still stands -- the
@@ -894,7 +901,7 @@ The model sees narrow, typed tools, each with its own checks and failure message
 mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
-  `forward`, `ongoing`.
+  `forward`, `ongoing`, `lead_the_charge`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.

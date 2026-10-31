@@ -80,6 +80,7 @@ class PendingCheck:
     spell: str = ""
     companion: str = ""  # the animal companion working with them (Command), by name
     aide: str = ""  # a hireling helping with this move (Man-at-arms, Intervene), by name
+    ally: str = ""  # Setup Strike, Tandem Strike: the ally whose next attack gets the bonus
 
     @property
     def rolled(self) -> bool:
@@ -112,6 +113,7 @@ class PendingCheck:
             "spell": self.spell,
             "companion": self.companion,
             "aide": self.aide,
+            "ally": self.ally,
         }
 
     @classmethod
@@ -142,6 +144,7 @@ class PendingCheck:
             spell=d.get("spell", ""),
             companion=d.get("companion", ""),
             aide=d.get("aide", ""),
+            ally=d.get("ally", ""),
         )
 
 
