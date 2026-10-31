@@ -40,7 +40,7 @@ from ..context import (
     render_live_state,
     render_memory,
 )
-from ..fsm import Director
+from ..fsm import NO_STEADING, Director
 from .. import healing, trade
 from ..class_moves import render as render_class_moves
 from ..fsm import SendMessage
@@ -883,11 +883,14 @@ class GeminiNarrator:
                                              int(price) if price not in (None, "") else None, discount)
                 line = f"🪙 **{actor}** buys {label} for {cost} coins" + (f" — {why}." if why else ".")
                 result = {"ok": True, "bought": label, "cost": cost}
+                if town is None:
+                    result["note"] = NO_STEADING
             else:
                 offer = args.get("offer")
                 from .. import steadings as places
 
-                factor, why = places.price_factor(places.here(store.state()), str(args.get("item", "")))
+                town = places.here(store.state())
+                factor, why = places.price_factor(town, str(args.get("item", "")))
                 if offer is None and factor != 1.0:
                     # Need: "That resource sells for considerably more"; a Resource fetches less.
                     from ..gear import price_of
@@ -898,6 +901,8 @@ class GeminiNarrator:
                                              None if offer is None else int(offer))
                 line = f"🪙 **{actor}** sells {item} for {paid} coins" + (f" — {why}." if why else ".")
                 result = {"ok": True, "sold": item, "paid": paid}
+                if town is None:
+                    result["note"] = NO_STEADING
         except trade.TradeError as exc:
             return [], {"ok": False, "error": str(exc)}
 

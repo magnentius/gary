@@ -124,3 +124,35 @@ async def test_a_scene_cannot_name_a_steading_nobody_made(table):
     await player(n, "...")
     answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
     assert "No steading 'Atlantis' yet" in answer["error"]
+
+
+async def test_trade_with_no_steading_on_the_scene_reminds_the_model_to_make_one(table):
+    """3.8-flash shopped a whole scene in a town it never recorded, so no tag applied."""
+    from gary.fsm import NO_STEADING
+
+    director, store, history = table
+    n = narrator(table, call_response(T.BUY, {"actor": "Dorn", "item": "dungeon rations"}),
+                 call_response(T.SELL, {"actor": "Dorn", "item": "dungeon rations"}), text_response("."))
+    await player(n, "I buy rations in the market, then change my mind")
+    bought = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    sold = n.client.calls[2]["contents"][-1].parts[0].function_response.response
+    assert bought["ok"] and bought["note"] == NO_STEADING
+    assert sold["ok"] and sold["note"] == NO_STEADING
+
+
+def test_supply_with_no_steading_tells_the_model_to_make_one(registry, clock, dice):
+    from gary.fsm import NO_STEADING
+
+    sheet = {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "hp": 10, "max_hp": 10,
+             "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13}, "armor": 0,
+             "damage": "d10", "coins": 50}
+    for town, expected in ((None, True), (S.make("Ennet Bend", "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"]), False)):
+        director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+                            players={1: "Dorn"}, sheet_for={"Dorn": sheet}.get, steading=lambda t=town: t)
+        director.open_move(channel_id=CHANNEL, user_id=1, actor="Dorn", move="supply", target="rope")
+        check = next(iter(registry.open_checks(CHANNEL)))
+        from gary.models import Roll
+
+        notes = director._advanced_notes(check, Roll(spec="2d6", faces=(4, 4)))
+        assert (NO_STEADING in notes) is expected
+        registry.cancel(check.check_id)

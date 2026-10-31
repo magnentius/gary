@@ -247,6 +247,12 @@ class RecordOutcome(Effect):
 # -- director -----------------------------------------------------------------------------
 
 
+#: Told to the model when trade happens with no steading on the scene: the town's tags --
+#: what is for sale, prices, Market's +1 to Supply -- apply only once it is recorded.
+NO_STEADING = ("No steading is recorded for this scene, so its tags (what is for sale, prices, Market) "
+               "did not apply. If the party is in a village, town, keep or city, call create_steading "
+               "(or set_scene with steading set to one already made) before the next purchase.")
+
 class Director:
     """Stateless decision layer.
 
@@ -1551,6 +1557,8 @@ class Director:
         """What an advanced move adds to a result that Gary does not track itself."""
         sheet = self._sheet_or_empty(check.actor)
         notes: List[str] = []
+        if check.move == "supply" and self._steading() is None:
+            notes.append(NO_STEADING)
         if check.move == "trap_expert":
             if advanced.has(sheet, "Extremely Cautious"):
                 notes.append("Extremely Cautious: +1 hold, even on a 6-. On a 12+ they get 3 hold, and the next "
