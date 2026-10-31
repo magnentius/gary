@@ -34,6 +34,7 @@ UPSERT_NPC = "upsert_npc"
 ADD_MONSTERS = "add_monsters"
 REMOVE_MONSTERS = "remove_monsters"
 MONSTER_ATTACKS = "monster_attacks"
+DEAL_DAMAGE = "deal_damage"
 MAKE_CAMP = "make_camp"
 GIVE_COINS = "give_coins"
 BUY = "buy"
@@ -186,8 +187,31 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             properties={
                 "monster": _s(type=_STRING, description="Instance name, e.g. 'Goblin 2'."),
                 "character": _s(type=_STRING, description="Character name exactly as the party roster gives it."),
+                "also": _s(type=_ARRAY, items=_s(type=_STRING), description=(
+                    "Other creatures striking the same character at the same moment -- a pack, a "
+                    "surrounding ring. One combined blow: the biggest damage die among them, rolled "
+                    "once per attacker, highest counts. Not for blows at different moments.")),
             },
             required=["monster", "character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=DEAL_DAMAGE,
+        description=(
+            "A character simply deals their damage, no roll: the fiction gives them the blow -- "
+            "the enemy is helpless, surprised, unaware, pinned, or a hard choice the player took "
+            "promised it. Not for a fair fight: that is hack_and_slash or volley. Their weapon must "
+            "reach; Gary rolls and applies the damage."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "target": _s(type=_STRING, description="Instance name, e.g. 'Goblin 2'."),
+                "ranged": _s(type=types.Type.BOOLEAN, description="True for a shot or a throw."),
+                "reason": _s(type=_STRING, description="What leaves the enemy open. Shown to the table."),
+            },
+            required=["character", "target", "reason"],
         ),
     ),
     types.FunctionDeclaration(

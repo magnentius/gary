@@ -388,8 +388,12 @@ attack targets an instance by name; at 0 HP it is defeated, told to the model as
 armor, piercing and ignores-armor; the dice line states the amount outright ("hits Thorin
 for **4 damage** (d6: 5, armor 1) — HP 18 → 14"). A weak Hack and Slash rolls the
 creature's blow back in the same breath — the trade is simultaneous, so it lands even if
-the creature died. `monster_attacks` is the GM-move version. Every HP change is a
-journalled `ChangeHp`.
+the creature died. `monster_attacks` is the GM-move version; with `also`, several
+creatures strike one character at once as one blow — the biggest damage die among them,
+rolled once per attacker, the highest counting (from the fan *Dungeon World Guide*).
+`deal_damage` lands a character's damage with no move at all, when the fiction gives
+them the blow (a helpless or surprised enemy): weapon reach checked, reason shown.
+Every HP change is a journalled `ChangeHp`.
 
 ### 6.6 Spells
 
@@ -563,9 +567,11 @@ truncation of exactly the facts the system depends on. Every call is assembled f
 layers, in order:
 
 1. **System instruction** (static) — the persona: a Dungeon World GM who names moves and
-   never rolls or invents a number, makes GM moves on a miss, adds creatures before anyone
-   fights them, calls `make_camp` once, keeps position in the scene summary, and keeps the
-   books with tools rather than asking players to.
+   never rolls or invents a number, adds creatures before anyone fights them, keeps
+   position in the scene summary and the books with tools. A "running the game" section,
+   drawn from the fan guide, covers the conversation (threat, response, roll), clear
+   threats before damage, soft and hard moves, 7–9 as success with a cost, no-roll actions,
+   and spreading the spotlight. Held under 5% of the token budget by a test.
 2. **Live state** (rebuilt per call, never carried in history) — the setting (≤600
    characters, from `?dm setting`), date and time, scene, the party with each sheet line
    (stats, HP, armor, weapons, XP, shape), what they carry, their spells, companion and
@@ -771,7 +777,7 @@ Flash; a turn is two model calls around a human click, so latency and cost matte
 The model sees narrow, typed tools, each with its own checks and failure message, each
 mapping to store mutations or Director calls:
 
-- **Moves and GM moves:** `make_move`, `monster_attacks`, `make_camp`.
+- **Moves and GM moves:** `make_move`, `monster_attacks`, `deal_damage`, `make_camp`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Magic, forms and poison:** `prepare_spells`, `end_spell`, `form_moves`, `spend_hold`,

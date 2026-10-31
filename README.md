@@ -383,6 +383,12 @@ that far. A day heals everyone resting to full; every three days clears a debili
 two under a healer), and when there are more debilities than the rest clears, you pick
 which with buttons only you can press.
 
+**Packs and free blows.** When several creatures strike one character at once, the GM
+rolls them as one blow — the biggest damage die among them, once per attacker, the highest
+counting — so a pack is dangerous without being certain death. And when the fiction hands
+you the blow (a pinned, helpless or surprised enemy), the GM has you just deal your damage,
+no roll, with the reason shown.
+
 **Defend.** Defend names who or what you protect ("Defend Eva", "Defend the gate"): hold 3
 on a 10+, 1 on a 7–9, shown on your sheet. When a creature attacks you or the character you
 defend, Gary rolls the blow and holds it while you choose — redirect it to yourself, halve

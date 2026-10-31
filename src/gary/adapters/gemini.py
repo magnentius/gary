@@ -458,11 +458,21 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.DEAL_DAMAGE:
+                blow_effects, result = self._director.deal_damage(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    target=str(args.get("target", "")), ranged=bool(args.get("ranged")),
+                    reason=str(args.get("reason", "") or ""))
+                effects.extend(blow_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.MONSTER_ATTACKS:
                 attack_effects, result = self._director.monster_attacks(
                     channel_id=channel_id,
                     monster=str(args.get("monster", "")),
                     character=str(args.get("character", "")),
+                    also=[str(a) for a in args.get("also") or []],
                 )
                 effects.extend(attack_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))

@@ -1317,21 +1317,41 @@ class Director:
     # -- the GM's side: a creature attacks ---------------------------------------------
 
     def monster_attacks(
-        self, *, channel_id: int, monster: str, character: str
+        self, *, channel_id: int, monster: str, character: str, also: Sequence[str] = ()
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """A creature deals its damage to a character -- the GM move "deal damage", on a
         miss or when everyone looks to the GM.
 
         Whether it happens is the model's call. How much is not: Gary rolls the creature's
         damage, takes the character's armor off, and reports the result as fact.
+
+        ``also``: more creatures attacking the same character at once. Their damage is
+        not added up -- a pack would shred anyone -- but rolled as the guide to Dungeon World
+        has it: the largest damage die among them, one roll per attacker, the highest one
+        counts. High, but not overwhelming.
+
         Returns (effects, the tool result for the model).
         """
         scene = self._monsters()
-        name = next((n for n in scene if n.lower() == str(monster or "").strip().lower()), None)
-        if name is None or scene[name]["hp"] <= 0:
-            standing = ", ".join(sorted(n for n, r in scene.items() if r["hp"] > 0)) or "none"
-            return [], {"ok": False, "error": f"No standing creature named {monster!r}. "
-                                              f"Standing: {standing}."}
+        standing = {n.lower(): n for n, r in scene.items() if r["hp"] > 0}
+        names = []
+        for wanted in [monster, *also]:
+            found = standing.get(str(wanted or "").strip().lower())
+            if found is None:
+                listing = ", ".join(sorted(standing.values())) or "none"
+                return [], {"ok": False, "error": f"No standing creature named {wanted!r}. "
+                                                  f"Standing: {listing}."}
+            if found not in names:
+                names.append(found)
+        # The one with the biggest die leads: its die, piercing and armor-breaking count.
+        name = max(names, key=lambda n: damage.parse(scene[n]["damage"]).sides)
+        hit, pack = None, ""
+        if len(names) > 1:
+            spec = damage.parse(scene[name]["damage"])
+            rolls = [damage.roll(self.dice, spec) for _ in names]
+            hit = max(rolls, key=lambda r: r.total)
+            pack = (f"{_and(names)} attack together — {spec} ×{len(names)}: "
+                    f"{', '.join(str(r.total) for r in rolls)}, the highest counts.")
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
         if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet to "
@@ -1342,8 +1362,12 @@ class Director:
         character = sheet.get("name", character)
         defender = self._defender_of(character)
         if defender is not None:
-            return self._hold_attack(channel_id, name, scene[name], character, defender)
-        effects, facts = self._attack(channel_id, name, scene[name], character)
+            effects, facts = self._hold_attack(channel_id, name, scene[name], character, defender, hit=hit)
+            return ([SendMessage(channel_id, pack)] if pack else []) + effects, facts
+        effects, facts = self._attack(channel_id, name, scene[name], character, hit=hit)
+        if pack:
+            effects.insert(0, SendMessage(channel_id, pack))
+            facts["attackers"] = names
         if facts.get("down"):
             effects.extend(self._trigger(channel_id, character, "last_breath"))
         return effects, {"ok": True, **facts,
@@ -1363,11 +1387,56 @@ class Director:
                 return actor
         return None
 
+    def deal_damage(
+        self, *, channel_id: int, character: str, target: str, ranged: bool = False, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A character just deals their damage, no move: the fiction gave them the blow -- the
+        enemy is helpless, surprised, unaware, pinned. "Attacking a helpless or surprised
+        enemy -- that's not Hack & Slash, they just get to deal damage." Their weapon must
+        reach, as for any attack; the damage is rolled and applied like a hit."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        unable = _unable(actor, sheet)
+        if unable:
+            return [], {"ok": False, "error": unable}
+        standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
+        name = standing.get(str(target or "").strip().lower())
+        if name is None:
+            return [], {"ok": False, "error": f"No standing creature named {target!r}. "
+                                              f"Standing: {', '.join(sorted(standing.values())) or 'none'}."}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say why no roll is needed -- what leaves the enemy "
+                                              "open (reason)."}
+        move = "volley" if ranged else "hack_and_slash"
+        if "gear" in sheet and self._weapon(sheet, move) is None:
+            needs = "a near, far or thrown weapon" if ranged else "a hand, close or reach weapon"
+            return [], {"ok": False, "error": f"{actor} has nothing to strike with: it needs {needs}."}
+        blow = PendingCheck(check_id="", channel_id=channel_id, user_id=0, actor=actor, move=move,
+                            stat="", modifier=0, stakes="", dice="", created_at=0, expires_at=0)
+        die, piercing, weapon = self._damage_die(blow)
+        hit = damage.roll(self.dice, damage.parse(die))
+        total, shown = hit.total, hit.render()
+        if self._magic_weapon(blow):
+            bonus = self.dice.roll("1d4").total
+            total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
+        effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
+        with_what = f" with {weapon}" if weapon else ""
+        effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
+                                                  f"No roll needed: {shown}{said}"))
+        return effects, {"ok": True, **facts, "note": (
+            "No move was rolled: the fiction gave them the blow. Narrate it landing, as bad as its "
+            "severity; a creature not defeated is still in the fight.")}
+
     def _hold_attack(
-        self, channel_id: int, name: str, creature: Dict[str, Any], character: str, defender: str
+        self, channel_id: int, name: str, creature: Dict[str, Any], character: str, defender: str,
+        hit: Optional["damage.DamageRoll"] = None,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """The attack is rolled, then held while the defender decides how to spend hold."""
-        hit = damage.roll(self.dice, damage.parse(creature["damage"]))
+        if hit is None:
+            hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         move = "defend_self" if normalize_actor(defender) == normalize_actor(character) else "defend_charge"
         user_id = next((uid for uid, a in self.players.items()
                         if normalize_actor(a) == normalize_actor(defender)), 0)
