@@ -8,7 +8,7 @@ GM wants play to find out.
 The model writes fronts as threats take shape and ticks a portent off when the fiction
 warrants it, onscreen or off; it is shown each danger's next portent every turn, so it
 can foreshadow it. Gary keeps them as journalled state -- every change undoes -- and the
-DM sees them with ``?dm fronts``. Nothing here decides anything: a front is the GM's
+DM sees them with ``/fronts``. Nothing here decides anything: a front is the GM's
 memory of what is coming, written down.
 """
 

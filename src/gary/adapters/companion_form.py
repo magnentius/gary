@@ -1,4 +1,4 @@
-"""Making a Ranger's animal companion over Discord components (`?dm companion`).
+"""Making a Ranger's animal companion over Discord components (`/companion`).
 
 Species, base, strengths, trainings, weaknesses, then a name: each a ``CompanionDraft``
 step, so the form only offers what the book allows, as many as the base says. Held in

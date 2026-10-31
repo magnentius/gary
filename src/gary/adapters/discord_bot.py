@@ -406,47 +406,11 @@ class DiscordTransport:
             await channel.send(text)
 
 
-#: Grouped by the moment you need them, because the commands that matter are not the
-#: ones used most often -- they are the four that open a campaign, and a DM meeting Gary
-#: for the first time has no way to tell those apart from the ones for mid-session repair.
-HELP = """**Gary — `{bare}` commands** · every one is also a slash command: type `/`
-
-__Opening a campaign__
-`{p}import` *(attach a `.md` or `.txt`)* — read a whole setting document and file its people as NPCs, its places, factions and lore as notes
-`{p}setting <premise>` — the standing premise, ≤600 chars. Shown to the DM every turn
-`{p}scene` — suggest a scene · `{p}scene <location> | <what is true while you are there>` — set one
-Gary's suggestions come with an **Accept** button; nothing is written until someone presses it
-`{p}time 18:30` · `{p}time 4 Harvest Moon 1026 06:00` — the clock only moves forward
-
-__At the table__
-`{p}new` — make a character (a private form)
-`{p}sheet` — your sheet, with buttons for your spells, bonds, companion, alignment and level-up
-`{p}endsession` — the end-of-session questions and XP · `{p}questions a | b | c` — this adventure's own
-`{p}fronts` — the GM's threats, shown privately (spoilers)
-`{p}dice` · `{p}dice <character>` — the dice so far, against fair 2d6
-`{p}playing <character name>` — claim a character someone else made
-`{p}checks` — what Gary is waiting on, with a button to cancel your own
-`{p}undo` — reverse the last change to the world
-
-__Looking in__
-`{p}state` — clock, scene, party, what is stored, and Gary's counters
-`{p}notes` — what has been filed, by subject
-`{p}help` — this list. So does `{bare}` on its own
-
-__Starting over__
-`{p}reset` — **deletes the campaign**, the journal and every channel's memory. Two-step, and the one thing here with no undo."""
-
-
-#: Typed commands that open one of the sheet's buttons -- kept so habits keep working.
+#: Internal commands that open one of the sheet's buttons.
 _SHEET_ACTIONS = ("spells", "companion", "bonds", "alignment", "choices", "gear", "levelup")
-#: Answered but not in the help: each is a button now (the sheet's, Accept, Cancel) or a
-#: line of `?dm state`, and the typed form stays only for habit's sake.
-HIDDEN_COMMANDS = frozenset({"accept", "cancel", "stats", *_SHEET_ACTIONS})
 
-
-def render_help(prefix: str) -> str:
-    """`?dm help`, `?dm` on its own, and anything unrecognised all land here."""
-    return HELP.format(p=prefix, bare=prefix.strip())
+#: What a typed `?dm` command gets now: the commands are slash commands.
+SLASH_ONLY = "Gary uses slash commands now: type `/` and pick one (`/help` lists them)."
 
 
 class GaryClient(discord.Client):
@@ -529,7 +493,7 @@ class GaryClient(discord.Client):
             )
         else:
             log.warning(
-                "GARY_PLAYERS is not set. Until players run ?dm playing, the model is told "
+                "GARY_PLAYERS is not set. Until players run /playing, the model is told "
                 "only Discord display names, and a check goes to whoever spoke."
             )
 
@@ -586,7 +550,7 @@ class GaryClient(discord.Client):
     MAX_SETTING_CHARS = 600
 
     #: An imported setting file is read whole into memory and then into prompts. These
-    #: bound what one `?dm import` can cost before it starts, not after.
+    #: bound what one `/import` can cost before it starts, not after.
     MAX_IMPORT_BYTES = 200_000
     IMPORT_CHUNK_CHARS = 6000
     MAX_IMPORT_CHUNKS = 12
@@ -642,14 +606,13 @@ class GaryClient(discord.Client):
         from .session import QUESTIONS
 
         current = self.store.state().get("session_questions") or []
-        prefix = self.settings.command_prefix
         if not raw:
             shown = current or list(QUESTIONS)
             source = "this adventure's" if current else "the book's"
             await self.sender.send(channel_id, f"End of session asks {source} questions:\n"
                                    + "\n".join(f"• {q}" for q in shown)
-                                   + f"\nSet your own with `{prefix}questions first? | second? | third?`, "
-                                     f"or `{prefix}questions default`.")
+                                   + "\nSet your own with `/questions first: second: third:`, or "
+                                     "`/questions default:True` to restore the book's.")
             return
         questions = [] if raw.lower() == "default" else [" ".join(q.split()) for q in raw.split("|") if q.strip()]
         if not 0 <= len(questions) <= 3 or any(len(q) > 200 for q in questions):
@@ -721,7 +684,6 @@ class GaryClient(discord.Client):
         call, so the one thing this must not do is take its own suggestion -- the line
         goes into ``_pending_proposals`` and stays there until somebody types accept.
         """
-        prefix = self.settings.command_prefix
         key = (channel_id, kind)
         # Whatever is still pending was also offered and not taken -- the DM asking again
         # *is* the rejection, so it counts alongside the ones before it.
@@ -743,7 +705,7 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id,
                 f"I couldn't put a {kind} into words just now. Try again, or write one "
-                f"yourself with `{prefix}{kind} ...`.",
+                f"yourself with `/{kind}`.",
             )
             return False
 
@@ -754,13 +716,13 @@ class GaryClient(discord.Client):
         self._pending_proposals[key] = line
         if kind == "setting":
             preview = f"> {line}"
-            own = f"`{prefix}setting <premise>` to write your own"
+            own = "`/setting premise:` to write your own"
         else:
             location, _, summary = line.partition("|")
             preview = f"> **{location.strip()}**" + (
                 f" — {summary.strip()}" if summary.strip() else ""
             )
-            own = f"`{prefix}scene <location> | <standing state>` to write your own"
+            own = "`/scene location: summary:` to write your own"
         await self.sender.send(
             channel_id,
             f"Suggested {kind}:\n{preview}\n"
@@ -770,22 +732,21 @@ class GaryClient(discord.Client):
         return True
 
     async def _import_document(self, message: "discord.Message", channel_id: int) -> None:
-        """`?dm import` with a Markdown attachment — fan a setting file into the stores.
+        """`/import` with a Markdown attachment — fan a setting file into the stores.
 
         The file is somebody else's prose read while the model holds state-mutating tools,
         so it travels as data (`render_document`) rather than as a turn of play. Everything
         that can be refused is refused before a single token is spent.
         """
-        prefix = self.settings.command_prefix
         attachments = list(getattr(message, "attachments", None) or [])
         if not attachments:
             await self.sender.send(
                 channel_id,
-                f"`{prefix}import` needs a file attached — a `.md` or `.txt` export from a "
+                "`/import` needs a file attached — a `.md` or `.txt` export from a "
                 "setting generator, or anything you have written yourself. I read it and "
                 "file what it describes: people as NPCs, hooks as quests, places and "
                 "factions as notes.\n"
-                f"Set the one-line premise separately with `{prefix}setting` — that is what "
+                "Set the one-line premise separately with `/setting` — that is what "
                 "rides on every turn; this is the detail behind it.",
             )
             return
@@ -860,7 +821,7 @@ class GaryClient(discord.Client):
             ])
         await self.sender.send(
             channel_id,
-            f"Done with `{filename}`. `{prefix}notes` lists what stuck — anything it "
+            f"Done with `{filename}`. `/notes` lists what stuck — anything it "
             "missed you can add by telling me in the channel.",
         )
 
@@ -885,7 +846,9 @@ class GaryClient(discord.Client):
             if route is Route.PLAYER:
                 await self._on_player(message)
             elif route is Route.DM_COMMAND:
-                await self._on_dm_command(message)
+                # The commands are slash commands now; a typed one gets pointed there rather
+                # than read out to the model as something said at the table.
+                await self.sender.send(message.channel.id, SLASH_ONLY)
             elif route is Route.NOT_A_GAME_CHANNEL and not message.author.bot:
                 # §4.2 calls an unregistered channel "silence, not an error", which is
                 # right in a busy server and indistinguishable from a broken bot when
@@ -966,7 +929,7 @@ class GaryClient(discord.Client):
             await self._offer_spells(channel_id, user_id, name)
         if sheet.get("class") == "Ranger":
             await self.sender.send(channel_id, f"**{name}**, your animal companion awaits: "
-                                               f"`{self.settings.command_prefix}sheet` has the button.")
+                                               "`/sheet` has the button.")
         return None
 
     async def _offer_spells(self, channel_id: int, user_id: int, actor: str) -> None:
@@ -1087,7 +1050,7 @@ class GaryClient(discord.Client):
         line = "⭐ End of session — " + "; ".join(
             f"**{s['name']}** +{gains[s['name']]} ({xp_line(s)})" for s in updated) + "."
         if resolved:
-            line += (f" {', '.join(sorted(resolved))}: write a new bond from `{self.settings.command_prefix}sheet` "
+            line += (f" {', '.join(sorted(resolved))}: write a new bond from `/sheet` "
                      "(the Bonds button).")
         if any(int(s["xp"]) >= xp_needed(s) for s in updated):
             line += LEVEL_UP_HINT
@@ -1127,7 +1090,7 @@ class GaryClient(discord.Client):
         out["choices"] = ("Class choices", "📜", lambda i: show(i, ChoicesForm(
             sheet, lambda made: self._finish_choices(actor, made, channel_id)))) if choices.missing(sheet) else (
             f"**{actor}** — {choices.describe(sheet) or 'nothing to choose'}.")
-        out["gear"] = (f"**{actor}** already has their gear. `{prefix}sheet` shows it." if "gear" in sheet else
+        out["gear"] = (f"**{actor}** already has their gear. `/sheet` shows it." if "gear" in sheet else
                        ("Choose gear", "🛡️", lambda i: show(i, CharacterCreator(
                            lambda _i, geared: self._finish_gear(geared, channel_id), sheet=sheet))))
 
@@ -1155,8 +1118,8 @@ class GaryClient(discord.Client):
 
     async def _sheet_hub(self, message, channel_id: int, prefix: str, only: Optional[str] = None,
                          reply=None) -> None:
-        """`?dm sheet`: the sheet, with a button for everything this character can open --
-        spells, companion, bonds, alignment, class choices, gear, a level. `?dm spells` and
+        """`/sheet`: the sheet, with a button for everything this character can open --
+        spells, companion, bonds, alignment, class choices, gear, a level. `/spells` and
         the rest are the same buttons one at a time, kept for habit's sake."""
         actor = self.director.players.get(message.author.id)
         sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
@@ -1164,7 +1127,7 @@ class GaryClient(discord.Client):
             if reply is not None:
                 await reply("You have no sheet yet. `/new` makes one.", None)
             else:
-                await self.sender.send(channel_id, f"You have no sheet yet. `{prefix}new` makes one.")
+                await self.sender.send(channel_id, "You have no sheet yet. `/new` makes one.")
             return
         actions = self._sheet_actions(channel_id, message.author.id, actor, sheet, prefix)
         if only is not None:
@@ -1191,7 +1154,7 @@ class GaryClient(discord.Client):
 
             async def clicked(interaction, opener=opener):
                 if interaction.user.id != owner:
-                    await interaction.response.send_message(f"This is {actor}'s sheet. `{prefix}sheet` for yours.",
+                    await interaction.response.send_message(f"This is {actor}'s sheet. `/sheet` for yours.",
                                                             ephemeral=True)
                     return
                 await opener(interaction)
@@ -1288,7 +1251,7 @@ class GaryClient(discord.Client):
                                            f"{moves[-1] if moves else ''}. {describe(levelled, with_name=False)}")
         if moves and moves[-1] in spells.FAVOR_MOVES:
             await self.sender.send(channel_id, f"🙏 **{actor}** is a cleric of level 1 for spells now: "
-                                               f"`{self.settings.command_prefix}sheet` has the buttons to name "
+                                               "`/sheet` has the buttons to name "
                                                "your deity and choose your spells.")
         return None
 
@@ -1410,7 +1373,7 @@ class GaryClient(discord.Client):
             )
         await self.runner.run(effects)
 
-    # -- ?dm commands ------------------------------------------------------------------
+    # -- commands (run by the slash commands) -------------------------------------------
 
     async def _on_dm_command(self, message: "discord.Message") -> None:
         body = message.content[len(self.settings.command_prefix) :].strip()
@@ -1426,8 +1389,8 @@ class GaryClient(discord.Client):
                 await self.sender.send(
                     channel_id,
                     f"It is {format_world_time(state)}. Set it with "
-                    f"`{self.settings.command_prefix}time 18:30` for later today, or "
-                    f"`{self.settings.command_prefix}time 4 Harvest Moon 1026 06:00` for a date. "
+                    "`/time when:18:30` for later today, or "
+                    "`/time when:4 Harvest Moon 1026 06:00` for a date. "
                     "The clock only moves forward.",
                 )
                 return
@@ -1464,8 +1427,8 @@ class GaryClient(discord.Client):
                 await self.sender.send(
                     channel_id,
                     (f"Setting: {current}" if current else "No setting yet.")
-                    + f"\nSet it with `{self.settings.command_prefix}setting <premise, "
-                    "tone, region>` — it is shown to the DM on every single turn, so keep "
+                    + "\nSet it with `/setting premise:` (premise, "
+                    "tone, region) — it is shown to the DM on every single turn, so keep "
                     "it to the standing facts of the world, not what is happening now.",
                 )
                 return
@@ -1491,7 +1454,7 @@ class GaryClient(discord.Client):
         if command == "scene":
             raw = body[len("scene"):].strip()
             if not raw:
-                # Bare `?dm scene` used to print its own usage. Proposing one is the more
+                # Bare `/scene` used to print its own usage. Proposing one is the more
                 # useful answer to the same question and costs a single model call -- and
                 # the proposal names the manual form anyway, so the usage is not lost.
                 if self._has_model:
@@ -1499,7 +1462,7 @@ class GaryClient(discord.Client):
                     return
                 await self.sender.send(
                     channel_id,
-                    f"`{self.settings.command_prefix}scene <location> | <standing state>`"
+                    "`/scene location: summary:`"
                     " — the summary is optional, and is re-read every turn, so write what"
                     " is *true while you are there*, not what happens on arrival.\n"
                     "Good: `The Rusty Anchor | Half-empty common room, rain on the"
@@ -1517,8 +1480,7 @@ class GaryClient(discord.Client):
             if wanted and wanted not in ("setting", "scene"):
                 await self.sender.send(
                     channel_id,
-                    f"`{prefix}accept`, or `{prefix}accept setting` / "
-                    f"`{prefix}accept scene` to take just one of them.",
+                    "Press the Accept button on the suggestion you want.",
                 )
                 return
             said = self._accept(channel_id, [wanted] if wanted else ["setting", "scene"],
@@ -1528,8 +1490,8 @@ class GaryClient(discord.Client):
                     channel_id,
                     f"Nothing to accept — I haven't suggested "
                     + (f"a {wanted}" if wanted else "anything")
-                    + f" here. `{prefix}import` a setting file, or `{prefix}scene` with "
-                    "no arguments, and I'll offer one.",
+                    + " here. `/import` a setting file, or `/scene` with "
+                    "no options, and I'll offer one.",
                 )
                 return
             for confirmation in said:
@@ -1550,14 +1512,13 @@ class GaryClient(discord.Client):
                     f"{len(state.get('quests') or {})} quest(s), "
                     f"{len(state.get('npcs') or {})} NPC(s).\n"
                     "Everything goes, including every character sheet and who is playing whom.\n"
-                    f"To confirm: `{self.settings.command_prefix}reset "
-                    f"{self._reset_token}`"
+                    f"To confirm: `/reset code:{self._reset_token}`"
                 )
                 return
             if token != self._reset_token:
                 await self.sender.send(
                     channel_id,
-                    f"That code is not current. Run `{self.settings.command_prefix}reset` "
+                    "That code is not current. Run `/reset` "
                     "again to get a fresh one.",
                 )
                 return
@@ -1576,7 +1537,7 @@ class GaryClient(discord.Client):
                 channel_id,
                 f"Campaign reset. It is {format_world_time(self.store.state())}. "
                 "Characters went with it: everyone run "
-                f"`{self.settings.command_prefix}new` before the first roll.",
+                "`/new` before the first roll.",
             )
             return
 
@@ -1646,7 +1607,7 @@ class GaryClient(discord.Client):
             if not actor:
                 await self.sender.send(
                     channel_id,
-                    f"`{self.settings.command_prefix}playing <character name>`.",
+                    "`/playing character:`.",
                 )
                 return
             if self.director.players.get(message.author.id) != actor:
@@ -1721,7 +1682,7 @@ class GaryClient(discord.Client):
                 body += (
                     f"\nAlso stored: **{notes} note(s)**, **{npcs} NPC(s)** — these are "
                     "retrieved when their subject is mentioned rather than shown every "
-                    f"turn, so they are not in the block above. `{prefix}notes` lists them."
+                    "turn, so they are not in the block above. `/notes` lists them."
                 )
             body += "\n" + self._stats_line()
             await self.sender.send(channel_id, body)
@@ -1744,18 +1705,20 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id,
                 "\n\n".join(parts) if parts
-                else f"Nothing filed yet. `{prefix}import` a setting file, or just tell me.",
+                else "Nothing filed yet. `/import` a setting file, or just tell me.",
             )
 
-        elif command == "stats":  # now the last line of ?dm state; kept for habit's sake
+        elif command == "stats":  # the last line of /state
             await self.sender.send(channel_id, self._stats_line())
 
         elif command == "help":
-            await self.sender.send(channel_id, render_help(prefix))
+            from .slash import HELP as SLASH_HELP
+
+            await self.sender.send(channel_id, SLASH_HELP)
 
         else:
             await self.sender.send(
-                channel_id, f"I don't know `{prefix}{command}`.\n\n" + render_help(prefix)
+                channel_id, SLASH_ONLY
             )
 
 

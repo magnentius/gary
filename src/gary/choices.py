@@ -11,8 +11,8 @@ lists are read from the move's own text, so the words are the authors'. Most cho
 the model's to honour; two are numbers Gary runs: the Elf's precise weapon (Hack and Slash
 with Dex) and the Thief's poison uses (``use_poison``, ``brew_poison``).
 
-Made step by step in ``Choices``, checked like a sheets.Draft: by ``?dm new``, and by
-the Class choices button on ``?dm sheet`` for a character made before.
+Made step by step in ``Choices``, checked like a sheets.Draft: by ``/new``, and by
+the Class choices button on ``/sheet`` for a character made before.
 """
 
 from __future__ import annotations

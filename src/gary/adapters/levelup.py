@@ -1,4 +1,4 @@
-"""Level Up over Discord components (`?dm levelup`): a private form.
+"""Level Up over Discord components (`/levelup`): a private form.
 
 A stat to raise, an advanced move, and for a Wizard a spell for the spellbook -- each a
 ``levelling.Advance`` choice, so the form cannot level a character in a way the rules

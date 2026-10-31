@@ -27,7 +27,7 @@ Design: [`ARCHITECTURE.md`](ARCHITECTURE.md). This file is how to run it.
 - [5. Open the campaign](#5-open-the-campaign)
 - [6. Sit down and play](#6-sit-down-and-play)
 - [7. Start over](#7-start-over)
-- [`?dm` command reference](#dm-command-reference)
+- [Command reference](#command-reference)
 - [Configuration reference](#configuration-reference)
 - [Design](#design)
 
@@ -175,7 +175,7 @@ export GARY_FREEFORM_CHANNELS='123456789012345678'
 ```
 
 `GARY_PLAYERS` is usually unnecessary — see [step 6](#6-sit-down-and-play), where
-`?dm new` does the same job from the table.
+`/new` does the same job from the table.
 
 ---
 
@@ -215,17 +215,16 @@ Filling every tab and nesting sub-locations grows it; the ceiling is 200KB and 1
 
 ## 4. Import it
 
-Drag the `.md` file into your game channel with `?dm import` as the message:
+In your game channel, run `/import` and attach the `.md` file as its `document`:
 
 ```
-?dm import
-      [siltgard.md attached]
+/import document: siltgard.md
 ```
 
 ```
 Reading `siltgard.md` — 1 part. I'll file people, places, factions and hooks as I go.
 Recorded Siltgard, the Eikthyrn Fens, Kjor the Dyke-Binder, Grimwulf…
-Done with `siltgard.md`. ?dm notes lists what stuck — anything it missed you can add
+Done with `siltgard.md`. /notes lists what stuck — anything it missed you can add
 by telling me in the channel.
 ```
 
@@ -233,7 +232,7 @@ People become NPCs; places, factions, lore and rumours become notes, filed under
 subject a player would actually *say* — "the Alder-Keeping road", not "Chapter 2". They
 surface when someone names them, so they cost nothing on turns where they are irrelevant.
 
-`?dm notes` shows what stuck. Anything it missed you can add by just telling Gary in the
+`/notes` shows what stuck. Anything it missed you can add by just telling Gary in the
 channel.
 
 **Every refusal lands before the first model call**, so a bad import costs nothing: wrong
@@ -256,29 +255,29 @@ the document is about:
 Suggested setting:
 > Siltgard, a drowned fen county under a dyke-lord whose sea walls are failing.
   Salt, conscription and slow retreat; low magic, wet, feudal.
-Accept it below, or `?dm setting <premise>` to write your own.
+Accept it below, or `/setting premise:` to write your own.
 Nothing is written until you do.                                  [✅ Accept this setting]
 ```
 
-`?dm scene` with **no arguments** does the same for a scene, at any point in the campaign,
+`/scene` with **no arguments** does the same for a scene, at any point in the campaign,
 from where the story actually is:
 
 ```
-?dm scene
+/scene
 ```
 ```
 Suggested scene:
 > **The Eel-Runs, Siltgard** — Fever-mist off the ditches, tide sounding against the
   timbered wall. Two dyke-wardens watching the road.
-Accept it below, or `?dm scene <location> | <standing state>` to write your own.
+Accept it below, or `/scene location: summary:` to write your own.
                                                                     [✅ Accept this scene]
 ```
 
 Both are suggestions and neither is written until someone presses **Accept** (typing
-`?dm accept` works too). Typing your own `?dm setting` or `?dm scene` discards the
+the **Accept** button works too). Typing your own `/setting` or `/scene` discards the
 suggestion it overrules; ignoring it does nothing.
 
-**Don't like it? Ask again.** Running `?dm scene` a second time is itself a rejection —
+**Don't like it? Ask again.** Running `/scene` a second time is itself a rejection —
 Gary is told what it already offered and asked for a different place or a different
 moment, not the same one reworded. It remembers the last few, so you can keep re-rolling
 until one lands.
@@ -286,8 +285,8 @@ until one lands.
 ### Or write them yourself
 
 ```
-?dm setting Siltgard, a drowned fen county under a failing dyke. Low magic, wet, feudal.
-?dm scene The Eel-Runs | Fever-mist off the ditches. Two dyke-wardens watching the road.
+/setting premise: Siltgard, a drowned fen county under a failing dyke. Low magic, wet, feudal.
+/scene location: The Eel-Runs  summary: Fever-mist off the ditches. Two dyke-wardens watching the road.
 ```
 
 **Setting** is ≤600 characters and rides on *every single turn*, so it holds only what
@@ -303,8 +302,8 @@ A fresh campaign opens at **midnight** on its epoch date. Without this the model
 an evening while the clock the same prompt calls authoritative says 00:00:
 
 ```
-?dm time 18:30                       # later today
-?dm time 4 Harvest Moon 1026 06:00   # a date, typed back the way the screen shows it
+/time when: 18:30                       # later today
+/time when: 4 Harvest Moon 1026 06:00   # a date, typed back the way the screen shows it
 ```
 
 The calendar is the real one with a millennium taken off and the months under their
@@ -322,27 +321,27 @@ names its own season instead of needing to be looked up. **The clock only moves 
 Everyone runs:
 
 ```
-?dm new
+/new
 ```
 
-Gary posts a **Create character** button for you. Clicking it opens a form only you can
+Gary opens a form only you can
 see: pick a class and a race, place the Dungeon World stats (16, 15, 13, 12, 9, 8) one at
 a time, choose your class's starting gear (a Fighter builds their signature weapon), and
 name your character. Gary works out your hit points and damage die, saves the
-sheet, and tells the table who has joined. `?dm sheet` shows yours again.
+sheet, and tells the table who has joined. `/sheet` shows yours again.
 
 Making a character also claims it: its checks are yours to roll, and nobody else's. Why it
 matters: without a claim the model only knows Discord display names, and a check goes to
-whoever happened to be speaking. `?dm playing <character name>` claims a character without
+whoever happened to be speaking. `/playing character:` claims a character without
 a sheet, for a table that keeps its sheets elsewhere.
 
 The sheet tracks what rolls need — class, race, stats, HP, damage, armor, level — and your
 gear. Gear does real work: your best armor plus a shield is your armor; a weapon's +damage
 and piercing go into your damage roll; Hack and Slash needs a hand, close or reach weapon
 and Volley a near, far or thrown one (and ammo for a bow); taking several shots on a Volley
-spends ammo. A character made before gear existed gets a **Choose gear** button on `?dm sheet`.
-**Alignment.** `?dm new` asks for one from your class's list, each with what fulfils it
-("Good: endanger yourself to heal another"); the **Alignment** button on `?dm sheet` changes it
+spends ammo. A character made before gear existed gets a **Choose gear** button on `/sheet`.
+**Alignment.** `/new` asks for one from your class's list, each with what fulfils it
+("Good: endanger yourself to heal another"); the **Alignment** button on `/sheet` changes it
 whenever your view of the world shifts. The GM sees it.
 
 **Debilities.** When the fiction weakens you — a numbing claw, a sickening poison, a blow to
@@ -362,8 +361,8 @@ out of hand. The coin goes when the party does.
 **Fronts.** The GM writes the threats that move on their own as fronts — dangers with an
 impulse, a few grim portents and an impending doom — and ticks portents off as the story
 goes, including while the party is elsewhere. Gemini is shown each danger's next portent
-every turn, so it can foreshadow it. Players never see them; `?dm fronts` offers a button
-that shows them privately to whoever clicks it. Every change undoes with `?dm undo`.
+every turn, so it can foreshadow it. Players never see them; `/fronts` shows them only to
+whoever runs it. Every change undoes with `/undo`.
 
 **Outstanding Warrants and Bolster.** Returning somewhere you've caused trouble, the GM
 calls Outstanding Warrants (+Cha): on a hit everyone recognises you, and on a 7–9 the GM adds
@@ -423,14 +422,14 @@ defend, Gary rolls the blow and holds it while you choose — redirect it to you
 it, open the attacker up (+1 forward to an ally), strike back for your level, or spend
 nothing. No answer spends nothing. Hold runs out, or ends when you make camp.
 
-**Class choices.** `?dm new` also asks what your class decides: a Cleric names their god
+**Class choices.** `/new` also asks what your class decides: a Cleric names their god
 and picks a domain and precept, a Druid their land and tell, a Bard their lore, a Thief
 their poison (three uses to start), a Fighter their weapon's look — and an Elf Fighter a
 weapon type that is always precise, so it hacks and slashes with Dex. A character made
-before gets a **Class choices** button on `?dm sheet`. The GM sees them all; a Thief's poison is spent with each use
+before gets a **Class choices** button on `/sheet`. The GM sees them all; a Thief's poison is spent with each use
 and brewed three at a time somewhere quiet.
 
-**Animal Companion.** A Ranger presses **Choose companion** on `?dm sheet` (Gary reminds them after `?dm new`): a
+**Animal Companion.** A Ranger presses **Choose companion** on `/sheet` (Gary reminds them after `/new`): a
 private form for species, base, strengths, trainings and weaknesses — as many as its
 numbers say — and a name. When you work with it ("Fang and I go for the goblin"), the GM
 flags the move and Gary checks the training and applies Command: +ferocity to damage and
@@ -445,16 +444,16 @@ and shows on your sheet ("in the shape of a bear (hold 2: maul, roar)"); each us
 hold with no roll, and at 0 you turn back. You can turn back early. Which species you
 know (your land, Studied Essence) is the GM's to judge — your land isn't recorded yet.
 
-**Bonds.** Once there's another character at the table, press **Bonds** on `?dm sheet`: a private form
+**Bonds.** Once there's another character at the table, press **Bonds** on `/sheet`: a private form
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
 the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
 Aid or Interfere names who you help or hinder and rolls +Bond — the number of bonds you
-have with them. `?dm sheet` shows your bonds, and the GM sees them.
+have with them. `/sheet` shows your bonds, and the GM sees them.
 
 **Spells.** A new Cleric or Wizard gets a **Choose spells** button after joining: a Wizard
 fills their spellbook (three first-level spells), a Human picks one spell from the other
 class's list, and both choose what they hold — total levels up to level + 1. Rotes and
-cantrips come free. A caster made before spells existed gets the same button on `?dm sheet`,
+cantrips come free. A caster made before spells existed gets the same button on `/sheet`,
 which also shows what you hold, what's lost and what's running.
 New spells come only with an undisturbed hour in the story — say your character prays or
 studies, and the GM calls Commune or Prepare Spells (refused mid-fight, like camp), which
@@ -468,15 +467,15 @@ named, ignoring armor) and Harm (which burns you too) deal damage, Bless gives i
 narrates from the spell's text.
 
 **XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
-When you wrap up, run `?dm endsession`: anyone can flip the three questions (learned
+When you wrap up, run `/endsession`: anyone can flip the three questions (learned
 something important, overcame a notable enemy, looted a memorable treasure), and each
 player ticks whether their own character acted on their alignment (only they can). A
 player can also **Resolve a bond**: pick it privately, and the companion it names gets an
 Agree button only their player can press. Award XP gives everyone 1 XP per yes, plus 1 for
-alignment and 1 for a resolved bond — which is cleared, so write a new one from `?dm sheet`. `?dm sheet` shows XP against what you need
+alignment and 1 for a resolved bond — which is cleared, so write a new one from `/sheet`. `/sheet` shows XP against what you need
 (level + 7).
 
-**Level Up.** With enough XP, `?dm sheet` shows a **Level up** button — refused while creatures stand or a move is
+**Level Up.** With enough XP, `/sheet` shows a **Level up** button — refused while creatures stand or a move is
 pending, because levelling takes downtime. A private form asks for a stat to raise (18 at
 most; Constitution raises HP too), an advanced move from your class's list (the 6–10 list
 opens at level 6; "Requires" and "Replaces" are honoured), and for a Wizard a spell for the
@@ -507,7 +506,7 @@ creature's blow splatters one at 0 HP, inert until scooped together. Ooze form i
 Spellcasting moves and the Ranger's companion aren't offered: Divine Favor (Paladin) and God
 Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a cleric of level
 1 for spells, one level higher with each level after. Name your deity and choose spells from
-the buttons on `?dm sheet`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
+the buttons on `/sheet`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
 
 ### Talk to Gary
 
@@ -613,7 +612,7 @@ real stats, so a found long sword hits harder and plate is armor at once; anythi
 silver locket) is carried with no effect on the rules. Coin is on your sheet. Buying costs
 the book's price, refused if you can't afford it; selling fetches half, or less from a
 stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
-Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
+Every pickup, purchase and sale is posted to the table and undoes with `/undo`.
 
 **Instant NPCs.** When someone becomes important in the moment, the GM can have Gary roll the
 book's Instant NPC tables: an instinct (what they want), a knack (how they might get it) and
@@ -626,7 +625,7 @@ count: a Dirt village sells nothing, a Poor one only the bare necessities, a Mod
 most mundane goods but not plate; a Market widens what's for sale and gives +1 to Supply;
 a Resource is half price and a Need fetches double; Arcane, Divine or a matching Guild gives
 +1 to Recruit an adept, a priest or that guild's kind. Steadings change as the story and the
-book's between-session rules change them, and `?dm state` lists them all.
+book's between-session rules change them, and `/state` lists them all.
 
 **Treasure** is rolled by the book. When you search a creature's belongings or lair, Gary
 rolls its damage die (twice for a hoarder, +1d4 for a lord or something ancient) on the
@@ -657,7 +656,7 @@ So does anything else that hurts you — a fall, a trap, fire, a collapsing ceil
 says how bad, as the book does (bruises d4, some blood d6, broken bones d8, could kill a
 commoner d10), and Gary rolls it through your armor, plus any cover, unless it's big enough,
 magical or poisonous enough to ignore armor. It can be answered with Reduce damage like any blow.
-`?dm undo` takes a blow back like any other change.
+`/undo` takes a blow back like any other change.
 
 **At 0 HP you roll Last Breath** — Gary posts the button the moment you fall, and rolls it
 for you if you don't click. +nothing: Death doesn't care how tough you are. On a 10+ you
@@ -672,12 +671,12 @@ hours. No ration, no healing. If something comes in the night, whoever is on wat
 **Take Watch** (+Wis) and nobody heals. You can't make camp with creatures still standing or while
 anyone's roll is unresolved (a Last Breath above all); anywhere else unsafe — a chase, a
 storm — the GM refuses the rest or lets something come for you. Every camp says where it is
-and why it's safe, so a bad one is easy to spot and `?dm undo`.
+and why it's safe, so a bad one is easy to spot and `/undo`.
 
 If nobody rolls, the move expires after `GARY_CHECK_TTL` (default 180s) and is narrated as
 hesitation or the moment passing — never as a success. If you rolled but never chose or
 never rolled damage, the dice stand: Gary takes the first option(s), rolls the damage for
-you, and says so. `?dm checks` shows what Gary is
+you, and says so. `/checks` shows what Gary is
 waiting on, with a button to cancel your own.
 
 ### What is not built yet
@@ -740,17 +739,17 @@ waiting on, with a button to cancel your own.
 | Symptom | Try |
 |---|---|
 | Gary says nothing at all | Is the channel in `GARY_GAME_CHANNELS`? Did you @-mention him? Is Message Content enabled? |
-| Gary narrated but no dice | `?dm checks` — the check may already have expired |
-| Your roll did nothing | It may not be your check — `?dm checks` shows whose it is |
-| Gary invented the wrong world | `?dm state` — setting or scene is probably empty |
-| Gary forgot something you filed | `?dm notes` — check it is filed under the subject you actually say |
-| He wrote something you hate | `?dm undo` |
+| Gary narrated but no dice | `/checks` — the check may already have expired |
+| Your roll did nothing | It may not be your check — `/checks` shows whose it is |
+| Gary invented the wrong world | `/state` — setting or scene is probably empty |
+| Gary forgot something you filed | `/notes` — check it is filed under the subject you actually say |
+| He wrote something you hate | `/undo` |
 
 ---
 
 ## 7. Start over
 
-`?dm reset` ends a campaign and begins an empty one in the same server. It is the only
+`/reset` ends a campaign and begins an empty one in the same server. It is the only
 operation in Gary with **no undo** — it destroys the journal, so there is no record
 afterwards to recover from.
 
@@ -758,10 +757,10 @@ afterwards to recover from.
 
 | You want | Use |
 |---|---|
-| The last change reversed | `?dm undo` |
-| A different premise or scene | `?dm setting <premise>` / `?dm scene <location> \| <state>` — both overwrite in place |
-| A botched import gone | `?dm reset`. An import writes one journal entry per record, so `?dm undo` would take dozens of goes |
-| A genuinely new campaign | `?dm reset` |
+| The last change reversed | `/undo` |
+| A different premise or scene | `/setting premise:` / `/scene location: summary:` — both overwrite in place |
+| A botched import gone | `/reset`. An import writes one journal entry per record, so `/undo` would take dozens of goes |
+| A genuinely new campaign | `/reset` |
 
 ### What goes, and what does not
 
@@ -787,7 +786,7 @@ cp -r ~/.local/share/gary/campaign ~/gary-backup-$(date +%F)
 ### 2. Ask for it
 
 ```
-?dm reset
+/reset
 ```
 
 Gary answers with what is about to be destroyed and a four-digit code:
@@ -797,20 +796,20 @@ Gary answers with what is about to be destroyed and a four-digit code:
 conversation memory all go — and so does the journal, so there is no record afterwards
 and no undo. Currently: 14 note(s), 2 quest(s), 9 NPC(s).
 Everything goes, including every character sheet and who is playing whom.
-To confirm: `?dm reset 4821`
+To confirm: `/reset code:4821`
 ```
 
 ### 3. Confirm it
 
 ```
-?dm reset 4821
+/reset code: 4821
 ```
 ```
 Campaign reset. It is 21 Sturgeon Moon 1026, 00:00. Characters went with it: everyone
-run `?dm new` before the first roll.
+run `/new` before the first roll.
 ```
 
-A fresh code is issued every time you run bare `?dm reset`, and a stale one is refused
+A fresh code is issued every time you run bare `/reset`, and a stale one is refused
 with *"That code is not current."* Nothing is destroyed until the code comes back.
 
 ### 4. Open the new campaign
@@ -819,70 +818,62 @@ The clock re-anchors to **today's date, at midnight** — a reset on 21 August 2
 21 Sturgeon Moon 1026, 00:00 — so this is the same job as
 [step 5](#5-open-the-campaign), from the top:
 
-1. **Make the characters again.** Everyone runs `?dm new`.
+1. **Make the characters again.** Everyone runs `/new`.
    The roster went with everything else. *(If `GARY_PLAYERS` is set, restarting Gary
    restores it instead — that is the one piece of setup an env var can hand back.)*
-2. **`?dm import`** the new setting document, and **Accept** the premise Gary proposes
+2. **`/import`** the new setting document, and **Accept** the premise Gary proposes
    from it.
-3. **`?dm scene`** and **`?dm time`** before the first turn, for the reasons in
+3. **`/scene`** and **`/time`** before the first turn, for the reasons in
    [step 5](#5-open-the-campaign) — an empty setting and a midnight clock are exactly the
    conditions under which the model invents a world of its own.
 
 ---
 
-## `?dm` command reference
+## Command reference
 
-**Every command here is also a slash command** — type `/` in a game channel and pick
-Gary's: `/sheet`, `/new`, `/scene location: summary:`, `/dice character:` and so on, with
-Discord filling in the options (and character names). Four answer only you: `/new` opens
-the character form, `/sheet` your sheet and its buttons, `/fronts` the GM's threats, and
-`/help` the list. They register in each server Gary plays in when it connects; if they don't
-appear, re-invite Gary with the `applications.commands` scope.
-
-The typed `?dm` forms below work too. `?dm help` prints them in the channel; so does `?dm`
-on its own, and any command Gary does not recognise. The prefix is configurable
-(`GARY_COMMAND_PREFIX`); it may not start with `!`, which most other bots claim.
+Gary's commands are Discord slash commands: type `/` in a game channel and pick Gary's,
+and Discord fills in the options (character names autocomplete). Four answer only you:
+`/new`, `/sheet`, `/fronts` and `/help`. The commands register in each server Gary plays in
+when it connects; if they don't appear, re-invite Gary with the `applications.commands`
+scope. A message typed the old way (`?dm …`) gets a one-line pointer to the slash commands.
 
 ### Opening a campaign
 
 | Command | What it does |
 |---|---|
-| `?dm import` *(attach `.md`/`.txt`)* | Read a whole setting document; file people as NPCs, places/factions/lore as notes. Refuses before spending anything. Needs a model. |
-| `?dm setting` | Show the current premise. |
-| `?dm setting <premise>` | Set it. ≤600 chars, shown to the model every turn. |
-| `?dm scene` | **Suggest** a scene from the campaign so far. Nothing is written. |
-| `?dm scene <location> \| <standing state>` | Set it. The summary is re-read every turn. |
-| **Accept** button | On each setting or scene Gary suggests: takes it. (`?dm accept` still works.) |
-| `?dm time` | Show the world clock. |
-| `?dm time 18:30` | Later today. |
-| `?dm time 4 Harvest Moon 1026 06:00` | A date. Also accepts `1026-09-04 06:00` and `day 2 06:00`. Forward only. |
+| `/import document:` | Read a whole setting document (`.md`/`.txt`); file people as NPCs, places/factions/lore as notes. Refuses before spending anything. Needs a model. |
+| `/setting` | Show the current premise. `/setting premise:` sets it (≤600 chars, shown to the model every turn). |
+| `/scene` | **Suggest** a scene from the campaign so far, with an **Accept** button. Nothing is written until someone presses it. |
+| `/scene location: summary:` | Set it. The summary is re-read every turn. |
+| `/time` | Show the world clock. `/time when:18:30` is later today; `when:4 Harvest Moon 1026 06:00` (or `1026-09-04 06:00`, `day 2 06:00`) a date. Forward only. |
 
 ### At the table
 
 | Command | What it does |
 |---|---|
-| `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
-| `?dm sheet` | Your character's sheet, with a private button for everything you can open: **Bonds**, **Alignment**, and whenever they apply **Choose spells**, **Choose companion** (Ranger), **Level up** (with the XP), **Class choices** and **Choose gear** (for a character made before those existed). The old `?dm spells`, `bonds`, `companion`, `alignment`, `choices`, `gear` and `levelup` still work, each posting its one button. |
-| `?dm fronts` | The threats the GM is tracking, shown privately to whoever clicks (spoilers). |
-| `?dm endsession` | The end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
-| `?dm questions` | Show the end-of-session questions. `?dm questions a? \| b? \| c?` replaces the book's three with up to three for this adventure (posted for everyone), `?dm questions default` restores them. |
-| `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
-| `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left — with a **Cancel my move** button if one of them is yours. (`?dm cancel` still works.) |
-| `?dm undo` | Reverse the last change to the world. |
+| `/new` | Make a character in a private form. It is yours: its checks are yours to roll. |
+| `/sheet` | Your sheet, privately, with a button for everything you can open: **Bonds**, **Alignment**, and whenever they apply **Choose spells**, **Choose companion** (Ranger), **Level up** (with the XP), **Class choices** and **Choose gear** (for a character made before those existed). |
+| `/fronts` | The threats the GM is tracking, shown only to you (spoilers). |
+| `/endsession` | The end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
+| `/questions` | Show the end-of-session questions. `/questions first: second: third:` replaces the book's three with up to three for this adventure (posted for everyone); `default:True` restores them. |
+| `/dice` | The table's move rolls against fair 2d6; `character:` for one character's. |
+| `/playing character:` | Claim a character without a sheet. Its checks are yours to roll. |
+| `/checks` | Every check Gary is waiting to see rolled, and how long each has left — with a **Cancel my move** button if one of them is yours. |
+| `/undo` | Reverse the last change to the world. |
 
 ### Looking in
 
 | Command | What it does |
 |---|---|
-| `?dm state` | Clock, scene, party, counts of what is stored, and Gary's counters since it started (messages sent, turns narrated, model failures, moves journalled — what `?dm stats` showed). |
-| `?dm notes` | What has been filed, by subject, plus the people. These are the words that retrieve them. |
-| `?dm help` | This reference. |
+| `/state` | Clock, scene, party, steadings, counts of what is stored, and Gary's counters since it started (messages sent, turns narrated, model failures, moves journalled). |
+| `/notes` | What has been filed, by subject, plus the people. These are the words that retrieve them. |
+| `/help` | The command list, privately. |
 
 ### Starting over
 
 | Command | What it does |
 |---|---|
-| `?dm reset` | **Deletes the campaign** — state, quests, NPCs, notes, inventories, the roster, the journal, **and every channel's conversation history.** Two-step: it replies with a code you type back. No undo. See [Start over](#7-start-over). |
+| `/reset` | **Deletes the campaign** — state, quests, NPCs, notes, inventories, the roster, the journal, **and every channel's conversation history.** Two-step: it replies with a code to confirm with `/reset code:`. No undo. See [Start over](#7-start-over). |
 
 ---
 
@@ -904,7 +895,6 @@ required.
 |---|---|---|
 | `GARY_FREEFORM_CHANNELS` | *(none)* | Channels where Gary answers without being @-mentioned. Must be a subset of `GARY_GAME_CHANNELS`. |
 | `GARY_PLAYERS` | *(none)* | `<discord id>=<character name>`, `;` between entries. Unset skips actor validation. |
-| `GARY_COMMAND_PREFIX` | `?dm ` | May not start with `!` — most other bots claim it. |
 
 ### Storage
 
@@ -972,7 +962,7 @@ The short version, with the sections that carry the argument:
   data. §9.1
 - **Only the player a move belongs to can roll it, and only once.** Gary rolls the dice
   itself when they click, so there is no roll to parse and no name to match. §5.3, §9.2
-- **A proposal decides nothing.** `?dm scene` and the post-import premise run the model
+- **A proposal decides nothing.** `/scene` and the post-import premise run the model
   while it holds every state-mutating tool, so nothing they produce is written until you
   accept it. §8.1
 - **There is one writer.** The store is used in-process and guarded by a lock; why a

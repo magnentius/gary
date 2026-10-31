@@ -630,7 +630,7 @@ def test_dm_state_does_not_stay_silent_about_stored_memory():
     body = " ".join(sent)
     assert "3 note(s)" in body and "1 NPC(s)" in body
     assert "21 Sturgeon Moon 1026" in body      # layer 2 still rendered verbatim
-    assert "?dm notes" in body                   # and points somewhere that can show them
+    assert "/notes" in body                   # and points somewhere that can show them
 
 
 def test_dm_state_stays_quiet_when_nothing_is_stored():
@@ -728,7 +728,7 @@ def test_bare_dm_scene_proposes_one_instead_of_printing_its_own_usage():
     assert "The Rusty Anchor" in body and "Rain on the shutters." in body
     # The manual form is still reachable from the proposal, so nothing is lost by
     # replacing the usage text with an offer.
-    assert "?dm scene <location> | <standing state>" in body
+    assert "/scene location: summary:" in body
 
 
 def test_bare_dm_scene_falls_back_to_usage_with_no_model_attached():
@@ -741,7 +741,7 @@ def test_bare_dm_scene_falls_back_to_usage_with_no_model_attached():
     asyncio.run(dispatch(Msg("?dm scene")))
 
     assert client.runner.asked == []
-    assert "?dm scene <location> | <standing state>" in " ".join(sent)
+    assert "/scene location: summary:" in " ".join(sent)
 
 
 def test_accept_writes_the_held_line_and_spends_it():
@@ -791,7 +791,7 @@ def test_accept_with_nothing_pending_says_where_proposals_come_from():
 
     body = " ".join(sent)
     assert "Nothing to accept" in body
-    assert "?dm import" in body and "?dm scene" in body
+    assert "/import" in body and "/scene" in body
     assert client.store.applied == []
 
 
@@ -823,57 +823,48 @@ def test_a_proposal_the_model_fumbled_is_reported_not_stored():
     assert "couldn't put a scene into words" in " ".join(sent)
 
 
-def test_dm_help_covers_every_command_the_dispatcher_answers():
-    """Help that has drifted from the dispatcher is worse than no help: it sends the DM
-    looking for a command that was renamed. Pin it to the branches themselves."""
+def test_every_dispatcher_command_is_reachable_from_a_slash_command_or_a_button():
+    """The typed commands are gone; what the dispatcher still answers must be reachable --
+    from a slash command, the sheet's buttons, or a button that runs it (Accept, Cancel)."""
     import re
 
-    from gary.adapters.discord_bot import HIDDEN_COMMANDS, GaryClient, _SHEET_ACTIONS, render_help
+    from gary.adapters.discord_bot import GaryClient, _SHEET_ACTIONS
+    from gary.adapters.slash import HELP
 
     source = inspect.getsource(GaryClient._on_dm_command)
-    answered = set(re.findall(r'command == "(\w+)"', source)) | set(_SHEET_ACTIONS)
+    answered = set(re.findall(r'command == "(\w+)"', source))
     assert len(answered) > 10, "the regex stopped matching the dispatcher"
-    text = render_help("?dm ")
-    missing = {c for c in answered if f"?dm {c}" not in text} - {"help"} - HIDDEN_COMMANDS
-    assert not missing, missing
-    # A hidden shortcut is still answered, and really is out of the list.
-    assert HIDDEN_COMMANDS <= answered
-    assert not {c for c in HIDDEN_COMMANDS if f"?dm {c}`" in text}
+    by_button = {"accept", "cancel", "stats", "sheet", "help"}  # Accept, Cancel my move, /state, /sheet, /help
+    unreachable = {c for c in answered if f"`/{c}" not in HELP} - by_button - set(_SHEET_ACTIONS)
+    assert not unreachable, unreachable
 
 
-def test_dm_help_is_one_discord_message():
-    from gary.adapters.discord_bot import render_help
+def test_slash_help_is_one_discord_message():
+    from gary.adapters.slash import HELP
 
-    assert len(render_help("?dm ")) < 2000
-
-
-def test_dm_help_respects_a_custom_prefix():
-    from gary.adapters.discord_bot import render_help
-
-    text = render_help("!gm ")
-    assert "!gm setting <premise>" in text
-    assert "?dm" not in text
+    assert len(HELP) < 2000 and "?dm" not in HELP
 
 
-def test_an_unknown_dm_command_says_so_and_then_helps():
+def test_an_unknown_command_points_at_the_slash_commands():
     import asyncio
+
+    from gary.adapters.discord_bot import SLASH_ONLY
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.run(dispatch(Msg("?dm sitting")))
-
-    body = " ".join(sent)
-    assert "I don't know `?dm sitting`" in body
-    assert "Opening a campaign" in body
+    assert sent == [SLASH_ONLY]
 
 
-def test_bare_dm_is_help():
+def test_help_through_the_dispatcher_is_the_slash_list():
     import asyncio
+
+    from gary.adapters.slash import HELP
 
     sent = []
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.run(dispatch(Msg("?dm")))
-    assert "Opening a campaign" in " ".join(sent)
+    assert sent == [HELP]
 
 
 def test_asking_again_tells_the_model_what_it_already_offered():
@@ -1341,7 +1332,7 @@ def test_a_resolved_bond_needs_the_companion_and_is_worth_xp():
     end = GaryClient._end_session.__get__(_Client(), _Client)
     said = asyncio.run(end(1, set(), {"Thorin": bond["line"]}))
     assert said == ("⭐ End of session — **Eva** +1 (1/8 XP); **Thorin** +2 (2/8 XP). "
-                    "Thorin: write a new bond from `?dm sheet` (the Bonds button).")
+                    "Thorin: write a new bond from `/sheet` (the Bonds button).")
     assert sheets["Thorin"]["bonds"] == []
 
 

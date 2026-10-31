@@ -289,7 +289,7 @@ class Director:
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
-        """Register who is playing whom, from ``?dm playing``, ``?dm new`` or state.
+        """Register who is playing whom, from ``/playing``, ``/new`` or state.
 
         Deliberately not a model tool. This mapping decides whose move is whose, which is
         the class of decision §5 keeps away from the model entirely.
@@ -588,7 +588,7 @@ class Director:
                 return [self._refuse(
                     channel_id,
                     f"{actor} has no character sheet, so there is no stat to roll.",
-                    "Tell the player, in a sentence, to make one with `?dm new` before "
+                    "Tell the player, in a sentence, to make one with `/new` before "
                     "they roll. Do not resolve the action.",
                 )]
             mod = stat_modifier(sheet, stat)
@@ -626,7 +626,7 @@ class Director:
                     "They cannot act. Narrate around them, or ask what someone else does.",
                 )]
             # A sheet made before gear existed has no gear to check, and is let through
-            # as before; `?dm gear` gives it some.
+            # as before; `/gear` gives it some.
             if (rules.attacks and not rules.damage_die and not hurl and not minion and "gear" in sheet
                     and self._weapon(sheet, rules.key) is None):
                 needs = "a near, far or thrown weapon (and ammo, for a bow)" \
@@ -861,7 +861,7 @@ class Director:
         if sheet is None:
             return [self._refuse(
                 channel_id, f"{actor} has no character sheet, so there is no spell to cast.",
-                "Tell the player, in a sentence, to make one with `?dm new` first.",
+                "Tell the player, in a sentence, to make one with `/new` first.",
             )]
         unable = _unable(actor, sheet)
         if unable:
@@ -881,7 +881,7 @@ class Director:
                 why = f"{actor} does not have {known.name} prepared."
             else:
                 why = f"{actor} has no spell called {name!r}."
-            setup = " They have not chosen spells yet: tell them `?dm sheet` has the Choose spells button." \
+            setup = " They have not chosen spells yet: tell them `/sheet` has the Choose spells button." \
                 if spells.needs_setup(sheet) else ""
             return [self._refuse(
                 channel_id, f"{why} They can cast: {listing}.{setup}",
@@ -958,7 +958,7 @@ class Director:
         sheet = self._sheet_for(actor) if self._sheet_for is not None else None
         if sheet is None:
             return [self._refuse(channel_id, f"{actor} has no character sheet.",
-                                 "Tell the player to make one with `?dm new` first.")]
+                                 "Tell the player to make one with `/new` first.")]
         spend = coins // 100 * 100
         have = int(sheet.get("coins", 0))
         if spend < 100:

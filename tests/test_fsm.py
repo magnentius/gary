@@ -147,10 +147,10 @@ def test_an_unknown_move_goes_back_to_the_model(director):
 
 
 def test_a_character_without_a_sheet_cannot_roll(director):
-    """There is no stat to add. The model is told to send them to ?dm new."""
+    """There is no stat to add. The model is told to send them to /new."""
     (note,) = prompts_in(make_move(director, "volley", actor="Liriel", user_id=BOB))
     assert "no character sheet" in note.payload["error"]
-    assert "?dm new" in note.payload["instruction"]
+    assert "`/new`" in note.payload["instruction"]
     assert director.state(CHANNEL) is ChannelState.IDLE
 
 
@@ -1209,5 +1209,5 @@ def test_enough_xp_says_ready_to_level_up(director, dice):
     _sheets(director)["Kethra"].update(level=1, xp=7)
     make_move(director, "defy_danger", stat="dex")
     dice.queue(1, 1)
-    assert ("**Kethra** marks XP — 8/8 XP, ready to level up. When there's downtime, `?dm sheet` has "
+    assert ("**Kethra** marks XP — 8/8 XP, ready to level up. When there's downtime, `/sheet` has "
             "the Level up button.") in [e.text for e in sends_in(roll(director))]

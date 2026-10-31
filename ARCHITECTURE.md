@@ -120,7 +120,7 @@ Every fact has one owner. There are no shared-write facts.
 | *Whether* a creature attacks on a miss | **Gemini** | A GM move: `monster_attacks`. *How much* is Gary's. |
 | Character sheets, gear, coin, spells, XP, bonds | **Gary** | Created and changed through private forms and checked rules (§6). |
 | Creature stats | **Gary** (bestiary) | 142 SRD creatures looked up; homebrew from the model, checked against the monster-making rules. |
-| XP from End of Session | **The table** | `?dm endsession`: toggles anyone may flip; alignment and bond resolution are each player's own. |
+| XP from End of Session | **The table** | `/endsession`: toggles anyone may flip; alignment and bond resolution are each player's own. |
 | World date/time, scene, NPCs, notes, effects | **Store** | Written through the model's tools; reversible. |
 | Position and distance | **Gemini** (nobody tracks it) | No map. The model keeps who-is-where in the scene summary and stays consistent with it. |
 | Narrative prose, NPC voice, GM moves | **Gemini** | |
@@ -367,24 +367,25 @@ needed), Communion of Whispers' -1 forward on a miss, Counterspell's staked spel
 
 `sheets.py`: class, race, stats and modifiers, HP (class base + Constitution score), damage
 die, armor, level, XP, alignment, gear, coin, rations, ammo — and, by class, spells,
-companion, shape; bonds. `?dm new` opens a private form (`adapters/creator.py`) driving a
+companion, shape; bonds. `/new` opens a private form (`adapters/creator.py`) driving a
 `Draft` that refuses at every step what the rules forbid: class, race, the
 16/15/13/12/9/8 array one score at a time, starting gear from the class's lists (the
 Fighter's signature weapon in full), alignment, the class's own choices (`choices.py`:
 a Cleric's god, domain and precept; a Druid's land and tell; a Bard's lore; a Thief's
 poison; a Fighter's weapon look and an Elf's precise weapon type, read from the move
 texts), name. Creating a character also claims it
-for the creator, in the same apply. (Every command is also a slash command, `adapters/slash.py`:
-each runs the `?dm` dispatcher through a stand-in message built from the interaction --
-author, channel, text, attachments -- deferring at once and removing the placeholder after;
-`/new`, `/sheet`, `/fronts` and `/help` answer ephemerally instead. They are synced per guild
-of the game channels on connect.) Everything else about a character opens from `?dm sheet`
+for the creator, in the same apply. (The commands are slash commands, `adapters/slash.py`:
+each runs the internal command dispatcher (`GaryClient._on_dm_command`) through a stand-in
+message built from the interaction -- author, channel, text, attachments -- deferring at once
+and removing the placeholder after; `/new`, `/sheet`, `/fronts` and `/help` answer ephemerally
+instead. They are synced per guild of the game channels on connect. A typed `?dm` message is
+routed to a one-line pointer, `SLASH_ONLY`.) Everything else about a character opens from `/sheet`
 (`GaryClient._sheet_hub`): `_sheet_actions` returns, per action, a button (its form built on
 click, from the sheet as it is then) or why it does not apply -- spells, companion, bonds,
 alignment, class choices, gear, level up -- and the sheet shows every button that applies.
 Older sheets get their missing parts the same way, without a remake. The typed names
-(`?dm spells`, `?dm levelup`...) post one button each; with `?dm accept`, `?dm cancel` and
-`?dm stats` they are `HIDDEN_COMMANDS`, answered but left out of the help.
+(`spells`, `levelup`...) remain dispatcher commands that post one button each, as do
+`accept`, `cancel` and `stats`, reached through buttons and `/state` rather than typed.
 
 Every form is **private** (ephemeral), opened from a public button only its owner can use,
 and held in memory: a half-made choice is cheap to start again. Each save writes only what
@@ -417,7 +418,7 @@ is released with `released=true` and a reason.
 
 **Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
 rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.
-**Session questions:** `?dm questions` (journalled `SESSION_QUESTIONS`) replaces the book's
+**Session questions:** `/questions` (journalled `SESSION_QUESTIONS`) replaces the book's
 three end-of-session questions with the adventure's own; `EndOfSession(questions=)` asks them.
 
 **Steadings** (`steadings.py`). `create_steading` builds one from `KINDS` -- the book's
@@ -607,7 +608,7 @@ doom; stakes questions) and renders it. Fronts live in state as `fronts`, writte
 journalled `FRONT` mutation, whose inverse is the record as it was. The model's
 `create_front`, `advance_portent` (the next portent comes true; the last one returns the doom)
 and `end_danger` post nothing to the table; the live state shows each live danger's impulse,
-progress and next portent. `?dm fronts` answers through a button so only the clicker sees it.
+progress and next portent. `/fronts` answers ephemerally, so only whoever asked sees it.
 
 ### 6.9a Forward
 
@@ -627,7 +628,7 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   mid-move, and the model must give a reason it is safe, shown to the table. The same guard
   (`Director.unsettled`) gates Commune and Level Up.
 - **XP** — every miss marks 1 XP (`Director._mark_xp`, on every resolution path).
-  `?dm endsession`: the book's three questions as toggles anyone may flip, a per-character
+  `/endsession`: the book's three questions as toggles anyone may flip, a per-character
   "acted on alignment" toggle only that player may flip, and Resolve a bond (picked
   privately; the companion's player must press Agree). Award XP applies it all in one apply.
 - **Level Up** — the sheet's Level up button, in downtime: a private form (`levelling.Advance`) for a stat
@@ -701,13 +702,13 @@ mutations in the runner.
   Months are named for their full moons (Wolf, Snow, Worm, Pink, Flower, Strawberry, Buck,
   Sturgeon, Harvest, Hunter's, Beaver, Cold), so `4 Harvest Moon 1026` dates the scene and
   places it in autumn at once; seasons, daylight and leap years come free.
-- **Undo.** `?dm undo` reverses the last journalled mutation. Inverses are computed by the
+- **Undo.** `/undo` reverses the last journalled mutation. Inverses are computed by the
   store from observed before/after values, never supplied by the caller, so the model
   cannot describe its own undo. Reversed entries are marked by a later entry carrying
   `undoes`, so undo is not repeatable across a restart.
 - **Bounds.** Mutations past configured limits are rejected, not applied, and the whole
   batch with them; the model is told why. The trade tools carry their own caps.
-- **Reset is the one destructive operation.** `?dm reset` (two-step, with a token)
+- **Reset is the one destructive operation.** `/reset` (two-step, with a token)
   truncates the journal *then* writes an empty snapshot — in that order, so a crash between
   leaves the old campaign intact rather than resurrected — and clears every channel's
   conversation history, pending moves and the roster.
@@ -762,7 +763,7 @@ layers, in order:
    and spreading the spotlight, and the book's principles (never name your move, be a fan of
    the characters, think offscreen). Held under 7.5% of the token budget by a test.
 2. **Live state** (rebuilt per call, never carried in history) — the setting (≤600
-   characters, from `?dm setting`), date and time, scene, the party with each sheet line
+   characters, from `/setting`), date and time, scene, the party with each sheet line
    (stats, HP, armor, weapons, XP, shape), what they carry, their spells, companion and
    bonds, the creatures in the scene with HP, and effects. Then the **class moves block**:
    each character's alignment, rolled moves by key, narrative and advanced moves in the
@@ -785,14 +786,14 @@ background summary cannot be clobbered by a turn that loaded the old one.
 ### 8.1 Seeding a campaign
 
 Layers 2 and 3 are empty on a fresh campaign, the worst moment for it. Three surfaces fill
-them: `?dm setting <premise>`; `?dm scene <location> | <state>` and `?dm time`; and
-`?dm import` with a `.md`/`.txt` attachment, split on Markdown headings (a section cut in
+them: `/setting premise:`; `/scene location: summary:` and `/time`; and
+`/import` with a `.md`/`.txt` attachment, split on Markdown headings (a section cut in
 half writes an NPC twice) and fanned into notes and NPCs, one model call per chunk, capped.
 
-**Proposals.** Bare `?dm scene`, or an import finishing on a campaign with no setting, asks
+**Proposals.** Bare `/scene`, or an import finishing on a campaign with no setting, asks
 the model for one line. A proposal decides nothing: `EffectRunner.ask` returns the text
 and drops any effects, so it cannot act on its own suggestion. The line is held until
-someone presses its Accept button (`AcceptButton`, or types `?dm accept`), parsed rather than trusted (lead-ins, fences and labels stripped, since the
+someone presses its Accept button (`AcceptButton`), parsed rather than trusted (lead-ins, fences and labels stripped, since the
 field is read to the model every turn), and asking again names the rejected lines back so
 the model offers a different place, not a paraphrase.
 
@@ -813,11 +814,11 @@ the model offers a different place, not a paraphrase.
   refuses what the rules forbid, trade and coin are capped, the store rejects out-of-bounds
   mutations, and every change is journalled and undoable.
 - **The model cannot touch what decides outcomes**: the roster (who plays whom) is set only
-  by `?dm new`/`?dm playing`; sheets change only through rules-checked forms and effects;
+  by `/new`/`/playing`; sheets change only through rules-checked forms and effects;
   dice are Gary's; XP from End of Session is the table's.
 - **Imported documents are data, not turns.** Each chunk is sanitised, fenced between
   `<<<DOCUMENT`/`DOCUMENT>>>`, labelled part *n* of *m*, and prefixed with a statement that a
-  directive inside it is fiction to record. Only `?dm` can invoke it; caps refuse before the
+  directive inside it is fiction to record. Only `/import` can invoke it; caps refuse before the
   first model call.
 
 ### 9.2 Attribution
@@ -862,7 +863,7 @@ belongs in Secret Manager.
 | Gary restart mid-move | Pending moves and their buttons survive (§5.3, §7.4). In-memory forms (creation, level up, bonds, End of Session) are lost and reopened by the command. |
 | Interaction not answered in 3 s | Clicks are acknowledged before narration starts. |
 
-**Observability.** Structured logs; the last line of `?dm state` shows messages sent, turns
+**Observability.** Structured logs; the last line of `/state` shows messages sent, turns
 narrated, model failures and moves journalled since start.
 
 ---
@@ -955,8 +956,8 @@ Flash; a turn is two model calls around a human click, so latency and cost matte
 ### 12.5 Configuration
 
 `DISCORD_TOKEN`, `GEMINI_API_KEY`; `GARY_GAME_CHANNELS`, `GARY_FREEFORM_CHANNELS`,
-`GARY_PLAYERS` (Discord user → character, for a table that predates `?dm new`),
-`GARY_COMMAND_PREFIX` (`?dm `), `GARY_CHECK_TTL` (180 s), `GARY_SWEEP_INTERVAL` (15 s),
+`GARY_PLAYERS` (Discord user → character, for a table that predates `/new`),
+`GARY_CHECK_TTL` (180 s), `GARY_SWEEP_INTERVAL` (15 s),
 `GARY_SEND_INTERVAL` (1 s), `GARY_HISTORY_WINDOW` (30), `GARY_MAX_EFFECT_DEPTH` (4),
 `GARY_GEMINI_MODEL` / `_SUMMARY_MODEL` / `_FALLBACK_MODEL` / `_TIMEOUT`, `GARY_BACKEND`
 (`file` or `firestore`), `GARY_CAMPAIGN_ROOT`, `GARY_FIRESTORE_CAMPAIGN_ID`.
@@ -1023,14 +1024,14 @@ src/gary/
     routing.py     pure ingest decision                                             §4.2
     sender.py      2000-char splitting + per-channel pacing                         §10
     runner.py      performs Effects; bounds model recursion                         §12.2
-    discord_bot.py discord.py glue, buttons, ?dm commands, sweep loop               §5.3
-    creator.py     ?dm new, and the sheet's gear / alignment / choices forms        §6.3
+    discord_bot.py discord.py glue, buttons, the command dispatcher, sweep loop    §5.3
+    creator.py     /new, and the sheet's gear / alignment / choices forms           §6.3
     spellbook.py   Choose spells                                                    §6.6
     companion_form.py  the sheet's Choose companion                                 §6.7
     levelup.py     the sheet's Level up                                             §6.10
     bonds_form.py  the sheet's Bonds                                                §6.10
-    session.py     ?dm endsession                                                   §6.10
-    slash.py       the slash commands: each through the ?dm dispatcher, four private §6.3
+    session.py     /endsession                                                      §6.10
+    slash.py       the slash commands: each through the dispatcher, four private    §6.3
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6
 scripts/extract_dw_*.py   XML → data/*.json                                         §6.1

@@ -152,3 +152,26 @@ def test_questions_join_their_options(client_and_tree):
     assert client.ran[-1][0] == "?dm questions Did we win? | Did we lose?"
     call(tree, "questions", _Interaction(), default=True)
     assert client.ran[-1][0] == "?dm questions default"
+
+
+def test_a_typed_dm_command_is_pointed_at_the_slash_commands():
+    from gary.adapters.discord_bot import SLASH_ONLY, GaryClient
+
+    sent, ran = [], []
+
+    class _Sender:
+        async def send(self, channel_id, text, prompt=None):
+            sent.append(text)
+
+    class _Stub:
+        settings = type("S", (), {"command_prefix": "?dm ", "game_channels": {ROOM}, "freeform_channels": set()})()
+        sender = _Sender()
+        user = type("U", (), {"id": 1})()
+
+        async def _on_dm_command(self, message):
+            ran.append(message.content)
+
+    author = type("A", (), {"id": 11, "bot": False, "display_name": "John"})()
+    message = type("M", (), {"author": author, "channel": type("C", (), {"id": ROOM})(), "content": "?dm sheet"})()
+    asyncio.run(GaryClient.on_message(_Stub(), message))
+    assert sent == [SLASH_ONLY] and ran == []

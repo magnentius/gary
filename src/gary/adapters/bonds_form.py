@@ -1,4 +1,4 @@
-"""Writing bonds over Discord components (`?dm bonds`): a private form.
+"""Writing bonds over Discord components (`/bonds`): a private form.
 
 Pick one of your class's bond lines, then the companion who fills its blank; remove one
 to rewrite it; save. Every change is a ``bonds`` call, so the form cannot write a bond the

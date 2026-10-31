@@ -11,8 +11,8 @@ Order is load-bearing:
 2. **All other bots.** Dice bots, webhooks, bridges — none are ours to interpret. Gary
    rolls its own dice, so no other bot's output means anything to it.
 3. **Game channels only.** An unregistered channel is silence, not an error.
-4. **Gary's own commands**, before ordinary player text, so ``?dm undo`` is never
-   narrated at the table as though a character said it.
+4. **A typed ``?dm`` command**, before ordinary player text, so it is pointed at the slash
+   commands rather than narrated at the table as though a character said it.
 """
 
 from __future__ import annotations

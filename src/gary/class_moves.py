@@ -131,8 +131,8 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
                 elif pet:
                     lines.append(f"    - {describe_companion(sheet)}")
                 else:
-                    lines.append("    - Animal Companion: not chosen yet (the player runs `?dm "
-                                 "companion`). Until then there is no companion in the story.")
+                    lines.append("    - Animal Companion: not chosen yet (the player presses Choose companion "
+                                 "on `/sheet`). Until then there is no companion in the story.")
             elif m["kind"] == PREPARE:
                 lines.append(f"    - {m['name']}: when they spend an undisturbed hour at it, "
                              "call prepare_spells.")

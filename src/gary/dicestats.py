@@ -1,4 +1,4 @@
-"""How the table's dice have actually fallen, against how 2d6 should (`?dm dice`).
+"""How the table's dice have actually fallen, against how 2d6 should (`/dice`).
 
 Read from the journal: every resolved move is there with its faces and modifier, so the
 history needs no bookkeeping of its own. Only 2d6 move rolls count -- damage dice and

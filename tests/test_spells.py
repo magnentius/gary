@@ -194,7 +194,7 @@ def test_a_caster_who_never_chose_is_pointed_at_dm_spells(director, sheets):
     for key in ("spells", "lost", "cast_penalty"):
         sheets["Thorin"].pop(key)
     (note,) = notes(cast(director, "Bless"))
-    assert "`?dm sheet` has the Choose spells button" in note["error"]
+    assert "`/sheet` has the Choose spells button" in note["error"]
     assert texts(cast(director, "Light"))  # rotes need no choosing
 
 

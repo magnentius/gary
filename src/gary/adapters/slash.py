@@ -1,7 +1,7 @@
 """Gary's slash commands: /sheet, /new, /scene and the rest, in Discord's command picker.
 
-Each runs the same handler as its `?dm` form -- one dispatcher, tested once -- through a
-stand-in message built from the interaction: its author, channel, text and attachments.
+Each runs Gary's command handler -- one dispatcher, tested once -- through a stand-in message
+built from the interaction: its author, channel, text and attachments.
 The interaction is acknowledged at once (Discord allows three seconds) and the "thinking"
 placeholder removed when the handler has posted; what it posts appears in the channel as
 it always has.
@@ -11,7 +11,7 @@ cannot: /new opens the character form, /sheet shows your sheet with its buttons,
 shows the GM's threats, and /help lists the commands -- each only to whoever asked.
 
 Commands are registered per server where Gary has a game channel (instant), not globally
-(up to an hour). `?dm` keeps working beside them.
+(up to an hour). They are the only commands: a typed `?dm` is pointed here.
 """
 
 from __future__ import annotations
@@ -53,13 +53,11 @@ __Looking in__
 `/help` — this list
 
 __Starting over__
-`/reset` — **deletes the campaign**. Two-step (`/reset code:`), and the one thing here with no undo.
-
-*The old `?dm` commands still work.*"""
+`/reset` — **deletes the campaign**. Two-step (`/reset code:`), and the one thing here with no undo."""
 
 
 class _SlashMessage:
-    """What the `?dm` dispatcher reads from a message, built from an interaction."""
+    """What the command dispatcher reads from a message, built from an interaction."""
 
     def __init__(self, interaction: "discord.Interaction", content: str,
                  attachments: Optional[List["discord.Attachment"]] = None) -> None:
@@ -82,7 +80,7 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
 
     async def run(interaction: "discord.Interaction", body: str,
                   attachments: Optional[List["discord.Attachment"]] = None) -> None:
-        """Run a `?dm` command for this interaction; its posts land in the channel."""
+        """Run a command for this interaction; its posts land in the channel."""
         if not playing_here(interaction):
             await not_here(interaction)
             return
@@ -138,7 +136,7 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     async def help_(interaction: "discord.Interaction") -> None:
         await interaction.response.send_message(HELP, ephemeral=True)
 
-    # -- the rest, through the ?dm dispatcher ---------------------------------------------------
+    # -- the rest, through the command dispatcher ----------------------------------------------
 
     @tree.command(name="import", description="Read a setting document and file its people, places and lore")
     @app_commands.describe(document="A .md or .txt file")

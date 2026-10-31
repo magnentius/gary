@@ -62,7 +62,7 @@ MAX_CLICKS_PER_LINE = 25
 
 def _character(name: str, cls: str, race: str, order: Sequence[str], gear: Dict[int, Sequence[int]],
                alignment: str, choices: Sequence[str] = (), signature: Optional[tuple] = None) -> dict:
-    """A character made through the same Draft as `?dm new`, so it is valid by construction."""
+    """A character made through the same Draft as `/new`, so it is valid by construction."""
     d = Draft()
     d.choose_class(cls)
     d.choose_race(race)

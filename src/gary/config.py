@@ -17,6 +17,8 @@ from typing import Dict, FrozenSet, Mapping, Optional
 
 # "!" is the prefix most Discord bots claim. Sharing it would make Gary answer commands
 # meant for another bot in the same server.
+#: Internal: how the slash commands address the command dispatcher, and the typed prefix that
+#: is now answered with a pointer to the slash commands. Not configurable.
 DEFAULT_COMMAND_PREFIX = "?dm "
 
 #: Where a campaign lives when nothing says otherwise.
@@ -59,7 +61,7 @@ def _ids(raw: Optional[str]) -> FrozenSet[int]:
 def _players(raw: Optional[str]) -> "Mapping[int, str]":
     """Parse ``GARY_PLAYERS`` -- ``<discord_user_id>=<character name>`` pairs.
 
-    Without this (or ``?dm playing``) the model is only ever told a Discord display name,
+    Without this (or ``/playing``) the model is only ever told a Discord display name,
     and has no character to open a check for. Semicolon-separated, because character
     names contain commas far more often than semicolons.
     """
@@ -121,11 +123,6 @@ class Settings:
                 "GARY_GAME_CHANNELS is empty; Gary would join the server and ignore "
                 "every message"
             )
-        if self.command_prefix.startswith("!"):
-            raise ConfigError(
-                f"command prefix {self.command_prefix!r} collides with '!', which most "
-                "bots claim"
-            )
         if self.backend not in ("file", "firestore"):
             raise ConfigError(f"unknown backend {self.backend!r}")
         stray = self.freeform_channels - self.game_channels
@@ -160,7 +157,6 @@ class Settings:
             discord_token=e.get("DISCORD_TOKEN", ""),
             game_channels=_ids(e.get("GARY_GAME_CHANNELS")),
             freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
-            command_prefix=e.get("GARY_COMMAND_PREFIX", DEFAULT_COMMAND_PREFIX),
             players=_players(e.get("GARY_PLAYERS")),
             campaign_root=Path(e["GARY_CAMPAIGN_ROOT"]) if e.get("GARY_CAMPAIGN_ROOT")
             else default_campaign_root(),

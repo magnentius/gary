@@ -11,7 +11,7 @@ Turns are stored as **plain dicts**, not google-genai objects. That keeps this m
 therefore the core — free of any LLM SDK; the Gemini adapter converts at its own boundary.
 
 Deliberately *not* the journal. The journal is for reversible campaign mutations, and a
-line of dialogue is neither reversible nor a mutation. Mixing them would make ``?dm undo``
+line of dialogue is neither reversible nor a mutation. Mixing them would make ``/undo``
 walk backwards through conversation.
 """
 
@@ -52,7 +52,7 @@ class HistoryBackend(Protocol):
         """
 
     def clear_all(self) -> None:
-        """Discard every channel's history. For `?dm reset` only.
+        """Discard every channel's history. For `/reset` only.
 
         Every channel, not just the configured ones. Reset used to loop over
         ``GARY_GAME_CHANNELS`` and blank each in turn, which left the full transcript of

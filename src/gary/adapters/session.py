@@ -1,4 +1,4 @@
-"""End of Session over Discord components (`?dm endsession`).
+"""End of Session over Discord components (`/endsession`).
 
 The book's three questions, answered by the table: each is a toggle anyone at the table
 can flip, and Award XP gives everyone 1 XP per "yes". Alignment is each player's own to

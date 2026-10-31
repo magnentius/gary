@@ -112,7 +112,7 @@ class EffectRunner:
         log.warning("no handler for effect %r", type(effect).__name__)
 
     def _change_hp(self, effect: ChangeHp) -> None:
-        """Journalled like any other change, so ``?dm undo`` takes a blow back."""
+        """Journalled like any other change, so ``/undo`` takes a blow back."""
         if self._store is None:
             log.warning("no store wired; %s's HP change not applied", effect.name)
             return

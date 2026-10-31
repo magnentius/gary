@@ -46,11 +46,10 @@ def test_no_game_channels_is_fatal():
         settings(game_channels=frozenset())
 
 
-def test_prefix_colliding_with_other_bots_is_fatal():
-    """Most bots claim '!'. Sharing it means answering commands meant for another bot."""
-    with pytest.raises(ConfigError, match="collides with '!'"):
-        settings(command_prefix="!dm ")
-
+def test_the_command_prefix_is_no_longer_configurable():
+    """The commands are slash commands; the old prefix is internal and the variable is ignored."""
+    s = Settings.from_env({"DISCORD_TOKEN": "t", "GARY_GAME_CHANNELS": "1", "GARY_COMMAND_PREFIX": "!gm "})
+    assert s.command_prefix == "?dm "
 
 def test_freeform_channel_outside_game_channels_is_fatal():
     """A freeform channel Gary does not watch is silently inert -- catch the typo."""

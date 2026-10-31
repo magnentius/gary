@@ -321,7 +321,7 @@ async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
     msg, dispatch, posted = _dispatcher(table)
 
     await dispatch(msg("?dm sheet"))
-    assert sent[-1] == "You have no sheet yet. `?dm new` makes one."
+    assert sent[-1] == "You have no sheet yet. `/new` makes one."
 
     await save(_Interaction(ALICE), await _kael_sheet(), CHANNEL)
     await dispatch(msg("?dm sheet"))

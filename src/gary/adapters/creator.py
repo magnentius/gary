@@ -1,4 +1,4 @@
-"""Character creation over Discord components (`?dm new`).
+"""Character creation over Discord components (`/new`).
 
 A private, step-by-step form: class, race, the stat array one score at a time, a name,
 then a summary to confirm. Every step is a ``sheets.Draft`` setter, so the form cannot
@@ -39,7 +39,7 @@ Finish = Callable[["discord.Interaction", dict], Awaitable[Optional[str]]]
 
 
 class StartButton(discord.ui.View):
-    """The public button `?dm new` posts. Only the person who asked can use it.
+    """The public button `/new` posts. Only the person who asked can use it.
 
     Needed because a typed command cannot be answered privately -- only a click can --
     and stats are nobody else's business until the character exists.
@@ -55,7 +55,7 @@ class StartButton(discord.ui.View):
     async def start(self, interaction: "discord.Interaction", _button) -> None:
         if interaction.user.id != self.owner_id:
             await interaction.response.send_message(
-                f"This one is {self.owner_name}'s. `?dm new` to start your own.",
+                f"This one is {self.owner_name}'s. `/new` to start your own.",
                 ephemeral=True,
             )
             return
@@ -328,7 +328,7 @@ class CharacterCreator(discord.ui.View):
 
 
 class AlignmentForm(discord.ui.View):
-    """`?dm alignment`: choose or change an existing character's alignment. Private, and
+    """`/alignment`: choose or change an existing character's alignment. Private, and
     the save writes only the alignment."""
 
     def __init__(self, sheet: dict, finish: Callable[[str], Awaitable[Optional[str]]]) -> None:
@@ -400,7 +400,7 @@ class ChoiceModal(discord.ui.Modal, title="Your choice"):
 
 
 class ChoicesForm(discord.ui.View):
-    """`?dm choices`: the class's creation choices for a character made before them.
+    """`/choices`: the class's creation choices for a character made before them.
     Private; the save writes only the choices (and a Thief's starting poison)."""
 
     def __init__(self, sheet: dict, finish: Callable[[dict], Awaitable[Optional[str]]]) -> None:

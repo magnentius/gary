@@ -333,7 +333,7 @@ def render_live_state(state: Dict[str, Any]) -> str:
     if scene.get("summary"):
         lines.append(f"- Scene: {scene['summary']}")
 
-    # Everyone at the table, from `?dm playing`, union whoever has acquired anything.
+    # Everyone at the table, from `/playing`, union whoever has acquired anything.
     # Without the roster the model only learns a character exists when they speak: it
     # cannot address a quiet player, say "the three of you", or know Dorn is there at all.
     party = state.get("party") or {}

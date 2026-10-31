@@ -68,7 +68,7 @@ class StateBackend(Protocol):
     def truncate_journal(self) -> None:
         """Discard every entry. The one operation on this protocol that destroys history.
 
-        Exists solely for `?dm reset`, where the point is that the campaign is gone: a
+        Exists solely for `/reset`, where the point is that the campaign is gone: a
         reset that leaves the old world's notes, gold and NPC dispositions sitting in the
         journal has not reset anything a reader can see. Callers must write a snapshot of
         the empty state with ``journal_offset`` 0 immediately afterwards -- a truncated

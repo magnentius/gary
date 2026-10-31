@@ -142,7 +142,7 @@ class CampaignStore:
 
         The roster goes as well. An earlier version kept it, on the grounds that who is
         playing whom is table setup rather than fiction; a reset that leaves anything
-        behind is a reset with an exception to remember, and forgetting `?dm playing`
+        behind is a reset with an exception to remember, and forgetting `/playing`
         after one is loud (the boot warning, and make_move refusing an unknown actor)
         rather than silent.
 
@@ -748,7 +748,7 @@ def _h_calendar(store: "CampaignStore", m: Mutation) -> AppliedMutation:
         mutation=m,
         # Deliberately irreversible. The epoch is set once, at campaign creation, and
         # nothing offers to change it -- so an inverse here would only ever be reached by
-        # `?dm undo` running out of real mutations, at which point it would silently
+        # `/undo` running out of real mutations, at which point it would silently
         # rewind every date in the campaign and report that it had undone something.
         inverse=None,
         before=before,
