@@ -1061,12 +1061,47 @@ class Director:
             flags += [f"plus:{plus}", f"minus:{minus}"]
         return flags, "", ammo_left
 
-    def _balance(self, channel_id: int, actor: str, hits: Sequence[Dict[str, Any]]) -> List[Effect]:
-        """Balance: "When you deal damage, take 1 balance"."""
+    def _after_strike(self, channel_id: int, actor: str, hits: Sequence[Dict[str, Any]]) -> List[Effect]:
+        """After a character deals damage: Balance's point ("When you deal damage, take 1
+        balance") and, for Spell Augmentation, the creature they struck."""
         sheet = self._sheet_or_empty(actor)
-        if not advanced.has(sheet, "Balance") or not any(int(h.get("dealt", 0)) > 0 for h in hits):
-            return []
-        return [UpdateSheet(channel_id, actor, {"balance": int(sheet.get("balance", 0)) + 1})]
+        struck = [h["target"] for h in hits if int(h.get("dealt", 0)) > 0 and h.get("target")]
+        changes: Dict[str, Any] = {}
+        if struck and advanced.has(sheet, "Spell Augmentation"):
+            changes["last_struck"] = struck[-1]  # where Spell Augmentation may shunt a spell
+        if struck and advanced.has(sheet, "Balance"):
+            changes["balance"] = int(sheet.get("balance", 0)) + 1
+        return [UpdateSheet(channel_id, actor, changes)] if changes else []
+
+    def spell_augmentation(
+        self, *, channel_id: int, character: str, spell: str
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Spell Augmentation: "When you deal damage to a creature you can shunt a spell's energy
+        into them -- end one of your ongoing spells and add the spell's level to the damage
+        dealt." Onto the creature they last dealt damage to."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None or not advanced.has(sheet, "Spell Augmentation"):
+            return [], {"ok": False, "error": f"{character!r} does not have Spell Augmentation."}
+        target = sheet.get("last_struck")
+        creature = self._monsters().get(target or "")
+        if creature is None:
+            return [], {"ok": False, "error": f"{actor} has not just dealt damage to a creature still here."}
+        running = [(i, s) for i, (s, _) in enumerate(spells.running(sheet)) if s.name.lower() == str(spell).strip().lower()]
+        if not running:
+            names = ", ".join(s.name for s, _ in spells.running(sheet)) or "none"
+            return [], {"ok": False, "error": f"{actor} has no {spell!r} running. Ongoing: {names}."}
+        index, found = running[0]
+        kept = list(sheet.get("ongoing") or [])
+        del kept[index]
+        after = int(creature["hp"]) - found.level
+        return [
+            SendMessage(channel_id, f"✨ **{actor}** ends {found.name} and shunts it into {target} — "
+                                    f"**{found.level} more damage**, HP {creature['hp']} → {max(after, 0)}"
+                                    + (" — **defeated**." if after <= 0 else ".")),
+            ChangeHp(channel_id, "monster", target, after),
+            UpdateSheet(channel_id, actor, {"ongoing": kept, "last_struck": None}),
+        ], {"ok": True, "dealt": found.level, "hp_after": max(after, 0), "defeated": after <= 0}
 
     def channel_balance(
         self, *, channel_id: int, character: str, patient: str, amount: int = 1
@@ -1399,9 +1434,38 @@ class Director:
         ahead = self._forwards_from(channel_id, check, dice)
         staked = self._counterspell(channel_id, check, dice)
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
-                          healing=self._healing(check, dice), spell=spell, shape=shape)
+                          healing=self._healing(check, dice), spell=spell, shape=shape,
+                          notes=self._advanced_notes(check, dice))
         return [*self._consequences(channel_id, outcome), *cast, *shift, *guard, *ahead, *staked,
                 *self._resolved(channel_id, outcome)]
+
+    def _advanced_notes(self, check: PendingCheck, dice: Roll) -> Tuple[str, ...]:
+        """What an advanced move adds to a result that Gary does not track itself."""
+        sheet = self._sheet_or_empty(check.actor)
+        notes: List[str] = []
+        if check.move == "trap_expert":
+            if advanced.has(sheet, "Extremely Cautious"):
+                notes.append("Extremely Cautious: +1 hold, even on a 6-. On a 12+ they get 3 hold, and the next "
+                             "time they come near a trap you tell them at once what it does, what triggers it, "
+                             "who set it and how they can use it.")
+            elif advanced.has(sheet, "Cautious"):
+                notes.append("Cautious: +1 hold, even on a 6-.")
+        if check.move == "cast_a_spell" and dice.total >= 10:
+            # Empower (Cleric) / Empowered Magic (Wizard), and their Greater forms.
+            greater = next((n for n in ("Greater Empower", "Greater Empowered Magic") if advanced.has(sheet, n)), None)
+            lesser = next((n for n in ("Empower", "Empowered Magic") if advanced.has(sheet, n)), None)
+            boost = ("effects doubled or targets doubled" if (greater or lesser) != "Empowered Magic"
+                     else "effects maximized or targets doubled")
+            if greater and dice.total >= 12:
+                notes.append(f"{greater}, 12+: they may choose one -- {boost} -- for free. Ask them.")
+            elif greater or lesser:
+                notes.append(f"{greater or lesser}: they may take one of the 7-9 costs to also have {boost}. "
+                             "Ask them; if they do, apply the cost and double (or maximize) what the spell does "
+                             "yourself -- Gary rolled it once.")
+        if check.move == "defend" and dice.total >= 12 and advanced.has(sheet, "Impervious Defender"):
+            notes.append("Impervious Defender, 12+: instead of hold, the nearest attacking creature is "
+                         "stymied, giving them a clear advantage. Describe it.")
+        return tuple(notes)
 
     def _counterspell(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """Counterspell, 7-9: "the spell is countered and you forget the spell you staked"."""
@@ -1417,6 +1481,9 @@ class Director:
         if check.move != "defend" or not check.target:
             return []
         defender = self._sheet_or_empty(check.actor)
+        if dice.total >= 12 and advanced.has(defender, "Impervious Defender"):
+            return [SendMessage(channel_id, f"🛡️ **{check.actor}** stands in defense of {check.target} — "
+                                            "the nearest attacker is stymied (Impervious Defender).")]
         staunch = advanced.has(defender, "Staunch Defender") or advanced.has(defender, "Impervious Defender")
         if band(dice) == "miss" and not staunch:
             return []
@@ -1800,7 +1867,7 @@ class Director:
             hits.append(facts)
             line += said
             effects.extend(self._oath_kept(channel_id, check.actor, name, facts))
-        effects.extend(self._balance(channel_id, check.actor, hits))
+        effects.extend(self._after_strike(channel_id, check.actor, hits))
         facts = hits[0] if len(hits) == 1 else {"rolled": total, "targets": hits}
         effects.insert(0, SendMessage(channel_id, line))
 
@@ -2127,7 +2194,7 @@ class Director:
         effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
         effects.extend(spent_marks)
         effects.extend(self._oath_kept(channel_id, actor, name, facts))
-        effects.extend(self._balance(channel_id, actor, [facts]))
+        effects.extend(self._after_strike(channel_id, actor, [facts]))
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
                                                   f"No roll needed: {shown}{said}"))

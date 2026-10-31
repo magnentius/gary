@@ -680,6 +680,10 @@ waiting on; `?dm cancel` drops your own.
   damage roll), Unnatural Ally's monstrous companion, Half-Elven's second race move,
   Formshaper's armor or damage and Formcrafter's +1/-1 in a shape, and Balance — earned with
   every blow, spent to heal 1d4 a point.
+- **Casters and the rest:** Spell Augmentation ends an ongoing spell to add its level to the
+  blow you just landed; Impervious Defender's 12+ stymies the attacker instead of giving hold.
+  Cautious, Extremely Cautious and the Empower moves are passed to the GM as exact notes on
+  the result — Trap Expert's hold and a doubled spell are the GM's to apply.
 - **About a quarter of advanced moves are wired.** Gary applies the ones that change a number
   it runs: armor (Iron Hide, Barkskin, Arcane Ward, Underdog…), extra damage (Merciless,
   Cheap Shot…), a Druid's bigger animal die, extra healing (Hospitaller, Healing Song,

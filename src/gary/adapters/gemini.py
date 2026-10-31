@@ -460,6 +460,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.SPELL_AUGMENTATION:
+                aug_effects, result = self._director.spell_augmentation(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    spell=str(args.get("spell", "")))
+                effects.extend(aug_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.CHANNEL_BALANCE:
                 balance_effects, result = self._director.channel_balance(
                     channel_id=channel_id, character=str(args.get("character", "")),

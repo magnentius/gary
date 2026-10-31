@@ -52,6 +52,7 @@ HAZARD_DAMAGE = "hazard_damage"
 ONGOING = "ongoing"
 LEAD_THE_CHARGE = "lead_the_charge"
 CHANNEL_BALANCE = "channel_balance"
+SPELL_AUGMENTATION = "spell_augmentation"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -559,6 +560,17 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["character", "mission", "subject", "vows"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=SPELL_AUGMENTATION,
+        description=(
+            "A Wizard with Spell Augmentation, having just dealt damage to a creature, ends one of "
+            "their ongoing spells to add its level to that damage. Gary applies it to the creature "
+            "they last hit."
+        ),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING),
+                                                 "spell": _s(type=_STRING, description="The ongoing spell ended.")},
+                      required=["character", "spell"]),
     ),
     types.FunctionDeclaration(
         name=CHANNEL_BALANCE,

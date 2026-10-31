@@ -234,6 +234,7 @@ class MoveOutcome:
     healing: Optional[dict] = None  # a healing move's roll and what it healed
     spell: Optional[dict] = None  # Cast a Spell: the spell, and what became of it
     shape: Optional[dict] = None  # Shapeshifter: the form taken and the hold
+    notes: tuple = ()  # what an advanced move adds that Gary does not track (Cautious's hold)
 
 
 # --------------------------------------------------------------------------------------

@@ -46,6 +46,11 @@ APPLIED: Dict[str, str] = {
     "Formshaper": "the armor or damage when Shapeshifter has form_boon",
     "Formcrafter": "the +1 and -1 when Shapeshifter has form_plus and form_minus",
     "Balance": "earning balance on damage; spend it with channel_balance",
+    "Spell Augmentation": "it through spell_augmentation, onto the creature they last hit",
+    **{n: "the note on each Trap Expert result (the hold is yours to keep)" for n in ("Cautious", "Extremely Cautious")},
+    "Impervious Defender": "the +1 hold, and the 12+ (no hold: the attacker is stymied)",
+    **{n: "the offer on a 10+ cast, as a note (doubling is yours)" for n in (
+        "Empower", "Empowered Magic", "Greater Empower", "Greater Empowered Magic")},
     "Communion of Whispers": "the -1 forward on a miss",
     "Metal Hurlant": "the 1d10 damage",
     "Counterspell": "forgetting the staked spell on a 7-9",

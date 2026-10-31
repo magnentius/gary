@@ -495,6 +495,12 @@ Formshaper and Formcrafter onto the `shape` record (armor and dice in `advanced.
 stat +-1 by `_form_mod`). Balance counts up on damage dealt; `channel_balance` spends it.
 `_race_move_of` gives Half-Elven Rangers both race moves.
 
+**Notes for the model.** What an advanced move adds that Gary does not track goes on the
+result as `MoveOutcome.notes` (the model sees it as `also`): Cautious and Extremely Cautious
+on Trap Expert, the Empower family's offer on a 10+ cast (free on a 12+ with Greater).
+Impervious Defender's 12+ replaces Defend's hold in `_guard`. `_after_strike` records
+`last_struck` for Spell Augmentation, whose tool shunts an ongoing spell's level onto it.
+
 **Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
 `ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
 records the creatures standing (`battle`) and is live while any of them still stands -- the
@@ -910,7 +916,7 @@ The model sees narrow, typed tools, each with its own checks and failure message
 mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
-  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`.
+  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`, `spell_augmentation`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.
