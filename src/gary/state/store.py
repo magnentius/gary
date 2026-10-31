@@ -708,6 +708,18 @@ def _h_steading(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_session_questions(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"questions": [...]}, [] for the book's three. Undone by putting back the last."""
+    before = list(store._state.get("session_questions") or [])
+    store._state["session_questions"] = list(m.payload.get("questions") or [])
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.SESSION_QUESTIONS, "", {"questions": before}),
+        before=before,
+        after=store._state["session_questions"],
+    )
+
+
 def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = store._state.get("setting", "")
     store._state["setting"] = str(m.payload.get("text", ""))
@@ -772,6 +784,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.SETTING: _h_setting,
     MutationKind.FRONT: _h_front,
     MutationKind.STEADING: _h_steading,
+    MutationKind.SESSION_QUESTIONS: _h_session_questions,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,

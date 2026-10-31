@@ -72,7 +72,7 @@ def client_and_tree():
 def test_every_command_is_in_help(client_and_tree):
     _, tree = client_and_tree
     names = {c.name for c in tree.get_commands()}
-    assert len(names) == 16
+    assert len(names) == 17
     assert {n for n in names if f"`/{n}" not in HELP} == set()
 
 
@@ -144,3 +144,11 @@ def test_sheet_answers_privately(client_and_tree):
     i = _Interaction()
     call(tree, "sheet", i)
     assert i.response.sent == [("You have no sheet yet. `/new` makes one.", None, True)]
+
+
+def test_questions_join_their_options(client_and_tree):
+    client, tree = client_and_tree
+    call(tree, "questions", _Interaction(), first="Did we win?", second="Did we lose?")
+    assert client.ran[-1][0] == "?dm questions Did we win? | Did we lose?"
+    call(tree, "questions", _Interaction(), default=True)
+    assert client.ran[-1][0] == "?dm questions default"

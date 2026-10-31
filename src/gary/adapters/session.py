@@ -46,16 +46,21 @@ class EndOfSession(discord.ui.View):
     def __init__(
         self, award: Award, characters: Optional[Dict[str, int]] = None,
         players: Optional[Dict[int, str]] = None, bonds: Optional[Dict[str, list]] = None,
+        questions: Optional[List[str]] = None,
     ) -> None:
         """``characters``: each character with an alignment -> the Discord user who plays
         them, the only one who may say they fulfilled it. ``players``: Discord user ->
         character, for everyone at the table. ``bonds``: character -> their bonds."""
         super().__init__(timeout=SESSION_TIMEOUT_SECONDS)
-        self.answers: List[bool] = [False] * len(QUESTIONS)
+        # The adventure's own questions, when the GM has set them -- "instead of using the
+        # normal end of session questions, use these" -- else the book's three.
+        self.questions = list(questions or QUESTIONS)
+        self.toggles = list(_TOGGLES) if not questions else [q.rstrip("?")[:76] for q in self.questions]
+        self.answers: List[bool] = [False] * len(self.questions)
         self.players = dict(players or {})
         self.bonds = {a: list(b) for a, b in (bonds or {}).items() if b}
         # The Award button takes one place, and Resolve a bond another when anyone has one.
-        room = (_ROWS - len(QUESTIONS)) * _PER_ROW - 1 - (1 if self.bonds else 0)
+        room = (_ROWS - len(self.questions)) * _PER_ROW - 1 - (1 if self.bonds else 0)
         self.characters = dict(list((characters or {}).items())[:room])
         self.fulfilled: Set[str] = set()
         self.resolved: Dict[str, str] = {}  # character -> the bond line the companion agreed to
@@ -65,7 +70,7 @@ class EndOfSession(discord.ui.View):
 
     def prompt(self) -> str:
         lines = ["**End of session.** Answer as a group — each yes is 1 XP for everyone:"]
-        lines += [f"{'✅' if yes else '⬜'} {q}" for q, yes in zip(QUESTIONS, self.answers)]
+        lines += [f"{'✅' if yes else '⬜'} {q}" for q, yes in zip(self.questions, self.answers)]
         if self.characters:
             lines.append("Each player: did your character act on their alignment? (+1 XP to them)")
             lines += [f"{'✅' if a in self.fulfilled else '⬜'} {a}" for a in self.characters]
@@ -76,9 +81,9 @@ class EndOfSession(discord.ui.View):
 
     def _build(self) -> None:
         self.clear_items()
-        for i, question in enumerate(QUESTIONS):
+        for i, question in enumerate(self.questions):
             button = discord.ui.Button(
-                label=f"{'✅' if self.answers[i] else '⬜'} {_TOGGLES[i]}",
+                label=f"{'✅' if self.answers[i] else '⬜'} {self.toggles[i]}",
                 style=discord.ButtonStyle.success if self.answers[i] else discord.ButtonStyle.secondary,
                 row=i,
             )
@@ -89,7 +94,7 @@ class EndOfSession(discord.ui.View):
             button = discord.ui.Button(
                 label=f"{'✅' if done else '⬜'} {actor} acted on their alignment"[:80],
                 style=discord.ButtonStyle.success if done else discord.ButtonStyle.secondary,
-                row=len(QUESTIONS) + i // _PER_ROW,
+                row=len(self.questions) + i // _PER_ROW,
             )
             button.callback = self._alignment_toggler(actor)
             self.add_item(button)

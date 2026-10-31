@@ -53,6 +53,6 @@ VOLUME ["/campaign"]
 # Proves the package imports with the adapters it needs and its class and monster data --
 # a wheel missing any of them fails here rather than at the first `?dm new` or fight.
 HEALTHCHECK --interval=5m --timeout=10s --start-period=30s \
-    CMD python -c "import gary.adapters.discord_bot, gary.sheets, gary.monsters, gary.gear, gary.class_moves, gary.spells, gary.treasure, gary.compendium"
+    CMD python -c "import gary.adapters.discord_bot, gary.sheets, gary.monsters, gary.gear, gary.class_moves, gary.spells, gary.treasure, gary.compendium, gary.npcs"
 
 ENTRYPOINT ["python", "-m", "gary.adapters.discord_bot"]

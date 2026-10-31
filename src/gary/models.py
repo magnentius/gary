@@ -263,6 +263,7 @@ class MutationKind(str, Enum):
     MONSTER_LOOTED = "monster_looted"
     MONSTER_AFFLICT = "monster_afflict"
     STEADING = "steading"
+    SESSION_QUESTIONS = "session_questions"
     CALENDAR = "calendar"
 
 

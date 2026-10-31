@@ -56,6 +56,7 @@ CHANNEL_BALANCE = "channel_balance"
 CREATE_STEADING = "create_steading"
 QUALIFY_COMPENDIUM = "qualify_compendium"
 COMPENDIUM_POWER = "compendium_power"
+INSTANT_NPC = "instant_npc"
 ADJUST_STEADING = "adjust_steading"
 SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
@@ -994,6 +995,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["location"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=INSTANT_NPC,
+        description=(
+            "Someone becomes important in the moment and you need them now: Gary rolls the book's "
+            "Instant NPC tables -- an instinct (what they want) and a knack (how they might get it) -- "
+            "and a name not used yet. Make the NPC from them (upsert_npc); change the name if it does "
+            "not suit the place."
+        ),
+        parameters=_s(type=_OBJECT, properties={"role": _s(type=_STRING, description=(
+            "Who they are in the moment: 'the captive who got the power cosmic', 'the gate guard'."))},
+            required=["role"]),
     ),
     types.FunctionDeclaration(
         name=COMPENDIUM_POWER,

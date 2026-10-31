@@ -415,6 +415,11 @@ a target matching it by name or kind (articles ignored) and -4 against anyone el
 character damage sites, and `_oath_kept` clears it when that target is defeated. A failure
 is released with `released=true` and a reason.
 
+**Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
+rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.
+**Session questions:** `?dm questions` (journalled `SESSION_QUESTIONS`) replaces the book's
+three end-of-session questions with the adventure's own; `EndOfSession(questions=)` asks them.
+
 **Steadings** (`steadings.py`). `create_steading` builds one from `KINDS` -- the book's
 defaults per kind, an option and a problem by number, every "your choice" filled in order
 from `details` (`blank_names` says which) -- into `state["steadings"]` (`STEADING`,
@@ -991,6 +996,7 @@ src/gary/
   trade.py         give/take/buy/sell on the sheet                                  §6.4
   treasure.py      the book's treasure table; magic items as ideas                  §6.4
   steadings.py     villages, towns, keeps, cities: templates and tags               §6.4
+  npcs.py          the Instant NPC tables                                           §6.4
   healing.py       potions, bandages, poultices                                     §6.4
   monsters.py      bestiary lookup, homebrew checks, instances                      §6.5
   damage.py        damage expressions, armor, severity                              §6.5

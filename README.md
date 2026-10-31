@@ -615,6 +615,10 @@ the book's price, refused if you can't afford it; selling fetches half, or less 
 stingy buyer, never more. Dropping a weapon or armor changes what you can do immediately.
 Every pickup, purchase and sale is posted to the table and undoes with `?dm undo`.
 
+**Instant NPCs.** When someone becomes important in the moment, the GM can have Gary roll the
+book's Instant NPC tables: an instinct (what they want), a knack (how they might get it) and
+a name nobody in the campaign has yet.
+
 **Steadings.** Villages, towns, keeps and cities are made by the book as the party reaches
 or hears of them: each kind's defaults (a village is Poor, Steady, Militia, with a Resource
 and an Oath), one option and one problem. The GM records which one you're in, and its tags
@@ -860,7 +864,8 @@ on its own, and any command Gary does not recognise. The prefix is configurable
 | `?dm new` | Make a character in a private form. It is yours: its checks are yours to roll. |
 | `?dm sheet` | Your character's sheet, with a private button for everything you can open: **Bonds**, **Alignment**, and whenever they apply **Choose spells**, **Choose companion** (Ranger), **Level up** (with the XP), **Class choices** and **Choose gear** (for a character made before those existed). The old `?dm spells`, `bonds`, `companion`, `alignment`, `choices`, `gear` and `levelup` still work, each posting its one button. |
 | `?dm fronts` | The threats the GM is tracking, shown privately to whoever clicks (spoilers). |
-| `?dm endsession` | The book's three end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
+| `?dm endsession` | The end-of-session questions; the table toggles the answers and everyone gets 1 XP per yes. |
+| `?dm questions` | Show the end-of-session questions. `?dm questions a? \| b? \| c?` replaces the book's three with up to three for this adventure (posted for everyone), `?dm questions default` restores them. |
 | `?dm playing <character name>` | Claim a character without a sheet. Its checks are yours to roll. |
 | `?dm checks` | Every check Gary is waiting to see rolled, and how long each has left — with a **Cancel my move** button if one of them is yours. (`?dm cancel` still works.) |
 | `?dm undo` | Reverse the last change to the world. |

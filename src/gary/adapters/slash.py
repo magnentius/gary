@@ -40,7 +40,7 @@ Gary's suggestions come with an **Accept** button
 __At the table__
 `/new` — make a character (a private form)
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
-`/endsession` — the end-of-session questions and XP
+`/endsession` — the end-of-session questions and XP · `/questions` — set this adventure's own
 `/fronts` — the GM's threats, shown only to you (spoilers)
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
 `/playing character:` — claim a character someone else made
@@ -164,6 +164,15 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     @tree.command(name="endsession", description="The end-of-session questions, and everyone's XP")
     async def endsession(interaction: "discord.Interaction") -> None:
         await run(interaction, "endsession")
+
+    @tree.command(name="questions", description="Show, set or reset the end-of-session questions")
+    @app_commands.describe(first="This adventure's first question", second="A second", third="A third",
+                           default="Go back to the book's three")
+    async def questions(interaction: "discord.Interaction", first: Optional[str] = None,
+                        second: Optional[str] = None, third: Optional[str] = None,
+                        default: bool = False) -> None:
+        asked = " | ".join(q for q in (first, second, third) if q)
+        await run(interaction, "questions default" if default else f"questions {asked}")
 
     @tree.command(name="dice", description="How the table's dice have fallen, against fair 2d6")
     @app_commands.describe(character="Just this character's rolls")

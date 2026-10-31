@@ -460,6 +460,16 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.INSTANT_NPC:
+                from .. import npcs
+
+                state = self._store.state()
+                used = [str(n.get("name") or k) for k, n in (state.get("npcs") or {}).items()] + list(state.get("sheets") or {})
+                result = {"ok": True, "role": str(args.get("role", "")),
+                          **npcs.roll(lambda spec: self._director.dice.roll(spec).total, used)}
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.COMPENDIUM_POWER:
                 if args.get("power") == "found_stronghold":
                     responses.append(types.Part.from_function_response(

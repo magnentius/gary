@@ -421,7 +421,7 @@ Gary's suggestions come with an **Accept** button; nothing is written until some
 __At the table__
 `{p}new` — make a character (a private form)
 `{p}sheet` — your sheet, with buttons for your spells, bonds, companion, alignment and level-up
-`{p}endsession` — the end-of-session questions and XP
+`{p}endsession` — the end-of-session questions and XP · `{p}questions a | b | c` — this adventure's own
 `{p}fronts` — the GM's threats, shown privately (spoilers)
 `{p}dice` · `{p}dice <character>` — the dice so far, against fair 2d6
 `{p}playing <character name>` — claim a character someone else made
@@ -635,6 +635,35 @@ class GaryClient(discord.Client):
         campaign's suggestions away from perfectly good ground."""
         self._pending_proposals.pop((channel_id, kind), None)
         self._declined_proposals.pop((channel_id, kind), None)
+
+    async def _session_questions(self, message, channel_id: int, raw: str) -> None:
+        """The adventure's own end-of-session questions (Advanced Delving: "When doing this
+        it's key that you show the players the new End of Session move") -- posted for all."""
+        from .session import QUESTIONS
+
+        current = self.store.state().get("session_questions") or []
+        prefix = self.settings.command_prefix
+        if not raw:
+            shown = current or list(QUESTIONS)
+            source = "this adventure's" if current else "the book's"
+            await self.sender.send(channel_id, f"End of session asks {source} questions:\n"
+                                   + "\n".join(f"• {q}" for q in shown)
+                                   + f"\nSet your own with `{prefix}questions first? | second? | third?`, "
+                                     f"or `{prefix}questions default`.")
+            return
+        questions = [] if raw.lower() == "default" else [" ".join(q.split()) for q in raw.split("|") if q.strip()]
+        if not 0 <= len(questions) <= 3 or any(len(q) > 200 for q in questions):
+            await self.sender.send(channel_id, "One to three questions, separated by |, each under 200 characters.")
+            return
+        diff = self.store.apply([Mutation(MutationKind.SESSION_QUESTIONS, "", {"questions": questions})],
+                                reason=f"{message.author.display_name} sets the end-of-session questions")
+        if not diff.ok:
+            await self.sender.send(channel_id, "That could not be saved: " + "; ".join(r for _, r in diff.rejected))
+            return
+        shown = questions or list(QUESTIONS)
+        await self.sender.send(channel_id, ("📜 **End of session** now asks, for this adventure:\n" if questions
+                                            else "📜 **End of session** asks the book's questions again:\n")
+                               + "\n".join(f"• {q}" for q in shown) + "\nEach yes is 1 XP for everyone.")
 
     def _fronts_text(self) -> str:
         """Every front, for the DM's eyes only -- or that there are none yet."""
@@ -1564,6 +1593,10 @@ class GaryClient(discord.Client):
             )
             return
 
+        if command == "questions":
+            await self._session_questions(message, channel_id, body[len("questions"):].strip())
+            return
+
         if command == "sheet" or command in _SHEET_ACTIONS:
             await self._sheet_hub(message, channel_id, prefix, only=None if command == "sheet" else command)
             return
@@ -1577,6 +1610,7 @@ class GaryClient(discord.Client):
             view = EndOfSession(
                 lambda yeses, fulfilled, resolved: self._end_session(yeses, fulfilled, resolved),
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
+                questions=self.store.state().get("session_questions") or None,
             )
             view.message = await message.channel.send(view.prompt(), view=view)
             return
