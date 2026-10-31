@@ -10,6 +10,13 @@ runaway loops, exceptions.
     set -a && . ~/.config/gary/env && set +a
     PYTHONPATH=src .venv/bin/python scripts/playtest.py fight --out /tmp/fight.md
     PYTHONPATH=src .venv/bin/python scripts/playtest.py all --seed 7
+    PYTHONPATH=src .venv/bin/python scripts/playtest.py town --llm-players --out /tmp/town.md
+
+With --llm-players a second model plays the characters instead of the scripted lines: each
+has a goal for the scene, reads what Gary just said and answers in character, so a scene
+that escalates is played through rather than left behind. Whoever Gary addressed last
+speaks next; the scene ends when every character says their goal is done, or at the turn
+limit.
 
 It spends real Gemini calls (a scenario is a few dozen turns on Flash). The campaign is
 in memory and vanishes with the process. What it cannot see is Discord itself: how a
@@ -30,7 +37,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from gary import spells
+from gary import choices, spells
 from gary.adapters.gemini import GeminiNarrator
 from gary.adapters.runner import STALL_MESSAGE, EffectRunner
 from gary.fsm import (
@@ -116,6 +123,8 @@ class Scenario:
     lines: List[Tuple[str, str]]  # (character, what their player says)
     # Sheet changes before the scene starts, by character: coin for a town, wounds for a rest.
     setup: Dict[str, dict] = field(default_factory=dict)
+    # For --llm-players: what each character is after in this scene.
+    goals: Dict[str, str] = field(default_factory=dict)
 
 
 SCENARIOS: Dict[str, Scenario] = {
@@ -136,6 +145,8 @@ SCENARIOS: Dict[str, Scenario] = {
             ("Thorin", "If one of them is pinned or knocked down, I bring my hammer down on it."),
             ("Dorn", "Are any of them still standing? I finish them off."),
         ],
+        goals={"Dorn": "Get past the ambush alive and kill or drive off every goblin.",
+               "Thorin": "Keep Dorn alive: bless him, defend him, heal him if he is hurt."},
     ),
     "camp": Scenario(
         "camp",
@@ -147,6 +158,8 @@ SCENARIOS: Dict[str, Scenario] = {
             ("Dorn", "We bar the door and make camp here for the night."),
         ],
         setup={"Dorn": {"hp": 14}, "Thorin": {"hp": 9}},
+        goals={"Thorin": "Pray to Krugon for an hour to renew your spells, then rest the night.",
+               "Dorn": "Make the chapel safe and get a night's sleep so you both heal."},
     ),
     "journey": Scenario(
         "journey",
@@ -158,6 +171,8 @@ SCENARIOS: Dict[str, Scenario] = {
             ("Dorn", "Whatever comes at us out there, I put myself between it and Thorin."),
             ("Thorin", "We press on toward Fenwick as fast as we can."),
         ],
+        goals={"Dorn": "Reach Fenwick through the marsh. You scout ahead.",
+               "Thorin": "Reach Fenwick with supplies to spare. You keep track of rations."},
     ),
     "town": Scenario(
         "town",
@@ -171,6 +186,9 @@ SCENARIOS: Dict[str, Scenario] = {
             ("Thorin", "We take rooms at the Drowned Rat and rest properly for three days."),
         ],
         setup={"Dorn": {"coins": 300, "hp": 12, "debilities": ["weak"]}, "Thorin": {"coins": 120}},
+        goals={"Thorin": "Buy a healing potion, then try to find a rare holy relic for sale.",
+               "Dorn": "Throw a big party at the Drowned Rat inn (spend 200 coins), then rest "
+                       "there for a few days until you are healed."},
     ),
 }
 
@@ -199,10 +217,12 @@ class Transport:
     def __init__(self, report: Report) -> None:
         self.report = report
         self.prompts: List[Any] = []
+        self.heard: List[str] = []  # everything Gary has said, for the players to read
 
     async def send(self, channel_id: int, text: str, prompt: Optional[object] = None) -> None:
         if text == STALL_MESSAGE:
             self.report.flag("Gary stalled (the model failed or said nothing).")
+        self.heard.append(text)
         self.report.say(f"**Gary:** {text}")
         if prompt is not None:
             self.prompts.append(prompt)
@@ -347,11 +367,103 @@ class Table:
         return []
 
 
+# -- players played by a model -----------------------------------------------------------
+
+PLAYER_MODEL = "gemini-3.5-flash-lite"
+
+#: The most turns one --llm-players scene runs: enough for a fight and its aftermath.
+MAX_LLM_TURNS = 14
+
+_PLAYER_BRIEF = """\
+You are a player at a Dungeon World table, playing {name}: {sheet}.
+Your goal in this scene: {goal}
+
+Each turn you are shown what the Game Master just said. Answer as {name}'s player, in one
+or two sentences: what {name} does or says now. Stay in character and in the fiction; react
+to what is happening, especially to any threat aimed at you. Do not narrate outcomes, roll
+dice or name game moves — just say what you try. Pursue your goal, but deal with danger
+first. When your goal is done and nothing threatens you, answer exactly: DONE"""
+
+
+class Players:
+    """The characters, each played by a model with a goal."""
+
+    def __init__(self, client: Any, model: str = PLAYER_MODEL) -> None:
+        self.client = client
+        self.model = model
+
+    async def line(self, name: str, sheet_line: str, goal: str, heard: Sequence[str]) -> str:
+        from google.genai import types
+
+        brief = _PLAYER_BRIEF.format(name=name, sheet=sheet_line, goal=goal)
+        recent = "\n\n".join(heard[-6:]) or "(The scene opens.)"
+        response = await self.client.aio.models.generate_content(
+            model=self.model,
+            contents=[types.Content(role="user", parts=[types.Part.from_text(
+                text=f"The Game Master:\n{recent}\n\nWhat does {name} do?")])],
+            config=types.GenerateContentConfig(system_instruction=brief),
+        )
+        parts = response.candidates[0].content.parts if response.candidates else []
+        text = " ".join(p.text for p in parts if getattr(p, "text", None)).strip()
+        return " ".join(text.split())[:400]
+
+
+def _addressed(heard: Sequence[str], names: Sequence[str], last: Optional[str]) -> str:
+    """Who Gary turned to last: the character named latest in what was just said, or the
+    other one if nobody was."""
+    for text in reversed(heard[-3:]):
+        found = [(text.rfind(n), n) for n in names if n in text]
+        if found:
+            return max(found)[1]
+    others = [n for n in names if n != last]
+    return others[0] if others else names[0]
+
+
+async def play_with_players(table: "Table", scenario: Scenario, players: Players) -> None:
+    from gary.sheets import describe
+
+    names = list(scenario.goals)
+    done: set = set()
+    last: Optional[str] = None
+    opening = f"{scenario.scene[0]}. {scenario.scene[1]}"
+    table.transport.heard.append(opening)
+    for _ in range(MAX_LLM_TURNS):
+        live = [n for n in names if n not in done]
+        if not live:
+            return
+        actor = _addressed(table.transport.heard, live, last)
+        sheet = (table.store.state().get("sheets") or {}).get(actor) or {}
+        # The whole character, so the player prays to the right god and casts what they hold.
+        known = " · ".join(line for line in (describe(sheet, with_name=False), choices.describe(sheet),
+                                              spells.describe(sheet)) if line)
+        try:
+            text = await players.line(actor, known, scenario.goals[actor],
+                                      table.transport.heard)
+        except Exception:  # noqa: BLE001
+            table.report.flag(f"the player model failed for {actor}:\n```\n{traceback.format_exc()}```")
+            return
+        if not text:
+            continue
+        # "DONE" alone ends their scene; tacked onto a line, the line is played first.
+        finished = text.rstrip(" .!").upper().endswith("DONE")
+        text = text.rstrip(" .!")[:-4].rstrip() if finished else text
+        if text:
+            last = actor
+            try:
+                await table.play(actor, text)
+            except Exception:  # noqa: BLE001
+                table.report.flag(f"exception on {actor}'s line {text!r}:\n```\n{traceback.format_exc()}```")
+        if finished:
+            done.add(actor)
+            table.report.say(f"\n*{actor}'s player is done.*")
+    table.report.say(f"\n*Turn limit ({MAX_LLM_TURNS}) reached.*")
+
+
 # -- running -----------------------------------------------------------------------------
 
 
 async def run(names: Sequence[str], seed: int, client: Any = None,
-              scenarios: Optional[Dict[str, Scenario]] = None) -> Report:
+              scenarios: Optional[Dict[str, Scenario]] = None, players: Optional[Players] = None) -> Report:
     scenarios = scenarios or SCENARIOS
     report = Report()
     table = Table(seed, report, client)
@@ -362,6 +474,9 @@ async def run(names: Sequence[str], seed: int, client: Any = None,
         report.say(f"\n## Scenario: {name}\n")
         table.set_stage(scenario)
         table.prepare(scenario)
+        if players is not None:
+            await play_with_players(table, scenario, players)
+            continue
         for actor, text in scenario.lines:
             try:
                 await table.play(actor, text)
@@ -393,11 +508,19 @@ def main() -> None:
     parser.add_argument("scenario", choices=[*SCENARIOS, "all"])
     parser.add_argument("--seed", type=int, default=1)
     parser.add_argument("--out", type=Path, default=None, help="Transcript path (default: stdout).")
+    parser.add_argument("--llm-players", action="store_true",
+                        help="A model plays the characters toward their goals, instead of the script.")
+    parser.add_argument("--player-model", default=PLAYER_MODEL)
     args = parser.parse_args()
     if not os.environ.get("GEMINI_API_KEY"):
         raise SystemExit("GEMINI_API_KEY is not set. `set -a && . ~/.config/gary/env && set +a` first.")
     names = list(SCENARIOS) if args.scenario == "all" else [args.scenario]
-    report = asyncio.run(run(names, args.seed))
+    players = None
+    if args.llm_players:
+        from google import genai
+
+        players = Players(genai.Client(api_key=os.environ["GEMINI_API_KEY"]), args.player_model)
+    report = asyncio.run(run(names, args.seed, players=players))
     text = render(report, names, args.seed)
     if args.out:
         args.out.write_text(text)

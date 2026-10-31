@@ -40,3 +40,30 @@ def test_a_scene_plays_through_every_button_and_writes_a_transcript():
     assert "🖱️ *Choose spells*" in text  # the goblin fell, so the prayer went through
     assert "50 coins" in text  # the scenario's setup reached the sheet
     assert report.flags == []
+
+
+def test_model_played_characters_take_turns_until_their_goals_are_done():
+    scene = playtest.Scenario(
+        "smoke", "A test world.", ("A road", "Quiet."), [],
+        goals={"Dorn": "Look around.", "Thorin": "Rest."},
+    )
+    gm = FakeClient(text_response("The road is empty. Thorin, what do you do?"),
+                    text_response("You rest. Dorn, anything else?"))
+    players = playtest.Players(FakeClient(
+        text_response("I look up and down the road."),   # Dorn: the opening names nobody, so Dorn first
+        text_response("I sit down on a stone."),          # Thorin, whom Gary turned to
+        text_response("DONE"),                            # Dorn, turned to next, is done
+        text_response("DONE"),                            # then Thorin, the only one left
+    ), model="test-player")  # the fake routes the summary model's name elsewhere
+    report = asyncio.run(playtest.run(["smoke"], seed=1, client=gm, scenarios={"smoke": scene},
+                                      players=players))
+    text = playtest.render(report, ["smoke"], 1)
+    assert "**Dorn (player):** I look up and down the road." in text
+    assert "**Thorin (player):** I sit down on a stone." in text
+    assert "*Thorin's player is done.*" in text and "*Dorn's player is done.*" in text
+    assert "Turn limit" not in text
+
+
+def test_whoever_gary_turned_to_speaks_next():
+    assert playtest._addressed(["Thorin, the blade falls. Dorn, the archer aims."], ["Dorn", "Thorin"], None) == "Dorn"
+    assert playtest._addressed(["The wind howls."], ["Dorn", "Thorin"], "Dorn") == "Thorin"

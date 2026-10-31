@@ -800,8 +800,10 @@ set -a && . ~/.config/gary/env && set +a
 PYTHONPATH=src .venv/bin/python scripts/playtest.py fight --out fight.md   # or camp, journey, town, all
 ```
 
-It spends real Gemini calls, and cannot see Discord itself (how buttons and dropdowns look).
-Scripted lines don't react to the GM, so a scene that escalates leaves later lines behind.
+Add `--llm-players` and a second model plays the characters instead, each with a goal for the
+scene, reacting to what Gary says — so a scene that escalates is played through rather than
+left behind. It spends real Gemini calls, and cannot see Discord itself (how buttons and
+dropdowns look).
 
 ## Design
 
