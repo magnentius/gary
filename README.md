@@ -572,6 +572,11 @@ Protection (and their stronger versions) count, and freedom from hunger means no
 camp or on a journey; the other boons are the GM's to honour. The GM ends it when it's
 fulfilled — or when you break a vow.
 
+**Exterminatus.** Promise aloud to defeat an enemy and the GM records it: Gary adds 2d4 to
+your damage against it and takes 4 off your damage against anyone else, until it falls —
+which ends the promise by itself. If it escapes or you give up, the promise holds until
+you redeem yourself and the GM releases you.
+
 **Race moves with numbers** are applied too: an Elf Ranger's journey job through wilderness
 succeeds as a 10+ without a roll; a Human Ranger eats no ration camping in a dungeon or
 city; a Dwarf Fighter parleys with Con over a shared drink; a Halfling Fighter using their

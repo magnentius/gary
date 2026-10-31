@@ -22,6 +22,7 @@ and their actual roll was then silently dropped.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
@@ -1480,6 +1481,7 @@ class Director:
             for dice_spec, why in advanced.damage_dice(sheet or {}, check.move, weapon.tags if weapon else ()):
                 extra = self.dice.roll(dice_spec).total
                 total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
+            total, shown = self._sworn_damage(sheet or {}, check.target, total, shown)
             # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
             for boost in boosts:
@@ -1495,6 +1497,7 @@ class Director:
             effects.extend(hurt)
             hits.append(facts)
             line += said
+            effects.extend(self._oath_kept(channel_id, check.actor, name, facts))
         facts = hits[0] if len(hits) == 1 else {"rolled": total, "targets": hits}
         effects.insert(0, SendMessage(channel_id, line))
 
@@ -1538,6 +1541,71 @@ class Director:
         if back and back.get("down"):
             dying = self._trigger(channel_id, check.actor, "last_breath")
         return [*effects, *self._resolved(channel_id, outcome), *dying]
+
+    # -- Exterminatus ---------------------------------------------------------------------------
+
+    def _is_sworn(self, sheet: Dict[str, Any], target: str) -> bool:
+        """Is ``target`` (a creature instance) the enemy they swore to defeat -- by its name,
+        or by its kind when they swore against "the Dragon"?"""
+        def bare(name: str) -> str:
+            return normalize_actor(re.sub(r"^\s*(the|a|an)\s+", "", (name or "").lower()))
+
+        sworn = bare(sheet.get("sworn_enemy"))
+        if not sworn or not target:
+            return False
+        record = self._monsters().get(target) or {}
+        return sworn in (bare(target), bare(record.get("kind", "")))
+
+    def _sworn_damage(self, sheet: Dict[str, Any], target: str, total: int, shown: str) -> Tuple[int, str]:
+        """Exterminatus: "+2d4 damage against that enemy and -4 damage against anyone else"."""
+        if not sheet.get("sworn_enemy") or not target:
+            return total, shown
+        if self._is_sworn(sheet, target):
+            extra = self.dice.roll("2d4").total
+            return total + extra, f"{shown}, +2d4 sworn enemy: {extra} = {total + extra}"
+        return max(0, total - 4), f"{shown}, -4 not the sworn enemy = {max(0, total - 4)}"
+
+    def _oath_kept(self, channel_id: int, actor: str, target: str, facts: Dict[str, Any]) -> List[Effect]:
+        """"This effect lasts until the enemy is defeated." Defeating it ends the oath."""
+        sheet = self._sheet_or_empty(actor)
+        if not facts.get("defeated") or not self._is_sworn(sheet, target):
+            return []
+        return [SendMessage(channel_id, f"⚔️ **{actor}** has kept their promise: {target} is defeated."),
+                UpdateSheet(channel_id, actor, {"sworn_enemy": None})]
+
+    def swear_enemy(
+        self, *, channel_id: int, character: str, enemy: str = "", released: bool = False, reason: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Exterminatus: the promise spoken aloud -- or, released=true, the failure redeemed."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if not advanced.has(sheet, "Exterminatus"):
+            return [], {"ok": False, "error": f"{actor} does not have Exterminatus."}
+        if released:
+            if not sheet.get("sworn_enemy"):
+                return [], {"ok": False, "error": f"{actor} has sworn against no one."}
+            reason = " ".join(str(reason or "").split())
+            if not reason:
+                return [], {"ok": False, "error": "Say how they redeemed themselves (reason)."}
+            return [SendMessage(channel_id, f"⚔️ **{actor}** is released from their promise against "
+                                            f"{sheet['sworn_enemy']} — {reason}."),
+                    UpdateSheet(channel_id, actor, {"sworn_enemy": None})], {"ok": True}
+        if sheet.get("sworn_enemy"):
+            return [], {"ok": False, "error": (f"{actor} is already sworn against {sheet['sworn_enemy']}: it lasts "
+                                               "until that enemy is defeated, or they redeem a failure.")}
+        enemy = " ".join(str(enemy or "").split())[:80]
+        if not enemy:
+            return [], {"ok": False, "error": "Name the enemy they promise to defeat."}
+        here = next((n for n in self._monsters() if normalize_actor(n) == normalize_actor(enemy)), None)
+        enemy = here or enemy
+        return [SendMessage(channel_id, f"⚔️ **{actor}** swears aloud to defeat {enemy}: +2d4 damage against "
+                                        "it, -4 against anyone else, until it falls."),
+                UpdateSheet(channel_id, actor, {"sworn_enemy": enemy})], {
+            "ok": True, "sworn": enemy, "note": (
+                "Gary applies the damage. If the enemy escapes or they give up the fight, the oath "
+                "holds until they redeem themselves -- then swear_enemy with released=true.")}
 
     def _hurt(
         self, channel_id: int, name: str, total: int, piercing: int, ignores_armor: bool
@@ -1730,10 +1798,12 @@ class Director:
         for dice_spec, why in advanced.damage_dice(sheet, move, weapon_now.tags if weapon_now else ()):
             extra = self.dice.roll(dice_spec).total
             total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
+        total, shown = self._sworn_damage(sheet, name, total, shown)
         if self._magic_weapon(blow):
             bonus = self.dice.roll("1d4").total
             total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
         effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
+        effects.extend(self._oath_kept(channel_id, actor, name, facts))
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
                                                   f"No roll needed: {shown}{said}"))

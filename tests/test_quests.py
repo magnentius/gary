@@ -82,3 +82,44 @@ def test_freedom_from_hunger_skips_rations(director, sheets):
     sheets["Anna"]["quest"] = quests.make("discover", "the drowned bell", [{"boon": "sustenance"}], ["piety"])
     _, result = director.make_camp(channel_id=CHANNEL, reason="a chapel")
     assert "rations_left" not in result["party"]["Anna"]
+
+
+def test_exterminatus_hits_the_sworn_enemy_harder_and_others_softer(director, sheets, dice, registry):
+    scene = {"Orc Warchief 1": {"kind": "Orc Warchief", "hp": 10, "max_hp": 10, "armor": 0, "damage": "d10"},
+             "Orc 2": {"kind": "Orc", "hp": 10, "max_hp": 10, "armor": 0, "damage": "d8"}}
+    director._monsters = lambda: scene
+    sheets["Anna"].update(advanced_moves=["Exterminatus"])
+    del sheets["Anna"]["gear"]
+    effects, result = director.swear_enemy(channel_id=CHANNEL, character="Anna", enemy="orc warchief 1")
+    apply(effects, sheets)
+    assert sheets["Anna"]["sworn_enemy"] == "Orc Warchief 1"
+    dice.queue(6, 2, 3)
+    effects, result = director.deal_damage(channel_id=CHANNEL, character="Anna", target="Orc Warchief 1",
+                                           reason="pinned")
+    assert result["rolled"] == 11  # 6 + 2d4 (5)
+    dice.queue(6)
+    effects, result = director.deal_damage(channel_id=CHANNEL, character="Anna", target="Orc 2", reason="pinned")
+    assert result["rolled"] == 2  # 6 - 4
+
+
+def test_defeating_the_sworn_enemy_keeps_the_promise(director, sheets, dice):
+    scene = {"Dragon 1": {"kind": "Dragon", "hp": 3, "max_hp": 16, "armor": 0, "damage": "b[2d12]+5"}}
+    director._monsters = lambda: scene
+    sheets["Anna"].update(advanced_moves=["Exterminatus"], sworn_enemy="the dragon")
+    del sheets["Anna"]["gear"]
+    dice.queue(4, 1, 1)
+    effects, result = director.deal_damage(channel_id=CHANNEL, character="Anna", target="Dragon 1", reason="x")
+    assert result["defeated"]
+    assert UpdateSheet(CHANNEL, "Anna", {"sworn_enemy": None}) in effects  # by kind: "the dragon"
+
+
+def test_only_exterminatus_swears_and_a_failure_needs_redeeming(director, sheets):
+    _, result = director.swear_enemy(channel_id=CHANNEL, character="Anna", enemy="x")
+    assert "does not have Exterminatus" in result["error"]
+    sheets["Anna"].update(advanced_moves=["Exterminatus"], sworn_enemy="the Lich")
+    _, result = director.swear_enemy(channel_id=CHANNEL, character="Anna", enemy="someone else")
+    assert "already sworn against the Lich" in result["error"]
+    effects, result = director.swear_enemy(channel_id=CHANNEL, character="Anna", released=True,
+                                           reason="she burned the Lich's phylactery")
+    apply(effects, sheets)
+    assert sheets["Anna"]["sworn_enemy"] is None

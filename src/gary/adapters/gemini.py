@@ -460,6 +460,15 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.SWEAR_ENEMY:
+                oath_effects, result = self._director.swear_enemy(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    enemy=str(args.get("enemy", "") or ""), released=bool(args.get("released")),
+                    reason=str(args.get("reason", "") or ""))
+                effects.extend(oath_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.START_QUEST, T.END_QUEST):
                 if name == T.START_QUEST:
                     quest_effects, result = self._director.start_quest(

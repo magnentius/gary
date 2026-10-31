@@ -394,7 +394,11 @@ clumsy item worn by anyone but a Fighter or Paladin (Armored), and every roll ta
 blank) and the vows the model names; `end_quest` clears it as fulfilled, broken or
 abandoned. Gary reads it in `advanced.py` (Smite, Holy Smite, Holy Protection, the Paladin's
 Divine Protection count only `on_quest`) and in camp and journeys (`sustenance` eats nothing).
-The other boons reach the model on the sheet line.
+The other boons reach the model on the sheet line. Exterminatus: `swear_enemy` sets
+`sworn_enemy` (a creature's listed name, or a kind or NPC); `_sworn_damage` adds 2d4 against
+a target matching it by name or kind (articles ignored) and -4 against anyone else, at both
+character damage sites, and `_oath_kept` clears it when that target is defeated. A failure
+is released with `released=true` and a reason.
 
 **Treasure** (`treasure.py`, the `roll_treasure` tool, handled in `gemini.py` beside the
 trade tools). The creature's damage die -- a scene instance, or a bestiary kind for a lair --

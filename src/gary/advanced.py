@@ -28,6 +28,7 @@ APPLIED: Dict[str, str] = {
                              "A Safer Place", "The Scales of Life and Death")},
     **{n: "the +1 hold" for n in ("Staunch Defender", "Impervious Defender")},
     "Embracing No Form": "the extra hold",
+    "Exterminatus": "the damage once you record the promise with swear_enemy",
     **{n: "the chosen spell's lower level (lowered_spells)" for n in ("Chosen One", "Anointed", "Prodigy", "Master")},
     "Expanded Spellbook": "the spell, added to the spellbook",
     **{n: "it while start_quest has them on a quest" for n in ("Smite", "Holy Smite", "Holy Protection")},

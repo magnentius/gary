@@ -48,6 +48,7 @@ DEBILITY = "debility"
 FORWARD = "forward"
 HIRE = "hire"
 START_QUEST = "start_quest"
+SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
@@ -533,6 +534,26 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                                                                      "truth", "hospitality"])),
             },
             required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=SWEAR_ENEMY,
+        description=(
+            "A Paladin with Exterminatus speaks aloud their promise to defeat an enemy: +2d4 damage "
+            "against it and -4 against anyone else, applied by Gary, until it is defeated (which "
+            "ends it by itself). If the enemy escapes or they give up, the oath holds until they "
+            "redeem themselves: then call this with released=true and the reason."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "enemy": _s(type=_STRING, description="The creature by its listed name ('Orc Warchief 1'), or a "
+                                                      "kind or NPC not yet here ('the Dragon')."),
+                "released": _s(type=types.Type.BOOLEAN),
+                "reason": _s(type=_STRING, description="With released: how they redeemed themselves."),
+            },
+            required=["character"],
         ),
     ),
     types.FunctionDeclaration(
