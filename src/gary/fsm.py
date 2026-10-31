@@ -31,7 +31,7 @@ from . import (
     advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, spells,
     trade,
 )
-from .gear import armor_of as gear_armor, rations_of, weapon_for
+from .gear import armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
@@ -57,6 +57,12 @@ _HAZARDS = {
     "bones": "d8",  # "It might break some bones"
     "lethal": "d10",  # "It could kill a common person"
 }
+
+def _race_move_of(sheet: Dict[str, Any], race: str) -> bool:
+    """Do they have this race's move? Half-Elven: "You gain the elf starting move if you took
+    the human one at character creation or vice versa." """
+    return sheet.get("race") == race or (advanced.has(sheet, "Half-Elven") and race in ("Elf", "Human"))
+
 
 #: Every move rolls this.
 MOVE_DICE = "2d6"
@@ -344,6 +350,12 @@ class Director:
         aide: str = "",
         race_move: bool = False,
         ally: str = "",
+        weak_point: bool = False,
+        two_weapons: bool = False,
+        extra_targets: Sequence[str] = (),
+        form_boon: str = "",
+        form_plus: str = "",
+        form_minus: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -543,6 +555,9 @@ class Director:
             if clumsy(sheet):
                 mod -= 1
                 notes.append(f"-1 clumsy {clumsy(sheet)}")
+            form, why = self._form_mod(sheet, stat)
+            mod += form
+            notes.extend(why)
             unable = _unable(actor, sheet)
             if unable:
                 return [self._refuse(
@@ -618,6 +633,15 @@ class Director:
         at = (f" on {target}" if rules.heals_target else f" with {target}" if rules.helps_target
               else f" into a {target}" if rules.names_form else f" {target}" if rules.defends
               else f" at {target}") if target else ""
+        flags, situation, spent_ammo = self._situation(
+            rules.key, actor, target, weak_point, two_weapons, extra_targets, form_boon, form_plus, form_minus)
+        if situation:
+            return [self._refuse(channel_id, situation, "Re-issue make_move without it.")]
+        if "spread" in flags:
+            target = ", ".join([target, *[n for n in self._standing() for e in extra_targets
+                                          if n.lower() == str(e).strip().lower()]])
+            spend = [*spend, SpendAmmo(channel_id, actor, spent_ammo)]
+            notes.append(f"{len(extra_targets)} extra ammo for extra targets")
         striker = ""
         if ally:
             # Setup Strike, Tandem Strike: "When you hack and slash, choose an ally."
@@ -646,13 +670,13 @@ class Director:
         return [*spend, *self._open(channel_id, user_id, actor, rules.key, stat, mod, stakes, target,
                                     ttl_seconds, f"{rules.name}{at}" + (f", with {pet}" if pet else ""),
                                     notes, spell=staked, companion=pet, overloaded=burden == "overloaded",
-                                    aide=helper, ally=striker)]
+                                    aide=helper, ally=striker, flags=flags)]
 
     def _open(
         self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
         stakes: str, target: str, ttl_seconds: Optional[float], what: str,
         notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
-        aide: str = "", ally: str = "",
+        aide: str = "", ally: str = "", flags: Sequence[str] = (),
     ) -> List[Effect]:
         """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
         check, displaced = self.registry.open(
@@ -669,6 +693,7 @@ class Director:
             companion=companion,
             aide=aide,
             ally=ally,
+            flags=flags,
             ttl_seconds=ttl_seconds,
         )
 
@@ -988,6 +1013,97 @@ class Director:
         a Hack and Slash sets up (armor forward, a marked foe, an ally's strike)."""
         return [*self._book_forwards(channel_id, check, dice), *self._after_hack(channel_id, check),
                 *self._invigorate(channel_id, check, dice)]
+
+    def _situation(
+        self, move: str, actor: str, target: str, weak_point: bool, two_weapons: bool,
+        extra_targets: Sequence[str], form_boon: str, form_plus: str, form_minus: str,
+    ) -> Tuple[List[str], str, int]:
+        """(flags for the check, why not, the ammo left after Blot Out the Sun) for the
+        situational parts of a move -- each checked against the move that grants it."""
+        sheet = self._sheet_or_empty(actor)
+        flags: List[str] = []
+        if weak_point:
+            if move != "volley" or not advanced.has(sheet, "Smaug\u2019s Belly"):
+                return [], f"{actor} has nothing that uses a weak point (Smaug's Belly, on a Volley).", 0
+            flags.append("weak_point")
+        if two_weapons:
+            if move != "hack_and_slash" or not (advanced.has(sheet, "Viper\u2019s Strike")
+                                                or advanced.has(sheet, "Viper\u2019s Fangs")):
+                return [], f"{actor} has no move for striking with two weapons (Viper's Strike).", 0
+            melee = [i for i in items_of(sheet.get("gear") or []) if {"hand", "close"} & set(i.ranges)]
+            if "gear" in sheet and len(melee) < 2:
+                return [], f"{actor} does not carry two hand or close weapons.", 0
+            flags.append("two_weapons")
+        ammo_left = int(sheet.get("ammo", 0))
+        if extra_targets:
+            if move != "volley" or not advanced.has(sheet, "Blot Out the Sun"):
+                return [], f"{actor} cannot volley at extra targets (Blot Out the Sun).", 0
+            standing = {n.lower() for n in self._standing()}
+            wrong = [t for t in extra_targets if str(t).strip().lower() not in standing
+                     or str(t).strip().lower() == str(target).strip().lower()]
+            if wrong:
+                return [], f"Extra targets must be other creatures still standing: not {', '.join(wrong)}.", 0
+            if ammo_left < len(extra_targets) + 1:
+                return [], (f"{actor} has {ammo_left} ammo: one for the volley and one per extra target is "
+                            f"{len(extra_targets) + 1}."), 0
+            flags.append("spread")
+            ammo_left -= len(extra_targets)
+        boon = str(form_boon or "").strip().lower()
+        if boon:
+            if move != "shapeshifter" or not advanced.has(sheet, "Formshaper") or boon not in ("armor", "damage"):
+                return [], "form_boon is Formshaper's, on Shapeshifter: armor or damage.", 0
+            flags.append(f"boon:{boon}")
+        plus, minus = str(form_plus or "").strip().lower(), str(form_minus or "").strip().lower()
+        if plus or minus:
+            if move != "shapeshifter" or not advanced.has(sheet, "Formcrafter") or plus not in STATS \
+                    or minus not in STATS:
+                return [], "Formcrafter, on Shapeshifter, takes both form_plus (theirs) and form_minus (yours).", 0
+            flags += [f"plus:{plus}", f"minus:{minus}"]
+        return flags, "", ammo_left
+
+    def _balance(self, channel_id: int, actor: str, hits: Sequence[Dict[str, Any]]) -> List[Effect]:
+        """Balance: "When you deal damage, take 1 balance"."""
+        sheet = self._sheet_or_empty(actor)
+        if not advanced.has(sheet, "Balance") or not any(int(h.get("dealt", 0)) > 0 for h in hits):
+            return []
+        return [UpdateSheet(channel_id, actor, {"balance": int(sheet.get("balance", 0)) + 1})]
+
+    def channel_balance(
+        self, *, channel_id: int, character: str, patient: str, amount: int = 1
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Balance: "When you touch someone and channel the spirits of life you may spend
+        balance. For each balance spent, heal 1d4 HP"."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None or not advanced.has(sheet, "Balance"):
+            return [], {"ok": False, "error": f"{character!r} has no Balance to spend."}
+        have, amount = int(sheet.get("balance", 0)), int(amount or 0)
+        if not 1 <= amount <= have:
+            return [], {"ok": False, "error": f"{actor} has {have} balance."}
+        who = self._character(patient)
+        target = self._sheet_for(who) if who else None
+        if target is None or target.get("dead"):
+            return [], {"ok": False, "error": f"{patient!r} is not a living character here."}
+        rolled = self.dice.roll(f"{amount}d4")
+        healed = min(rolled.total, int(target["max_hp"]) - int(target["hp"]))
+        hp = int(target["hp"]) + healed
+        effects: List[Effect] = [
+            SendMessage(channel_id, f"🌿 **{actor}** channels the spirits of life into **{who}** — {amount}d4: "
+                                    f"{rolled.render()}, heals {healed}, HP {hp}/{target['max_hp']}."),
+            ChangeHp(channel_id, "character", who, hp),
+            UpdateSheet(channel_id, actor, {"balance": have - amount}),
+        ]
+        return effects, {"ok": True, "healed": healed, "balance_left": have - amount}
+
+    def _form_mod(self, sheet: Dict[str, Any], stat: str) -> Tuple[int, List[str]]:
+        """Formcrafter: "+1 ongoing to rolls using that stat while shifted" -- and the GM's -1."""
+        shape = sheet.get("shape") or {}
+        mod, notes = 0, []
+        if shape.get("plus") == stat:
+            mod, notes = mod + 1, [*notes, f"+1 {shape['form']} form"]
+        if shape.get("minus") == stat:
+            mod, notes = mod - 1, [*notes, f"-1 {shape['form']} form"]
+        return mod, notes
 
     def _after_hack(self, channel_id: int, check: PendingCheck) -> List[Effect]:
         """"When you hack and slash..." -- whatever the result."""
@@ -1319,6 +1435,10 @@ class Director:
         if advanced.has(self._sheet_or_empty(check.actor), "Embracing No Form"):
             hold += self.dice.roll("1d4").total  # "roll 1d4 and add that total to your hold"
         shape = {"form": check.target, "hold": hold, "moves": []}
+        for flag in check.flags:  # Formshaper's boon, Formcrafter's stats
+            key, _, value = flag.partition(":")
+            if key in ("boon", "plus", "minus"):
+                shape[key] = value
         facts = {**shape, "instruction": (
             f"Describe {check.actor} becoming a {check.target}: its innate abilities and "
             f"weaknesses are theirs, though they keep their own stats. "
@@ -1657,6 +1777,11 @@ class Director:
             total, shown = self._sworn_damage(sheet or {}, check.target, total, shown)
             total, shown, spent_marks = self._use_marks(channel_id, check.actor, check.target, total, shown)
             effects.extend(spent_marks)
+            if "two_weapons" in check.flags:
+                # Viper's Strike: "add an extra 1d4 damage for your off-hand strike" (Fangs: 1d8).
+                fangs = advanced.has(sheet or {}, "Viper\u2019s Fangs")
+                off = self.dice.roll("1d8" if fangs else "1d4").total
+                total, shown = total + off, f"{shown}, +{'1d8' if fangs else '1d4'} off-hand: {off} = {total + off}"
             # A damage forward (Arcane Art's +1d4) goes on the next damage they deal.
             boosts = [f for f in (sheet or {}).get("forwards") or () if f.get("damage")]
             for boost in boosts:
@@ -1668,12 +1793,14 @@ class Director:
                     "forwards": [f for f in sheet["forwards"] if not f.get("damage")]}))
         line = f"🎲 **{check.actor}**{' (rolled for them)' if auto else ''} damage — {shown}"
         hits = []
-        for name in check.target.split(", ") if spell is not None and spell.area else [check.target]:
+        spread = (spell is not None and spell.area) or "spread" in check.flags  # Blot Out the Sun
+        for name in check.target.split(", ") if spread else [check.target]:
             hurt, facts, said = self._hurt(channel_id, name, total, piercing, ignores)
             effects.extend(hurt)
             hits.append(facts)
             line += said
             effects.extend(self._oath_kept(channel_id, check.actor, name, facts))
+        effects.extend(self._balance(channel_id, check.actor, hits))
         facts = hits[0] if len(hits) == 1 else {"rolled": total, "targets": hits}
         effects.insert(0, SendMessage(channel_id, line))
 
@@ -1836,9 +1963,11 @@ class Director:
         spec = damage.parse(die)
         bonus = knack + (weapon.damage if weapon is not None else 0)
         boosted = str(damage.DamageSpec(spec.sides, spec.mode, spec.modifier + bonus)) if bonus else die
+        # Smaug's Belly: "When you know your target's weakest point your arrows have 2 piercing."
+        weak = 2 if "weak_point" in check.flags else 0
         if weapon is None:
-            return boosted, 0, ""
-        return boosted, weapon.piercing, weapon.name
+            return boosted, weak, ""
+        return boosted, max(weapon.piercing, weak), weapon.name
 
     def _spend_ammo(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         choice = MOVES[check.move].band(band(dice)).choice
@@ -1998,6 +2127,7 @@ class Director:
         effects, facts, said = self._hurt(channel_id, name, total, piercing, False)
         effects.extend(spent_marks)
         effects.extend(self._oath_kept(channel_id, actor, name, facts))
+        effects.extend(self._balance(channel_id, actor, [facts]))
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
                                                   f"No roll needed: {shown}{said}"))
@@ -2358,7 +2488,7 @@ class Director:
             sustained = sheet.get("class") == "Druid"  # By Nature Sustained: no rations
             # Human Ranger: "When you make camp in a dungeon or city, you don't need to consume a ration."
             sustained = sustained or (dungeon_or_city and sheet.get("class") == "Ranger"
-                                      and sheet.get("race") == "Human")
+                                      and _race_move_of(sheet, "Human"))
             sustained = sustained or quests.has_boon(sheet, "sustenance")  # Quest: no hunger
             if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
                 have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
@@ -2567,7 +2697,7 @@ class Director:
         sure: Dict[str, str] = {}
         for job, actor in jobs.items():
             js = self._sheet_or_empty(actor)
-            if wilderness and js.get("class") == "Ranger" and js.get("race") == "Elf":
+            if wilderness and js.get("class") == "Ranger" and _race_move_of(js, "Elf"):
                 # Elf Ranger: "When you undertake a perilous journey through wilderness whatever
                 # job you take you succeed as if you rolled a 10+."
                 sure[job] = actor

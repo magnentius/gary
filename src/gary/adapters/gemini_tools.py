@@ -51,6 +51,7 @@ START_QUEST = "start_quest"
 HAZARD_DAMAGE = "hazard_damage"
 ONGOING = "ongoing"
 LEAD_THE_CHARGE = "lead_the_charge"
+CHANNEL_BALANCE = "channel_balance"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -129,6 +130,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "useful one here. Each is +1."
                     ),
                 ),
+                "weak_point": _s(type=types.Type.BOOLEAN, description=(
+                    "volley with Smaug's Belly, when they know the target's weakest point: 2 piercing.")),
+                "two_weapons": _s(type=types.Type.BOOLEAN, description=(
+                    "hack_and_slash with Viper's Strike or Fangs, striking with a weapon in each hand.")),
+                "extra_targets": _s(type=_ARRAY, items=_s(type=_STRING), description=(
+                    "volley with Blot Out the Sun: more creatures hit by the same roll, one ammo each.")),
+                "form_boon": _s(type=_STRING, enum=["armor", "damage"], description=(
+                    "shapeshifter with Formshaper: +1 armor or +1d4 damage while in the form (their pick).")),
+                "form_plus": _s(type=_STRING, enum=list(STATS), description=(
+                    "shapeshifter with Formcrafter: the stat they take +1 ongoing in while shifted.")),
+                "form_minus": _s(type=_STRING, enum=list(STATS), description=(
+                    "shapeshifter with Formcrafter: the stat YOU choose for -1 ongoing while shifted.")),
                 "ally": _s(
                     type=_STRING,
                     description=(
@@ -545,6 +558,19 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                                                                      "truth", "hospitality"])),
             },
             required=["character", "mission", "subject", "vows"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=CHANNEL_BALANCE,
+        description=(
+            "A Druid with Balance touches someone and channels the spirits of life: spend balance "
+            "(earned 1 each time they deal damage), healing 1d4 per point. Gary rolls and applies it."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "patient": _s(type=_STRING),
+                        "amount": _s(type=_INTEGER, description="How much balance to spend.")},
+            required=["character", "patient", "amount"],
         ),
     ),
     types.FunctionDeclaration(

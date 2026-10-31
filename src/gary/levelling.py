@@ -180,6 +180,11 @@ class Advance:
             sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.move_spell]
         if self.spell:
             sheet["spellbook"] = [*(sheet.get("spellbook") or ()), self.spell]
+        if self.move == "Unnatural Ally" and sheet.get("companion"):
+            # "Give it +2 ferocity and +1 instinct, plus a new training" (the training is the table's).
+            pet = sheet["companion"]
+            sheet["companion"] = {**pet, "ferocity": int(pet["ferocity"]) + 2, "instinct": int(pet["instinct"]) + 1,
+                                  "monster": True}
         if self.move in spells.FAVOR_MOVES:
             sheet["favor_from"] = self.level  # a cleric of level 1 for spells, from here on
         if self.multi_move:

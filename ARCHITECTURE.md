@@ -486,6 +486,15 @@ the next blow; `marks` ({target, damage, reason}) are spent by `_use_marks` at b
 damage sites. `lead_the_charge` grants Charge!'s forward and Ever Onward's armor. Superior
 Warrior drops the counter-attack on a 12+; damage forwards may be flat ("2", Invigorate).
 
+**Situational flags.** A move that depends on the situation is told so on `make_move`
+(`weak_point`, `two_weapons`, `extra_targets`, `form_boon`, `form_plus`, `form_minus`),
+checked by `_situation` against the advanced move that grants it, and carried as the check's
+`flags`: Smaug's Belly's 2 piercing in `_damage_die`, Viper's off-hand dice and Blot Out the
+Sun's `spread` (one roll on every target, extra ammo spent up front) in `_land_damage`,
+Formshaper and Formcrafter onto the `shape` record (armor and dice in `advanced.py`, the
+stat +-1 by `_form_mod`). Balance counts up on damage dealt; `channel_balance` spends it.
+`_race_move_of` gives Half-Elven Rangers both race moves.
+
 **Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
 `ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
 records the creatures standing (`battle`) and is live while any of them still stands -- the
@@ -901,7 +910,7 @@ The model sees narrow, typed tools, each with its own checks and failure message
 mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
-  `forward`, `ongoing`, `lead_the_charge`.
+  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.

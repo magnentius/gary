@@ -481,6 +481,8 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     if shape:
         moves = f": {', '.join(shape['moves'])}" if shape.get("moves") else ""
         line += f" · in the shape of a {shape['form']} (hold {shape['hold']}{moves})"
+    if int(sheet.get("balance", 0)):
+        line += f" · balance {int(sheet['balance'])}"
     for b in sheet.get("armor_forward") or ():
         line += f" · +{b['amount']} armor forward ({b['reason']})"
     for m in sheet.get("marks") or ():

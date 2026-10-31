@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Tuple
+from typing import TYPE_CHECKING, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from .models import CancelReason, PendingCheck, new_id
 
@@ -85,6 +85,7 @@ class PendingCheckRegistry:
         companion: str = "",
         aide: str = "",
         ally: str = "",
+        flags: Sequence[str] = (),
         ttl_seconds: Optional[float] = None,
     ) -> Tuple[PendingCheck, Optional[PendingCheck]]:
         """Open a check. Returns (new_check, superseded_check_or_None)."""
@@ -105,6 +106,7 @@ class PendingCheckRegistry:
             companion=companion,
             aide=aide,
             ally=ally,
+            flags=tuple(flags),
             created_at=now,
             expires_at=now + ttl,
         )

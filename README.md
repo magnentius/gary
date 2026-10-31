@@ -675,6 +675,11 @@ waiting on; `?dm cancel` drops your own.
   Setup and Tandem Strike mark it for an ally; Charge! and Ever Onward brace those who follow
   your charge; Vicious Cacophony and Blast strengthen Arcane Art's damage; Invigorate gives
   whoever you heal +2 damage forward; Superior Warrior's 12+ dodges the counter-attack.
+- **Ranger and Druid moves:** Smaug's Belly's 2 piercing at a weak point, Viper's Strike and
+  Fangs' off-hand damage with two weapons, Blot Out the Sun's extra targets (an ammo each, one
+  damage roll), Unnatural Ally's monstrous companion, Half-Elven's second race move,
+  Formshaper's armor or damage and Formcrafter's +1/-1 in a shape, and Balance — earned with
+  every blow, spent to heal 1d4 a point.
 - **About a quarter of advanced moves are wired.** Gary applies the ones that change a number
   it runs: armor (Iron Hide, Barkskin, Arcane Ward, Underdog…), extra damage (Merciless,
   Cheap Shot…), a Druid's bigger animal die, extra healing (Hospitaller, Healing Song,

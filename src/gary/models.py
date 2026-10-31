@@ -14,7 +14,7 @@ import os
 import time
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Optional
+from typing import Any, Optional, Tuple
 
 _log = logging.getLogger("gary.models")
 
@@ -81,6 +81,10 @@ class PendingCheck:
     companion: str = ""  # the animal companion working with them (Command), by name
     aide: str = ""  # a hireling helping with this move (Man-at-arms, Intervene), by name
     ally: str = ""  # Setup Strike, Tandem Strike: the ally whose next attack gets the bonus
+    # What the situation adds, for moves that depend on it: "weak_point" (Smaug's Belly),
+    # "two_weapons" (Viper's Strike), "spread" (Blot Out the Sun), "boon:armor",
+    # "plus:dex", "minus:int" (Formshaper, Formcrafter).
+    flags: Tuple[str, ...] = ()
 
     @property
     def rolled(self) -> bool:
@@ -114,6 +118,7 @@ class PendingCheck:
             "companion": self.companion,
             "aide": self.aide,
             "ally": self.ally,
+            "flags": list(self.flags),
         }
 
     @classmethod
@@ -145,6 +150,7 @@ class PendingCheck:
             companion=d.get("companion", ""),
             aide=d.get("aide", ""),
             ally=d.get("ally", ""),
+            flags=tuple(d.get("flags") or ()),
         )
 
 

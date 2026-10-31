@@ -460,6 +460,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.CHANNEL_BALANCE:
+                balance_effects, result = self._director.channel_balance(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    patient=str(args.get("patient", "")), amount=int(args.get("amount") or 0))
+                effects.extend(balance_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.LEAD_THE_CHARGE:
                 charge_effects, result = self._director.lead_the_charge(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -622,6 +630,12 @@ class GeminiNarrator:
             aide=str(args.get("aide", "") or ""),
             race_move=bool(args.get("race_move")),
             ally=str(args.get("ally", "") or ""),
+            weak_point=bool(args.get("weak_point")),
+            two_weapons=bool(args.get("two_weapons")),
+            extra_targets=[str(t) for t in args.get("extra_targets") or []],
+            form_boon=str(args.get("form_boon", "") or ""),
+            form_plus=str(args.get("form_plus", "") or ""),
+            form_minus=str(args.get("form_minus", "") or ""),
         )
 
     def _user_id_for(self, channel_id: int, actor: str) -> int:

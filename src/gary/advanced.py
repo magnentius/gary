@@ -38,6 +38,14 @@ APPLIED: Dict[str, str] = {
     **{n: "the extra Arcane Art damage" for n in ("Vicious Cacophony", "Vicious Blast")},
     "Invigorate": "the +2 damage forward to whoever they heal",
     "Superior Warrior": "avoiding the counter-attack on a 12+ (the impression is yours)",
+    "Smaug's Belly": "the 2 piercing when make_move has weak_point",
+    **{n: "the off-hand damage when make_move has two_weapons" for n in ("Viper's Strike", "Viper's Fangs")},
+    "Blot Out the Sun": "the extra targets and ammo when make_move has extra_targets",
+    "Unnatural Ally": "the +2 ferocity and +1 instinct (the new training is yours)",
+    "Half-Elven": "the other race's Ranger move",
+    "Formshaper": "the armor or damage when Shapeshifter has form_boon",
+    "Formcrafter": "the +1 and -1 when Shapeshifter has form_plus and form_minus",
+    "Balance": "earning balance on damage; spend it with channel_balance",
     "Communion of Whispers": "the -1 forward on a miss",
     "Metal Hurlant": "the 1d10 damage",
     "Counterspell": "forgetting the staked spell on a 7-9",
@@ -102,6 +110,8 @@ def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str
         bonus.append((1, "Iron Hide"))
     if has(sheet, "Barkskin"):
         bonus.append((1, "Barkskin"))
+    if (sheet.get("shape") or {}).get("boon") == "armor":
+        bonus.append((1, "Formshaper"))
     questing = bool(sheet.get("quest"))
     if questing and sheet.get("class") == "Paladin" and has(sheet, "Divine Protection"):
         bonus.append((2, "Divine Protection"))  # the Paladin's: "+2 armor while on a quest"
@@ -131,6 +141,8 @@ def damage_dice(sheet: Dict[str, Any], move: str, weapon_tags: Sequence[str]) ->
         out.append(("1d8", "Bloodthirsty"))
     elif has(sheet, "Merciless"):
         out.append(("1d4", "Merciless"))
+    if (sheet.get("shape") or {}).get("boon") == "damage":
+        out.append(("1d4", "Formshaper"))
     if sheet.get("quest"):
         if has(sheet, "Holy Smite"):
             out.append(("1d8", "Holy Smite"))
