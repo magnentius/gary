@@ -613,6 +613,14 @@ is shown a few of the book's 39 magic items for ideas. A creature is searched on
 **Clumsy armor** (scale mail, plate) gives -1 to every roll while worn, shown on the roll
 line — except for Fighters and Paladins, whose Armored move ignores it.
 
+**Poisons** from the equipment list can be used by anyone who carries a dose — spent, and
+Dangerous unless it's the one a Thief mastered. On a creature, Bloodweed takes 1d4 off its
+every damage roll and Serpent's Tears makes everyone's damage against it roll twice, better
+kept. **Stun damage** costs no HP, but until the GM says you've cleared your head, anything
+you do is Defy Danger. **Cover** counts as armor against a creature's blow (+1 partial, +2
+major). Dwarven Hardtack only feeds Dwarves. Cloudkill adds a separate 1d6, ignoring armor,
+to every creature's wound while it lasts; Consume Unlife drains an undead creature to heal you.
+
 **Healing items** work as the book says. A healing potion heals whoever drinks it 10 —
 yourself, or a friend you pour it into — or removes one debility instead, if you'd rather. Bandages heal *someone else* 4, poultices and herbs
 heal anyone 7; both spend a use and are slow, so not while creatures are still standing.
@@ -697,7 +705,8 @@ waiting on; `?dm cancel` drops your own.
 - **Defend's hold** is spent one point per attack, and only against `monster_attacks` — not
   the blow back on a weak Hack and Slash. Defending an item or a place records it, but
   nothing attacks those through the rules. Ammo is one count shared by bows and throwing
-  daggers. Antitoxin and poisons bought from the equipment list do nothing yet. Magic items
+  daggers. Poisons on characters aren't tracked: antitoxin is drunk and spent, and what it
+  cures is the GM's to say. Magic items
   are the GM's to narrate: the book's list is offered as ideas, and none changes a number.
 
 ### When something goes wrong

@@ -460,6 +460,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.STUN:
+                stun_effects, result = self._director.stun(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    reason=str(args.get("reason", "") or ""), end=bool(args.get("end")))
+                effects.extend(stun_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.SPELL_AUGMENTATION:
                 aug_effects, result = self._director.spell_augmentation(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -540,7 +548,8 @@ class GeminiNarrator:
                 character = str(args.get("character", ""))
                 if name == T.USE_POISON:
                     poison_effects, result = self._director.use_poison(
-                        channel_id=channel_id, character=character, target=str(args.get("target", "") or ""))
+                        channel_id=channel_id, character=character, target=str(args.get("target", "") or ""),
+                        poison=str(args.get("poison", "") or ""))
                 else:
                     poison_effects, result = self._director.brew_poison(
                         channel_id=channel_id, character=character, reason=str(args.get("reason", "") or ""))
@@ -597,6 +606,7 @@ class GeminiNarrator:
                     character=str(args.get("character", "")),
                     also=[str(a) for a in args.get("also") or []],
                     protector=str(args.get("protector", "") or ""),
+                    cover=int(args.get("cover") or 0),
                 )
                 effects.extend(attack_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -681,6 +691,15 @@ class GeminiNarrator:
                 return [], {"ok": False, "error": f"{target_name!r} has no character sheet."}
             target = sheets[found]
         fighting = any(r["hp"] > 0 for r in (state.get("monsters") or {}).values())
+        if "antitoxin" in str(args.get("item", "")).lower():
+            # "When you drink antitoxin, you're cured of one poison affecting you."
+            try:
+                user, _ = trade.remove_items(sheets[actor], ["antitoxin"])
+            except trade.TradeError as exc:
+                return [], {"ok": False, "error": str(exc)}
+            self._store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": user})], reason=f"{actor} drinks antitoxin")
+            return [SendMessage(channel_id, f"🧪 **{actor}** drinks antitoxin.")], {
+                "ok": True, "note": "They are cured of one poison affecting them. Narrate which, and end its effects."}
         try:
             user, patient, healed, remedy = healing.use(
                 sheets[actor], str(args.get("item", "")), target, fighting, str(args.get("cure", "") or "")

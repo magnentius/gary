@@ -501,6 +501,16 @@ on Trap Expert, the Empower family's offer on a 10+ cast (free on a 12+ with Gre
 Impervious Defender's 12+ replaces Defend's hold in `_guard`. `_after_strike` records
 `last_struck` for Spell Augmentation, whose tool shunts an ongoing spell's level onto it.
 
+**Poison, stun, cover and the rest.** `use_poison` spends a carried dose of any equipment-list
+poison (`POISONS`) or the Thief's mastered one; on a creature Bloodweed and Serpent's Tears go
+on its record as `afflictions` (`AfflictMonster` -> `MONSTER_AFFLICT`, journalled), read by
+`_attack` (-1d4 to its damage) and `_serpents_tears` (damage against it rolled twice, better
+kept). `stun` sets `stunned`: no HP lost, and `open_move` refuses anything but Defy Danger until
+`end=true`. `monster_attacks(cover=)` adds 1-2 armor. `_hurt` adds Cloudkill's separate 1d6
+while anyone's Cloudkill runs (to every creature: Gary cannot see the fog's edge); Consume
+Unlife destroys its target and heals the caster by the HP it had left. `trade._rations_for`
+gives "Requires Dwarf" food only to Dwarves; antitoxin is handled in `use_item`.
+
 **Ongoing.** `ongoing` puts `{amount, reason, until, move}` on `sheet["ongoing_mods"]` (not
 `ongoing`, which is running spells): +-1 or 2, to every move roll or one move. `until="battle"`
 records the creatures standing (`battle`) and is live while any of them still stands -- the
@@ -916,7 +926,7 @@ The model sees narrow, typed tools, each with its own checks and failure message
 mapping to store mutations or Director calls:
 
 - **Moves and GM moves:** `make_move`, `monster_attacks`, `hazard_damage`, `deal_damage`, `make_camp`,
-  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`, `spell_augmentation`.
+  `forward`, `ongoing`, `lead_the_charge`, `channel_balance`, `spell_augmentation`, `stun`.
 - **Creatures:** `add_monsters`, `remove_monsters`.
 - **Harm, rest and travel:** `debility`, `recover`, `perilous_journey`.
 - **Hirelings and downtime:** `hire`, `update_hireling`, `hireling_first_aid`, `bolster`.

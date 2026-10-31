@@ -53,6 +53,7 @@ ONGOING = "ongoing"
 LEAD_THE_CHARGE = "lead_the_charge"
 CHANNEL_BALANCE = "channel_balance"
 SPELL_AUGMENTATION = "spell_augmentation"
+STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -273,6 +274,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "Other creatures striking the same character at the same moment -- a pack, a "
                     "surrounding ring. One combined blow: the highest damage among them, rolled once, "
                     "+1 for each attacker beyond the first. Not for blows at different moments.")),
+                "cover": _s(type=_INTEGER, description=(
+                    "The character's cover against this attack: 1 partial, 2 major.")),
                 "protector": _s(type=_STRING, description=(
                     "A hired Protector standing between the character and this attack: +their skill "
                     "to armor, then their skill drops 1 until they rest.")),
@@ -562,6 +565,17 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         ),
     ),
     types.FunctionDeclaration(
+        name=STUN,
+        description=(
+            "Stun damage -- a club to the head, a thunderclap, a net of shock: no HP lost, but until "
+            "they clear their head (end=true) anything the character does is Defy Danger."
+        ),
+        parameters=_s(type=_OBJECT, properties={
+            "character": _s(type=_STRING), "reason": _s(type=_STRING, description="What stunned them, or what cleared it."),
+            "end": _s(type=types.Type.BOOLEAN, description="True when they have cleared their head.")},
+            required=["character"]),
+    ),
+    types.FunctionDeclaration(
         name=SPELL_AUGMENTATION,
         description=(
             "A Wizard with Spell Augmentation, having just dealt damage to a creature, ends one of "
@@ -760,13 +774,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=USE_POISON,
         description=(
-            "A Thief uses the poison they mastered (the state shows which, and how many uses "
-            "are left): spends one and returns what it does. No roll -- getting it onto the "
-            "target may be a move of its own (Backstab, Defy Danger)."
+            "Someone uses a poison: a Thief's mastered one (the state shows its uses), or a dose they "
+            "carry (bought or found -- spent, and Dangerous). Returns what it does; on a creature in "
+            "the scene, Bloodweed and Serpent's Tears change its numbers from then on. No roll -- "
+            "getting it onto the target may be a move of its own (Backstab, Defy Danger)."
         ),
         parameters=_s(
             type=_OBJECT,
-            properties={"character": _s(type=_STRING), "target": _s(type=_STRING, description="Who or what it is used on.")},
+            properties={"character": _s(type=_STRING), "target": _s(type=_STRING, description="Who or what it is used on."),
+                        "poison": _s(type=_STRING, description="Which poison, if not their mastered one.")},
             required=["character"],
         ),
     ),

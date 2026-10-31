@@ -64,6 +64,17 @@ def _race_move_of(sheet: Dict[str, Any], race: str) -> bool:
     return sheet.get("race") == race or (advanced.has(sheet, "Half-Elven") and race in ("Elf", "Human"))
 
 
+def _poisons() -> Dict[str, str]:
+    """The equipment list's poisons, by name: what each does."""
+    import json
+    from pathlib import Path
+
+    items = json.loads((Path(__file__).parent / "data" / "equipment.json").read_text(encoding="utf-8"))["items"]
+    return {i["name"]: i.get("description", "") for i in items.values() if i.get("kind") == "poison"}
+
+
+POISONS = _poisons()
+
 #: Every move rolls this.
 MOVE_DICE = "2d6"
 
@@ -198,6 +209,15 @@ class UpdateSheet(Effect):
     channel_id: int
     name: str
     changes: dict
+
+
+@dataclass(frozen=True)
+class AfflictMonster(Effect):
+    """Set the poisons working on a creature. Journalled by the runner, so it undoes."""
+
+    channel_id: int
+    name: str
+    afflictions: tuple
 
 
 @dataclass(frozen=True)
@@ -428,6 +448,13 @@ class Director:
             if sheet is not None and not advanced.has(sheet, rules.requires):
                 return [self._refuse(channel_id, f"{rules.name} is an advanced move {actor} has not taken.",
                                      "Choose a move this character has.")]
+
+        if rules.key != "defy_danger" and self._sheet_or_empty(actor).get("stunned"):
+            return [self._refuse(
+                channel_id, f"{actor} is stunned ({self._sheet_or_empty(actor)['stunned']}): anything they do "
+                            "is Defy Danger, the danger being that they are stunned.",
+                "Re-issue make_move as defy_danger (the stat their approach uses), or end the stun with "
+                "stun end=true once they have cleared their head.")]
 
         if rules.stat == CASTER:
             cast = self._open_cast(channel_id, user_id, actor, spell, target, stakes, ttl_seconds)
@@ -1548,6 +1575,8 @@ class Director:
             return [], facts
         facts["cast"] = True
         sheet = self._sheet_for(check.actor)
+        if spell.name == "Consume Unlife":
+            return self._consume_unlife(channel_id, check, sheet, facts)
         changes: Dict[str, Any] = {}
         lines: List[str] = []
         before = list(sheet.get("ongoing") or [])
@@ -1825,6 +1854,7 @@ class Director:
         else:
             hit = damage.roll(self.dice, damage.parse(die), self._damage_extra(check, dice))
             total, shown, ignores = hit.total, hit.render(), False
+            total, shown = self._serpents_tears(check.target, die, total, shown, self._damage_extra(check, dice))
             if self._magic_weapon(check):
                 bonus = self.dice.roll("1d4").total
                 total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
@@ -1984,6 +2014,42 @@ class Director:
                 "Gary applies the damage. If the enemy escapes or they give up the fight, the oath "
                 "holds until they redeem themselves -- then swear_enemy with released=true.")}
 
+    def _consume_unlife(self, channel_id: int, check: PendingCheck, sheet: Dict[str, Any],
+                        facts: Dict[str, Any]) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Consume Unlife: "The mindless undead creature you touch is destroyed and you steal its
+        death energy to heal yourself ... The amount of damage healed is equal to the HP that the
+        creature had remaining before you destroyed it." Healing the caster; whether the creature
+        is mindless undead is the model's to have judged before it was cast."""
+        creature = self._monsters().get(check.target) or {}
+        left = max(0, int(creature.get("hp", 0)))
+        healed = min(left, int(sheet["max_hp"]) - int(sheet["hp"]))
+        hp = int(sheet["hp"]) + healed
+        facts.update(destroyed=check.target, healed=healed, note=(
+            "Destroyed and drained, as rolled. If they would rather heal the next ally they touch, "
+            "narrate it -- the HP went to the caster."))
+        return [SendMessage(channel_id, f"✨ **{check.target}** is consumed — **{check.actor}** heals {healed}, "
+                                        f"HP {hp}/{sheet['max_hp']}."),
+                ChangeHp(channel_id, "monster", check.target, 0),
+                ChangeHp(channel_id, "character", check.actor, hp)], facts
+
+    def _serpents_tears(self, target: str, die: str, total: int, shown: str,
+                        extra: Optional[str] = None) -> Tuple[int, str]:
+        """Serpent's Tears: "Anyone dealing damage against the target rolls twice and takes
+        the better result"."""
+        creature = self._monsters().get(target or "") or {}
+        if "Serpent\u2019s Tears" not in (creature.get("afflictions") or ()):
+            return total, shown
+        again = damage.roll(self.dice, damage.parse(die), extra)
+        if again.total <= total:
+            return total, f"{shown} (Serpent's Tears: rolled again, {again.total})"
+        return again.total, f"{again.render()} (Serpent's Tears: rolled again, better than {total})"
+
+    def _cloudkill(self) -> bool:
+        """Is anyone's Cloudkill running? Gary cannot see who stands in the fog, so while it
+        lasts it counts for every creature in the scene; the model ends it when it no longer
+        covers them (end_spell)."""
+        return any(s.name == "Cloudkill" for _, sheet in self._party() for s, _ in spells.running(sheet))
+
     def _hurt(
         self, channel_id: int, name: str, total: int, piercing: int, ignores_armor: bool
     ) -> Tuple[List[Effect], Dict[str, Any], str]:
@@ -1994,11 +2060,17 @@ class Director:
             facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
             return [], facts, f" — {name} is gone."
         dealt = damage.through_armor(total, target["armor"], piercing, ignores_armor)
+        cloud = ""
+        if dealt > 0 and self._cloudkill():
+            # Cloudkill: "Whenever a creature in the area takes damage it takes an additional,
+            # separate 1d6 damage which ignores armor."
+            fog = self.dice.roll("1d6").total
+            dealt, cloud = dealt + fog, f", +{fog} Cloudkill"
         after = int(target["hp"]) - dealt
         facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
                      hp_after=max(after, 0), defeated=after <= 0,
                      severity=damage.severity(dealt, target.get("max_hp", target["hp"]), after))
-        armor = "ignores armor" if ignores_armor else f"armor {target['armor']}"
+        armor = ("ignores armor" if ignores_armor else f"armor {target['armor']}") + cloud
         said = (f" → **{name}** takes {_damage_words(dealt)} ({armor}), "
                 f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else "."))
         return [ChangeHp(channel_id, "monster", name, after)], facts, said
@@ -2058,7 +2130,7 @@ class Director:
 
     def monster_attacks(
         self, *, channel_id: int, monster: str, character: str, also: Sequence[str] = (),
-        protector: str = "",
+        protector: str = "", cover: int = 0,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """A creature deals its damage to a character -- the GM move "deal damage", on a
         miss or when everyone looks to the GM.
@@ -2125,8 +2197,10 @@ class Director:
                         UpdateSheet(channel_id, employer, {"hirelings": [
                             {**h, "strain": int(h.get("strain", 0)) + 1} if h is guard or h["name"] == guard["name"] else h
                             for h in esheet["hirelings"]]})]
+        # "Temporary or circumstantial armor works the same way as armor that you wear: 1 armor
+        # for partial cover, 2 armor for major cover."
         effects, facts = self._attack(channel_id, name, scene[name], character, hit=hit,
-                                      extra_armor=guard_armor)
+                                      extra_armor=guard_armor + max(0, min(2, int(cover or 0))))
         effects = strained + effects
         if pack:
             effects.insert(0, SendMessage(channel_id, pack))
@@ -2182,6 +2256,7 @@ class Director:
         die, piercing, weapon = self._damage_die(blow)
         hit = damage.roll(self.dice, damage.parse(die))
         total, shown = hit.total, hit.render()
+        total, shown = self._serpents_tears(name, die, total, shown)
         weapon_now = self._weapon(sheet, move) if "gear" in sheet else None
         for dice_spec, why in advanced.damage_dice(sheet, move, weapon_now.tags if weapon_now else ()):
             extra = self.dice.roll(dice_spec).total
@@ -2290,6 +2365,12 @@ class Director:
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
+        rolled, shown = hit.total, hit.render()
+        if "Bloodweed" in (creature.get("afflictions") or ()):
+            # "whenever the afflicted rolls damage, they roll an additional d4 and subtract that
+            # result from their normal damage"
+            weed = self.dice.roll("1d4").total
+            rolled, shown = max(0, rolled - weed), f"{shown}, -1d4 Bloodweed: {weed} = {max(0, rolled - weed)}"
         armor = (int(sheet["armor"]) if sheet else 0) + extra_armor
         braced = (sheet or {}).get("armor_forward") or []
         armor += sum(int(b["amount"]) for b in braced)
@@ -2298,13 +2379,13 @@ class Director:
             more, _ = advanced.armor_bonus(sheet, outnumbered=standing > len(self._party()))
             armor += more
         dealt = damage.through_armor(
-            hit.total, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
+            rolled, armor, creature.get("piercing", 0), creature.get("ignores_armor", False)
         )
         if halve:
             dealt //= 2  # Defend: "halve its effect or damage"
         facts: Dict[str, Any] = {"attacker": name, "character": character,
-                                 "rolled": hit.total, "armor": armor, "dealt": dealt}
-        line = f"🗡️ **{name}** hits **{character}** — {hit.render()}"
+                                 "rolled": rolled, "armor": armor, "dealt": dealt}
+        line = f"🗡️ **{name}** hits **{character}** — {shown}"
         effects: List[Effect] = []
         if sheet is not None:
             after = int(sheet["hp"]) - dealt
@@ -2316,7 +2397,7 @@ class Director:
             line = (
                 (f"💥 **{character}** is hurt — {name} — {_damage_words(dealt)} " if hazard else
                  f"🗡️ **{name}** hits **{character}** for {_damage_words(dealt)} ")
-                + f"({hit.render()}, {shield}) — HP {sheet['hp']} → {max(after, 0)}"
+                + f"({shown}, {shield}) — HP {sheet['hp']} → {max(after, 0)}"
                 + (" — **down**." if after <= 0 else ".")
             )
             if after <= 0:
@@ -3271,16 +3352,48 @@ class Director:
 
     # -- the Thief's poison -------------------------------------------------------------------
 
-    def use_poison(self, *, channel_id: int, character: str, target: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
-        """Poisoner: a use of the poison they mastered, which is "no longer dangerous for you
-        to use". What it does is the poison's text; the model narrates it."""
+    def stun(
+        self, *, channel_id: int, character: str, reason: str = "", end: bool = False
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Stun damage: "non-lethal damage. A PC who takes stun damage is defying danger to do
+        anything at all, the danger being 'you're stunned.' This lasts as long as makes sense
+        in the fiction." No HP is lost."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        reason = " ".join(str(reason or "").split())
+        if end:
+            if not sheet.get("stunned"):
+                return [], {"ok": False, "error": f"{actor} is not stunned."}
+            return [SendMessage(channel_id, f"💫 **{actor}** clears their head" + (f" — {reason}." if reason else ".")),
+                    UpdateSheet(channel_id, actor, {"stunned": None})], {"ok": True}
+        if not reason:
+            return [], {"ok": False, "error": "Say what stunned them (reason)."}
+        return [SendMessage(channel_id, f"💫 **{actor}** is stunned — {reason}. Until they clear their head, "
+                                        "anything they do is Defy Danger."),
+                UpdateSheet(channel_id, actor, {"stunned": reason})], {
+            "ok": True, "note": "No HP lost. Their moves are Defy Danger until you end it (stun end=true)."}
+
+    def use_poison(self, *, channel_id: int, character: str, target: str = "",
+                   poison: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """A poison used: the one a Thief mastered, which is "no longer dangerous for you to
+        use", or a dose anyone carries (bought or found), which is spent -- and Dangerous.
+        What it does is the poison's text; on a creature in the scene, Bloodweed and Serpent's
+        Tears change its numbers from then on."""
         actor = self._character(character)
         sheet = self._sheet_for(actor) if actor else None
         if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet."}
         name = (sheet.get("choices") or {}).get("poison")
+        wanted = " ".join(str(poison or "").split()).lower().replace("'", "\u2019")
+        if wanted and (not name or name.lower() != wanted):
+            return self._use_carried_poison(channel_id, actor, sheet, wanted, target)
         if not name:
-            return [], {"ok": False, "error": f"{actor} has mastered no poison."}
+            carried = [g for g in sheet.get("gear") or () if g["name"] in POISONS]
+            if carried:
+                return self._use_carried_poison(channel_id, actor, sheet, carried[0]["name"].lower(), target)
+            return [], {"ok": False, "error": f"{actor} has mastered no poison and carries none."}
         left = int(sheet.get("poison_uses", 0))
         if left <= 0:
             return [], {"ok": False, "error": (f"{actor} has no {name} left. They can brew more with "
@@ -3289,9 +3402,36 @@ class Director:
         return [
             SendMessage(channel_id, f"🧪 **{actor}** uses {name}{on} — {left - 1} uses left."),
             UpdateSheet(channel_id, actor, {"poison_uses": left - 1}),
+            *self._afflict(channel_id, target, name),
         ], {"ok": True, "poison": name, "effect": choices.poison_text(name), "uses_left": left - 1,
             "note": "Applied poisons must reach the target or what they eat or drink; touch poisons "
                     "need only touch, a blade will do. Narrate the effect as written."}
+
+    def _use_carried_poison(self, channel_id: int, actor: str, sheet: Dict[str, Any], wanted: str,
+                            target: str) -> Tuple[List[Effect], Dict[str, Any]]:
+        dose = next((g for g in sheet.get("gear") or () if g["name"].lower() == wanted and g["name"] in POISONS), None)
+        if dose is None:
+            carried = ", ".join(g["name"] for g in sheet.get("gear") or () if g["name"] in POISONS) or "none"
+            return [], {"ok": False, "error": f"{actor} carries no {wanted}. Poisons carried: {carried}."}
+        gear = list(sheet["gear"])
+        gear.remove(dose)
+        on = f" on {target}" if target else ""
+        return [
+            SendMessage(channel_id, f"🧪 **{actor}** uses {dose['name']}{on} — the dose is spent."),
+            UpdateSheet(channel_id, actor, {"gear": gear}),
+            *self._afflict(channel_id, target, dose["name"]),
+        ], {"ok": True, "poison": dose["name"], "effect": POISONS[dose["name"]], "note": (
+            "Dangerous: used without the proper precautions, it may turn on them -- a GM move if the "
+            "fiction allows. Applied poisons must reach the target or what they eat or drink; touch "
+            "poisons need only touch. Narrate the effect as written.")}
+
+    def _afflict(self, channel_id: int, target: str, poison: str) -> List[Effect]:
+        """Bloodweed and Serpent's Tears on a creature in the scene, kept on its record."""
+        creature = self._monsters().get(target or "")
+        if creature is None or poison not in ("Bloodweed", "Serpent\u2019s Tears"):
+            return []
+        have = list(creature.get("afflictions") or [])
+        return [AfflictMonster(channel_id, target, tuple(have + [poison] if poison not in have else have))]
 
     def brew_poison(self, *, channel_id: int, character: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
         """"Whenever you have time to gather materials and a safe place to brew you can make

@@ -96,7 +96,7 @@ class Spell:
     @property
     def target(self) -> Optional[str]:
         """What the spell needs named: a creature in the scene, a character, or nothing."""
-        if self.damage:
+        if self.damage or self.name == "Consume Unlife":  # "the mindless undead creature you touch"
             return "creature"
         if self.heals or self.name == BLESS:
             return "character"

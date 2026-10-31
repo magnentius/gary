@@ -56,6 +56,15 @@ def _counts(sheet: Dict[str, Any]) -> Tuple[int, int, int]:
     return int(sheet.get("ammo", 0)), int(rations), int(sheet.get("coins", 0))
 
 
+def _rations_for(sheet: Dict[str, Any], item) -> int:
+    """The meals an item gives this character. "Requires Dwarf": Dwarven Hardtack feeds no one
+    else -- "Everyone else says it tastes like home, if home is a hog farm, and on fire"."""
+    needs = next((t.split(" ", 1)[1] for t in item.tags if t.lower().startswith("requires ")), None)
+    if needs and str(sheet.get("race", "")).lower() != needs.lower():
+        return 0
+    return item.rations
+
+
 def add_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, Any], List[str]]:
     """Give items to a character. Returns (new sheet, what they got, as the table reads it).
 
@@ -82,7 +91,7 @@ def add_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, An
         for _ in range(qty):
             gear.append(item.to_dict())
             ammo += item.ammo
-            rations += item.rations
+            rations += _rations_for(sheet, item)
         got.append(item.label() if qty == 1 else f"{qty} × {item.label()}")
     return _recount(sheet, gear, ammo, rations, coins), got
 
@@ -108,7 +117,7 @@ def remove_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str,
                 raise TradeError(f"{sheet['name']} carries no {wanted.name}. They carry: {carried}.")
             item = items_of([gear.pop(index)])[0]
             ammo -= item.ammo
-            rations -= item.rations
+            rations -= _rations_for(sheet, item)
             lost.append(item.name)
     return _recount(sheet, gear, ammo, rations, coins), lost
 

@@ -20,7 +20,7 @@ import logging
 from dataclasses import dataclass
 from typing import Sequence
 
-from ..fsm import ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo, UpdateSheet
+from ..fsm import AfflictMonster, ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo, UpdateSheet
 from ..models import Mutation, MutationKind
 from ..ports import Narrator, NarrationResult
 
@@ -86,6 +86,15 @@ class EffectRunner:
 
         if isinstance(effect, SpendAmmo):
             self._update_sheet(effect.name, {"ammo": effect.ammo}, f"{effect.name} spends ammo")
+            return
+
+        if isinstance(effect, AfflictMonster):
+            if self._store is not None:
+                diff = self._store.apply([Mutation(MutationKind.MONSTER_AFFLICT, effect.name,
+                                                   {"afflictions": list(effect.afflictions)})],
+                                         reason=f"{effect.name} is poisoned")
+                if not diff.ok:
+                    log.warning("affliction on %s refused: %s", effect.name, diff.rejected)
             return
 
         if isinstance(effect, RecordOutcome):

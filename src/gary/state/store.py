@@ -657,6 +657,22 @@ def _h_monster_looted(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_monster_afflict(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the instance name; payload {"afflictions": [...]}: the poisons working on
+    it (Bloodweed, Serpent's Tears). Undone by putting the old list back."""
+    record = store._state.setdefault("monsters", {}).get(m.target)
+    if record is None:
+        raise StateError(f"no creature named {m.target!r} in this scene")
+    before = list(record.get("afflictions") or [])
+    record["afflictions"] = list(m.payload.get("afflictions") or [])
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.MONSTER_AFFLICT, m.target, {"afflictions": before}),
+        before=before,
+        after=record["afflictions"],
+    )
+
+
 def _h_front(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """payload {"front": record}, or {"front": None} to drop it. Undone by putting back what
     was there -- a portent ticked off comes un-ticked."""
@@ -745,4 +761,5 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.MONSTERS_REMOVE: _h_monsters_remove,
     MutationKind.MONSTER_HP: _h_monster_hp,
     MutationKind.MONSTER_LOOTED: _h_monster_looted,
+    MutationKind.MONSTER_AFFLICT: _h_monster_afflict,
 }
