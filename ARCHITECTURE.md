@@ -777,7 +777,7 @@ layers, in order:
    and spreading the spotlight, and the book's principles (never name your move, be a fan of
    the characters, think offscreen). Held under 7.5% of the token budget by a test.
 2. **Live state** (rebuilt per call, never carried in history) — the setting (≤600
-   characters, from `/setting`), date and time, scene, the party with each sheet line
+   characters, the premise from `/begin`), date and time, scene, the party with each sheet line
    (stats, HP, armor, weapons, XP, shape), what they carry, their spells, companion and
    bonds, the creatures in the scene with HP, and effects. Then the **class moves block**:
    each character's alignment, rolled moves by key, narrative and advanced moves in the
@@ -799,17 +799,23 @@ background summary cannot be clobbered by a turn that loaded the old one.
 
 ### 8.1 Seeding a campaign
 
-Layers 2 and 3 are empty on a fresh campaign, the worst moment for it. Three surfaces fill
-them: `/setting premise:`; `/scene location: summary:` and `/time`; and
-`/import` with a `.md`/`.txt` attachment, split on Markdown headings (a section cut in
-half writes an NPC twice) and fanned into notes and NPCs, one model call per chunk, capped.
+Layers 2 and 3 are empty on a fresh campaign, the worst moment for it. Dungeon World's
+answer is to prepare little and build the world at the table, and `/begin` (`opening.py`)
+runs that first session as a sequence, following the recipe in "My Recipe for Starting
+Adventures" (Spouting Lore, 2020): a premise (a fantastic place and a grabby activity), the
+characters, introductions, hook questions to each character, bonds, a tight opening frame
+with a soft move -- and, after the first `/endsession`, fronts written from what play
+turned up. The stage lives in state (`OPENING`, journalled and undoable), so the durable
+**Next** buttons survive a restart and only whoever ran `/begin` can press them.
 
-**Proposals.** Bare `/scene`, or an import finishing on a campaign with no setting, asks
-the model for one line. A proposal decides nothing: `EffectRunner.ask` returns the text
-and drops any effects, so it cannot act on its own suggestion. The line is held until
-someone presses its Accept button (`AcceptButton`), parsed rather than trusted (lead-ins, fences and labels stripped, since the
-field is read to the model every turn), and asking again names the rejected lines back so
-the model offers a different place, not a paraphrase.
+The premise offer is the one model call that decides nothing: `EffectRunner.ask` returns
+the text and drops any effects, and the places and activities are parsed rather than trusted
+(bullets and labels stripped), shown in two dropdowns beside **Write my own** and **Other
+options**, which names the ones passed over so the model offers new ground. The hook
+questions and the opening scene are rules events: ordinary turns with tools, where answers
+become NPCs and notes. Earlier versions seeded the world with `/setting`, `/scene`, `/time`
+and `/import` of a setting document; they front-loaded a world the book says to leave blank,
+and were removed.
 
 ---
 
@@ -830,10 +836,6 @@ the model offers a different place, not a paraphrase.
 - **The model cannot touch what decides outcomes**: the roster (who plays whom) is set only
   by `/new`/`/playing`; sheets change only through rules-checked forms and effects;
   dice are Gary's; XP from End of Session is the table's.
-- **Imported documents are data, not turns.** Each chunk is sanitised, fenced between
-  `<<<DOCUMENT`/`DOCUMENT>>>`, labelled part *n* of *m*, and prefixed with a statement that a
-  directive inside it is fiction to record. Only `/import` can invoke it; caps refuse before the
-  first model call.
 
 ### 9.2 Attribution
 

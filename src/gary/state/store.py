@@ -721,6 +721,21 @@ def _h_session_questions(store: "CampaignStore", m: Mutation) -> AppliedMutation
     )
 
 
+def _h_opening(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload: the fields of the opening to set ({"stage": ..., "starter": ...}). Undone by
+    putting back what was there."""
+    before = dict(store._state.get("opening") or {})
+    # "__state__" is the undo: the whole opening as it was, not merged in.
+    store._state["opening"] = (dict(m.payload["__state__"]) if "__state__" in m.payload
+                               else {**before, **m.payload})
+    return AppliedMutation(
+        mutation=m,
+        inverse=Mutation(MutationKind.OPENING, "", {"__state__": before}),
+        before=before,
+        after=store._state["opening"],
+    )
+
+
 def _h_setting(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     before = store._state.get("setting", "")
     store._state["setting"] = str(m.payload.get("text", ""))
@@ -786,6 +801,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.FRONT: _h_front,
     MutationKind.STEADING: _h_steading,
     MutationKind.SESSION_QUESTIONS: _h_session_questions,
+    MutationKind.OPENING: _h_opening,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,

@@ -265,6 +265,7 @@ class MutationKind(str, Enum):
     MONSTER_AFFLICT = "monster_afflict"
     STEADING = "steading"
     SESSION_QUESTIONS = "session_questions"
+    OPENING = "opening"  # /begin: where the table is in starting the adventure
     CALENDAR = "calendar"
 
 

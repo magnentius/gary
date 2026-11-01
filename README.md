@@ -56,37 +56,38 @@ in `~/.local/share/gary/campaign`. Run **one** Gary per campaign.
 **On Google Cloud:** an always-on free-tier VM running the same image —
 [`deploy/gcp/README.md`](deploy/gcp/README.md).
 
-When Gary connects, its log says `registered 18 slash command(s) in <your server>`. In the
+When Gary connects, its log says `registered 15 slash command(s) in <your server>`. In the
 game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
 ## Your first session
 
-1. **Give the world a premise.** `/import` a setting document (a `.md` or `.txt` file —
-   [Kenji's Setting Generator](https://cros.land/rpg-setting-generator-and-world-building-tool/)
-   exports one with **Copy as Markdown**; generate its Locations, Factions and Quest Hooks
-   tabs first). Gary files its people as NPCs and its places and lore as notes, then offers a
-   premise with an **Accept** button. Or write one: `/setting premise:`.
-2. **Set the scene.** `/scene` suggests one from the story so far; `/scene location: summary:`
-   sets your own. The summary is what's true while you're there ("rain on the shutters").
-3. **Set the clock** if it matters: a new campaign starts at midnight. `/time when:18:30`.
-4. **Make characters.** Everyone runs `/new` — a private form for class, race, stats, gear
-   and the rest. The character is then yours: only you roll its moves.
-5. **Play.** Talk to Gary by @-mentioning him. When what you do triggers a move, he posts a
-   **Roll** button; click it and Gary rolls 2d6 + your stat in front of everyone, then
-   narrates the result.
-6. **Wrap up** with `/endsession`: the table answers the end-of-session questions and
-   everyone gets their XP. Level up from `/sheet` when you have the XP.
+One person runs **`/begin`**, and Gary walks the table through Dungeon World's first session.
+Little is prepared: the world is built at the table, from the players' answers. Whoever ran
+`/begin` presses **Next** to move on at each step.
+
+1. **A premise.** Gary offers fantastic places and grabby activities: pick one of each, write
+   your own, or ask for others.
+2. **Characters.** Everyone runs `/new`: a private form for class, race, stats, gear and the
+   rest. The character is then yours: only you roll its moves.
+3. **Introductions.** Each player says who their character is and what they look like.
+4. **Hook questions.** Gary asks each character a pointed question or two about the premise
+   ("Why do you trust the smuggler who betrayed your brother?"). Answer by @-mentioning him;
+   your answers become facts of the world.
+5. **Bonds.** Everyone writes theirs, now that the characters know each other.
+6. **The adventure begins.** Gary opens on a scene in the middle of things and asks what you
+   do. When a move triggers, he posts a **Roll** button; click it and Gary rolls 2d6 + your
+   stat in front of everyone, then narrates the result.
+
+**Wrap up** with `/endsession`: the table answers the end-of-session questions and everyone
+gets their XP. After the first one, Gary writes the campaign's threats (fronts) from what came
+up in play. Level up from `/sheet` when you have the XP.
 
 ## Slash commands
 
 | Command | What it does |
 |---|---|
-| **Setting up** | |
-| `/import document:` | Read a setting document (`.md`/`.txt`) and file its people, places and lore. |
-| `/setting` | Show the campaign premise; `premise:` sets it. |
-| `/scene` | Suggest a scene to accept; `location:` and `summary:` set your own. |
-| `/time` | Show the world clock; `when:` moves it forward (`18:30`, `4 Harvest Moon 1026 06:00`). |
-| **At the table** | |
+| **Starting** | |
+| `/begin` | Start the adventure: a premise, then introductions, hook questions, bonds and the first scene. |
 | `/new` | Make a character, in a private form. |
 | `/sheet` | Your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up. |
 | `/playing character:` | Claim a character someone else made. |

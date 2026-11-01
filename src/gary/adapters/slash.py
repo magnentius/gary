@@ -1,4 +1,4 @@
-"""Gary's slash commands: /sheet, /new, /scene and the rest, in Discord's command picker.
+"""Gary's slash commands: /begin, /new, /sheet and the rest, in Discord's command picker.
 
 Each runs Gary's command handler -- one dispatcher, tested once -- through a stand-in message
 built from the interaction: its author, channel, text and attachments.
@@ -30,30 +30,23 @@ log = logging.getLogger(__name__)
 #: What /help lists. Kept beside the commands so the two cannot drift.
 HELP = """**Gary's commands**
 
-__Opening a campaign__
-`/import` *(attach a .md or .txt)* — read a setting document; file its people as NPCs, its places and lore as notes
-`/setting` — show the premise · `/setting premise:` — set it (≤600 chars, shown to the DM every turn)
-`/scene` — suggest a scene · `/scene location: summary:` — set one
-Gary's suggestions come with an **Accept** button
-`/time` — show the clock · `/time when:18:30` or `when:4 Harvest Moon 1026 06:00` — move it forward
+__Starting__
+`/begin` — start the adventure: Gary offers a premise, then runs introductions, hook questions, bonds and the first scene
+`/new` — make a character (a private form) · `/playing character:` — claim one someone else made
 
 __At the table__
-`/new` — make a character (a private form)
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
-`/endsession` — the end-of-session questions and XP · `/questions` — set this adventure's own
-`/fronts` — the GM's threats, shown only to you (spoilers)
+`/npcs` · `/npcs name:` — the people you've met or heard of
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
-`/playing character:` — claim a character someone else made
 `/checks` — what Gary is waiting on, with a button to cancel your own
 `/undo` — reverse the last change to the world
+`/endsession` — the end-of-session questions and XP · `/questions` — set this adventure's own
 
-__Looking in__
+__For the GM__
+`/fronts` — the threats in play, shown only to you (spoilers)
 `/state` — clock, scene, party, what is stored, and Gary's counters
-`/npcs` · `/npcs name:` — the people you've met or heard of
 `/notes` — what has been filed, by subject
 `/help` — this list
-
-__Starting over__
 `/reset` — **deletes the campaign**. Two-step (`/reset code:`), and the one thing here with no undo."""
 
 
@@ -139,26 +132,13 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
 
     # -- the rest, through the command dispatcher ----------------------------------------------
 
-    @tree.command(name="import", description="Read a setting document and file its people, places and lore")
-    @app_commands.describe(document="A .md or .txt file")
-    async def import_(interaction: "discord.Interaction", document: discord.Attachment) -> None:
-        await run(interaction, "import", [document])
+    @tree.command(name="begin", description="Start the adventure: a premise, characters, questions, bonds, play")
+    async def begin(interaction: "discord.Interaction") -> None:
+        await run(interaction, "begin")
 
-    @tree.command(name="setting", description="Show the campaign's premise, or set it")
-    @app_commands.describe(premise="The standing premise, up to 600 characters")
-    async def setting(interaction: "discord.Interaction", premise: Optional[str] = None) -> None:
-        await run(interaction, f"setting {premise or ''}")
 
-    @tree.command(name="scene", description="Suggest a scene, or set one")
-    @app_commands.describe(location="Where they are", summary="What is true while they are there")
-    async def scene(interaction: "discord.Interaction", location: Optional[str] = None,
-                    summary: Optional[str] = None) -> None:
-        await run(interaction, f"scene {location} | {summary or ''}" if location else "scene")
 
-    @tree.command(name="time", description="Show the world clock, or move it forward")
-    @app_commands.describe(when="18:30, or a date like 4 Harvest Moon 1026 06:00")
-    async def time_(interaction: "discord.Interaction", when: Optional[str] = None) -> None:
-        await run(interaction, f"time {when or ''}")
+
 
     @tree.command(name="endsession", description="The end-of-session questions, and everyone's XP")
     async def endsession(interaction: "discord.Interaction") -> None:

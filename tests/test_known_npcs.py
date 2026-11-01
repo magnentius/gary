@@ -4,43 +4,33 @@ from __future__ import annotations
 
 from gary import npcs
 from gary.adapters import gemini_tools as T
-from tests.test_gemini import CHANNEL, call_response, narrator, player, text_response
+from tests.test_gemini import call_response, narrator, player, text_response
 from tests.test_gemini import rig as _rig
 
 rig = _rig  # the narrator test fixture, shared
 
 
-async def _import(n):
-    return await n.narrate(channel_id=CHANNEL, kind="import_document",
-                           payload={"filename": "setting.md", "text": "...", "part": 1, "total": 1})
-
-
-async def test_met_in_play_is_known_imported_and_secret_are_not(rig):
+async def test_met_in_play_is_known_secret_is_not(rig):
     _, store, _ = rig
     n = narrator(rig,
-                 call_response(T.UPSERT_NPC, {"npc_id": "vex", "name": "Lady Vex", "note": "the cult's patron"}),
-                 text_response("Recorded."),
                  call_response(T.UPSERT_NPC, {"npc_id": "bartleby", "name": "Bartleby", "disposition": -1,
                                               "public": "apothecary by the temple", "note": "skims the tithe"}),
                  call_response(T.UPSERT_NPC, {"npc_id": "hand", "name": "The Grey Hand", "secret": True}),
                  text_response("Bartleby scowls."))
-    await _import(n)
     await player(n, "I go into the apothecary")
     assert [p["name"] for p in npcs.known(store.state())] == ["Bartleby"]
     text = npcs.roster(store.state())
     assert "**Bartleby** (wary) — apothecary by the temple" in text
-    assert "skims" not in text and "Vex" not in text and "Grey Hand" not in text
+    assert "skims" not in text and "Grey Hand" not in text
 
 
-async def test_meeting_someone_from_the_import_reveals_them_for_good(rig):
+async def test_a_secret_one_met_later_is_known_for_good(rig):
     _, store, _ = rig
     n = narrator(rig,
-                 call_response(T.UPSERT_NPC, {"npc_id": "vex", "name": "Lady Vex"}), text_response("."),
+                 call_response(T.UPSERT_NPC, {"npc_id": "vex", "name": "Lady Vex", "secret": True}),
                  call_response(T.UPSERT_NPC, {"npc_id": "vex", "public": "a noblewoman at the ball"}),
                  call_response(T.UPSERT_NPC, {"npc_id": "vex", "secret": True}),
                  text_response("."))
-    await _import(n)
-    assert npcs.known(store.state()) == []
     await player(n, "who is she?")
     assert npcs.roster(store.state(), "vex") == "**Lady Vex** — a noblewoman at the ball"
 

@@ -1,0 +1,191 @@
+"""/begin: the first session, run by Gary step by step (opening.py)."""
+
+from __future__ import annotations
+
+import asyncio
+
+import pytest
+
+from gary import opening
+from gary.adapters.discord_bot import GaryClient, OpeningPrompt, PremisePrompt
+from gary.fsm import PromptModel
+from gary.models import Mutation, MutationKind
+from gary.state.backend import InMemoryStateBackend
+from gary.state.store import CampaignStore
+
+OFFER = """Here you go:
+PLACE: a lighthouse on the back of a sleeping sea turtle
+- PLACE: The drowned bell-towers of Old Marrow
+**PLACE**: a glass forest where every tree remembers
+PLACE: the moving market of the salt flats
+PLACE: one too many
+ACTIVITY: smuggle a cargo through the duke's blockade
+ACTIVITY: steal back a book from a noble's estate during a masked ball
+ACTIVITY: escort a dying god to its grave
+ACTIVITY: win the Drowned Regatta"""
+
+
+def test_the_offer_is_read_however_the_model_dresses_it():
+    places, activities = opening.parse_offer(OFFER)
+    assert places == ["a lighthouse on the back of a sleeping sea turtle", "The drowned bell-towers of Old Marrow",
+                      "a glass forest where every tree remembers", "the moving market of the salt flats"]
+    assert len(activities) == 4 and activities[0] == "smuggle a cargo through the duke's blockade"
+    assert opening.parse_offer("I'd rather not.") == ([], [])
+
+
+def test_the_prompt_asks_for_a_place_and_an_activity_and_names_the_rejects():
+    text = opening.premise_prompt(["a glass forest"])
+    assert "fantastic location and a grabby activity" in text and "Call no tools" in text
+    assert "- a glass forest" in text
+    assert "passed over" not in opening.premise_prompt()
+
+
+def test_the_premise_reads_as_the_adventure():
+    assert opening.premise("the drowned bell-towers.", "Steal the Choir's Bell") == \
+        "The adventure: Steal the Choir's Bell -- at the drowned bell-towers."
+
+
+def test_the_opening_is_kept_and_undone_a_step_at_a_time(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "premise", "starter": 11})], reason="t")
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "characters"})], reason="t")
+    assert store.state()["opening"] == {"stage": "characters", "starter": 11}
+    store.undo_last()
+    assert store.state()["opening"] == {"stage": "premise", "starter": 11}
+    store.undo_last()
+    assert store.state()["opening"] == {}
+
+
+# -- the steps, through the client --------------------------------------------------------
+
+
+class _Response:
+    def __init__(self):
+        self.private, self.edited, self.deferred = [], False, False
+
+    async def send_message(self, text, ephemeral=False, **kw):
+        self.private.append(text)
+
+    async def edit_message(self, **kw):
+        self.edited = True
+
+    async def defer(self):
+        self.deferred = True
+
+
+class _User:
+    def __init__(self, uid, name="John"):
+        self.id, self.display_name, self.mention = uid, name, f"<@{uid}>"
+
+
+class _Interaction:
+    def __init__(self, uid=11):
+        self.user, self.channel_id, self.response = _User(uid), 7, _Response()
+
+
+@pytest.fixture
+def table(clock):
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Gorm", {"sheet": {
+        "name": "Gorm", "class": "Barbarian", "race": "Human", "hp": 23, "max_hp": 23}})], reason="setup")
+    sent, ran = [], []
+
+    class _Sender:
+        async def send(self, channel_id, text, prompt=None):
+            sent.append((text, prompt))
+
+    class _Runner:
+        async def run(self, effects):
+            ran.extend(effects)
+
+        async def ask(self, effect):
+            return OFFER
+
+    class _Director:
+        players = {11: "Gorm"}
+
+    class _Client:
+        sender, runner, director = _Sender(), _Runner(), _Director()
+        _has_model = True
+        MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
+
+    for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
+                 "on_premise", "on_opening_step", "_end_session_then_fronts"):
+        setattr(_Client, name, getattr(GaryClient, name))
+    client = _Client()
+    client.store = store
+    return client, store, sent, ran
+
+
+class _Msg:
+    def __init__(self, uid=11):
+        self.author = _User(uid)
+
+
+def test_the_whole_opening_in_order(table):
+    client, store, sent, ran = table
+    asyncio.run(client._begin(_Msg(), 7))
+    assert isinstance(sent[-1][1], PremisePrompt) and len(sent[-1][1].places) == 4
+    assert store.state()["opening"]["starter"] == 11
+
+    # Someone else cannot choose for the table.
+    other = _Interaction(uid=99)
+    asyncio.run(client.on_opening_step(other, "introductions"))
+    assert "running the opening" in other.response.private[0]
+
+    asyncio.run(client.on_premise(_Interaction(), "the drowned bell-towers", "steal the Choir's Bell"))
+    assert store.state()["setting"].startswith("The adventure: steal the Choir's Bell")
+    assert sent[-1][1] == OpeningPrompt(("introductions",))
+
+    asyncio.run(client.on_opening_step(_Interaction(), "introductions"))
+    assert "**Gorm**, Human Barbarian" in sent[-1][0] and sent[-1][1] == OpeningPrompt(("questions",))
+
+    asyncio.run(client.on_opening_step(_Interaction(), "questions"))
+    asked = [e for e in ran if isinstance(e, PromptModel)][-1]
+    assert asked.payload["event"] == "Opening: hook questions" and "Gorm" in asked.payload["characters"]
+    assert sent[-1][1] == OpeningPrompt(("bonds",))
+
+    asyncio.run(client.on_opening_step(_Interaction(), "bonds"))
+    assert sent[-1][1] == OpeningPrompt(("mybonds", "playing"))
+
+    asyncio.run(client.on_opening_step(_Interaction(), "playing"))
+    assert ran[-1].payload["event"] == "Opening: the first scene"
+    assert store.state()["opening"]["stage"] == "playing"
+
+    # A step out of order is refused.
+    late = _Interaction()
+    asyncio.run(client.on_opening_step(late, "bonds"))
+    assert "not that step" in late.response.private[0]
+
+    # /begin again says it has begun.
+    asyncio.run(client._begin(_Msg(), 7))
+    assert "has begun" in sent[-1][0]
+
+
+def test_the_first_end_of_session_writes_the_fronts_once(table):
+    client, store, sent, ran = table
+
+    async def ended(yeses, fulfilled, resolved):
+        return "⭐ End of session"
+
+    client._end_session = ended
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "playing", "starter": 11})], reason="t")
+
+    async def go():
+        line = await client._end_session_then_fronts(7, 1, set(), {})
+        await asyncio.sleep(0)
+        return line
+
+    assert asyncio.run(go()) == "⭐ End of session"
+    assert ran[-1].payload["event"] == "Opening: fronts after the first session"
+    assert store.state()["opening"]["stage"] == "done"
+    ran.clear()
+    asyncio.run(go())
+    assert ran == []
+
+
+def test_begin_mid_opening_shows_the_next_step(table):
+    client, store, sent, ran = table
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "bonds", "starter": 11})], reason="t")
+    asyncio.run(client._begin(_Msg(), 7))
+    assert sent[-1][1] == OpeningPrompt(("mybonds", "playing"))

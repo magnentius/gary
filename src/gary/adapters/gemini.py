@@ -33,8 +33,6 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from google.genai import types
 
 from ..context import (
-    render_document,
-    render_proposal,
     DM_SYSTEM_INSTRUCTION,
     attribute,
     render_live_state,
@@ -129,8 +127,6 @@ class GeminiNarrator:
         # Who spoke to start the turn now running, per channel. Read only under that
         # channel's turn lock, so a concurrent turn elsewhere cannot change it.
         self._speaker: Dict[int, int] = {}
-        # What kind of turn each channel is in: an import's people are not yet known to the party.
-        self._kind: Dict[int, str] = {}
 
     # -- Narrator ----------------------------------------------------------------------
 
@@ -157,7 +153,6 @@ class GeminiNarrator:
         """
         async with self._turn_lock(channel_id):
             self._speaker[channel_id] = int(payload.get("speaker_user_id") or 0)
-            self._kind[channel_id] = kind
             return await self._narrate_locked(channel_id, kind, payload)
 
     async def _narrate_locked(
@@ -246,29 +241,11 @@ class GeminiNarrator:
             )
             return types.Content(role="user", parts=[types.Part.from_text(text=text)])
 
-        if kind == "import_document":
-            return types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=render_document(
-                    str(payload.get("filename", "document")),
-                    str(payload.get("chunk", "")),
-                    int(payload.get("part", 1)),
-                    int(payload.get("total", 1)),
-                ))],
-            )
+        if kind == "propose_premise":
+            from ..opening import premise_prompt
 
-        if kind in ("propose_setting", "propose_scene"):
-            # Deliberately an ordinary turn in this channel's history. Both things worth
-            # proposing are things the model can only get right from what it has just
-            # read -- the imported document for a premise, the last few turns for a
-            # scene -- and neither of those lives in state.
-            return types.Content(
-                role="user",
-                parts=[types.Part.from_text(text=render_proposal(
-                    kind.split("_", 1)[1],
-                    payload.get("already_offered") or (),
-                ))],
-            )
+            return types.Content(role="user", parts=[types.Part.from_text(
+                text=premise_prompt(payload.get("already_offered") or ()))])
 
         if kind == "rules_event":
             # Never a deferred answer: the rules triggered this move, not a make_move call,
@@ -1110,11 +1087,10 @@ class GeminiNarrator:
             before = store.state().get("npcs", {}).get(str(args["npc_id"])) or {}
             if args.get("note"):
                 payload["notes"] = list(before.get("notes", [])) + [str(args["note"])]
-            # Known to the party unless they are only in the GM's material: everyone in an
-            # imported setting, or someone the model marks secret. Once known, always known.
+            # Known to the party unless the model marks them secret (a villain offscreen).
+            # Once known, always known.
             if not before.get("known"):
-                hidden = self._kind.get(channel_id) == "import_document" or bool(args.get("secret"))
-                payload["known"] = not hidden
+                payload["known"] = not bool(args.get("secret"))
             return _diff_result(store.apply(
                 [Mutation(MutationKind.NPC_RELATION, str(args["npc_id"]), payload)],
                 reason=f"npc {args.get('name') or args['npc_id']}",

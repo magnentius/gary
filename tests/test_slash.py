@@ -72,25 +72,19 @@ def client_and_tree():
 def test_every_command_is_in_help(client_and_tree):
     _, tree = client_and_tree
     names = {c.name for c in tree.get_commands()}
-    assert len(names) == 18
+    assert len(names) == 15
+    assert not {"setting", "import", "scene", "time"} & names  # /begin replaced them
     assert {n for n in names if f"`/{n}" not in HELP} == set()
 
 
 def test_a_command_runs_its_dm_handler_and_clears_the_placeholder(client_and_tree):
     client, tree = client_and_tree
     i = _Interaction()
-    call(tree, "scene", i, location="The Eel-Runs", summary="fever-mist on the ditches")
+    call(tree, "begin", i)
     assert i.response.deferred and i.deleted
-    assert client.ran == [("?dm scene The Eel-Runs | fever-mist on the ditches", 11, ROOM, [])]
+    assert client.ran == [("?dm begin", 11, ROOM, [])]
     call(tree, "dice", _Interaction(), character=None)
     assert client.ran[-1][0] == "?dm dice"
-
-
-def test_an_attachment_reaches_import(client_and_tree):
-    client, tree = client_and_tree
-    doc = object()
-    call(tree, "import", _Interaction(), document=doc)
-    assert client.ran[-1][0] == "?dm import" and client.ran[-1][3] == [doc]
 
 
 def test_a_failure_replaces_the_placeholder_instead_of_leaving_it_spinning(client_and_tree):

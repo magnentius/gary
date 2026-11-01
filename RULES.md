@@ -6,6 +6,7 @@ it is built is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Contents
 
+- [Starting an adventure](#starting-an-adventure)
 - [Characters](#characters)
 - [Playing a turn](#playing-a-turn)
 - [Fights](#fights)
@@ -15,6 +16,19 @@ it is built is in [ARCHITECTURE.md](ARCHITECTURE.md).
 - [What stays with the GM](#what-stays-with-the-gm)
 
 ---
+
+## Starting an adventure
+
+`/begin` runs Dungeon World's first session the way the book advises: prepare little, and
+build the world at the table from the players' answers. It follows a well-known recipe
+("My Recipe for Starting Adventures", Spouting Lore): a **premise**, a fantastic place and a
+grabby activity, chosen from Gary's offers or written by you; **characters**, made with
+`/new`; **introductions**, each character's name, class and look; **hook questions**, one or
+two to each character, with hard edges ("why do you trust her now?"), whose answers Gary
+records as people, places and dangers; **bonds**; and a **first scene** framed in the middle
+of things, ending on "What do you do?". Whoever ran `/begin` presses **Next** at each step;
+`/begin` again shows where it has got to, and `/undo` steps back. After the first
+`/endsession`, the GM writes one or two **fronts** from what play turned up.
 
 ## Characters
 
@@ -410,7 +424,7 @@ whoever runs it. Every change undoes with `/undo`.
 **People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
 met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or
 devoted) and a line on who they are. The GM's notes on them stay hidden, and so do people
-from an imported setting until the party meets them, or a villain the GM keeps offscreen.
+that the GM keeps offscreen, like a hidden villain, until the party meets or hears of them.
 
 **Instant NPCs.** When someone becomes important in the moment, the GM can have Gary roll the
 book's Instant NPC tables: an instinct (what they want), a knack (how they might get it) and

@@ -22,13 +22,12 @@ import logging
 import signal
 import time
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import List, Optional, Tuple
 
 import discord
 
 from ..config import Settings
 from ..steadings import here
-from ..context import chunk_document, parse_proposal
 from ..fsm import (
     ChoicePrompt, CurePrompt, DamagePrompt, Director, OverloadPrompt, PromptModel, ReactPrompt, RollPrompt,
     SpellsPrompt,
@@ -40,8 +39,8 @@ from ..registry import PendingCheckRegistry
 from ..state.backend import FileCheckBackend, FileStateBackend
 from ..state.history import FileHistoryBackend
 from ..state.lock import CampaignLock, lock_path
-from ..state.schema import format_world_time, parse_world_time
-from ..state.store import CampaignStore, StateError
+from ..state.schema import format_world_time
+from ..state.store import CampaignStore
 from ..levelling import ready
 from ..sheets import LEVEL_UP_HINT, SheetError, alignment_line, carrying_line, describe, xp_line, xp_needed
 from .. import bonds, choices, companion as companions, hirelings, spells
@@ -295,32 +294,106 @@ class CureButton(
 
 
 @dataclass(frozen=True)
-class AcceptPrompt:
-    """An Accept button on a setting or scene Gary has suggested."""
+class PremisePrompt:
+    """Gemini's places and activities, to choose a premise from (/begin)."""
 
-    kind: str  # "setting" | "scene"
+    places: Tuple[str, ...]
+    activities: Tuple[str, ...]
 
 
-class AcceptButton(
+class PremiseView(discord.ui.View):
+    """Pick a place and an activity -- or write your own, or ask for others -- then Accept.
+    Only whoever ran /begin may choose. Not durable: after a restart, /begin offers again."""
+
+    def __init__(self, prompt: PremisePrompt) -> None:
+        super().__init__(timeout=3600)
+        self.place = self.activity = ""
+        self._place = discord.ui.Select(placeholder="Choose a fantastic place", row=0, options=[
+            discord.SelectOption(label=p[:100], value=str(i)) for i, p in enumerate(prompt.places)])
+        self._activity = discord.ui.Select(placeholder="Choose a grabby activity", row=1, options=[
+            discord.SelectOption(label=a[:100], value=str(i)) for i, a in enumerate(prompt.activities)])
+        self._place.callback = self._chose(lambda v: setattr(self, "place", prompt.places[int(v)]))
+        self._activity.callback = self._chose(lambda v: setattr(self, "activity", prompt.activities[int(v)]))
+        accept = discord.ui.Button(label="Accept", emoji="✅", style=discord.ButtonStyle.success, row=2)
+        own = discord.ui.Button(label="Write my own", emoji="✍️", style=discord.ButtonStyle.secondary, row=2)
+        more = discord.ui.Button(label="Other options", emoji="🎲", style=discord.ButtonStyle.secondary, row=2)
+        accept.callback, own.callback, more.callback = self._accept, self._own, self._more
+        for item in (self._place, self._activity, accept, own, more):
+            self.add_item(item)
+
+    def _chose(self, keep):
+        async def chose(interaction: "discord.Interaction") -> None:
+            if not await interaction.client.may_run_opening(interaction):
+                return
+            keep(interaction.data["values"][0])
+            await interaction.response.defer()
+
+        return chose
+
+    async def _accept(self, interaction: "discord.Interaction") -> None:
+        if not await interaction.client.may_run_opening(interaction):
+            return
+        if not (self.place and self.activity):
+            await interaction.response.send_message("Choose a place and an activity first.", ephemeral=True)
+            return
+        self.stop()
+        await interaction.client.on_premise(interaction, self.place, self.activity)
+
+    async def _own(self, interaction: "discord.Interaction") -> None:
+        if not await interaction.client.may_run_opening(interaction):
+            return
+        view = self
+
+        class Own(discord.ui.Modal, title="Your premise"):
+            place = discord.ui.TextInput(label="A fantastic place", max_length=100, default=view.place or None)
+            activity = discord.ui.TextInput(label="A grabby activity", max_length=100,
+                                            default=view.activity or None)
+
+            async def on_submit(self, submitted: "discord.Interaction") -> None:
+                view.stop()
+                await submitted.client.on_premise(submitted, str(self.place), str(self.activity))
+
+        await interaction.response.send_modal(Own())
+
+    async def _more(self, interaction: "discord.Interaction") -> None:
+        if not await interaction.client.may_run_opening(interaction):
+            return
+        self.stop()
+        await interaction.response.edit_message(view=None)
+        await interaction.client.offer_premise(interaction.channel_id, again=True)
+
+
+class OpeningButton(
     discord.ui.DynamicItem[discord.ui.Button],
-    template=r"gary:accept:(?P<kind>setting|scene)",
+    template=r"gary:begin:(?P<step>introductions|questions|bonds|playing|mybonds)",
 ):
-    """Take the suggestion it is posted under. Durable; whether one is still held is the
-    client's to say -- a newer suggestion, or a restart, leaves nothing to take."""
+    """The next step of /begin, for whoever ran it -- or, "mybonds", anyone's own Bonds form.
+    Durable: the stage is in state, so a click after a restart still finds it."""
 
-    def __init__(self, kind: str) -> None:
+    def __init__(self, step: str) -> None:
+        from ..opening import NEXT_LABEL
+
+        mine = step == "mybonds"
         super().__init__(discord.ui.Button(
-            label=f"Accept this {kind}", emoji="✅", style=discord.ButtonStyle.success,
-            custom_id=f"gary:accept:{kind}",
+            label="Write my bonds" if mine else f"Next: {NEXT_LABEL[step]}", emoji="🤝" if mine else "▶️",
+            style=discord.ButtonStyle.secondary if mine else discord.ButtonStyle.primary,
+            custom_id=f"gary:begin:{step}",
         ))
-        self.kind = kind
+        self.step = step
 
     @classmethod
-    async def from_custom_id(cls, interaction, item, match) -> "AcceptButton":
-        return cls(match["kind"])
+    async def from_custom_id(cls, interaction, item, match) -> "OpeningButton":
+        return cls(match["step"])
 
     async def callback(self, interaction: "discord.Interaction") -> None:
-        await interaction.client.on_accept(interaction, self.kind)
+        await interaction.client.on_opening_step(interaction, self.step)
+
+
+@dataclass(frozen=True)
+class OpeningPrompt:
+    """The buttons under a /begin step: the next step, and for bonds, everyone's form."""
+
+    steps: Tuple[str, ...]
 
 
 class ReactButton(
@@ -389,9 +462,12 @@ class DiscordTransport:
             await channel.send(text, view=spells_view(prompt.user_id))
         elif isinstance(prompt, OverloadPrompt):
             await channel.send(text, view=overload_view(prompt))
-        elif isinstance(prompt, AcceptPrompt):
+        elif isinstance(prompt, PremisePrompt):
+            await channel.send(text, view=PremiseView(prompt))
+        elif isinstance(prompt, OpeningPrompt):
             view = discord.ui.View(timeout=None)
-            view.add_item(AcceptButton(prompt.kind))
+            for step in prompt.steps:
+                view.add_item(OpeningButton(step))
             await channel.send(text, view=view)
         elif isinstance(prompt, ReactPrompt):
             view = discord.ui.View(timeout=None)
@@ -436,13 +512,6 @@ class GaryClient(discord.Client):
         self.lock = lock
         self.history_backend = history_backend
         self._reset_token: Optional[str] = None
-        # (channel_id, "setting" | "scene") -> the line the model proposed. Held rather
-        # than written: a proposal the DM never saw is not a decision the DM made.
-        self._pending_proposals: Dict[Tuple[int, str], str] = {}
-        # Same key -> lines already offered and passed over. A proposal is an ordinary
-        # turn in history, so without this the model reads its own last suggestion and
-        # rewords it: asking twice produced the same vault twice.
-        self._declined_proposals: Dict[Tuple[int, str], List[str]] = {}
         self.sender = ChannelSender(
             DiscordTransport(self), interval_seconds=settings.send_interval_seconds
         )
@@ -459,7 +528,7 @@ class GaryClient(discord.Client):
     async def setup_hook(self) -> None:
         # Before the Gateway connects, so a click on a button posted before a restart is
         # answered from the first moment.
-        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton, AcceptButton,
+        self.add_dynamic_items(RollButton, PickButton, ChooseSelect, DamageButton, SpellsButton, CureButton, ReactButton, OpeningButton,
                                DropButton, FailButton)
         self._sweeper = asyncio.create_task(self._sweep_loop())
         from .slash import register
@@ -539,22 +608,9 @@ class GaryClient(discord.Client):
             except Exception:  # noqa: BLE001
                 log.exception("sweep failed; continuing")
 
-    # -- ingest ------------------------------------------------------------------------
-
-    #: How many rejected suggestions are named back to the model. Enough for a few
-    #: re-rolls to keep moving; bounded because every one of them rides in the prompt.
-    MAX_DECLINED_PROPOSALS = 5
-
     #: The setting rides on every turn, so it is capped. Detail belongs in
     #: notes, which surface only when their subject comes up.
     MAX_SETTING_CHARS = 600
-
-    #: An imported setting file is read whole into memory and then into prompts. These
-    #: bound what one `/import` can cost before it starts, not after.
-    MAX_IMPORT_BYTES = 200_000
-    IMPORT_CHUNK_CHARS = 6000
-    MAX_IMPORT_CHUNKS = 12
-    IMPORT_SUFFIXES = (".md", ".markdown", ".txt")
 
     @property
     def _has_model(self) -> bool:
@@ -566,39 +622,6 @@ class GaryClient(discord.Client):
         real name, in one place, so the next caller cannot repeat it.
         """
         return not isinstance(getattr(self.runner, "_narrator", None), EchoNarrator)
-
-    def _apply_setting(self, raw: str, who: str) -> str:
-        self.store.apply(
-            [Mutation(MutationKind.SETTING, "", {"text": raw})],
-            reason=f"setting by {who}",
-        )
-        return f"Setting noted.\n> {raw}"
-
-    def _apply_scene(self, raw: str, who: str) -> str:
-        location, _, summary = raw.partition("|")
-        # Both fields are set, always. Setting a location while leaving a summary that
-        # described somewhere else is worse than setting no summary at all.
-        self.store.apply(
-            [
-                Mutation(
-                    MutationKind.SCENE,
-                    "",
-                    {"location": location.strip(), "summary": summary.strip()},
-                )
-            ],
-            reason=f"scene set by {who}",
-        )
-        return f"Scene set: **{location.strip()}**" + (
-            f" — {summary.strip()}" if summary.strip() else ""
-        )
-
-    def _forget_proposals(self, channel_id: int, kind: str) -> None:
-        """End a proposal thread: the offer on the table and the record of what was
-        turned down to reach it. The rejects only mean anything while the DM is still
-        looking for a line; once one is settled, naming them back would push the *next*
-        campaign's suggestions away from perfectly good ground."""
-        self._pending_proposals.pop((channel_id, kind), None)
-        self._declined_proposals.pop((channel_id, kind), None)
 
     async def _session_questions(self, message, channel_id: int, raw: str) -> None:
         """The adventure's own end-of-session questions (Advanced Delving: "When doing this
@@ -654,182 +677,132 @@ class GaryClient(discord.Client):
         self.director.registry.cancel(mine[0].check_id, CancelReason.MANUAL)
         return f"Cancelled {mine[0].actor}'s {MOVES[mine[0].move].name}."
 
-    def _accept(self, channel_id: int, kinds, who: str) -> List[str]:
-        """Write the suggestions held for these kinds; the confirmations, or [] if none."""
-        taken = [(kind, self._pending_proposals[(channel_id, kind)])
-                 for kind in kinds if (channel_id, kind) in self._pending_proposals]
-        for kind, _ in taken:
-            self._forget_proposals(channel_id, kind)
-        return [self._apply_setting(line, who) if kind == "setting" else self._apply_scene(line, who)
-                for kind, line in taken]
+    # -- /begin: starting the adventure (opening.py) -------------------------------------
 
-    async def on_accept(self, interaction: "discord.Interaction", kind: str) -> None:
-        """The Accept button on a suggestion."""
-        said = self._accept(interaction.channel_id, [kind], interaction.user.display_name)
-        if not said:
+    def _opening(self) -> dict:
+        return dict(self.store.state().get("opening") or {})
+
+    def _set_opening(self, who: str, **fields) -> None:
+        self.store.apply([Mutation(MutationKind.OPENING, "", fields)], reason=f"opening: {who}")
+
+    def _party_sheets(self) -> List[dict]:
+        sheets = self.store.state().get("sheets") or {}
+        return [sheets[a] for a in sorted(set(self.director.players.values()))
+                if a in sheets and not sheets[a].get("dead")]
+
+    async def may_run_opening(self, interaction: "discord.Interaction") -> bool:
+        """Only whoever ran /begin moves it on; anyone else is told so, privately."""
+        starter = self._opening().get("starter")
+        if starter and interaction.user.id != starter:
             await interaction.response.send_message(
-                f"That {kind} is no longer on offer -- a newer one replaced it, or it was taken.", ephemeral=True)
+                f"<@{starter}> is running the opening; they move it on.", ephemeral=True)
+            return False
+        return True
+
+    async def _begin(self, message, channel_id: int) -> None:
+        """`/begin`: start the adventure -- or show where the opening has got to."""
+        from .. import opening
+
+        stage = self._opening().get("stage")
+        if stage in (None, "", "premise"):
+            if not self._has_model:
+                await self.sender.send(channel_id, "/begin needs the model: set GEMINI_API_KEY.")
+                return
+            self._set_opening(message.author.display_name, stage="premise", starter=message.author.id)
+            await self.offer_premise(channel_id)
+            return
+        if stage in ("playing", "done"):
+            await self.sender.send(channel_id, "The adventure has begun. `/reset` starts a new campaign.")
+            return
+        nxt = opening.STAGES[opening.STAGES.index(stage) + 1]
+        await self.sender.send(channel_id, f"The opening is at **{stage}**. When the table is ready:",
+                               prompt=OpeningPrompt(("mybonds", nxt) if stage == "bonds" else (nxt,)))
+
+    async def offer_premise(self, channel_id: int, again: bool = False) -> None:
+        from .. import opening
+
+        offered = list(self._opening().get("offered") or [])
+        text = await self.runner.ask(PromptModel(channel_id=channel_id, kind="propose_premise",
+                                                 payload={"already_offered": offered}))
+        places, activities = opening.parse_offer(text)
+        if not places or not activities:
+            await self.sender.send(channel_id, "I couldn't come up with a premise just now. `/begin` to try again.")
+            return
+        self._set_opening("offered premises", offered=(offered + places + activities)[-16:])
+        await self.sender.send(
+            channel_id,
+            ("Some others. " if again else "**Let's begin.** Every adventure starts from a premise: a fantastic "
+             "place, and something grabby to do there. ")
+            + "Choose one of each, write your own, or ask for other options.",
+            prompt=PremisePrompt(tuple(places), tuple(activities)))
+
+    async def on_premise(self, interaction: "discord.Interaction", place: str, activity: str) -> None:
+        from .. import opening
+
+        text = opening.premise(place, activity)[:self.MAX_SETTING_CHARS]
+        who = interaction.user.display_name
+        self.store.apply([Mutation(MutationKind.SETTING, "", {"text": text})], reason=f"premise by {who}")
+        self._set_opening(who, stage="characters", premise=text)
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            await interaction.response.defer()
+        await self.sender.send(
+            interaction.channel_id,
+            f"🗺️ **{activity.strip()}** — at **{place.strip()}**.\n"
+            "Everyone, make your character with `/new` (or `/playing` for one already made). When the whole "
+            "table is in, " + interaction.user.mention + " moves on to introductions.",
+            prompt=OpeningPrompt(("introductions",)))
+
+    async def on_opening_step(self, interaction: "discord.Interaction", step: str) -> None:
+        from .. import opening
+
+        channel_id = interaction.channel_id
+        if step == "mybonds":
+            actor = self.director.players.get(interaction.user.id)
+            sheet = (self.store.state().get("sheets") or {}).get(actor) if actor else None
+            if sheet is None:
+                await interaction.response.send_message("You have no character yet: `/new` makes one.",
+                                                        ephemeral=True)
+                return
+            action = self._sheet_actions(channel_id, interaction.user.id, actor, sheet,
+                                         self.settings.command_prefix)["bonds"]
+            if isinstance(action, str):
+                await interaction.response.send_message(action, ephemeral=True)
+                return
+            await action[2](interaction)
+            return
+        if not await self.may_run_opening(interaction):
+            return
+        stage = self._opening().get("stage")
+        expected = {"introductions": "characters", "questions": "introductions", "bonds": "questions",
+                    "playing": "bonds"}[step]
+        if stage != expected:
+            await interaction.response.send_message(f"The opening is at {stage or 'nothing yet'}, not that step.",
+                                                    ephemeral=True)
+            return
+        party = self._party_sheets()
+        if step == "introductions" and not party:
+            await interaction.response.send_message("Nobody has a character yet: everyone runs `/new` first.",
+                                                    ephemeral=True)
             return
         try:
             await interaction.response.edit_message(view=None)
         except discord.HTTPException:
-            log.warning("could not remove the Accept button")
-        for confirmation in said:
-            await self.sender.send(interaction.channel_id, confirmation)
-
-    async def _propose(self, channel_id: int, kind: str) -> bool:
-        """Ask the model for a setting or a scene and hold it for the DM to accept.
-
-        Nothing is written here. The model has state-mutating tools in hand on every
-        call, so the one thing this must not do is take its own suggestion -- the line
-        goes into ``_pending_proposals`` and stays there until somebody types accept.
-        """
-        key = (channel_id, kind)
-        # Whatever is still pending was also offered and not taken -- the DM asking again
-        # *is* the rejection, so it counts alongside the ones before it.
-        offered = list(self._declined_proposals.get(key, ()))
-        superseded = self._pending_proposals.get(key)
-        if superseded:
-            offered.append(superseded)
-
-        line = parse_proposal(
-            await self.runner.ask(
-                PromptModel(
-                    channel_id=channel_id,
-                    kind=f"propose_{kind}",
-                    payload={"already_offered": offered[-self.MAX_DECLINED_PROPOSALS:]},
-                )
-            )
-        )
-        if not line:
-            await self.sender.send(
-                channel_id,
-                f"I couldn't put a {kind} into words just now. Try again, or write one "
-                f"yourself with `/{kind}`.",
-            )
-            return False
-
-        if superseded:
-            self._declined_proposals[key] = (
-                self._declined_proposals.get(key, []) + [superseded]
-            )[-self.MAX_DECLINED_PROPOSALS:]
-        self._pending_proposals[key] = line
-        if kind == "setting":
-            preview = f"> {line}"
-            own = "`/setting premise:` to write your own"
+            await interaction.response.defer()
+        who = interaction.user.display_name
+        self._set_opening(who, stage=step)
+        premise = self._opening().get("premise") or self.store.state().get("setting") or ""
+        if step == "introductions":
+            await self.sender.send(channel_id, opening.introductions(party), prompt=OpeningPrompt(("questions",)))
+        elif step == "questions":
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.questions_event(premise, party))])
+            await self.sender.send(channel_id, "Answer by talking to Gary (@-mention him). When the premise is clear:",
+                                   prompt=OpeningPrompt(("bonds",)))
+        elif step == "bonds":
+            await self.sender.send(channel_id, opening.bonds_text(), prompt=OpeningPrompt(("mybonds", "playing")))
         else:
-            location, _, summary = line.partition("|")
-            preview = f"> **{location.strip()}**" + (
-                f" — {summary.strip()}" if summary.strip() else ""
-            )
-            own = "`/scene location: summary:` to write your own"
-        await self.sender.send(
-            channel_id,
-            f"Suggested {kind}:\n{preview}\n"
-            f"Accept it below, or {own}. Nothing is written until you do.",
-            prompt=AcceptPrompt(kind),
-        )
-        return True
-
-    async def _import_document(self, message: "discord.Message", channel_id: int) -> None:
-        """`/import` with a Markdown attachment — fan a setting file into the stores.
-
-        The file is somebody else's prose read while the model holds state-mutating tools,
-        so it travels as data (`render_document`) rather than as a turn of play. Everything
-        that can be refused is refused before a single token is spent.
-        """
-        attachments = list(getattr(message, "attachments", None) or [])
-        if not attachments:
-            await self.sender.send(
-                channel_id,
-                "`/import` needs a file attached — a `.md` or `.txt` export from a "
-                "setting generator, or anything you have written yourself. I read it and "
-                "file what it describes: people as NPCs, hooks as quests, places and "
-                "factions as notes.\n"
-                "Set the one-line premise separately with `/setting` — that is what "
-                "rides on every turn; this is the detail behind it.",
-            )
-            return
-
-        attachment = attachments[0]
-        filename = str(getattr(attachment, "filename", "document"))
-        if not filename.lower().endswith(self.IMPORT_SUFFIXES):
-            await self.sender.send(
-                channel_id,
-                f"I can only read {', '.join(self.IMPORT_SUFFIXES)} — `{filename}` is "
-                "something else. Export as Markdown or plain text.",
-            )
-            return
-        size = int(getattr(attachment, "size", 0) or 0)
-        if size > self.MAX_IMPORT_BYTES:
-            await self.sender.send(
-                channel_id,
-                f"`{filename}` is {size // 1000}KB and the limit is "
-                f"{self.MAX_IMPORT_BYTES // 1000}KB. Split it and import the parts.",
-            )
-            return
-
-        try:
-            raw = await attachment.read()
-        except Exception as exc:  # discord.HTTPException and friends
-            LOG.warning("import: could not read attachment %s: %s", filename, exc)
-            await self.sender.send(channel_id, f"Couldn't download `{filename}` — {exc}")
-            return
-
-        # Decode defensively: a generator's export may carry smart quotes in some other
-        # encoding, and a mangled character is a better outcome than a dead import.
-        text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else str(raw)
-        chunks = chunk_document(text, self.IMPORT_CHUNK_CHARS)
-        if not chunks:
-            await self.sender.send(channel_id, f"`{filename}` is empty.")
-            return
-        if len(chunks) > self.MAX_IMPORT_CHUNKS:
-            await self.sender.send(
-                channel_id,
-                f"`{filename}` comes to {len(chunks)} parts and I import at most "
-                f"{self.MAX_IMPORT_CHUNKS} at a time — each one is a model call. Import "
-                "the most important sections first.",
-            )
-            return
-
-        if not self._has_model:
-            await self.sender.send(
-                channel_id,
-                "No model is attached, so there is nothing that can read a document — set "
-                "`GEMINI_API_KEY` and restart. Everything else still works.",
-            )
-            return
-
-        total = len(chunks)
-        await self.sender.send(
-            channel_id,
-            f"Reading `{filename}` — {total} part{'s' if total > 1 else ''}. "
-            "I'll file people, places, factions and hooks as I go.",
-        )
-        for index, chunk in enumerate(chunks, start=1):
-            await self.runner.run([
-                PromptModel(
-                    channel_id=channel_id,
-                    kind="import_document",
-                    payload={
-                        "filename": filename,
-                        "chunk": chunk,
-                        "part": index,
-                        "total": total,
-                    },
-                )
-            ])
-        await self.sender.send(
-            channel_id,
-            f"Done with `{filename}`. `/notes` lists what stuck — anything it "
-            "missed you can add by telling me in the channel.",
-        )
-
-        # The premise is the one thing an import cannot file, because it is not in the
-        # document as a sentence -- it is what the whole document is about. The model has
-        # just read all of it and will not have it that fresh again, so ask now.
-        if not (self.store.state().get("setting") or "").strip():
-            await self._propose(channel_id, "setting")
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.opening_event(premise))])
 
     async def on_message(self, message: "discord.Message") -> None:
         route = route_message(
@@ -1057,6 +1030,17 @@ class GaryClient(discord.Client):
                      "(the Bonds button).")
         if any(int(s["xp"]) >= xp_needed(s) for s in updated):
             line += LEVEL_UP_HINT
+        return line
+
+    async def _end_session_then_fronts(self, channel_id: int, yeses: int, fulfilled, resolved) -> Optional[str]:
+        """End of session -- and after the first one of an adventure started with /begin, the
+        fronts, written from what play turned up (the book's advice for the first session)."""
+        line = await self._end_session(yeses, fulfilled, resolved)
+        if line and self._opening().get("stage") == "playing":
+            from .. import opening
+
+            self._set_opening("first session over", stage="done")
+            asyncio.create_task(self.runner.run([PromptModel(channel_id, "rules_event", opening.fronts_event())]))
         return line
 
     def _sheet_actions(self, channel_id: int, owner: int, actor: str, sheet: dict, prefix: str) -> dict:
@@ -1385,122 +1369,6 @@ class GaryClient(discord.Client):
         channel_id = message.channel.id
         prefix = self.settings.command_prefix
 
-        if command == "time":
-            raw = body[len("time"):].strip()
-            state = self.store.state()
-            if not raw:
-                await self.sender.send(
-                    channel_id,
-                    f"It is {format_world_time(state)}. Set it with "
-                    "`/time when:18:30` for later today, or "
-                    "`/time when:4 Harvest Moon 1026 06:00` for a date. "
-                    "The clock only moves forward.",
-                )
-                return
-            try:
-                target = parse_world_time(raw, state)
-            except ValueError as exc:
-                await self.sender.send(channel_id, f"Can't read that time — {exc}")
-                return
-
-            delta = target - int(state.get("world_minutes", 0))
-            if delta < 0:
-                # Effects expire on the way past their minute and do not un-expire, so
-                # rewinding would leave state that no longer matches the clock.
-                await self.sender.send(
-                    channel_id,
-                    f"That is in the past — it is {format_world_time(state)}. The clock "
-                    "only moves forward; give a later time or a later day.",
-                )
-                return
-            try:
-                self.store.advance_time(delta, reason=f"clock set by {message.author.display_name}")
-            except StateError as exc:
-                await self.sender.send(channel_id, f"Can't move the clock: {exc}")
-                return
-            await self.sender.send(
-                channel_id, f"It is now {format_world_time(self.store.state())}."
-            )
-            return
-
-        if command == "setting":
-            raw = body[len("setting"):].strip()
-            if not raw:
-                current = self.store.state().get("setting") or ""
-                await self.sender.send(
-                    channel_id,
-                    (f"Setting: {current}" if current else "No setting yet.")
-                    + "\nSet it with `/setting premise:` (premise, "
-                    "tone, region) — it is shown to the DM on every single turn, so keep "
-                    "it to the standing facts of the world, not what is happening now.",
-                )
-                return
-            if len(raw) > self.MAX_SETTING_CHARS:
-                await self.sender.send(
-                    channel_id,
-                    f"That is {len(raw)} characters and the limit is "
-                    f"{self.MAX_SETTING_CHARS} — it rides on every turn, so it has to stay "
-                    "short. Put the detail in notes, which surface when their subject "
-                    "comes up.",
-                )
-                return
-            self._forget_proposals(channel_id, "setting")
-            await self.sender.send(
-                channel_id, self._apply_setting(raw, message.author.display_name)
-            )
-            return
-
-        if command == "import":
-            await self._import_document(message, channel_id)
-            return
-
-        if command == "scene":
-            raw = body[len("scene"):].strip()
-            if not raw:
-                # Bare `/scene` used to print its own usage. Proposing one is the more
-                # useful answer to the same question and costs a single model call -- and
-                # the proposal names the manual form anyway, so the usage is not lost.
-                if self._has_model:
-                    await self._propose(channel_id, "scene")
-                    return
-                await self.sender.send(
-                    channel_id,
-                    "`/scene location: summary:`"
-                    " — the summary is optional, and is re-read every turn, so write what"
-                    " is *true while you are there*, not what happens on arrival.\n"
-                    "Good: `The Rusty Anchor | Half-empty common room, rain on the"
-                    " shutters. Barkeep watches the door.`",
-                )
-                return
-            self._forget_proposals(channel_id, "scene")
-            await self.sender.send(
-                channel_id, self._apply_scene(raw, message.author.display_name)
-            )
-            return
-
-        if command == "accept":
-            wanted = parts[1].lower() if len(parts) > 1 else ""
-            if wanted and wanted not in ("setting", "scene"):
-                await self.sender.send(
-                    channel_id,
-                    "Press the Accept button on the suggestion you want.",
-                )
-                return
-            said = self._accept(channel_id, [wanted] if wanted else ["setting", "scene"],
-                                message.author.display_name)
-            if not said:
-                await self.sender.send(
-                    channel_id,
-                    f"Nothing to accept — I haven't suggested "
-                    + (f"a {wanted}" if wanted else "anything")
-                    + " here. `/import` a setting file, or `/scene` with "
-                    "no options, and I'll offer one.",
-                )
-                return
-            for confirmation in said:
-                await self.sender.send(channel_id, confirmation)
-            return
-
         if command == "reset":
             token = parts[1] if len(parts) > 1 else ""
             if not token:
@@ -1527,8 +1395,6 @@ class GaryClient(discord.Client):
                 return
 
             self._reset_token = None
-            self._pending_proposals.clear()
-            self._declined_proposals.clear()
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
             if self.history_backend is not None:
@@ -1565,6 +1431,10 @@ class GaryClient(discord.Client):
             await self._sheet_hub(message, channel_id, prefix, only=None if command == "sheet" else command)
             return
 
+        if command == "begin":
+            await self._begin(message, channel_id)
+            return
+
         if command == "endsession":
             from ..advanced import has as advanced_has
 
@@ -1574,7 +1444,8 @@ class GaryClient(discord.Client):
             living = {uid: a for uid, a in self.director.players.items()
                       if a in sheets and not sheets[a].get("dead")}
             view = EndOfSession(
-                lambda yeses, fulfilled, resolved: self._end_session(yeses, fulfilled, resolved),
+                lambda yeses, fulfilled, resolved: self._end_session_then_fronts(channel_id, yeses, fulfilled,
+                                                                                 resolved),
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
                 questions=self.store.state().get("session_questions") or None,
                 best={a: uid for uid, a in living.items()
@@ -1707,7 +1578,7 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id,
                 "\n\n".join(parts) if parts
-                else "Nothing filed yet. `/import` a setting file, or just tell me.",
+                else "Nothing filed yet: it fills as the story goes.",
             )
 
         elif command == "npcs":

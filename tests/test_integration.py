@@ -388,21 +388,6 @@ def test_bot_role_mention_counts_as_addressing_gary():
 # -- ?dm import --------------------------------------------------------------------------
 
 
-class _Attachment:
-    def __init__(self, filename="setting.md", body=b"# Leafmoor\n\nA drowned fen.", size=None):
-        self.filename = filename
-        self._body = body
-        self.size = len(body) if size is None else size
-
-    async def read(self):
-        return self._body
-
-
-class _ImportMsg:
-    def __init__(self, attachments=()):
-        self.attachments = list(attachments)
-
-
 class _Runner:
     """Stands in for EffectRunner. `_narrator` is private on the real one, and a guard
     that reads the wrong attribute name is a guard that never fires."""
@@ -422,114 +407,6 @@ class _Runner:
     async def ask(self, effect):
         self.asked.append(effect)
         return self._answer
-
-
-def _import_client(narrator, sent, state=None, answer=""):
-    from gary.adapters.discord_bot import GaryClient
-
-    class _Sender:
-        async def send(self, channel_id, text, prompt=None):
-            sent.append(text)
-
-    class _Settings:
-        command_prefix = "?dm "
-
-    class _Store:
-        def __init__(self):
-            self.applied = []
-
-        def state(self):
-            return state if state is not None else {"setting": ""}
-
-        def apply(self, mutations, reason=""):
-            self.applied.append((mutations, reason))
-
-    class _Client:
-        settings = _Settings()
-        sender = _Sender()
-        runner = _Runner(narrator, answer)
-        store = _Store()
-        _pending_proposals = {}
-        _declined_proposals = {}
-        _has_model = GaryClient._has_model
-        _propose = GaryClient._propose
-        _forget_proposals = GaryClient._forget_proposals
-        _accept = GaryClient._accept
-        _cancel_mine = GaryClient._cancel_mine
-        _stats_line = GaryClient._stats_line
-        MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
-        MAX_IMPORT_BYTES = GaryClient.MAX_IMPORT_BYTES
-        IMPORT_CHUNK_CHARS = GaryClient.IMPORT_CHUNK_CHARS
-        MAX_IMPORT_CHUNKS = GaryClient.MAX_IMPORT_CHUNKS
-        IMPORT_SUFFIXES = GaryClient.IMPORT_SUFFIXES
-
-    client = _Client()
-    return client, GaryClient._import_document.__get__(client, _Client)
-
-
-class _Narrator:
-    async def narrate(self, *a, **k):  # pragma: no cover - never reached
-        raise AssertionError("import must not narrate through this stub")
-
-
-def test_import_refuses_before_spending_anything():
-    """Every refusal has to land before the file is read into prompts. An import that
-    validates halfway has already cost model calls for the half it accepted."""
-    import asyncio
-
-    cases = [
-        (_ImportMsg(), "needs a file attached"),
-        (_ImportMsg([_Attachment(filename="setting.pdf")]), "only read"),
-        (_ImportMsg([_Attachment(size=999_999)]), "limit is"),
-        (_ImportMsg([_Attachment(body=b"   ")]), "is empty"),
-    ]
-    for message, expected in cases:
-        sent = []
-        client, do_import = _import_client(_Narrator(), sent)
-        asyncio.run(do_import(message, 7))
-        assert expected in " ".join(sent), (expected, sent)
-        assert client.runner.effects == []
-
-
-def test_import_says_so_when_no_model_is_attached():
-    """Regression: this guard read `runner.narrator`, but EffectRunner stores `_narrator`.
-    getattr returned None, the isinstance was never true, and an import under EchoNarrator
-    ran every chunk through a narrator that cannot call a tool -- reporting success while
-    filing nothing."""
-    import asyncio
-
-    from gary.ports import EchoNarrator
-
-    sent = []
-    client, do_import = _import_client(EchoNarrator(), sent)
-    asyncio.run(
-        do_import(_ImportMsg([_Attachment()]), 7)
-    )
-    assert "No model is attached" in " ".join(sent)
-    assert client.runner.effects == []
-
-
-def test_import_fans_a_document_into_one_prompt_per_part():
-    """Parts are numbered because the model is told it is reading part n of m -- a
-    document that arrives unlabelled gets summarised as if it were the whole world."""
-    import asyncio
-
-    body = ("# Leafmoor\n\n" + "The fen drowns the road.\n" * 600).encode()
-    sent = []
-    client, do_import = _import_client(_Narrator(), sent)
-    asyncio.run(
-        do_import(_ImportMsg([_Attachment(filename="leaf-node.md", body=body)]), 7)
-    )
-
-    effects = client.runner.effects
-    assert len(effects) > 1
-    assert {e.kind for e in effects} == {"import_document"}
-    assert [e.payload["part"] for e in effects] == list(range(1, len(effects) + 1))
-    assert all(e.payload["total"] == len(effects) for e in effects)
-    assert all(e.payload["filename"] == "leaf-node.md" for e in effects)
-    assert all(e.channel_id == 7 for e in effects)
-    # Nothing is dropped between chunks.
-    assert "".join(e.payload["chunk"] for e in effects).count("drowns") == 600
 
 
 # -- ?dm state and ?dm notes ---------------------------------------------------------------
@@ -578,17 +455,13 @@ def _dm_client(state, sent, narrator=None, answer=""):
         _sheet_hub = GaryClient._sheet_hub
         _sheet_actions = GaryClient._sheet_actions
         runner = _Runner(narrator or EchoNarrator(), answer)
-        _pending_proposals = {}
-        _declined_proposals = {}
         _has_model = GaryClient._has_model
-        _propose = GaryClient._propose
-        _forget_proposals = GaryClient._forget_proposals
-        _accept = GaryClient._accept
         _cancel_mine = GaryClient._cancel_mine
         _stats_line = GaryClient._stats_line
-        MAX_DECLINED_PROPOSALS = GaryClient.MAX_DECLINED_PROPOSALS
-        _apply_setting = GaryClient._apply_setting
-        _apply_scene = GaryClient._apply_scene
+        _begin = GaryClient._begin
+        _opening = GaryClient._opening
+        _set_opening = GaryClient._set_opening
+        offer_premise = GaryClient.offer_premise
         MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
 
     class _Msg:
@@ -678,155 +551,6 @@ def test_dm_notes_on_an_empty_campaign_says_so():
 # -- proposals: ?dm accept, and the two places a proposal comes from -----------------------
 
 
-def test_import_proposes_a_premise_it_could_not_have_filed():
-    """A premise is the one thing an import cannot record, because it is not a sentence in
-    the document -- it is what the document is *about*. So it is asked for at the only
-    moment the model has read the whole thing."""
-    import asyncio
-
-    sent = []
-    client, do_import = _import_client(
-        _Narrator(), sent, state={"setting": ""}, answer="The Fen Marches, drowned and feudal."
-    )
-    asyncio.run(
-        do_import(_ImportMsg([_Attachment()]), 7)
-    )
-
-    assert [e.kind for e in client.runner.asked] == ["propose_setting"]
-    assert client.runner.asked[0].channel_id == 7
-    assert client._pending_proposals[(7, "setting")] == "The Fen Marches, drowned and feudal."
-    # Proposed, not written: the store saw nothing.
-    assert client.store.applied == []
-    assert "Accept it below" in " ".join(sent)
-
-
-def test_import_leaves_an_established_premise_alone():
-    """Re-importing a second sourcebook into a running campaign must not offer to
-    overwrite the premise the table has been playing under for weeks."""
-    import asyncio
-
-    sent = []
-    client, do_import = _import_client(
-        _Narrator(), sent, state={"setting": "The Fen Marches."}, answer="Something else."
-    )
-    asyncio.run(
-        do_import(_ImportMsg([_Attachment()]), 7)
-    )
-    assert client.runner.asked == []
-    assert "Suggested" not in " ".join(sent)
-
-
-def test_bare_dm_scene_proposes_one_instead_of_printing_its_own_usage():
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(
-        _seeded_state(), sent, narrator=object(), answer="The Rusty Anchor | Rain on the shutters."
-    )
-    asyncio.run(dispatch(Msg("?dm scene")))
-
-    assert [e.kind for e in client.runner.asked] == ["propose_scene"]
-    assert client._pending_proposals[(7, "scene")] == "The Rusty Anchor | Rain on the shutters."
-    assert client.store.applied == []
-    body = " ".join(sent)
-    assert "The Rusty Anchor" in body and "Rain on the shutters." in body
-    # The manual form is still reachable from the proposal, so nothing is lost by
-    # replacing the usage text with an offer.
-    assert "/scene location: summary:" in body
-
-
-def test_bare_dm_scene_falls_back_to_usage_with_no_model_attached():
-    """`EchoNarrator` cannot propose anything. Spending a turn to find that out and then
-    saying 'I couldn't put a scene into words' would be a worse answer than the usage."""
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    asyncio.run(dispatch(Msg("?dm scene")))
-
-    assert client.runner.asked == []
-    assert "/scene location: summary:" in " ".join(sent)
-
-
-def test_accept_writes_the_held_line_and_spends_it():
-    import asyncio
-
-    from gary.models import MutationKind
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain on the shutters."
-    asyncio.run(dispatch(Msg("?dm accept")))
-
-    (mutations, reason), = client.store.applied
-    assert mutations[0].kind is MutationKind.SCENE
-    assert mutations[0].payload == {
-        "location": "The Rusty Anchor",
-        "summary": "Rain on the shutters.",
-    }
-    assert "John" in reason
-    assert "Scene set" in " ".join(sent)
-    # Accepting consumes it, so a second accept cannot write it twice.
-    assert client._pending_proposals == {}
-
-
-def test_accept_can_take_one_kind_while_the_other_keeps_waiting():
-    import asyncio
-
-    from gary.models import MutationKind
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    client._pending_proposals[(7, "setting")] = "The Fen Marches."
-    client._pending_proposals[(7, "scene")] = "The Rusty Anchor | Rain."
-    asyncio.run(dispatch(Msg("?dm accept setting")))
-
-    (mutations, _), = client.store.applied
-    assert mutations[0].kind is MutationKind.SETTING
-    assert list(client._pending_proposals) == [(7, "scene")]
-
-
-def test_accept_with_nothing_pending_says_where_proposals_come_from():
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    asyncio.run(dispatch(Msg("?dm accept")))
-
-    body = " ".join(sent)
-    assert "Nothing to accept" in body
-    assert "/import" in body and "/scene" in body
-    assert client.store.applied == []
-
-
-def test_writing_a_setting_by_hand_drops_the_suggestion_it_overrules():
-    """Otherwise a later bare `?dm accept` -- meant for a scene, or typed by somebody who
-    missed the exchange -- would silently reinstate a premise the DM had already replaced."""
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    client._pending_proposals[(7, "setting")] = "The Fen Marches."
-    asyncio.run(
-        dispatch(Msg("?dm setting A dry upland barony."))
-    )
-    assert client._pending_proposals == {}
-    (mutations, _), = client.store.applied
-    assert mutations[0].payload == {"text": "A dry upland barony."}
-
-
-def test_a_proposal_the_model_fumbled_is_reported_not_stored():
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object(), answer="```\n```")
-    asyncio.run(dispatch(Msg("?dm scene")))
-
-    assert client._pending_proposals == {}
-    assert client.store.applied == []
-    assert "couldn't put a scene into words" in " ".join(sent)
-
-
 def test_every_dispatcher_command_is_reachable_from_a_slash_command_or_a_button():
     """The typed commands are gone; what the dispatcher still answers must be reachable --
     from a slash command, the sheet's buttons, or a button that runs it (Accept, Cancel)."""
@@ -869,79 +593,6 @@ def test_help_through_the_dispatcher_is_the_slash_list():
     Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
     asyncio.run(dispatch(Msg("?dm")))
     assert sent == [HELP]
-
-
-def test_asking_again_tells_the_model_what_it_already_offered():
-    """The bug this exists for: `?dm scene` twice returned the same vault under a
-    different description, because the first suggestion was sitting in history for the
-    second call to read. Asking again is itself the rejection."""
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(
-        _seeded_state(), sent, narrator=object(), answer="The Unsealed Vault | Scribes."
-    )
-    run = asyncio.run
-
-    run(dispatch(Msg("?dm scene")))
-    assert client.runner.asked[0].payload["already_offered"] == []
-
-    run(dispatch(Msg("?dm scene")))
-    assert client.runner.asked[1].payload["already_offered"] == [
-        "The Unsealed Vault | Scribes."
-    ]
-    assert client._declined_proposals[(7, "scene")] == ["The Unsealed Vault | Scribes."]
-
-
-def test_the_list_of_rejects_is_bounded():
-    """Every reject rides in the prompt, so the list cannot grow with the session."""
-    import asyncio
-
-    from gary.adapters.discord_bot import GaryClient
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent, narrator=object())
-    run = asyncio.run
-
-    cap = GaryClient.MAX_DECLINED_PROPOSALS
-    for i in range(cap + 3):
-        client.runner._answer = f"Place {i} | Something true."
-        run(dispatch(Msg("?dm scene")))
-
-    assert len(client._declined_proposals[(7, "scene")]) == cap
-    assert len(client.runner.asked[-1].payload["already_offered"]) == cap
-    # The oldest fall off the front, not the newest.
-    assert client.runner.asked[-1].payload["already_offered"][-1] == f"Place {cap + 1} | Something true."
-
-
-def test_accepting_forgets_the_rejects_too():
-    """Rejects only mean 'not this one' while the DM is still looking. Carrying them past
-    a settled line would push later suggestions off perfectly good ground."""
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
-    client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
-
-    asyncio.run(dispatch(Msg("?dm accept")))
-    assert client._pending_proposals == {}
-    assert client._declined_proposals == {}
-
-
-def test_writing_a_scene_by_hand_forgets_the_rejects_too():
-    import asyncio
-
-    sent = []
-    Msg, dispatch, client = _dm_client(_seeded_state(), sent)
-    client._pending_proposals[(7, "scene")] = "The Vault | Scribes."
-    client._declined_proposals[(7, "scene")] = ["The Fen | Mist."]
-
-    asyncio.run(
-        dispatch(Msg("?dm scene The Eel-Runs | Fever-mist off the ditches."))
-    )
-    assert client._pending_proposals == {}
-    assert client._declined_proposals == {}
 
 
 # -- how prompts are drawn -------------------------------------------------------------------
