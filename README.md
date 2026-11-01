@@ -53,6 +53,9 @@ docker compose up -d && docker compose logs -f
 That runs `ghcr.io/magnentius/gary:latest` with your settings file and keeps the campaign
 in `~/.local/share/gary/campaign`. Run **one** Gary per campaign.
 
+**On Google Cloud:** an always-on free-tier VM running the same image —
+[`deploy/gcp/README.md`](deploy/gcp/README.md).
+
 When Gary connects, its log says `registered 17 slash command(s) in <your server>`. In the
 game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
