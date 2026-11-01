@@ -658,7 +658,7 @@ class GaryClient(discord.Client):
         known = self.store.state().get("fronts") or {}
         if not known:
             return ("No fronts yet. In a campaign's first session the GM only notes threats; the fronts "
-                    "are written after the first `/endsession`.")
+                    "are written after the first `/end`.")
         text = "\n\n".join(fronts.describe(f) for f in known.values())
         if len(text) > 1900:
             text = text[:1900].rsplit("\n", 1)[0] + "\n…"
@@ -709,15 +709,33 @@ class GaryClient(discord.Client):
             if not self._has_model:
                 await self.sender.send(channel_id, "/begin needs the model: set GEMINI_API_KEY.")
                 return
-            self._set_opening(message.author.display_name, stage="premise", starter=message.author.id)
+            self._set_opening(message.author.display_name, stage="premise", starter=message.author.id, session=1)
             await self.offer_premise(channel_id)
             return
-        if stage in ("playing", "done"):
-            await self.sender.send(channel_id, "The adventure has begun. `/reset` starts a new campaign.")
+        if stage in ("playing", "session"):
+            number = int(self._opening().get("session") or 1)
+            await self.sender.send(channel_id, f"Session {number} is under way. `/end` finishes it.")
+            return
+        if stage == "done":
+            await self._next_session(message, channel_id)
             return
         nxt = opening.STAGES[opening.STAGES.index(stage) + 1]
         await self.sender.send(channel_id, f"The opening is at **{stage}**. When the table is ready:",
                                prompt=OpeningPrompt(("mybonds", nxt) if stage == "bonds" else (nxt,)))
+
+    async def _next_session(self, message, channel_id: int) -> None:
+        """Every session after the first: a recap, anyone ready to level up, the Outsider's
+        question, and the scene reframed."""
+        from .. import opening
+
+        number = int(self._opening().get("session") or 1) + 1
+        self._set_opening(message.author.display_name, stage="session", session=number)
+        party = self._party_sheets()
+        ready = [s["name"] for s in party if int(s.get("xp", 0)) >= xp_needed(s) and int(s.get("level", 1)) < 10]
+        await self.sender.send(channel_id, f"🎲 **Session {number}.**"
+                               + (f" {', '.join(ready)}: you can level up from `/sheet` before we start."
+                                  if ready else ""))
+        await self.runner.run([PromptModel(channel_id, "rules_event", opening.session_event(number, party))])
 
     async def offer_premise(self, channel_id: int, again: bool = False) -> None:
         from .. import opening
@@ -1043,10 +1061,13 @@ class GaryClient(discord.Client):
 
         threats = [f"{n['subject']}: {n['body']}" for n in self.store.state().get("notes") or ()
                    if n.get("kind") == "threat"][-20:]
-        if self._opening().get("stage") == "playing":
+        stage = self._opening().get("stage")
+        if stage == "playing":
             self._set_opening("first session over", stage="done")
             event = opening.fronts_event(threats)
         else:
+            if stage == "session":
+                self._set_opening("session over", stage="done")
             event = opening.review_event(threats)
         asyncio.create_task(self._front_work(channel_id, event))
         return line
@@ -1452,7 +1473,7 @@ class GaryClient(discord.Client):
             await self._begin(message, channel_id)
             return
 
-        if command == "endsession":
+        if command == "end":
             from ..advanced import has as advanced_has
 
             sheets = self.store.state().get("sheets") or {}

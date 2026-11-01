@@ -31,7 +31,8 @@ log = logging.getLogger(__name__)
 HELP = """**Gary's commands**
 
 __Starting__
-`/begin` — start the adventure: Gary offers a premise, then runs introductions, hook questions, bonds and the first scene
+`/begin` — start the adventure (a premise, introductions, hook questions, bonds, the first scene), and later each session
+`/end` — end the session: the end-of-session questions, XP, and the GM's work between sessions
 `/new` — make a character (a private form) · `/playing character:` — claim one someone else made
 
 __At the table__
@@ -40,7 +41,7 @@ __At the table__
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
 `/checks` — what Gary is waiting on, with a button to cancel your own
 `/undo` — reverse the last change to the world
-`/endsession` — the end-of-session questions and XP · `/questions` — set this adventure's own
+`/questions` — set this adventure's own end-of-session questions
 
 __For the GM__
 `/fronts` — the threats in play, shown only to you (spoilers)
@@ -132,7 +133,7 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
 
     # -- the rest, through the command dispatcher ----------------------------------------------
 
-    @tree.command(name="begin", description="Start the adventure: a premise, characters, questions, bonds, play")
+    @tree.command(name="begin", description="Start the adventure -- or, after the first session, the next one")
     async def begin(interaction: "discord.Interaction") -> None:
         await run(interaction, "begin")
 
@@ -140,9 +141,9 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
 
 
 
-    @tree.command(name="endsession", description="The end-of-session questions, and everyone's XP")
-    async def endsession(interaction: "discord.Interaction") -> None:
-        await run(interaction, "endsession")
+    @tree.command(name="end", description="End the session: the end-of-session questions, and everyone's XP")
+    async def end(interaction: "discord.Interaction") -> None:
+        await run(interaction, "end")
 
     @tree.command(name="questions", description="Show, set or reset the end-of-session questions")
     @app_commands.describe(first="This adventure's first question", second="A second", third="A third",

@@ -31,8 +31,13 @@ bonds, with a question to one of you right away and "What do you do?". Whoever r
 presses **Next** at each step; `/begin` again shows where it has got to, and `/undo` steps
 back.
 
+After the first session, `/end` finishes each session and `/begin` starts the next: Gary
+recaps where things stand, names anyone who can level up, asks any Barbarian the Outsider's
+question about their homeland (answering marks XP, once a session), and reframes the scene
+with "What do you do?".
+
 The book is firm that fronts wait until the first session is over ("don't create any yet"),
-so until the first `/endsession` the GM only notes the threats that come up. Then it writes
+so until the first `/end` the GM only notes the threats that come up. Then it writes
 a **campaign front** (the threat that runs session to session, blanks and all) and one or two
 **adventure fronts** from those notes and from what play turned up.
 
@@ -112,7 +117,7 @@ Aid or Interfere names who you help or hinder and rolls +Bond — the number of 
 have with them. `/sheet` shows your bonds, and the GM sees them.
 
 **XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
-When you wrap up, run `/endsession`: anyone can flip the three questions (learned
+When you wrap up, run `/end`: anyone can flip the three questions (learned
 something important, overcame a notable enemy, looted a memorable treasure), and each
 player ticks whether their own character acted on their alignment (only they can). A
 player can also **Resolve a bond**: pick it privately, and the companion it names gets an
@@ -144,7 +149,7 @@ creature standing; The Upper Hand gives +1 to Last Breath and makes the 7–9 yo
 Death. Gary also applies Unencumbered, Unharmed's armor (bare and under your load), Full
 Plate's ignored clumsy, On the Move, Healthy Distrust, A Good Day to Die and Indestructible
 Hunger (a **Reduce damage** choice after a blow), and What Is Best In Life gets its own XP
-button at `/endsession`. Still Hungry adds an appetite at level-up; Appetite for Destruction
+button at `/end`. Still Hungry adds an appetite at level-up; Appetite for Destruction
 and Kill 'em All take an advanced move from the Fighter, Bard or Thief; More! Always More!
 swaps an appetite for XP. Appetite rolls are left out of `/dice`, as they aren't 2d6.
 
@@ -431,7 +436,7 @@ a campaign front, the slow threat behind everything, and one or two adventure fr
 here and now. Each has up to three dangers of the book's types (a Cult, a Dragon, a Dark
 Portal…), grim portents, an impending doom (tyranny, pestilence, destruction, usurpation,
 impoverishment or rampant chaos, made concrete) and a few stakes questions. As the book says,
-fronts are written between sessions, not in play: after each `/endsession` the GM quietly
+fronts are written between sessions, not in play: after each `/end` the GM quietly
 reviews them — advancing what the party neglected, ending what they dealt with, moving an
 unresolved danger up to the campaign front, writing a new adventure front when one is
 resolved. In play the GM notes new threats, ticks portents off (as play shows them, offscreen,

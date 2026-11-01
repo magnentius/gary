@@ -63,6 +63,7 @@ SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
 RESOLVE_APPETITE = "resolve_appetite"
+MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
@@ -750,6 +751,18 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="With released: how they redeemed themselves."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=MARK_XP,
+        description=(
+            "A Barbarian (an Outsider) answered your question about their homeland, why they left, or "
+            "what they left behind: they mark 1 XP. Once a session. reason must be 'Outsider'."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "reason": _s(type=_STRING, enum=["Outsider"])},
+            required=["character", "reason"],
         ),
     ),
     types.FunctionDeclaration(

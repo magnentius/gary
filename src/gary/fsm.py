@@ -2162,6 +2162,27 @@ class Director:
         return [SendMessage(channel_id, f"⚔️ **{actor}** has kept their promise: {target} is defeated."),
                 UpdateSheet(channel_id, actor, {"sworn_enemy": None})]
 
+    def mark_xp(
+        self, *, channel_id: int, character: str, reason: str, session: int
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """XP a move gives for answering the GM -- the Barbarian's Outsider: "At the beginning of
+        each session, the GM will ask you something about your homeland... If you answer them,
+        mark XP." Once a session."""
+        from .opening import outsiders
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if str(reason or "").strip().lower() != "outsider" or not outsiders([sheet]):
+            return [], {"ok": False, "error": f"mark_xp is for the Outsider's answer; {actor} is not an Outsider. "
+                                              "Other XP comes from misses and the end of session."}
+        if int(sheet.get("outsider_xp", 0)) >= int(session):
+            return [], {"ok": False, "error": f"{actor} has already marked XP for answering this session."}
+        xp = int(sheet.get("xp", 0)) + 1
+        return [SendMessage(channel_id, f"⭐ **{actor}** marks XP for speaking of their homeland ({xp})."),
+                UpdateSheet(channel_id, actor, {"xp": xp, "outsider_xp": int(session)})], {"ok": True, "xp": xp}
+
     def resolve_appetite(
         self, *, channel_id: int, character: str, appetite: str, new: str = ""
     ) -> Tuple[List[Effect], Dict[str, Any]]:

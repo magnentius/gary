@@ -78,16 +78,22 @@ Little is prepared: the world is built at the table, from the players' answers. 
    do. When a move triggers, he posts a **Roll** button; click it and Gary rolls 2d6 + your
    stat in front of everyone, then narrates the result.
 
-**Wrap up** with `/endsession`: the table answers the end-of-session questions and everyone
-gets their XP. After the first one, Gary writes the campaign's threats (fronts) from what came
-up in play. Level up from `/sheet` when you have the XP.
+**Every session after that** is `/begin` to start and `/end` to finish:
+
+- **`/end`**: the table answers the end-of-session questions and everyone gets their XP. Then,
+  between sessions, the GM quietly works on the threats (fronts): after the first session it
+  writes them from what came up in play, and after each later one it moves them on.
+- **`/begin`**: Gary recaps where things stand, tells anyone who can level up, asks any
+  Barbarian about their homeland (the Outsider move, for XP), and picks up the scene.
 
 ## Slash commands
 
 | Command | What it does |
 |---|---|
-| **Starting** | |
-| `/begin` | Start the adventure: a premise, then introductions, hook questions, bonds and the first scene. |
+| **Sessions** | |
+| `/begin` | Start the adventure (a premise, introductions, hook questions, bonds, the first scene); later, start each session with a recap. |
+| `/end` | End the session: the end-of-session questions, everyone's XP, and the GM's work between sessions. |
+| **At the table** | |
 | `/new` | Make a character, in a private form. |
 | `/sheet` | Your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up. |
 | `/playing character:` | Claim a character someone else made. |
@@ -95,7 +101,6 @@ up in play. Level up from `/sheet` when you have the XP.
 | `/dice` | How the table's dice have fallen, against fair 2d6; `character:` for one character. |
 | `/npcs` | The people you've met or heard of, how they feel about you; `name:` for one. |
 | `/undo` | Reverse the last change to the world. |
-| `/endsession` | The end-of-session questions, and everyone's XP. |
 | `/questions` | Show the end-of-session questions; `first:` `second:` `third:` set this adventure's own, `default:True` restores the book's. |
 | **For the GM** | |
 | `/fronts` | The threats the GM is tracking, shown only to you (spoilers). |

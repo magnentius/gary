@@ -10,7 +10,7 @@ book's low prep and adds structure for players to build on:
     questions      hook questions, each to one character, asserting as much as asking
     bonds          now that the characters know each other
     opening        a tight frame in the middle of things, a soft move, "What do you do?"
-    playing        and after the first /endsession, fronts from what play turned up
+    playing        and after the first /end, fronts from what play turned up
 
 The stage is kept in state (``opening``) by the OPENING mutation, so a restart resumes it
 and /undo can take a step back. This module holds the words: what the model is asked at
@@ -23,6 +23,8 @@ import re
 from typing import Dict, List, Sequence, Tuple
 
 STAGES = ("premise", "characters", "introductions", "questions", "bonds", "playing", "done")
+#: After the first session the opening is "done" between sessions and "session" during one:
+#: /begin starts the next (session_event), /end ends it.
 
 #: What each step's button says, by the stage it leads to.
 NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "bonds": "Bonds",
@@ -104,6 +106,40 @@ def questions_event(premise_text: str, party: Sequence[Dict]) -> Dict:
             "answer. Do not narrate a scene or start play yet. As answers come in on later turns, record "
             "each as fact (upsert_npc for people, record_note for places, dangers and lore), build on it, "
             "and ask follow-ups until the core of the premise is clear -- leave some questions open for play."
+            + _outsider_instruction(outsiders(party))
+        ),
+    }
+
+
+def outsiders(party: Sequence[Dict]) -> List[str]:
+    """Characters with the Barbarian's Outsider: "At the beginning of each session, the GM will
+    ask you something about your homeland, why you left, or what you left behind. If you answer
+    them, mark XP." """
+    from .class_moves import TEXTS
+
+    return [s["name"] for s in party
+            if TEXTS.get(str(s.get("class", "")).lower(), {}).get("race_move") == "Outsider"]
+
+
+def _outsider_instruction(names: Sequence[str]) -> str:
+    if not names:
+        return ""
+    return (f" {' and '.join(names)} {'is an Outsider' if len(names) == 1 else 'are Outsiders'}: ask each "
+            "something about their homeland, why they left, or what they left behind. When one answers, "
+            "call mark_xp for them with reason 'Outsider'.")
+
+
+def session_event(number: int, party: Sequence[Dict]) -> Dict:
+    """The start of every session after the first."""
+    return {
+        "event": f"Session {number} begins",
+        "instruction": (
+            "A new session is starting; the players have been away. In a few sentences, recap where things "
+            "stand -- what happened last time, where the party is, what is unresolved -- from the scene, the "
+            "notes and the story so far; no new events, nothing about fronts."
+            + _outsider_instruction(outsiders(party))
+            + " Then reframe the current scene with a detail or two, and end on 'What do you do?' to a "
+              "specific character."
         ),
     }
 
@@ -138,7 +174,7 @@ def opening_event(premise_text: str, party: Sequence[Dict] = ()) -> Dict:
 
 
 def review_event(threats: Sequence[str] = ()) -> Dict:
-    """Between sessions: the book's front work, done after every /endsession but the first."""
+    """Between sessions: the book's front work, done after every /end but the first."""
     return {
         "event": "Between sessions: front work",
         "threats_noted": list(threats),

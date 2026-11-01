@@ -110,7 +110,7 @@ def table(clock):
         MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
 
     for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
-                 "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work"):
+                 "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work", "_next_session"):
         setattr(_Client, name, getattr(GaryClient, name))
     client = _Client()
     client.store = store
@@ -162,9 +162,9 @@ def test_the_whole_opening_in_order(table):
     asyncio.run(client.on_opening_step(late, "bonds"))
     assert "not that step" in late.response.private[0]
 
-    # /begin again says it has begun.
+    # /begin again, mid-session, says so.
     asyncio.run(client._begin(_Msg(), 7))
-    assert "has begun" in sent[-1][0]
+    assert "Session 1 is under way" in sent[-1][0]
 
 
 def test_the_first_end_of_session_writes_the_fronts_then_each_reviews_them(table):
@@ -199,3 +199,29 @@ def test_begin_mid_opening_shows_the_next_step(table):
     store.apply([Mutation(MutationKind.OPENING, "", {"stage": "bonds", "starter": 11})], reason="t")
     asyncio.run(client._begin(_Msg(), 7))
     assert sent[-1][1] == OpeningPrompt(("mybonds", "playing"))
+
+
+def test_later_sessions_begin_with_a_recap_the_outsiders_question_and_level_ups(table):
+    client, store, sent, ran = table
+    store.apply([Mutation(MutationKind.SHEET, "Gorm", {"sheet": {
+        **store.state()["sheets"]["Gorm"], "level": 1, "xp": 8}})], reason="xp")
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "done", "starter": 11, "session": 1})], reason="t")
+    asyncio.run(client._begin(_Msg(uid=42), 7))  # anyone may start a session
+    assert store.state()["opening"]["stage"] == "session" and store.state()["opening"]["session"] == 2
+    assert sent[-1][0].startswith("🎲 **Session 2.** Gorm: you can level up")
+    event = ran[-1].payload
+    assert event["event"] == "Session 2 begins" and "recap" in event["instruction"]
+    assert "Gorm is an Outsider" in event["instruction"] and "mark_xp" in event["instruction"]
+
+    async def ended(yeses, fulfilled, resolved):
+        return "⭐ End of session"
+
+    client._end_session = ended
+
+    async def end():
+        await client._end_session_then_fronts(7, 0, set(), {})
+        await asyncio.sleep(0)
+
+    asyncio.run(end())
+    assert store.state()["opening"]["stage"] == "done"
+    assert ran[-1].payload["event"] == "Between sessions: front work"

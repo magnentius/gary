@@ -124,7 +124,7 @@ Every fact has one owner. There are no shared-write facts.
 | *Whether* a creature attacks on a miss | **Gemini** | A GM move: `monster_attacks`. *How much* is Gary's. |
 | Character sheets, gear, coin, spells, XP, bonds | **Gary** | Created and changed through private forms and checked rules (§6). |
 | Creature stats | **Gary** (bestiary) | 142 SRD creatures looked up; homebrew from the model, checked against the monster-making rules. |
-| XP from End of Session | **The table** | `/endsession`: toggles anyone may flip; alignment and bond resolution are each player's own. |
+| XP from End of Session | **The table** | `/end`: toggles anyone may flip; alignment and bond resolution are each player's own. |
 | World date/time, scene, NPCs, notes, effects | **Store** | Written through the model's tools; reversible. |
 | Position and distance | **Gemini** (nobody tracks it) | No map. The model keeps who-is-where in the scene summary and stays consistent with it. |
 | Narrative prose, NPC voice, GM moves | **Gemini** | |
@@ -609,7 +609,7 @@ and custom moves (text the model honours). Fronts live in state as `fronts`, wri
 the journalled `FRONT` mutation, whose inverse is the record as it was.
 
 The book builds fronts "outside of active play", so `create_front` is refused except while
-Gary holds the front-work window open (`opening.front_work`): after the first `/endsession`
+Gary holds the front-work window open (`opening.front_work`): after the first `/end`
 for the first campaign and adventure fronts, and after every later one for a between-session
 review (advance what was neglected, end what was dealt with, revise, move a danger between
 fronts, write a new adventure front when one resolves). In play the model notes threats
@@ -643,7 +643,7 @@ roll. Make Camp, Recover and setting out on a journey clear them.
   mid-move, and the model must give a reason it is safe, shown to the table. The same guard
   (`Director.unsettled`) gates Commune and Level Up.
 - **XP** — every miss marks 1 XP (`Director._mark_xp`, on every resolution path).
-  `/endsession`: the book's three questions as toggles anyone may flip, a per-character
+  `/end`: the book's three questions as toggles anyone may flip, a per-character
   "acted on alignment" toggle only that player may flip, and Resolve a bond (picked
   privately; the companion's player must press Agree). Award XP applies it all in one apply.
 - **Level Up** — the sheet's Level up button, in downtime: a private form (`levelling.Advance`) for a stat
@@ -816,7 +816,7 @@ answer is to prepare little and build the world at the table, and `/begin` (`ope
 runs that first session as a sequence, following the recipe in "My Recipe for Starting
 Adventures" (Spouting Lore, 2020): a premise (a fantastic place and a grabby activity), the
 characters, introductions, hook questions to each character, bonds, a tight opening frame
-that folds in the bonds and asks a question at once -- and, after the first `/endsession`, a
+that folds in the bonds and asks a question at once -- and, after the first `/end`, a
 campaign front and one or two adventure fronts. Until then `create_front` is refused and
 threats are noted (`record_note` kind `threat`), as the book has it: fronts are "built
 outside of active play", and not before the first session. The stage lives in state (`OPENING`, journalled and undoable), so the durable
@@ -1076,7 +1076,7 @@ src/gary/
     companion_form.py  the sheet's Choose companion                                 §6.7
     levelup.py     the sheet's Level up                                             §6.10
     bonds_form.py  the sheet's Bonds                                                §6.10
-    session.py     /endsession                                                      §6.10
+    session.py     /end                                                      §6.10
     slash.py       the slash commands: each through the dispatcher, four private    §6.3
     gemini.py      Narrator: context, tool dispatch, retries                        §5.6, §8
     gemini_tools.py  function declarations                                          §12.6

@@ -222,3 +222,16 @@ def test_more_always_more_resolves_an_appetite_for_xp(director, sheets):
 def test_the_model_is_told_what_gary_applies():
     assert "1d6+1d8" in advanced.applied(barbarian(), "Herculean Appetites")
     assert advanced.applied(barbarian(), "Kill ’em All")
+
+
+def test_the_outsider_marks_xp_for_answering_once_a_session(director, sheets):
+    effects, result = director.mark_xp(channel_id=CHANNEL, character="Gorm", reason="Outsider", session=2)
+    apply(effects, sheets)
+    assert result["ok"] and sheets["Gorm"]["xp"] == 1
+    _, again = director.mark_xp(channel_id=CHANNEL, character="Gorm", reason="Outsider", session=2)
+    assert "already" in again["error"]
+    effects, result = director.mark_xp(channel_id=CHANNEL, character="Gorm", reason="Outsider", session=3)
+    assert result["ok"]
+    sheets["Gorm"]["class"] = "Fighter"
+    _, other = director.mark_xp(channel_id=CHANNEL, character="Gorm", reason="Outsider", session=4)
+    assert "not an Outsider" in other["error"]

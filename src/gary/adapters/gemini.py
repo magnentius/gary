@@ -534,6 +534,15 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.MARK_XP:
+                session = int((self._store.state().get("opening") or {}).get("session") or 1)
+                xp_effects, result = self._director.mark_xp(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    reason=str(args.get("reason", "") or ""), session=session)
+                effects.extend(xp_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.RESOLVE_APPETITE:
                 hunger_effects, result = self._director.resolve_appetite(
                     channel_id=channel_id, character=str(args.get("character", "")),

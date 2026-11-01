@@ -11,7 +11,7 @@ The book's recipe, which ``make`` checks:
     list the general cast -- and a description, and any custom moves the danger suggests
 
 Fronts are "built outside of active play": Gary opens a window for writing them after each
-/endsession (and after the first session, the first ones), and refuses ``create_front``
+/end (and after the first session, the first ones), and refuses ``create_front``
 otherwise. In play the model notes new threats, advances portents -- descriptively, as play
 shows them, or prescriptively, as a hard move -- revises what is still to come, and moves a
 danger between adventure and campaign fronts. Gary keeps them as journalled state -- every
