@@ -494,28 +494,26 @@ def test_dm_state_does_not_stay_silent_about_stored_memory():
     """An import filed ten notes and four NPCs, and `?dm state` showed a clock and a
     party -- because notes and NPCs are layer 3 and surface only on mention. Correct, and
     indistinguishable on screen from having stored nothing at all."""
-    import asyncio
+    from gary.adapters.discord_bot import GaryClient
 
     sent = []
-    Msg, dispatch, _ = _dm_client(_seeded_state(), sent)
-    asyncio.run(dispatch(Msg("?dm state")))
-
-    body = " ".join(sent)
+    _, _, client = _dm_client(_seeded_state(), sent)
+    body = GaryClient._state_text(client)
     assert "3 note(s)" in body and "1 NPC(s)" in body
     assert "21 Sturgeon Moon 1026" in body      # layer 2 still rendered verbatim
     assert "/notes" in body                   # and points somewhere that can show them
 
 
 def test_dm_state_stays_quiet_when_nothing_is_stored():
-    import asyncio
-
     state = _seeded_state()
     state["notes"], state["npcs"] = [], {}
+    from gary.adapters.discord_bot import GaryClient
+
     sent = []
-    Msg, dispatch, _ = _dm_client(state, sent)
-    asyncio.run(dispatch(Msg("?dm state")))
-    assert "Also stored" not in " ".join(sent)
-    assert sent[-1].endswith("Since start: 0 sent · 0 narrated · 0 model failures · 0 moves journalled")
+    _, _, client = _dm_client(state, sent)
+    body = GaryClient._state_text(client)
+    assert "Also stored" not in body
+    assert body.endswith("Since start: 0 sent · 0 narrated · 0 model failures · 0 moves journalled")
 
 
 def test_dm_notes_lists_subjects_a_player_would_say():

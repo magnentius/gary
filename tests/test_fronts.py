@@ -167,3 +167,29 @@ async def test_in_play_a_front_is_revised_and_a_danger_moved(table):
     assert len(store.state()["fronts"]["the_dragon_of_the_spear"]["dangers"]) == 1
     store.undo_last()
     assert [d["name"] for d in store.state()["fronts"]["the_old_wyrms"]["dangers"]] == ["The Mother"]
+
+
+async def test_a_front_that_is_over_is_shown_to_the_table(table):
+    """"When a front is resolved take some extra time to sit down and look at the aftermath." """
+    director, store, history = table
+    front = fronts.make("The Dragon of the Spear", [DRAGON], STAKES)
+    front["dangers"][0]["reached"] = 1
+    store.apply([Mutation(MutationKind.FRONT, "the_dragon_of_the_spear", {"front": front})], reason="setup")
+    n = narrator(table, call_response(T.END_DANGER, {"front": "The Dragon of the Spear", "danger": "The Dragon",
+                                                     "reason": "Gorm slew her on the cliffs"}),
+                 text_response("She falls."))
+    result = await player(n, "I strike her down")
+    shown = [e.text for e in result.effects if getattr(e, "text", "")]
+    assert len(shown) == 1 and shown[0].startswith("📜 **The Dragon of the Spear** is over.")
+    assert "Came to pass: She burns the naval patrol." in shown[0]
+    assert "Never happened: She turns the lizardmen; Her hatchlings feed." in shown[0]
+    assert "Its doom would have been: the coast burns. Stopped: Gorm slew her on the cliffs." in shown[0]
+    answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    assert "reveal" not in answer and "aftermath" in answer["note"]  # the model is told, not handed the text
+
+
+def test_a_doom_that_came_is_said_so():
+    front = fronts.make("Cult", [{**DRAGON, "type": "Cult", "portents": ["a"]}], STAKES)
+    front["dangers"][0].update(reached=1, ended="its doom came to pass: the coast burns")
+    assert "Its doom came: the coast burns." in fronts.reveal(front)
+    assert not fronts.over({"dangers": []})

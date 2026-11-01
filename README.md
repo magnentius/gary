@@ -102,15 +102,18 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/npcs` | The people you've met or heard of, how they feel about you; `name:` for one. |
 | `/undo` | Reverse the last change to the world. |
 | `/questions` | Show the end-of-session questions; `first:` `second:` `third:` set this adventure's own, `default:True` restores the book's. |
-| **For the GM** | |
-| `/fronts` | The threats the GM is tracking, shown only to you (spoilers). |
-| `/state` | Clock, scene, party, steadings, what's stored, and Gary's counters. |
 | `/notes` | What's been filed, by subject. |
+| **For whoever runs the server** | |
+| `/fronts` | The threats the GM is planning. Spoilers: only people with Manage Server can use it, and only they see the answer. |
+| `/state` | Everything the GM is told each turn, fronts included. Manage Server only, privately. |
 | `/help` | This list, privately. |
 | `/reset` | **Delete the campaign.** Two steps (`/reset`, then `/reset code:`), and no undo. |
 
-`/new`, `/sheet`, `/fronts` and `/help` answer only you. A message typed the old way
-(`?dm …`) gets a pointer to the slash commands.
+`/new`, `/sheet`, `/fronts`, `/state` and `/help` answer only you. Gemini is the GM, so the
+GM's secrets are kept from the players: Discord hides `/fronts` and `/state` from anyone
+without Manage Server (a server admin can change who sees them under Server Settings →
+Integrations). When a front is over, Gary shows the whole table what it held. A message typed
+the old way (`?dm …`) gets a pointer to the slash commands.
 
 ## How play works
 
@@ -145,7 +148,7 @@ Run `/reset`, then confirm with the code it gives you: `/reset code:`. Then star
 | No slash commands | Re-invite Gary with the `applications.commands` scope, then restart him. |
 | Narration but no Roll button | `/checks` — the move may have expired (after 3 minutes, by default). |
 | Your click did nothing | It may be someone else's move; `/checks` shows whose. |
-| Gary invented the wrong world | `/state` — the setting or scene is probably empty. |
+| Gary invented the wrong world | `/state` (server managers) — the setting or scene is probably empty. |
 | He wrote something you hate | `/undo`. |
 
 ## Configuration

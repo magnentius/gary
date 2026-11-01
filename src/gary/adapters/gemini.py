@@ -665,6 +665,9 @@ class GeminiNarrator:
                 log.exception("tool %s failed", name)
                 result = {"ok": False, "error": str(exc)}
 
+            reveal = result.pop("reveal", None) if isinstance(result, dict) else None
+            if reveal:
+                effects.append(SendMessage(channel_id, reveal))  # a front that is over, for the table
             responses.append(types.Part.from_function_response(name=name, response=result))
 
         return False, responses
@@ -1063,10 +1066,6 @@ class GeminiNarrator:
             if name == T.END_DANGER:
                 danger["ended"] = reason
                 result = {"ok": True, "ended": danger["name"]}
-                if all(d.get("ended") for d in front["dangers"]):
-                    result["note"] = ("The front is resolved. Look at the aftermath: any portents that came to "
-                                      "pass have changed the world. Leftovers may move to the campaign front "
-                                      "between sessions.")
             else:
                 if danger.get("ended"):
                     return {"ok": False, "error": f"{danger['name']} has ended: {danger['ended']}."}
@@ -1088,6 +1087,10 @@ class GeminiNarrator:
             return {"ok": False, "error": str(exc)}
         store.apply([Mutation(MutationKind.FRONT, key, {"front": front})],
                     reason=f"front {front['name']}: {danger['name']}")
+        if fronts.over(front):
+            result["reveal"] = fronts.reveal(front)
+            result["note"] = ("The front is over, and Gary has shown the table what it held. Look at the "
+                              "aftermath: portents that came to pass have changed the world.")
         return result
 
     def _call_tool(self, name: str, args: Dict[str, Any], channel_id: int = 0) -> Dict[str, Any]:

@@ -618,7 +618,12 @@ hard move; the last one brings the doom and resolves the danger), `revise_front`
 still to come; what has come to pass stays) and `move_danger` (with its progress; applied
 target-first, so half an `/undo` leaves it in both fronts, never neither). None of it posts to
 the table; the live state shows each live danger's type, impulse, progress and next portent,
-the custom moves, and once per family in play its GM moves. `/fronts` answers ephemerally.
+the custom moves, and once per family in play its GM moves. With Gemini as the GM, "only the
+GM sees fronts" means whoever runs the server: `/fronts` and `/state` (which renders the live
+state, fronts and all) carry `default_permissions(manage_guild=True)`, so Discord hides them
+from everyone else, and check the permission again before answering, ephemerally. When a
+front's last danger ends, `fronts.reveal` is posted to the table -- the book's look at the
+aftermath -- while the model gets only a note that it happened.
 
 **Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
 rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.

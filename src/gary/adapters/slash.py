@@ -6,9 +6,10 @@ The interaction is acknowledged at once (Discord allows three seconds) and the "
 placeholder removed when the handler has posted; what it posts appears in the channel as
 it always has.
 
-Four are answered privately instead, which is what a slash command can do and a typed one
-cannot: /new opens the character form, /sheet shows your sheet with its buttons, /fronts
-shows the GM's threats, and /help lists the commands -- each only to whoever asked.
+Five are answered privately instead, which is what a slash command can do and a typed one
+cannot: /new opens the character form, /sheet shows your sheet with its buttons, /help lists
+the commands -- and /fronts and /state, which show what the GM is planning, answer only those
+who can manage the server (Discord also hides them from everyone else by default).
 
 Commands are registered per server where Gary has a game channel (instant), not globally
 (up to an hour). They are the only commands: a typed `?dm` is pointed here.
@@ -44,8 +45,8 @@ __At the table__
 `/questions` — set this adventure's own end-of-session questions
 
 __For the GM__
-`/fronts` — the threats in play, shown only to you (spoilers)
-`/state` — clock, scene, party, what is stored, and Gary's counters
+`/fronts` — the threats the GM is planning (server managers only, privately: spoilers)
+`/state` — everything the GM is told each turn, fronts included (server managers only, privately)
 `/notes` — what has been filed, by subject
 `/help` — this list
 `/reset` — **deletes the campaign**. Two-step (`/reset code:`), and the one thing here with no undo."""
@@ -123,9 +124,29 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
         await client._sheet_hub(_SlashMessage(interaction, f"{prefix}sheet"), interaction.channel_id, prefix,
                                 reply=reply)
 
-    @tree.command(name="fronts", description="The threats the GM is tracking — shown only to you")
+    def manages_server(interaction: "discord.Interaction") -> bool:
+        """Fronts and the model's whole view are spoilers: with Gemini as the GM, "only the GM
+        sees them" means whoever runs the server."""
+        perms = getattr(interaction, "permissions", None)
+        return bool(perms is not None and (perms.manage_guild or perms.administrator))
+
+    async def for_managers(interaction: "discord.Interaction", text) -> None:
+        if not manages_server(interaction):
+            await interaction.response.send_message(
+                "That's for whoever runs the server (Manage Server): it shows what the GM is planning.",
+                ephemeral=True)
+            return
+        await interaction.response.send_message(text(), ephemeral=True)
+
+    @tree.command(name="fronts", description="The threats the GM is planning — server managers only, privately")
+    @app_commands.default_permissions(manage_guild=True)
     async def fronts(interaction: "discord.Interaction") -> None:
-        await interaction.response.send_message(client._fronts_text(), ephemeral=True)
+        await for_managers(interaction, client._fronts_text)
+
+    @tree.command(name="state", description="What the GM is told every turn — server managers only, privately")
+    @app_commands.default_permissions(manage_guild=True)
+    async def state(interaction: "discord.Interaction") -> None:
+        await for_managers(interaction, client._state_text)
 
     @tree.command(name="help", description="Gary's commands")
     async def help_(interaction: "discord.Interaction") -> None:
@@ -173,10 +194,6 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     @tree.command(name="undo", description="Reverse the last change to the world")
     async def undo(interaction: "discord.Interaction") -> None:
         await run(interaction, "undo")
-
-    @tree.command(name="state", description="Clock, scene, party, what is stored, and Gary's counters")
-    async def state(interaction: "discord.Interaction") -> None:
-        await run(interaction, "state")
 
     async def known_people(interaction: "discord.Interaction", current: str) -> List[app_commands.Choice[str]]:
         from .. import npcs as people

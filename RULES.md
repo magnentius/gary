@@ -441,7 +441,10 @@ reviews them — advancing what the party neglected, ending what they dealt with
 unresolved danger up to the campaign front, writing a new adventure front when one is
 resolved. In play the GM notes new threats, ticks portents off (as play shows them, offscreen,
 or as a hard move after a miss), and uses each danger's GM moves. Players never see fronts;
-`/fronts` shows them only to whoever runs it. Every change undoes with `/undo`.
+only people who can manage the server can open `/fronts` (or `/state`, which includes them),
+and only they see the answer. Once a front is over (every danger stopped, or its doom come),
+Gary shows the table what it held: what each danger wanted, which portents came to pass, which
+never did, and what its doom was or would have been. Every change undoes with `/undo`.
 
 **People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
 met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or

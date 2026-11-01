@@ -651,6 +651,21 @@ class GaryClient(discord.Client):
                                             else "📜 **End of session** asks the book's questions again:\n")
                                + "\n".join(f"• {q}" for q in shown) + "\nEach yes is 1 XP for everyone.")
 
+    def _state_text(self) -> str:
+        """`/state`: what the model is told every turn -- fronts and all, so it is the server
+        managers' alone, and private. Notes and NPCs surface only when their subject comes up
+        (§8), so they are counted outside the block rather than left looking missing."""
+        from ..context import render_live_state
+
+        state = self.store.state()
+        body = "```\n" + render_live_state(state) + "\n```"
+        notes, npcs = len(state.get("notes") or []), len(state.get("npcs") or {})
+        if notes or npcs:
+            body += (f"\nAlso stored: **{notes} note(s)**, **{npcs} NPC(s)** — retrieved when their subject "
+                     "is mentioned, so not in the block above. `/notes` lists them.")
+        body += "\n" + self._stats_line()
+        return body if len(body) <= 1990 else body[:1900].rsplit("\n", 1)[0] + "\n…```"
+
     def _fronts_text(self) -> str:
         """Every front, for the DM's eyes only -- or that there are none yet."""
         from .. import fronts
@@ -1582,26 +1597,6 @@ class GaryClient(discord.Client):
                     view.add_item(button)
                     await message.channel.send("\n".join(lines), view=view)
 
-        elif command == "state":
-            from ..context import render_live_state
-
-            state = self.store.state()
-            # Layer 2 verbatim, because the point of this command is to show what the
-            # model is actually told. Notes and NPCs are layer 3 and surface only when
-            # their subject comes up (§8), so they are legitimately absent here -- but
-            # absent and *missing* look identical on screen, and after an import that
-            # filed ten notes this read as if nothing had been stored at all. The counts
-            # go outside the block: still not the model's view, and no longer a silence.
-            body = "```\n" + render_live_state(state) + "\n```"
-            notes, npcs = len(state.get("notes") or []), len(state.get("npcs") or {})
-            if notes or npcs:
-                body += (
-                    f"\nAlso stored: **{notes} note(s)**, **{npcs} NPC(s)** — these are "
-                    "retrieved when their subject is mentioned rather than shown every "
-                    "turn, so they are not in the block above. `/notes` lists them."
-                )
-            body += "\n" + self._stats_line()
-            await self.sender.send(channel_id, body)
 
         elif command == "notes":
             state = self.store.state()

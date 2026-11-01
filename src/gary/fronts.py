@@ -271,3 +271,27 @@ def describe(front: Dict[str, Any]) -> str:
     if front.get("stakes"):
         out.append("Stakes: " + " · ".join(front["stakes"]))
     return "\n".join(out)
+
+
+def over(front: Dict[str, Any]) -> bool:
+    """Every danger in it has ended -- stopped, or its doom come to pass."""
+    return bool(front["dangers"]) and all(d.get("ended") for d in front["dangers"])
+
+
+def reveal(front: Dict[str, Any]) -> str:
+    """For the table, once a front is over: what was coming, what came to pass, and what was
+    stopped. "When a front is resolved take some extra time to sit down and look at the
+    aftermath" -- and with no human GM, the players get to see it too."""
+    lines = [f"📜 **{front['name']}** is over. Here is what the GM had in store:"]
+    for d in front["dangers"]:
+        done = int(d["reached"])
+        doomed = str(d.get("ended", "")).startswith("its doom came to pass")
+        lines.append(f"• **{d['name']}**" + (f" ({d['type']})" if d.get("type") else "") + f" — wanted {d['impulse']}.")
+        if done:
+            lines.append("  Came to pass: " + "; ".join(d["portents"][:done]) + ".")
+        if done < len(d["portents"]):
+            lines.append("  Never happened: " + "; ".join(d["portents"][done:]) + ".")
+        lines.append(f"  {'Its doom came' if doomed else 'Its doom would have been'}: {d['doom']}."
+                     + ("" if doomed else f" Stopped: {d['ended']}."))
+    text = "\n".join(lines)
+    return text if len(text) <= 1900 else text[:1890].rsplit("\n", 1)[0] + "\n…"

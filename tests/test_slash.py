@@ -24,7 +24,8 @@ class _Response:
 
 
 class _Interaction:
-    def __init__(self, channel_id=ROOM):
+    def __init__(self, channel_id=ROOM, manager=False):
+        self.permissions = type("P", (), {"manage_guild": manager, "administrator": False})()
         self.user = type("U", (), {"id": 11, "display_name": "John", "bot": False})()
         self.channel = type("C", (), {"id": channel_id})()
         self.channel_id = channel_id
@@ -55,6 +56,9 @@ class _Client(discord.Client):
 
     def _fronts_text(self):
         return "No fronts yet."
+
+    def _state_text(self):
+        return "the model's view"
 
 
 def call(tree, name, interaction, **kw):
@@ -107,9 +111,23 @@ def test_help_and_fronts_answer_privately(client_and_tree):
     i = _Interaction()
     call(tree, "help", i)
     assert i.response.sent[0][0] == HELP and i.response.sent[0][2] is True
-    i = _Interaction()
+    i = _Interaction(manager=True)
     call(tree, "fronts", i)
     assert i.response.sent == [("No fronts yet.", None, True)]
+
+
+def test_fronts_and_state_are_for_server_managers_only(client_and_tree):
+    """With Gemini as the GM, a player who could open /fronts could read the plot."""
+    _, tree = client_and_tree
+    for name in ("fronts", "state"):
+        player = _Interaction()
+        call(tree, name, player)
+        (text, _, private), = player.response.sent
+        assert private and "Manage Server" in text
+        assert tree.get_command(name).default_permissions.manage_guild
+    manager = _Interaction(manager=True)
+    call(tree, "state", manager)
+    assert manager.response.sent == [("the model's view", None, True)]
 
 
 def test_character_names_autocomplete(client_and_tree):
