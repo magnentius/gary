@@ -36,12 +36,15 @@ ROLLED, NARRATIVE, NOT_YET, PREPARE, COMPANION = "rolled", "narrative", "not yet
 
 def _load() -> Dict[str, Dict[str, Any]]:
     try:
-        return json.loads(_DATA.read_text())["classes"]
+        book = json.loads(_DATA.read_text())["classes"]
     except (OSError, ValueError, KeyError) as exc:
         raise RuntimeError(
             f"Dungeon World class move data missing or unreadable at {_DATA} ({exc}). "
             "Regenerate it with scripts/extract_dw_class_moves.py."
         ) from exc
+    from .playbooks import MOVES as playbook_moves
+
+    return {**book, **playbook_moves}
 
 
 TEXTS = _load()
@@ -59,6 +62,7 @@ _KINDS: Dict[str, Dict[str, str]] = {
     "thief": {"Trap Expert": "trap_expert", "Tricks of the Trade": "tricks_of_the_trade",
               "Backstab": "backstab"},
     "wizard": {"Prepare Spells": PREPARE, "Cast a Spell (Int)": "cast_a_spell"},
+    "barbarian": {"What Are You Waiting For?": "what_are_you_waiting_for"},
 }
 
 
@@ -70,7 +74,7 @@ def _rolls(name: str) -> str:
     return f" Call make_move with move={key}." if key in ADVANCED_ROLLS else ""
 
 
-def moves_of(class_name: str, race: str) -> List[Dict[str, Any]]:
+def moves_of(class_name: str, race: str, chosen: str = "") -> List[Dict[str, Any]]:
     """A character's starting moves: their race move first, then their class's.
 
     Each is {name, text, kind, key}: ``key`` is the make_move name for a rolled move.
@@ -81,9 +85,13 @@ def moves_of(class_name: str, race: str) -> List[Dict[str, Any]]:
         return []
     out: List[Dict[str, Any]] = []
     if race in book["race"]:
-        out.append({"name": f"{race} ({class_name})", "text": book["race"][race],
+        out.append({"name": book.get("race_move") or f"{race} ({class_name})", "text": book["race"][race],
                     "kind": NARRATIVE, "key": None})
+    # "Choose one of these to start with": only the one chosen (sheet choices["start"]).
+    pick = set(book.get("choose_one") or ()) - ({chosen} if chosen else set())
     for move in book["starting"]:
+        if move["name"] in pick:
+            continue
         mapped = _KINDS.get(cls, {}).get(move["name"])
         if mapped in (NOT_YET, PREPARE, COMPANION):
             kind, key = mapped, None
@@ -107,7 +115,7 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
     for actor, sheet in sorted(sheets.items()):
         if "class" not in sheet or sheet.get("dead"):
             continue
-        moves = moves_of(sheet["class"], sheet.get("race", ""))
+        moves = moves_of(sheet["class"], sheet.get("race", ""), (sheet.get("choices") or {}).get("start", ""))
         if not moves:
             continue
         lines.append(f"- {actor} ({sheet.get('race', '')} {sheet['class']}):")

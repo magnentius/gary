@@ -12,6 +12,7 @@ from typing import Awaitable, Callable, Optional
 import discord
 
 from ..levelling import SPELL_MOVES, Advance, move_options
+from ..multiclass import DESTRUCTION
 from ..sheets import STAT_NAMES, SheetError
 from .creator import FORM_TIMEOUT_SECONDS
 
@@ -41,8 +42,12 @@ class LevelUpForm(discord.ui.View):
                                           if SPELL_MOVES[a.move] == "spellbook" else
                                           "choose the spell you will have as if it were one level lower "
                                           "(a first-level one becomes a rote or cantrip)."))
+        elif step == "move_choice" and a.move == "Still Hungry":
+            lines.append(f"{a.move}: choose an additional appetite.")
         elif step == "move_choice":
             lines.append(f"{a.move}: choose the part of your body that bears the mark of the wraith lands.")
+        elif step == "multi_class" and a.move in DESTRUCTION:
+            lines.append(f"{a.move}: choose the fighter, bard or thief, to take an advanced move from.")
         elif step == "multi_class":
             lines.append(f"{a.move}: choose a class to take a move from (your level counts as {a.level - 1}).")
         elif step == "multi_move":
@@ -69,7 +74,8 @@ class LevelUpForm(discord.ui.View):
         elif step == "move_spell":
             self._spell_selects(a.move_spell_options(), a.choose_move_spell, with_class=True)
         elif step == "move_choice":
-            self._select("Mark", [discord.SelectOption(label=c, value=c) for c in a.move_choice_options()],
+            self._select("Appetite" if a.move == "Still Hungry" else "Mark",
+                         [discord.SelectOption(label=c, value=c) for c in a.move_choice_options()],
                          a.choose_move_choice)
         elif step == "multi_class":
             self._select("Class", [discord.SelectOption(label=c.title(), value=c)

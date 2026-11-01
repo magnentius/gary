@@ -98,9 +98,10 @@ class Advance:
             return "move"
         if self.move in SPELL_MOVES and self.move_spell is None and self.move_spell_options():
             return "move_spell"
-        if self.move in compendium.MOVE_CHOICES and self.move_choice is None and self.move_choice_options():
+        if (self.move in compendium.MOVE_CHOICES or self.move == "Still Hungry") and self.move_choice is None \
+                and self.move_choice_options():
             return "move_choice"
-        if self.move in multiclass.MOVES:
+        if self.move in multiclass.GRANTING:
             if self.multi_class is None:
                 return "multi_class"
             if self.multi_move is None:
@@ -136,7 +137,13 @@ class Advance:
         self.move_spell = name
 
     def move_choice_options(self) -> List[str]:
-        """Wraithlander: the body part that bears the mark -- one not already marked."""
+        """Wraithlander: the body part that bears the mark -- one not already marked. Still
+        Hungry: "Choose an additional appetite" -- one they do not have."""
+        if self.move == "Still Hungry":
+            from .choices import appetites_of
+            from .playbooks import appetites
+
+            return [a for a in appetites() if a not in appetites_of(self.sheet)]
         have = set(self.sheet.get("wraith_marks") or ())
         return [c for c in compendium.MOVE_CHOICES.get(self.move, ()) if c not in have]
 
@@ -146,10 +153,11 @@ class Advance:
         self.move_choice = choice
 
     def multi_class_options(self) -> List[str]:
-        return [c for c in multiclass.classes(self.sheet) if multiclass.options(self.sheet, c, self.level)]
+        return [c for c in multiclass.classes(self.sheet, self.move)
+                if multiclass.options(self.sheet, c, self.level, self.move)]
 
     def multi_move_options(self) -> List[Dict[str, Any]]:
-        return multiclass.options(self.sheet, self.multi_class, self.level) if self.multi_class else []
+        return multiclass.options(self.sheet, self.multi_class, self.level, self.move) if self.multi_class else []
 
     def choose_multi_class(self, cls: str) -> None:
         if cls not in self.multi_class_options():
@@ -209,7 +217,9 @@ class Advance:
             sheet["minions"] = [*(sheet.get("minions") or []), slime(f"{sheet['name']}'s slime")]
         if self.move == "Dovahkiin":
             sheet["blood"] = 1  # "You gain a new stat called Blood, which starts at +1."
-        if self.move_choice:
+        if self.move_choice and self.move == "Still Hungry":
+            sheet["more_appetites"] = [*(sheet.get("more_appetites") or ()), self.move_choice]
+        elif self.move_choice:
             sheet["wraith_marks"] = [*(sheet.get("wraith_marks") or ()), self.move_choice]
         # "...the next time you level up you may choose this move": a requirement met is
         # spent on this level whether or not its move was taken.

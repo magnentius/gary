@@ -31,6 +31,8 @@ def _rolls(journal: Iterable[Dict[str, Any]], actor: Optional[str]) -> List[Dict
         faces = payload.get("faces") or []
         if len(faces) != 2 or (actor and entry.get("target", "").lower() != actor.lower()):
             continue
+        if payload.get("dice", "2d6") != "2d6":
+            continue  # Herculean Appetites' 1d6+1d8 is not fair 2d6, by design
         out.append({"actor": entry.get("target", ""), "faces": [int(f) for f in faces],
                     "modifier": int(payload.get("modifier", 0)), "band": payload.get("band", "")})
     return out

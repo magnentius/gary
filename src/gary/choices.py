@@ -5,6 +5,7 @@
     Bard     Bardic Lore: an area of expertise
     Thief    Poisoner: a poison, safe in their hands, with three uses to start
     Fighter  Signature Weapon: a look -- and an Elf, a weapon type that is always precise
+    Barbarian  one of two starting moves, and two Herculean Appetites
 
 On the sheet as ``choices`` (key -> what was chosen), and for a Thief ``poison_uses``. The
 lists are read from the move's own text, so the words are the authors'. Most choices are
@@ -103,6 +104,16 @@ def steps(class_name: str, race: str, favored: bool = False) -> List[Step]:
         names, descriptions = _named(poisons)
         return [Step("poison", "Choose the poison you have mastered — you start with three uses.",
                      names, descriptions)]
+    if cls == "barbarian":
+        from .playbooks import appetites, choose_one
+
+        pair = choose_one("barbarian")
+        texts = {m["name"]: m["text"] for m in TEXTS["barbarian"]["starting"]}
+        return [Step("start", "Choose one of these to start with.", tuple(pair),
+                     tuple(texts[n][:100] for n in pair)),
+                Step("appetite", "Herculean Appetites: choose your first appetite. While pursuing one, you "
+                                 "roll 1d6+1d8 instead of 2d6.", tuple(appetites())),
+                Step("appetite_2", "Choose your second appetite.", tuple(appetites()))]
     if cls == "fighter":
         looks = _bullet_groups("fighter", "Signature Weapon")[-1]
         out = [Step("look", "Choose a look for your signature weapon.", tuple(looks))]
@@ -136,6 +147,8 @@ class Choices:
                 raise SheetError(f"Keep it to {MAX_NAME_CHARS * 2} characters.")
         elif value not in step.options:
             raise SheetError("That is not one of the choices.")
+        if step.key.startswith("appetite") and value in appetites_of({"choices": self.made}):
+            raise SheetError(f"{value} is already one of your appetites: choose another.")
         self.made[step.key] = value
 
     @property
@@ -164,6 +177,14 @@ def poison_text(name: str) -> str:
     return descriptions[names.index(name)] if name in names else ""
 
 
+def appetites_of(sheet: Dict[str, Any]) -> List[str]:
+    """A Barbarian's appetites: the two from creation, any from Still Hungry, less any resolved."""
+    c = sheet.get("choices") or {}
+    got = [c[k] for k in ("appetite", "appetite_2") if c.get(k)] + list(sheet.get("more_appetites") or ())
+    gone = set(sheet.get("resolved_appetites") or ())
+    return [a for a in got if a not in gone]
+
+
 def describe(sheet: Dict[str, Any]) -> str:
     """One line for the player and the model. "" without choices."""
     c = sheet.get("choices") or {}
@@ -182,6 +203,10 @@ def describe(sheet: Dict[str, Any]) -> str:
         parts.append(f"signature weapon looks {c['look'].lower()}")
     if "precise_weapon" in c:
         parts.append(f"{c['precise_weapon'].lower()}s are precise in their hands")
+    if "start" in c:
+        parts.append(f"started with {c['start']}")
+    if appetites_of(sheet):
+        parts.append("appetites: " + ", ".join(a.lower() for a in appetites_of(sheet)))
     return ("Choices — " + "; ".join(parts)) if parts else ""
 
 

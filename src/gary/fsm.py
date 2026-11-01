@@ -88,6 +88,8 @@ POISONS = _poisons()
 
 #: Every move rolls this.
 MOVE_DICE = "2d6"
+#: Herculean Appetites: "instead of rolling 2d6 you roll 1d6+1d8" -- the d6 first.
+APPETITE_DICE = "1d6+1d8"
 
 
 class ChannelState(str, Enum):
@@ -253,6 +255,14 @@ NO_STEADING = ("No steading is recorded for this scene, so its tags (what is for
                "did not apply. If the party is in a village, town, keep or city, call create_steading "
                "(or set_scene with steading set to one already made) before the next purchase.")
 
+def starting_move(sheet: Dict[str, Any], name: str) -> bool:
+    """A class starting move this character has -- for a Barbarian, only the one of the pair
+    they chose."""
+    from .class_moves import moves_of
+
+    chosen = (sheet.get("choices") or {}).get("start", "")
+    return any(m["name"] == name for m in moves_of(str(sheet.get("class", "")), str(sheet.get("race", "")), chosen))
+
 class Director:
     """Stateless decision layer.
 
@@ -400,6 +410,9 @@ class Director:
         weapon_leverage: bool = False,
         dragon_nature: bool = False,
         hurl: bool = False,
+        appetite: bool = False,
+        movement: bool = False,
+        mortal_magic: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -675,6 +688,10 @@ class Director:
         if rules.key == "supply" and steadings.has(self._steading(), "market"):
             mod += 1  # Market: "+1 to supply"
             notes.append(f"+1 Market ({self._steading()['name']})")
+        if advanced.has(mover, "A Good Day to Die") and mover.get("hp") is not None and \
+                int(mover["hp"]) < max(int((mover.get("stats") or {}).get("con", 0)), 1):
+            mod += 1  # "As long as you have less than your Con in current HP... take +1 ongoing"
+            notes.append("+1 A Good Day to Die")
         if (rules.key == "discern_realities" and advanced.has(mover, "Seeing Red")
                 and any(r["hp"] > 0 for r in self._monsters().values())):
             mod += 1
@@ -720,6 +737,17 @@ class Director:
             return [self._refuse(channel_id, situation, "Re-issue make_move without it.")]
         if hurl:
             flags.append("hurl")
+        barbarian_why = self._barbarian_situation(rules.key, actor, appetite, movement, mortal_magic)
+        if barbarian_why:
+            return [self._refuse(channel_id, barbarian_why, "Re-issue make_move without it.")]
+        if appetite:
+            flags.append("appetite")
+            notes.append("1d6+1d8, chasing an appetite")
+        if movement:
+            mod += 1  # On the Move: "When you defy a danger caused by movement... take +1"
+            notes.append("+1 On the Move")
+        if mortal_magic:
+            flags.append("no_miss")  # Healthy Distrust: "treat any result of 6- as a 7-9"
         if minion:
             flags.append(f"minion:{slimes.find(self._sheet_or_empty(actor), minion)['name']}")
         if "spread" in flags:
@@ -772,7 +800,7 @@ class Director:
             stat=stat,
             modifier=mod,
             stakes=stakes,
-            dice=MOVE_DICE,
+            dice=APPETITE_DICE if "appetite" in flags else MOVE_DICE,
             target=target,
             spell=spell,
             companion=companion,
@@ -1102,7 +1130,13 @@ class Director:
         """What a resolved move leaves behind for later: the book's forwards, and what
         a Hack and Slash sets up (armor forward, a marked foe, an ally's strike)."""
         return [*self._book_forwards(channel_id, check, dice), *self._after_hack(channel_id, check),
-                *self._invigorate(channel_id, check, dice)]
+                *self._invigorate(channel_id, check, dice), *self._challenged(channel_id, check, dice)]
+
+    def _challenged(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """What Are You Waiting For?, 10+: the creatures standing now take +2 from them."""
+        if check.move != "what_are_you_waiting_for" or band(dice) != "strong":
+            return []
+        return [UpdateSheet(channel_id, check.actor, {"challenged": list(self._standing())})]
 
     def _situation(
         self, move: str, actor: str, target: str, weak_point: bool, two_weapons: bool,
@@ -1408,7 +1442,7 @@ class Director:
         if check is None or check.rolled or (check_id is not None and check.check_id != check_id):
             return []
 
-        dice, capped = self._intervened(check, self.dice.roll(check.dice, modifier=check.modifier))
+        dice, capped = self._intervened(check, self._roll_move(check))
         dice, capped = self._banners(check, dice, capped)
         rolled = SendMessage(
             channel_id,
@@ -1419,6 +1453,9 @@ class Director:
     def _banners(self, check: PendingCheck, dice: Roll, said: str) -> Tuple[Roll, str]:
         """Call the Banners: "When you recruit from your stronghold or the lands it protects you
         cannot get a 6-, treat that as a 7-9." Here, in the steading that is their stronghold."""
+        if "no_miss" in check.flags and dice.total < 7:
+            lifted = Roll(spec=dice.spec, faces=dice.faces, modifier=7 - sum(dice.faces))
+            return lifted, said + " (Healthy Distrust: against mortal magic a 6- is a 7–9)"
         here = self._steading()
         sheet = self._sheet_or_empty(check.actor)
         if (check.move != "recruit" or dice.total >= 7 or not advanced.has(sheet, "Call the Banners")
@@ -1426,6 +1463,25 @@ class Director:
             return dice, said
         lifted = Roll(spec=dice.spec, faces=dice.faces, modifier=7 - sum(dice.faces))
         return lifted, said + " (Call the Banners: no miss at their stronghold, a 7–9)"
+
+    def _barbarian_situation(self, move: str, actor: str, appetite: bool, movement: bool,
+                             mortal_magic: bool) -> str:
+        """Why a Barbarian flag on make_move does not apply, or ""."""
+        sheet = self._sheet_or_empty(actor)
+        if appetite and not (sheet.get("choices") or {}).get("appetite"):
+            return f"{actor} has no Herculean Appetites to chase."
+        if movement and (move != "defy_danger" or not advanced.has(sheet, "On the Move")):
+            return f"{actor} has no move for defying danger caused by movement (On the Move)."
+        if mortal_magic and (move != "defy_danger" or not advanced.has(sheet, "Healthy Distrust")):
+            return f"{actor} has no Healthy Distrust of mortal magic."
+        return ""
+
+    def _roll_move(self, check: PendingCheck) -> Roll:
+        """The move's dice: 2d6, or a Barbarian's 1d6+1d8, kept as two faces, d6 first."""
+        if check.dice == APPETITE_DICE:
+            d6, d8 = self.dice.roll("1d6"), self.dice.roll("1d8")
+            return Roll(spec=APPETITE_DICE, faces=(*d6.faces, *d8.faces), modifier=check.modifier)
+        return self.dice.roll(check.dice, modifier=check.modifier)
 
     def _compendium_situation(self, move: str, actor: str, weapon_leverage: bool, dragon_nature: bool,
                               hurl: bool) -> str:
@@ -1485,6 +1541,11 @@ class Director:
                     "roll_total": dice.total,
                     "what_it_means": rules.text,
                     "instruction": (
+                        f"The Upper Hand: {check.actor} makes an offer to Death in return for their "
+                        "life, not the other way round. Describe what they glimpse beyond the Black "
+                        "Gates and ask the player what they offer. If Death accepts he returns them "
+                        "to life; if not, they die -- the player chooses next whether to stand by it."
+                        if starting_move(self._sheet_or_empty(check.actor), "The Upper Hand") else
                         f"Describe what {check.actor} glimpses beyond the Black Gates, and "
                         "have Death offer a specific bargain: a real, lasting price for "
                         "stabilizing. End on the offer. Do NOT decide whether they take it -- "
@@ -1559,6 +1620,20 @@ class Director:
         notes: List[str] = []
         if check.move == "supply" and self._steading() is None:
             notes.append(NO_STEADING)
+        if check.dice == APPETITE_DICE and len(dice.faces) == 2 and dice.faces[0] > dice.faces[1]:
+            notes.append("Herculean Appetites: the d6 is the higher die, so also introduce a complication "
+                         "or danger that comes of their heedless pursuit.")
+        if check.move == "hack_and_slash" and dice.total >= 12 and advanced.has(sheet, "Smash!"):
+            notes.append("Smash!: they deal their damage and choose something physical the target has (a weapon, "
+                         "their position, a limb): it loses it.")
+        if check.move == "discern_realities" and band(dice) != "miss" and advanced.has(sheet, "Eye for Weakness"):
+            notes.append("Eye for Weakness: \u201cWhat here is weak or vulnerable?\u201d is on their list too -- "
+                         "if they ask it, answer it as one of their questions.")
+        if check.move == "defy_danger" and dice.total >= 12 and advanced.has(sheet, "The One Who Knocks"):
+            notes.append("The One Who Knocks: they turn the danger back on itself -- describe how.")
+        if check.move == "what_are_you_waiting_for" and dice.total >= 10:
+            notes.append("Gary adds their +2 damage against the creatures standing now; they ignore the "
+                         "companions and come at the challenger.")
         if check.move == "trap_expert":
             if advanced.has(sheet, "Extremely Cautious"):
                 notes.append("Extremely Cautious: +1 hold, even on a 6-. On a 12+ they get 3 hold, and the next "
@@ -1845,6 +1920,8 @@ class Director:
             mod += 1  # A Safe Place: "everyone takes +1 to take watch"
         if move == "last_breath" and any(advanced.has(s, "The Scales of Life and Death") for s in others):
             mod += 1  # "When someone takes their last breath in your presence, they take +1"
+        if move == "last_breath" and starting_move(self._sheet_or_empty(actor), "The Upper Hand"):
+            mod += 1  # The Upper Hand: "You take +1 ongoing to last breath rolls"
         if rules.stat != NOTHING:  # "no stat is added to the Last Breath roll" -- nor anything ongoing
             mod += self._ongoing(actor, move)[0]
         check, _ = self.registry.open(
@@ -1961,6 +2038,7 @@ class Director:
                 extra = int(dice_spec) if dice_spec.isdigit() else self.dice.roll(dice_spec).total
                 total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
             total, shown = self._sworn_damage(sheet or {}, check.target, total, shown)
+            total, shown = self._challenge_damage(sheet or {}, check.target, total, shown)
             total, shown, spent_marks = self._use_marks(channel_id, check.actor, check.target, total, shown)
             effects.extend(spent_marks)
             if (sheet or {}).get("fury"):
@@ -2060,6 +2138,13 @@ class Director:
         record = self._monsters().get(target) or {}
         return sworn in (bare(target), bare(record.get("kind", "")))
 
+    def _challenge_damage(self, sheet: Dict[str, Any], target: str, total: int, shown: str) -> Tuple[int, str]:
+        """What Are You Waiting For?: on a 10+, "take +2 damage ongoing against them" -- the
+        creatures standing when they cried out the challenge."""
+        if not target or target not in (sheet.get("challenged") or ()):
+            return total, shown
+        return total + 2, f"{shown}, +2 challenged = {total + 2}"
+
     def _sworn_damage(self, sheet: Dict[str, Any], target: str, total: int, shown: str) -> Tuple[int, str]:
         """Exterminatus: "+2d4 damage against that enemy and -4 damage against anyone else"."""
         if not sheet.get("sworn_enemy") or not target:
@@ -2076,6 +2161,34 @@ class Director:
             return []
         return [SendMessage(channel_id, f"⚔️ **{actor}** has kept their promise: {target} is defeated."),
                 UpdateSheet(channel_id, actor, {"sworn_enemy": None})]
+
+    def resolve_appetite(
+        self, *, channel_id: int, character: str, appetite: str, new: str = ""
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """More! Always More!: an appetite satisfied to the extreme is resolved -- crossed off,
+        1 XP -- and a new one takes its place, from the list or in their own words."""
+        from .choices import appetites_of
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if not advanced.has(sheet, "More! Always More!"):
+            return [], {"ok": False, "error": f"{actor} does not have More! Always More!"}
+        have = appetites_of(sheet)
+        old = next((a for a in have if a.lower() == str(appetite or "").strip().lower()), None)
+        if old is None:
+            return [], {"ok": False, "error": f"{actor}'s appetites: {', '.join(have) or 'none'}."}
+        new = " ".join(str(new or "").split())[:60]
+        if not new or new.lower() in (a.lower() for a in have):
+            return [], {"ok": False, "error": "Name the new appetite (new): one from the list or their own words, "
+                                              "not one they have."}
+        xp = int(sheet.get("xp", 0)) + 1
+        return [SendMessage(channel_id, f"🍖 **{actor}** has had their fill of {old.lower()} — resolved, +1 XP "
+                                        f"({xp}). Their new appetite: {new.lower()}."),
+                UpdateSheet(channel_id, actor, {
+                    "xp": xp, "resolved_appetites": [*(sheet.get("resolved_appetites") or ()), old],
+                    "more_appetites": [*(sheet.get("more_appetites") or ()), new]})], {"ok": True, "xp": xp}
 
     def swear_enemy(
         self, *, channel_id: int, character: str, enemy: str = "", released: bool = False, reason: str = ""
@@ -2372,6 +2485,7 @@ class Director:
             extra = int(dice_spec) if dice_spec.isdigit() else self.dice.roll(dice_spec).total
             total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
         total, shown = self._sworn_damage(sheet, name, total, shown)
+        total, shown = self._challenge_damage(sheet, name, total, shown)
         total, shown, spent_marks = self._use_marks(channel_id, actor, name, total, shown)
         if self._magic_weapon(blow):
             bonus = self.dice.roll("1d4").total
@@ -2624,7 +2738,7 @@ class Director:
                 continue
             if not MOVES[check.move].callable:
                 # Death and whatever approaches the camp do not wait on a click.
-                dice, capped = self._intervened(check, self.dice.roll(check.dice, modifier=check.modifier))
+                dice, capped = self._intervened(check, self._roll_move(check))
                 effects.append(SendMessage(
                     check.channel_id,
                     f"🎲 **{check.actor}** (rolled for them) rolls {dice.render()} — "
@@ -3127,6 +3241,10 @@ class Director:
             what = f"grits their teeth and takes it as **{name.title()}** (-1 {STAT_NAMES[DEBILITIES[name]]})"
             if advanced.has(mine, "Indomitable"):
                 effects += self._grant(channel_id, presser, f"against {hit['by']} (Indomitable)")
+        elif key == "hunger":
+            effects += self._put_ongoing(channel_id, presser, -1,
+                                         "Indestructible Hunger: until they sate one of their appetites", "it ends")
+            what = "takes the blow into their hunger instead"
         elif key == "shed":
             mine_changes["shape"] = None
             what = f"sheds the {mine['shape'].get('form', 'form')} and the blow with it"

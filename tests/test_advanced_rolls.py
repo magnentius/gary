@@ -11,11 +11,12 @@ CHANNEL, ALICE = 555, 111
 STATS = {"str": 10, "dex": 16, "con": 15, "int": 16, "wis": 15, "cha": 13}
 
 
-def test_all_thirteen_are_read_from_the_book_and_the_compendium():
+def test_every_one_is_read_from_the_book_the_compendium_and_the_playbooks():
     assert sorted(ADVANCED_ROLLS) == sorted([
         "it_goes_to_eleven", "metal_hurlant", "reputation", "communion_of_whispers", "elemental_mastery",
         "heirloom", "evil_eye", "through_deaths_eyes", "connections", "escape_route", "counterspell",
-        "bind", "diplomat"])  # the last two from compendium classes (Flux, Landed Gentry)
+        "bind", "diplomat",  # from compendium classes (Flux, Landed Gentry)
+        "what_are_you_waiting_for", "war_cry", "for_the_blood_god"])  # the Barbarian
     assert MOVES["bind"].stat == "con" and MOVES["bind"].strong.choice.count == 3
     assert MOVES["diplomat"].weak.text.startswith("they name some terms")
     eye = MOVES["evil_eye"]

@@ -195,6 +195,7 @@ class CampaignStore:
                         "stat": outcome.stat,
                         "modifier": outcome.modifier,
                         "faces": list(outcome.faces),
+                        "dice": outcome.dice,
                         "total": outcome.total,
                         "band": outcome.band,
                         "chosen": list(outcome.chosen),

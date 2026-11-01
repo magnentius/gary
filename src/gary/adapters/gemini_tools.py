@@ -61,6 +61,7 @@ ADJUST_STEADING = "adjust_steading"
 SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
+RESOLVE_APPETITE = "resolve_appetite"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
@@ -158,6 +159,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "parley with Wake the Dragon, using greed, wrath or disdain: +Blood.")),
                 "hurl": _s(type=types.Type.BOOLEAN, description=(
                     "volley with Velocitas Eradico: any object up to 2 weight, far only, +Con, no ammo.")),
+                "appetite": _s(type=types.Type.BOOLEAN, description=(
+                    "a Barbarian rolling while pursuing one of THEIR appetites, as their sheet lists them "
+                    "(Herculean Appetites): 1d6+1d8 instead of 2d6. Only when the act itself chases the "
+                    "appetite -- grabbing the torc they covet, crushing a foe for glory -- not every roll in "
+                    "a fight; a higher d6 brings trouble, so it is a cost as well as a boost.")),
+                "movement": _s(type=types.Type.BOOLEAN, description=(
+                    "defy_danger caused by movement, with On the Move: +1.")),
+                "mortal_magic": _s(type=types.Type.BOOLEAN, description=(
+                    "defy_danger caused by magic wielded by mortals, with Healthy Distrust: a 6- counts as 7-9.")),
                 "ally": _s(
                     type=_STRING,
                     description=(
@@ -689,6 +699,23 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="With released: how they redeemed themselves."),
             },
             required=["character"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=RESOLVE_APPETITE,
+        description=(
+            "A Barbarian with More! Always More! satisfies an appetite to the extreme (destroys something "
+            "unique and significant, gains enormous fame, riches or power) and chooses to resolve it: "
+            "Gary crosses it off, marks 1 XP and records the new appetite in its place."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "character": _s(type=_STRING),
+                "appetite": _s(type=_STRING, description="The one resolved, as their sheet names it."),
+                "new": _s(type=_STRING, description="Its replacement: from the list, or the player's own words."),
+            },
+            required=["character", "appetite", "new"],
         ),
     ),
     types.FunctionDeclaration(

@@ -183,5 +183,5 @@ scene.
 
 ---
 
-Dungeon World is by Sage LaTorra and Adam Koebel; its text, and the Player Compendium's,
-are used under [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/).
+Dungeon World is by Sage LaTorra and Adam Koebel; its text, the Player Compendium's and the
+Barbarian playbook's are used under [CC BY 3.0](http://creativecommons.org/licenses/by/3.0/).

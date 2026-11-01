@@ -110,6 +110,19 @@ Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a 
 1 for spells, one level higher with each level after. Name your deity and choose spells from
 the buttons on `/sheet`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
 
+**The Barbarian**, a ninth class from its own playbook, is made like the others: `/new` asks
+which of its two starting moves you start with (Full Plate and Packing Steel, or Unencumbered,
+Unharmed) and your two Herculean Appetites. When you roll while chasing one, the GM marks the
+move and Gary rolls 1d6+1d8 instead of 2d6; if the d6 comes up higher, trouble follows your
+heedless pursuit. A 10+ on What Are You Waiting For? adds +2 to your damage against every
+creature standing; The Upper Hand gives +1 to Last Breath and makes the 7–9 your offer to
+Death. Gary also applies Unencumbered, Unharmed's armor (bare and under your load), Full
+Plate's ignored clumsy, On the Move, Healthy Distrust, A Good Day to Die and Indestructible
+Hunger (a **Reduce damage** choice after a blow), and What Is Best In Life gets its own XP
+button at `/endsession`. Still Hungry adds an appetite at level-up; Appetite for Destruction
+and Kill 'em All take an advanced move from the Fighter, Bard or Thief; More! Always More!
+swaps an appetite for XP. Appetite rolls are left out of `/dice`, as they aren't 2d6.
+
 **Compendium classes** — Divine Bond from the core book, and the Player Compendium's Awakened
 Mind, Bearer, Blob, Dragonslayer, Flux, Landed Gentry and Wraithlander — open when something
 happens in the story: drink a dragon's heart-blood, return from the wraith lands, be granted a

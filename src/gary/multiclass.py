@@ -21,12 +21,22 @@ from .class_moves import TEXTS
 
 MOVES = ("Multiclass Dabbler", "Multiclass Initiate", "Multiclass Master")
 
+#: The Barbarian's: "Take a move from the fighter, bard or thief class list. You may not take
+#: multiclass moves from those classes." The class list is the advanced moves; the level is
+#: their own, not one lower.
+DESTRUCTION = ("Appetite for Destruction", "Kill \u2019em All")
+DESTRUCTION_CLASSES = ("fighter", "bard", "thief")
+GRANTING = MOVES + DESTRUCTION
+
 EXCLUDED = {"Deity", "Commune", "Cast a Spell", "Cast a Spell (Int)", "Spellbook", "Prepare Spells",
             "Animal Companion", "Command"}
 
 
-def classes(sheet: Dict[str, Any]) -> List[str]:
-    """Every class but their own, as the book's data names them ("thief")."""
+def classes(sheet: Dict[str, Any], move: str = "") -> List[str]:
+    """Every class but their own, as the book's data names them ("thief") -- or for Appetite
+    for Destruction and Kill 'em All, the fighter, bard and thief."""
+    if move in DESTRUCTION:
+        return list(DESTRUCTION_CLASSES)
     own = str(sheet.get("class", "")).lower()
     return [c for c in TEXTS if c != own]
 
@@ -35,14 +45,16 @@ def taken(sheet: Dict[str, Any]) -> List[str]:
     return [m["name"] for m in sheet.get("multiclass_moves") or ()]
 
 
-def options(sheet: Dict[str, Any], cls: str, level: int) -> List[Dict[str, Any]]:
+def options(sheet: Dict[str, Any], cls: str, level: int, move: str = "") -> List[Dict[str, Any]]:
     """The moves of ``cls`` someone reaching ``level`` may take: "treat your level as one
-    lower" -- the 2-5 list from an effective level 2, the 6-10 list from 6."""
-    effective = level - 1
+    lower" -- the 2-5 list from an effective level 2, the 6-10 list from 6. Appetite for
+    Destruction: the advanced moves at their own level."""
+    destruction = move in DESTRUCTION
+    effective = level if destruction else level - 1
     have = set(taken(sheet)) | set(sheet.get("advanced_moves") or ())
     book = TEXTS.get(cls, {})
-    out = [{**m, "tier": "starting"} for m in book.get("starting", ())
-           if m["name"] not in EXCLUDED and m["name"] not in have]
+    out = [] if destruction else [{**m, "tier": "starting"} for m in book.get("starting", ())
+                                  if m["name"] not in EXCLUDED and m["name"] not in have]
     for m in book.get("advanced", ()):
         if m["name"] in have or m["name"] in MOVES:
             continue

@@ -38,6 +38,9 @@ SESSION_TIMEOUT_SECONDS = 30 * 60
 #: line to post, or None if it could not be saved.
 Award = Callable[[int, Set[str], Dict[str, str]], Awaitable[Optional[str]]]
 
+#: Marks a What Is Best In Life answer among the fulfilled: "Gorm:best".
+BEST = ":best"
+
 #: Discord's limits: five rows, five buttons in a row.
 _ROWS, _PER_ROW = 5, 5
 
@@ -46,7 +49,7 @@ class EndOfSession(discord.ui.View):
     def __init__(
         self, award: Award, characters: Optional[Dict[str, int]] = None,
         players: Optional[Dict[int, str]] = None, bonds: Optional[Dict[str, list]] = None,
-        questions: Optional[List[str]] = None,
+        questions: Optional[List[str]] = None, best: Optional[Dict[str, int]] = None,
     ) -> None:
         """``characters``: each character with an alignment -> the Discord user who plays
         them, the only one who may say they fulfilled it. ``players``: Discord user ->
@@ -62,6 +65,9 @@ class EndOfSession(discord.ui.View):
         # The Award button takes one place, and Resolve a bond another when anyone has one.
         room = (_ROWS - len(self.questions)) * _PER_ROW - 1 - (1 if self.bonds else 0)
         self.characters = dict(list((characters or {}).items())[:room])
+        # What Is Best In Life (the Barbarian): its own XP, said by the character's player.
+        self.best = dict(list((best or {}).items())[:max(0, room - len(self.characters))])
+        self.crushed: Set[str] = set()
         self.fulfilled: Set[str] = set()
         self.resolved: Dict[str, str] = {}  # character -> the bond line the companion agreed to
         self.message: Optional["discord.Message"] = None  # set by whoever posts the view
@@ -74,6 +80,9 @@ class EndOfSession(discord.ui.View):
         if self.characters:
             lines.append("Each player: did your character act on their alignment? (+1 XP to them)")
             lines += [f"{'✅' if a in self.fulfilled else '⬜'} {a}" for a in self.characters]
+        for actor in self.best:
+            lines.append(f"{'✅' if actor in self.crushed else '⬜'} {actor}: crushed your enemies, saw them "
+                         "driven before you, or heard the lamentations of their kinfolk? (+1 XP)")
         for actor, line in self.resolved.items():
             bond = next(b for b in self.bonds[actor] if b["line"] == line)
             lines.append(f"🤝 {actor} resolves “{bond_rules.written(bond)}” (+1 XP to them)")
@@ -97,6 +106,15 @@ class EndOfSession(discord.ui.View):
                 row=len(self.questions) + i // _PER_ROW,
             )
             button.callback = self._alignment_toggler(actor)
+            self.add_item(button)
+        for j, actor in enumerate(self.best, start=len(self.characters)):
+            done = actor in self.crushed
+            button = discord.ui.Button(
+                label=f"{'✅' if done else '⬜'} {actor}: what is best in life"[:80],
+                style=discord.ButtonStyle.success if done else discord.ButtonStyle.secondary,
+                row=len(self.questions) + j // _PER_ROW,
+            )
+            button.callback = self._best_toggler(actor)
             self.add_item(button)
         if self.bonds:
             resolve = discord.ui.Button(label="Resolve a bond", emoji="🤝",
@@ -123,6 +141,17 @@ class EndOfSession(discord.ui.View):
                     f"Whether {actor} acted on their alignment is their player's to say.", ephemeral=True)
                 return
             self.fulfilled ^= {actor}
+            self._build()
+            await interaction.response.edit_message(content=self.prompt(), view=self)
+
+        return toggle
+
+    def _best_toggler(self, actor: str):
+        async def toggle(interaction: "discord.Interaction") -> None:
+            if interaction.user.id != self.best[actor]:
+                await interaction.response.send_message(f"That is {actor}'s player's to say.", ephemeral=True)
+                return
+            self.crushed ^= {actor}
             self._build()
             await interaction.response.edit_message(content=self.prompt(), view=self)
 
@@ -186,7 +215,8 @@ class EndOfSession(discord.ui.View):
             await interaction.response.send_message("XP is already awarded.", ephemeral=True)
             return
         self.stop()
-        said = await self._award(sum(self.answers), set(self.fulfilled), dict(self.resolved))
+        said = await self._award(sum(self.answers), set(self.fulfilled) | {f"{a}{BEST}" for a in self.crushed},
+                                 dict(self.resolved))
         await interaction.response.edit_message(
             content=self.prompt() + ("\n" + said if said else "\nThat could not be saved."), view=None
         )

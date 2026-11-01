@@ -16,7 +16,7 @@ THORIN = {"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 1, "xp"
 
 
 def test_every_class_has_both_tiers_of_advanced_moves():
-    assert sum(len(c["advanced"]) for c in TEXTS.values()) == 157
+    assert sum(len(c["advanced"]) for c in TEXTS.values()) == 157 + 20  # the Barbarian's twenty
     cleric = {m["name"]: m for m in TEXTS["cleric"]["advanced"]}
     assert cleric["Empower"]["tier"] == "2-5"
     assert cleric["Greater Empower"]["replaces"] == "Empower"

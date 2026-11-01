@@ -1031,7 +1031,10 @@ class GaryClient(discord.Client):
                  if a in sheets and not sheets[a].get("dead")]
         if not party:
             return "Nobody at the table has a character sheet."
-        gains = {s["name"]: yeses + (s["name"] in fulfilled) + (s["name"] in resolved) for s in party}
+        from .session import BEST
+
+        gains = {s["name"]: yeses + (s["name"] in fulfilled) + (s["name"] in resolved)
+                 + (f"{s['name']}{BEST}" in fulfilled) for s in party}
         if not any(gains.values()):
             return "No XP this session."
         updated = []
@@ -1563,6 +1566,8 @@ class GaryClient(discord.Client):
             return
 
         if command == "endsession":
+            from ..advanced import has as advanced_has
+
             sheets = self.store.state().get("sheets") or {}
             aligned = {actor: uid for uid, actor in sorted(self.director.players.items(), key=lambda p: p[1])
                        if actor in sheets and sheets[actor].get("alignment") and not sheets[actor].get("dead")}
@@ -1572,6 +1577,8 @@ class GaryClient(discord.Client):
                 lambda yeses, fulfilled, resolved: self._end_session(yeses, fulfilled, resolved),
                 aligned, living, {a: sheets[a].get("bonds") or [] for a in living.values()},
                 questions=self.store.state().get("session_questions") or None,
+                best={a: uid for uid, a in living.items()
+                      if advanced_has(sheets[a], "What Is Best In Life")},
             )
             view.message = await message.channel.send(view.prompt(), view=view)
             return

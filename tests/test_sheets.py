@@ -33,6 +33,7 @@ def test_every_class_is_extracted_with_what_a_sheet_needs():
     assert {k: (c["base_hp"], c["damage"]) for k, c in CLASSES.items()} == {
         "bard": (6, "d6"), "cleric": (8, "d6"), "druid": (6, "d6"), "fighter": (10, "d10"),
         "paladin": (10, "d10"), "ranger": (8, "d8"), "thief": (6, "d8"), "wizard": (4, "d4"),
+        "barbarian": (8, "d10"),  # from its playbook, by hand
     }
     assert CLASSES["paladin"]["races"] == ["Human"]
     assert all("Human" in c["races"] for c in CLASSES.values())

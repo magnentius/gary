@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from .playbooks import LOAD as _PLAYBOOK_LOAD
 from .gear import (
     CLASS_GEAR, ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES, ClassGear, Item, ammo_of,
     armor_of, item_for, rations_of, signature_weapon,
@@ -35,7 +36,7 @@ DEBILITIES = {"weak": "str", "shaky": "dex", "sick": "con", "stunned": "int",
 
 #: "Your load is 12+Str." -- each class's base, from its gear section.
 LOAD_BASE = {"bard": 9, "cleric": 10, "druid": 6, "fighter": 12, "paladin": 12, "ranger": 11,
-             "thief": 9, "wizard": 7}
+             "thief": 9, "wizard": 7, **_PLAYBOOK_LOAD}
 
 #: Every character assigns exactly these, one to each stat (Character Creation, step 5).
 STAT_ARRAY = (16, 15, 13, 12, 9, 8)
@@ -49,12 +50,15 @@ def _load_classes() -> Dict[str, Dict[str, Any]]:
     """The extracted classes. Fails loudly: a sheet cannot be built without them, and an
     empty class list would show players a form with nothing to choose."""
     try:
-        return json.loads(_DATA.read_text())["classes"]
+        book = json.loads(_DATA.read_text())["classes"]
     except (OSError, ValueError, KeyError) as exc:
         raise RuntimeError(
             f"Dungeon World class data missing or unreadable at {_DATA} ({exc}). "
             "Regenerate it with scripts/extract_dw_classes.py."
         ) from exc
+    from .playbooks import CLASSES as playbook_classes
+
+    return {**book, **playbook_classes}
 
 
 CLASSES: Dict[str, Dict[str, Any]] = _load_classes()
@@ -107,6 +111,8 @@ def clumsy(sheet: Dict[str, Any]) -> str:
     """The clumsy item weighing on every roll ("-1 ongoing while using it"), or ""."""
     if sheet.get("class") in _ARMORED:
         return ""
+    if (sheet.get("choices") or {}).get("start") == "Full Plate and Packing Steel":
+        return ""  # the Barbarian's: "You ignore the clumsy tag on armor you wear"
     return next((g["name"] for g in sheet.get("gear") or () if "clumsy" in (g.get("tags") or ())), "")
 
 

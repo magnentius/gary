@@ -557,6 +557,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.RESOLVE_APPETITE:
+                hunger_effects, result = self._director.resolve_appetite(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    appetite=str(args.get("appetite", "") or ""), new=str(args.get("new", "") or ""))
+                effects.extend(hunger_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.SWEAR_ENEMY:
                 oath_effects, result = self._director.swear_enemy(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -699,6 +707,9 @@ class GeminiNarrator:
             weapon_leverage=bool(args.get("weapon_leverage")),
             dragon_nature=bool(args.get("dragon_nature")),
             hurl=bool(args.get("hurl")),
+            appetite=bool(args.get("appetite")),
+            movement=bool(args.get("movement")),
+            mortal_magic=bool(args.get("mortal_magic")),
             weak_point=bool(args.get("weak_point")),
             two_weapons=bool(args.get("two_weapons")),
             extra_targets=[str(t) for t in args.get("extra_targets") or []],

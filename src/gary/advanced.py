@@ -71,6 +71,24 @@ APPLIED: Dict[str, str] = {
     **{n: "the offer on a 10+ cast, as a note (doubling is yours)" for n in (
         "Empower", "Empowered Magic", "Greater Empower", "Greater Empowered Magic")},
     "Communion of Whispers": "the -1 forward on a miss",
+    # The Barbarian (starting moves are listed here too: applied() is asked about every move shown)
+    "Full Plate and Packing Steel": "ignoring the clumsy tag",
+    "Unencumbered, Unharmed": "the +1 armor, while it holds",
+    "Herculean Appetites": "the 1d6+1d8 when make_move has appetite, and tells you when the d6 is higher",
+    "The Upper Hand": "the +1 to last breath and tells you when the 7-9 is their offer",
+    "What Are You Waiting For?": "the +2 damage against the creatures standing at a 10+",
+    "On the Move": "the +1 when make_move has movement",
+    "Healthy Distrust": "the 6- as 7-9 when make_move has mortal_magic",
+    "A Good Day to Die": "the +1 while their HP is below their Con",
+    "Indestructible Hunger": "the choice after a blow (the Reduce damage button); end the -1 with the ongoing tool",
+    "Smash!": "the note on a 12+",
+    "More! Always More!": "it through resolve_appetite",
+    "What Is Best In Life": "its XP question at the end of the session",
+    "Eye for Weakness": "a reminder on each Discern Realities result",
+    **{n: "the move from the fighter, bard or thief (shown with them)" for n in (
+        "Appetite for Destruction", "Kill 'em All")},
+    "Still Hungry": "the extra appetite, on their sheet",
+    "The One Who Knocks": "the note on a 12+",
     "Metal Hurlant": "the 1d10 damage",
     "Counterspell": "forgetting the staked spell on a 7-9",
     **{n: "the cleric spells: Commune (prepare_spells) and Cast a Spell at their cleric level"
@@ -123,6 +141,17 @@ def has(sheet: Dict[str, Any], name: str) -> bool:
         _same(m["name"]) == wanted for m in sheet.get("multiclass_moves") or ())
 
 
+def unencumbered(sheet: Dict[str, Any]) -> bool:
+    """Unencumbered, Unharmed (the Barbarian's chosen starting move): "So long as you are
+    below your Load and neither wear armor nor carry a shield, take +1 armor"."""
+    from .sheets import carried, load
+
+    if (sheet.get("choices") or {}).get("start") != "Unencumbered, Unharmed" or "gear" not in sheet:
+        return False
+    bare = not any(int(g.get("armor", 0)) or int(g.get("shield", 0)) for g in sheet.get("gear") or ())
+    return bare and carried(sheet) < load(sheet)
+
+
 def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str]]:
     """Armor from advanced moves, and what each is, for a blow landing now."""
     from . import spells
@@ -144,6 +173,8 @@ def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str
     elif questing and has(sheet, "Holy Protection"):
         bonus.append((1, "Holy Protection"))
     worn = int(sheet.get("armor", 0))
+    if unencumbered(sheet):
+        bonus.append((1, "Unencumbered, Unharmed"))
     if worn == 0 and has(sheet, "Divine Armor"):
         bonus.append((3, "Divine Armor"))
     elif worn == 0 and has(sheet, "Divine Protection") and sheet.get("class") == "Cleric":

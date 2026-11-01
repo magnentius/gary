@@ -101,6 +101,8 @@ WORN_BOW = _i("Worn bow", "near", needs_ammo=True, weight=2)
 RAGGED_BOW = _i("Ragged bow", "near", needs_ammo=True, weight=2)
 HUNTERS_BOW = _i("Hunter's bow", "near", "far", needs_ammo=True, weight=1)
 THROWING_DAGGERS = _i("Throwing daggers", "thrown", "near", "3 ammo", ammo=3, needs_ammo=True)
+AXE = _i("Axe", "close", weight=1)
+TWO_HANDED_SWORD = _i("Two-handed sword", "close", "+1 damage", damage=1, weight=2)
 
 
 @dataclass(frozen=True)
@@ -178,6 +180,13 @@ CLASS_GEAR: Dict[str, ClassGear] = {
             ), count=2),
         ),
         signature_weapon=True,
+    ),
+    "barbarian": ClassGear(
+        fixed=(RATIONS, DAGGER, _i("Token of where you've travelled or where you're from")),
+        groups=(
+            Group("Choose your weapon", (_opt(AXE), _opt(TWO_HANDED_SWORD))),
+            Group("Choose one", (_opt(GEAR, RATIONS), _opt(CHAINMAIL))),
+        ),
     ),
     "paladin": ClassGear(
         fixed=(RATIONS, SCALE, _i("Mark of faith")),

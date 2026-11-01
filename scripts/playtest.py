@@ -110,7 +110,11 @@ def party() -> List[Tuple[int, dict]]:
         "Dorn", "fighter", "Human", ("str", "con", "dex", "wis", "cha"), {0: (0,), 1: (0, 3)},
         "Good", choices=("Ancient",), signature=("Sword", "close", (1, 3)),
     )
-    return [(1001, thorin), (1002, dorn)]
+    gorm = _character(
+        "Gorm", "barbarian", "Human", ("str", "con", "dex", "wis", "cha"), {0: (0,), 1: (0,)},
+        "Chaotic", choices=("Unencumbered, Unharmed", "Riches and property", "Conquest"),
+    )
+    return [(1001, thorin), (1002, dorn), (1003, gorm)]
 
 
 # -- scenarios ---------------------------------------------------------------------------
@@ -182,6 +186,20 @@ SCENARIOS: Dict[str, Scenario] = {
         goals={"Dorn": "Hire a capable guard for the barrow (offer good pay and a share), then send "
                        "them ahead into danger.",
                "Thorin": "Help Dorn find a trustworthy hireling and make sure they are paid."},
+    ),
+    "rage": Scenario(
+        "rage",
+        "Low fantasy borderlands. Hill raiders have taken the old watchtower above the road.",
+        ("The raiders' fire in the watchtower's yard", "Six raiders and their chieftain, who wears a "
+                                                       "golden torc, drink around a fire. They have not seen the party."),
+        [
+            ("Gorm", "I stride into the firelight and roar a challenge at the whole lot of them!"),
+            ("Gorm", "I go straight for the chieftain — that golden torc is mine."),
+            ("Thorin", "I stay at Gorm's back and pray Krugon guards him."),
+            ("Gorm", "I keep smashing whoever stands in front of me."),
+        ],
+        goals={"Gorm": "Challenge the raiders, kill their chieftain and take his golden torc for yourself.",
+               "Thorin": "Keep Gorm alive and help finish the raiders."},
     ),
     "camp": Scenario(
         "camp",
@@ -518,8 +536,12 @@ async def run(names: Sequence[str], seed: int, client: Any = None,
     scenarios = scenarios or SCENARIOS
     report = Report()
     table = Table(seed, report, client)
+    # Only the characters these scenarios use: a third body at the table changes every scene.
+    cast = {who for name in names for who, _ in scenarios[name].lines} | \
+        {who for name in names for who in scenarios[name].goals}
     for user_id, sheet in party():
-        table.seat(user_id, sheet)
+        if sheet["name"] in cast:
+            table.seat(user_id, sheet)
     for name in names:
         scenario = scenarios[name]
         report.say(f"\n## Scenario: {name}\n")

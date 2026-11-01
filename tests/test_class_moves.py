@@ -7,8 +7,8 @@ from gary.moves import MOVES
 
 
 def test_every_class_and_race_move_is_extracted():
-    assert sum(len(c["starting"]) for c in TEXTS.values()) == 35
-    assert sum(len(c["race"]) for c in TEXTS.values()) == 18
+    assert sum(len(c["starting"]) for c in TEXTS.values()) == 35 + 6  # the Barbarian's six
+    assert sum(len(c["race"]) for c in TEXTS.values()) == 18 + 4  # Outsider, for each of four races
     assert "Backstab" in [m["name"] for m in TEXTS["thief"]["starting"]]
     assert "Elf" not in [m["name"] for m in TEXTS["bard"]["starting"]]  # race moves apart
 

@@ -235,6 +235,7 @@ class MoveOutcome:
     spell: Optional[dict] = None  # Cast a Spell: the spell, and what became of it
     shape: Optional[dict] = None  # Shapeshifter: the form taken and the hold
     notes: tuple = ()  # what an advanced move adds that Gary does not track (Cautious's hold)
+    dice: str = "2d6"  # what was rolled: 1d6+1d8 for a Barbarian chasing an appetite
 
 
 # --------------------------------------------------------------------------------------

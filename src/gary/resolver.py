@@ -45,6 +45,7 @@ def resolve(
         chosen=tuple(o.text for o in chosen),
         enemy_attacks=rules.enemy_attacks or any(o.enemy_attacks for o in chosen),
         auto_chosen=auto_chosen,
+        dice=roll.spec,
     )
 
 

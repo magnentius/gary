@@ -574,10 +574,17 @@ def _generated() -> Dict[str, Move]:
     path = Path(__file__).parent / "data" / "class_moves.json"
     book = json.loads(path.read_text(encoding="utf-8"))["classes"]
     extra = json.loads((Path(__file__).parent / "data" / "compendium.json").read_text(encoding="utf-8"))["classes"]
+    from .playbooks import MOVES as playbook_moves
+
+    book = {**book, **playbook_moves}
     out: Dict[str, Move] = {}
-    lists = [moves["advanced"] for moves in book.values()] + [[c["starting"], *c["moves"]] for c in extra]
+    # A playbook's rolled starting moves are generated too, owned by its class rather than
+    # gated on an advanced move (the core classes' starting moves are written by hand above).
+    owned = [(m, (cls.title(),)) for cls, moves in playbook_moves.items() for m in moves["starting"]]
+    lists = ([[(m, ()) for m in moves["advanced"]] for moves in book.values()] + [owned]
+             + [[(m, ()) for m in (c["starting"], *c["moves"])] for c in extra])
     for advanced_list in lists:
-        for m in advanced_list:
+        for m, owners in advanced_list:
             text = m["text"].replace("\n", " ")
             stat = _ROLL.search(text)
             if not stat or move_key(m["name"]) in out:
@@ -601,13 +608,17 @@ def _generated() -> Dict[str, Move]:
                 choose = _CHOOSE.search(body) if name != MISS else None
                 choice = Choice(_COUNT[choose[1].lower()], tuple(Option(b) for b in bullets)) \
                     if choose and bullets else None
+                if bullets and not choice and name != MISS:
+                    # "On a 10+ both, on a 7-9 one or the other": the options are the result.
+                    body = f"{body.rstrip(',')} -- " + "; ".join(bullets)
                 if name == MISS and not body:
                     return _MISS
                 return Band(body or "The GM makes a move.", choice=choice,
                             deals_damage=bool(extra.get("deals")) and name != MISS)
 
             out[key] = Move(key, m["name"], trigger, stat[1].lower(), strong=band(STRONG), weak=band(WEAK),
-                            miss=band(MISS), damage_die=extra.get("damage_die"), requires=m["name"])
+                            miss=band(MISS), damage_die=extra.get("damage_die"),
+                            requires=None if owners else m["name"], classes=owners)
     return out
 
 

@@ -325,7 +325,10 @@ attribution and source commit: classes (8), class moves (35 starting, 18 race, 1
 advanced, bond lines and alignments), monsters (154; 142 with stats), equipment (45
 items), spells (33 Cleric, 30 Wizard), magic items (39), and the Instant NPC tables (100
 instincts, 100 knacks, names). The compendium classes (8) come from the backers' Player
-Compendium PDF (CC-BY 3.0) via `pdftotext`, plus the core book's Divine Bond. Every extractor fails loudly on anything it cannot
+Compendium PDF (CC-BY 3.0) via `pdftotext`, plus the core book's Divine Bond. The Barbarian, a
+playbook released on its own (CC-BY 3.0), is transcribed by hand into `data/playbooks.json` and
+merged in by `playbooks.py` wherever the book's classes load, so re-running the extractors
+cannot wipe it. Every extractor fails loudly on anything it cannot
 read, and the loaders raise at import if a file is missing, because an empty bestiary is
 indistinguishable from "everything is homebrew".
 
@@ -911,7 +914,7 @@ nightly sync to Cloud Storage.
 `HEALTHCHECK` that imports the adapters and every data-loading module.
 `.github/workflows/docker.yml` tests, builds, smoke-tests and publishes to `ghcr.io` on
 `main` and `v*` tags; a pull request builds and smoke-tests but publishes nothing. The smoke
-test asserts the installed image carries all the rules data (8 classes, 154 monsters, 45
+test asserts the installed image carries all the rules data (9 classes, 154 monsters, 45
 items, class moves, 63 spells) and rolls a die: `pip install .` once shipped no
 `data/*.json`, and a suite run from source cannot catch that.
 
@@ -1027,6 +1030,7 @@ src/gary/
   advanced.py      advanced moves Gary applies; what the model is told it applies   §6.3
   multiclass.py    Multiclass Dabbler, Initiate, Master                             §6.10
   compendium.py    compendium classes: requirements, starting and follow-on moves   §6.10
+  playbooks.py     classes from standalone playbooks (the Barbarian), merged in     §6.1
   slimes.py        Blob's slime minions, ooze form, copies                          §6.10
   quests.py        the Paladin's Quest                                              §6.10
   reactions.py     answering a blow: Spell Defense, Armor Mastery, Bloody Aegis...  §6.8

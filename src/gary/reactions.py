@@ -91,6 +91,10 @@ def _own_reductions(sheet: Dict[str, Any], dealt: int) -> List[Reaction]:
             if name not in have:
                 out.append(Reaction(f"aegis:{name}", f"Grit your teeth: no damage, but {name.title()}",
                                     dealt, "Bloody Aegis"))
+    if advanced.has(sheet, "Indestructible Hunger") and not any(
+            str(o.get("reason", "")).startswith("Indestructible Hunger") for o in sheet.get("ongoing_mods") or ()):
+        out.append(Reaction("hunger", "Feed on it: no damage, -1 ongoing until you sate an appetite", dealt,
+                            "Indestructible Hunger"))
     if advanced.has(sheet, "Shed") and sheet.get("shape"):
         out.append(Reaction("shed", f"Shed the {sheet['shape'].get('form', 'form')} (no damage)"[:80], dealt, "Shed"))
     pet = sheet.get("companion")
