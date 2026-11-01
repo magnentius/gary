@@ -394,6 +394,11 @@ goes, including while the party is elsewhere. Gemini is shown each danger's next
 every turn, so it can foreshadow it. Players never see them; `/fronts` shows them only to
 whoever runs it. Every change undoes with `/undo`.
 
+**People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
+met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or
+devoted) and a line on who they are. The GM's notes on them stay hidden, and so do people
+from an imported setting until the party meets them, or a villain the GM keeps offscreen.
+
 **Instant NPCs.** When someone becomes important in the moment, the GM can have Gary roll the
 book's Instant NPC tables: an instinct (what they want), a knack (how they might get it) and
 a name nobody in the campaign has yet.

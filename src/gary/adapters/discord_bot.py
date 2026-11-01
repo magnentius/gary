@@ -1693,20 +1693,20 @@ class GaryClient(discord.Client):
             for subject in sorted({str(n.get("subject", "")) for n in state.get("notes") or []}):
                 count = sum(1 for n in state["notes"] if n.get("subject") == subject)
                 lines.append(f"- {subject} ({count})" if count > 1 else f"- {subject}")
-            people = sorted(
-                str(v.get("name") or k) for k, v in (state.get("npcs") or {}).items()
-            )
             parts = []
             if lines:
                 parts.append("**Notes**, by subject — say one to bring it into play:\n"
                              + "\n".join(lines))
-            if people:
-                parts.append("**People**: " + ", ".join(people))
             await self.sender.send(
                 channel_id,
                 "\n\n".join(parts) if parts
                 else "Nothing filed yet. `/import` a setting file, or just tell me.",
             )
+
+        elif command == "npcs":
+            from .. import npcs as people
+
+            await self.sender.send(channel_id, people.roster(self.store.state(), body[len("npcs"):].strip() or None))
 
         elif command == "stats":  # the last line of /state
             await self.sender.send(channel_id, self._stats_line())

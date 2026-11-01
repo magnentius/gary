@@ -965,7 +965,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "another character mentions counts, and needs this more than someone present, "
             "because nothing else anchors them until the party finally meets them. A role "
             "a player could ask for ('the harbour master', 'Maren's son') is a name. Omit "
-            "a field to leave it unchanged; disposition runs -5 hostile to +5 devoted."
+            "a field to leave it unchanged; disposition runs -5 hostile to +5 devoted. "
+            "Players see /npcs: everyone the party has met or heard of, with `public` and "
+            "how they feel -- never `note`, which is yours."
         ),
         parameters=_s(
             type=_OBJECT,
@@ -976,7 +978,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 ),
                 "name": _s(type=_STRING, description="Display name, e.g. 'Garik Harlen'."),
                 "disposition": _s(type=_INTEGER, description="-5 hostile to +5 devoted."),
-                "note": _s(type=_STRING, description="Appended to what is already known."),
+                "note": _s(type=_STRING, description="GM-only, appended to what is already known: "
+                                                     "secrets, plans, instincts."),
+                "public": _s(type=_STRING, description=(
+                    "One line the party knows, shown to players: who they are and how they met, "
+                    "e.g. 'apothecary by the temple; insists on every tariff'. No secrets.")),
+                "secret": _s(type=types.Type.BOOLEAN, description=(
+                    "True for someone the party has not met or heard of -- a hidden villain, a "
+                    "plotter offscreen. They stay off /npcs until mentioned without it.")),
             },
             required=["npc_id"],
         ),

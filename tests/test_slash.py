@@ -72,7 +72,7 @@ def client_and_tree():
 def test_every_command_is_in_help(client_and_tree):
     _, tree = client_and_tree
     names = {c.name for c in tree.get_commands()}
-    assert len(names) == 17
+    assert len(names) == 18
     assert {n for n in names if f"`/{n}" not in HELP} == set()
 
 

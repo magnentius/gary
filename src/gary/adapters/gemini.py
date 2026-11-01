@@ -129,6 +129,8 @@ class GeminiNarrator:
         # Who spoke to start the turn now running, per channel. Read only under that
         # channel's turn lock, so a concurrent turn elsewhere cannot change it.
         self._speaker: Dict[int, int] = {}
+        # What kind of turn each channel is in: an import's people are not yet known to the party.
+        self._kind: Dict[int, str] = {}
 
     # -- Narrator ----------------------------------------------------------------------
 
@@ -155,6 +157,7 @@ class GeminiNarrator:
         """
         async with self._turn_lock(channel_id):
             self._speaker[channel_id] = int(payload.get("speaker_user_id") or 0)
+            self._kind[channel_id] = kind
             return await self._narrate_locked(channel_id, kind, payload)
 
     async def _narrate_locked(
@@ -663,7 +666,7 @@ class GeminiNarrator:
                 return True, responses
 
             try:
-                result = self._call_tool(name, args)
+                result = self._call_tool(name, args, channel_id)
             except Exception as exc:  # noqa: BLE001 - report to the model, do not crash
                 log.exception("tool %s failed", name)
                 result = {"ok": False, "error": str(exc)}
@@ -1042,7 +1045,7 @@ class GeminiNarrator:
                     reason=f"front {front['name']}: {danger['name']}")
         return result
 
-    def _call_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
+    def _call_tool(self, name: str, args: Dict[str, Any], channel_id: int = 0) -> Dict[str, Any]:
         store = self._store
 
         if name == T.ADVANCE_TIME:
@@ -1091,11 +1094,16 @@ class GeminiNarrator:
                 payload["name"] = str(args["name"])
             if args.get("disposition") is not None:
                 payload["disposition"] = int(args["disposition"])
+            if args.get("public"):
+                payload["public"] = " ".join(str(args["public"]).split())[:200]
+            before = store.state().get("npcs", {}).get(str(args["npc_id"])) or {}
             if args.get("note"):
-                existing = (store.state().get("npcs", {}).get(str(args["npc_id"])) or {}).get(
-                    "notes", []
-                )
-                payload["notes"] = list(existing) + [str(args["note"])]
+                payload["notes"] = list(before.get("notes", [])) + [str(args["note"])]
+            # Known to the party unless they are only in the GM's material: everyone in an
+            # imported setting, or someone the model marks secret. Once known, always known.
+            if not before.get("known"):
+                hidden = self._kind.get(channel_id) == "import_document" or bool(args.get("secret"))
+                payload["known"] = not hidden
             return _diff_result(store.apply(
                 [Mutation(MutationKind.NPC_RELATION, str(args["npc_id"]), payload)],
                 reason=f"npc {args.get('name') or args['npc_id']}",

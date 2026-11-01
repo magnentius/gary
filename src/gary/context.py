@@ -113,6 +113,8 @@ CONTINUITY — prose is not memory. Only tool calls survive the session:
   harbour master an NPC mentions in passing has nothing anchoring him, so by the time the
   party finally meets him you will have reinvented his rank, his temper and his motive.
   "Maren's son who works the customs slip" counts: a role is a name a player can ask for.
+  Give `public` a line the players may read on /npcs (who, and how they met); secrets go
+  in `note`. Someone the party has not met or heard of is secret=true.
   Set disposition when their attitude is clear — someone who lowers their voice and tells
   you what their son saw is not neutral.
 - Call record_note whenever you put information in an NPC's mouth, or draw attention to
@@ -466,7 +468,9 @@ def _render_people(npcs: Dict[str, Any], subjects: Sequence[str], mentioned_in: 
         bits = f"{name}"
         if isinstance(disposition, int):
             bits += f" (disposition {disposition:+d})"
-        notes = "; ".join(str(n) for n in (npc.get("notes") or [])[-3:])
+        if not npc.get("known", True):
+            bits += " [the party has not met or heard of them]"
+        notes = "; ".join(str(n) for n in ([npc["public"]] if npc.get("public") else []) + (npc.get("notes") or [])[-3:])
         lines.append(f"- {bits}" + (f": {notes}" if notes else ""))
     return "PEOPLE:\n" + "\n".join(lines) if lines else ""
 

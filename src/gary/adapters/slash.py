@@ -49,6 +49,7 @@ __At the table__
 
 __Looking in__
 `/state` — clock, scene, party, what is stored, and Gary's counters
+`/npcs` · `/npcs name:` — the people you've met or heard of
 `/notes` — what has been filed, by subject
 `/help` — this list
 
@@ -195,6 +196,18 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     @tree.command(name="state", description="Clock, scene, party, what is stored, and Gary's counters")
     async def state(interaction: "discord.Interaction") -> None:
         await run(interaction, "state")
+
+    async def known_people(interaction: "discord.Interaction", current: str) -> List[app_commands.Choice[str]]:
+        from .. import npcs as people
+
+        names = [str(n["name"]) for n in people.known(client.store.state())]
+        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names if current.lower() in n.lower()][:25]
+
+    @tree.command(name="npcs", description="The people you've met or heard of")
+    @app_commands.describe(name="Just this person")
+    @app_commands.autocomplete(name=known_people)
+    async def npcs(interaction: "discord.Interaction", name: Optional[str] = None) -> None:
+        await run(interaction, f"npcs {name or ''}")
 
     @tree.command(name="notes", description="What has been filed, by subject")
     async def notes(interaction: "discord.Interaction") -> None:

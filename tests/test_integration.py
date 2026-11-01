@@ -657,7 +657,11 @@ def test_dm_notes_lists_subjects_a_player_would_say():
     body = " ".join(sent)
     assert "- The Leaf-Mote (2)" in body      # count only where there is more than one
     assert "- The Rootbound" in body and "The Rootbound (" not in body
-    assert "Liriel" in body
+    # People are /npcs's, and only the ones the party knows: Liriel came from the GM's
+    # material, so /notes naming her would be a spoiler.
+    assert "Liriel" not in body
+    asyncio.run(dispatch(Msg("?dm npcs")))
+    assert "hasn't met anyone" in sent[-1]
 
 
 def test_dm_notes_on_an_empty_campaign_says_so():
