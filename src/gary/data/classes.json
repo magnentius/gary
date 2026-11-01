@@ -9,6 +9,28 @@
       "races": [
         "Elf",
         "Human"
+      ],
+      "looks": [
+        [
+          "Knowing Eyes",
+          "Fiery Eyes",
+          "Joyous Eyes"
+        ],
+        [
+          "Fancy Hair",
+          "Wild Hair",
+          "Stylish Cap"
+        ],
+        [
+          "Finery",
+          "Traveling Clothes",
+          "Poor Clothes"
+        ],
+        [
+          "Fit Body",
+          "Well-fed Body",
+          "Thin Body"
+        ]
       ]
     },
     "cleric": {
@@ -18,6 +40,28 @@
       "races": [
         "Dwarf",
         "Human"
+      ],
+      "looks": [
+        [
+          "Kind Eyes",
+          "Sharp Eyes",
+          "Sad Eyes"
+        ],
+        [
+          "Tonsure",
+          "Strange Hair",
+          "Bald"
+        ],
+        [
+          "Flowing Robes",
+          "Habit",
+          "Common Garb"
+        ],
+        [
+          "Thin Body",
+          "Knobby Body",
+          "Flabby Body"
+        ]
       ]
     },
     "druid": {
@@ -28,6 +72,23 @@
         "Elf",
         "Human",
         "Halfling"
+      ],
+      "looks": [
+        [
+          "Wise Eyes",
+          "Wild Eyes",
+          "Haunting Eyes"
+        ],
+        [
+          "Furry Hood",
+          "Messy Hair",
+          "Braided Hair"
+        ],
+        [
+          "Ceremonial Garb",
+          "Practical Leathers",
+          "Weathered Hides"
+        ]
       ]
     },
     "fighter": {
@@ -39,6 +100,28 @@
         "Elf",
         "Halfling",
         "Human"
+      ],
+      "looks": [
+        [
+          "Hard Eyes",
+          "Dead Eyes",
+          "Eager Eyes"
+        ],
+        [
+          "Wild Hair",
+          "Shorn Hair",
+          "Battered Helm"
+        ],
+        [
+          "Calloused Skin",
+          "Tanned Skin",
+          "Scarred Skin"
+        ],
+        [
+          "Built Body",
+          "Lithe Body",
+          "Ravaged Body"
+        ]
       ]
     },
     "paladin": {
@@ -47,6 +130,27 @@
       "damage": "d10",
       "races": [
         "Human"
+      ],
+      "looks": [
+        [
+          "Kind Eyes",
+          "Fiery Eyes",
+          "Glowing Eyes"
+        ],
+        [
+          "Helmet",
+          "Styled Hair",
+          "Bald"
+        ],
+        [
+          "Worn Holy Symbol",
+          "Fancy Holy Symbol"
+        ],
+        [
+          "Fit Body",
+          "Bulky Body",
+          "Thin Body"
+        ]
       ]
     },
     "ranger": {
@@ -56,6 +160,28 @@
       "races": [
         "Elf",
         "Human"
+      ],
+      "looks": [
+        [
+          "Wild Eyes",
+          "Sharp Eyes",
+          "Animal Eyes"
+        ],
+        [
+          "Hooded Head",
+          "Wild Hair",
+          "Bald"
+        ],
+        [
+          "Cape",
+          "Camouflage",
+          "Traveling Clothes"
+        ],
+        [
+          "Lithe Body",
+          "Wild Body",
+          "Sharp Body"
+        ]
       ]
     },
     "thief": {
@@ -65,6 +191,27 @@
       "races": [
         "Halfling",
         "Human"
+      ],
+      "looks": [
+        [
+          "Shifty Eyes",
+          "Criminal Eyes"
+        ],
+        [
+          "Hooded Head",
+          "Messy Hair",
+          "Cropped Hair"
+        ],
+        [
+          "Dark Clothes",
+          "Fancy Clothes",
+          "Common Clothes"
+        ],
+        [
+          "Lithe Body",
+          "Knobby Body",
+          "Flabby Body"
+        ]
       ]
     },
     "wizard": {
@@ -74,6 +221,28 @@
       "races": [
         "Elf",
         "Human"
+      ],
+      "looks": [
+        [
+          "Haunted Eyes",
+          "Sharp Eyes",
+          "Crazy Eyes"
+        ],
+        [
+          "Styled Hair",
+          "Wild Hair",
+          "Pointed Hat"
+        ],
+        [
+          "Worn Robes",
+          "Stylish Robes",
+          "Strange Robes"
+        ],
+        [
+          "Pudgy Body",
+          "Creepy Body",
+          "Thin Body"
+        ]
       ]
     }
   }

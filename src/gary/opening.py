@@ -77,9 +77,13 @@ def premise(place: str, activity: str) -> str:
 
 def introductions(party: Sequence[Dict]) -> str:
     lines = ["**Introductions.** Each of you, tell the table who your character is and what they look like "
-             "— their eyes, their body, what they wear. Ask each other anything. (Bonds come later.)"]
+             "— bring the look below to life. Ask each other anything. (Bonds come later.)"]
+    from .choices import look_of
+
     for sheet in party:
-        lines.append(f"• **{sheet['name']}**, {sheet.get('race', '')} {sheet.get('class', '')}".rstrip())
+        look = look_of(sheet)
+        lines.append(f"• **{sheet['name']}**, {sheet.get('race', '')} {sheet.get('class', '')}".rstrip()
+                     + (f" — {look}" if look else ""))
     return "\n".join(lines)
 
 

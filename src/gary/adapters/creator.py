@@ -368,6 +368,15 @@ def add_choice_step(view: "discord.ui.View", step, choose) -> None:
 
         button.callback = open_modal
         view.add_item(button)
+        if step.optional:
+            skip = discord.ui.Button(label="Skip", style=discord.ButtonStyle.secondary)
+
+            async def skipped(interaction: "discord.Interaction") -> None:
+                handler = await choose("")
+                await handler(interaction)
+
+            skip.callback = skipped
+            view.add_item(skip)
         return
     # The prompt is shown above; a dropdown cuts a long placeholder off mid-word.
     select = discord.ui.Select(placeholder="Choose one", options=[
@@ -390,6 +399,7 @@ class ChoiceModal(discord.ui.Modal, title="Your choice"):
         # Discord cuts a text box's label at 45 characters, so the long prompt stays on the
         # form and the box gets a short label, with examples as its placeholder.
         self.answer.label = (step.label or step.prompt)[:45]
+        self.answer.required = not step.optional
         if step.placeholder:
             self.answer.placeholder = step.placeholder[:100]
         self._choose = choose

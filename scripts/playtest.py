@@ -78,6 +78,8 @@ def _character(name: str, cls: str, race: str, order: Sequence[str], gear: Dict[
     d.choose_alignment(alignment)
     for value in choices:
         d.choose_class_choice(value)
+    while (step := d.class_choices().step()) is not None:  # the look: the first of each list
+        d.choose_class_choice(step.options[0] if step.options else "")
     d.choose_name(name)
     sheet = d.build()
     if spells.caster_class(sheet):

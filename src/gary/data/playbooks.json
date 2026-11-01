@@ -11,6 +11,31 @@
      "Elf",
      "Halfling",
      "Human"
+    ],
+    "looks": [
+     [
+      "Tormented eyes",
+      "Haunted eyes",
+      "Wild eyes",
+      "Shrouded eyes"
+     ],
+     [
+      "Mighty thews",
+      "Long shanks",
+      "Scrawny body",
+      "Supple body"
+     ],
+     [
+      "Strange tattoos",
+      "Unusual jewelry",
+      "Unmarred by decoration"
+     ],
+     [
+      "Scraps",
+      "Silks",
+      "Scavenger's outfit",
+      "Weather-inappropriate clothes"
+     ]
     ]
    },
    "load": 8,
@@ -51,31 +76,6 @@
     "All-Mighty",
     "the Giant",
     "the Triumphant"
-   ],
-   "looks": [
-    [
-     "Tormented eyes",
-     "Haunted eyes",
-     "Wild eyes",
-     "Shrouded eyes"
-    ],
-    [
-     "Mighty thews",
-     "Long shanks",
-     "Scrawny body",
-     "Supple body"
-    ],
-    [
-     "Strange tattoos",
-     "Unusual jewelry",
-     "Unmarred by decoration"
-    ],
-    [
-     "Scraps",
-     "Silks",
-     "Scavenger's outfit",
-     "Weather-inappropriate clothes"
-    ]
    ],
    "moves": {
     "race_move": "Outsider",

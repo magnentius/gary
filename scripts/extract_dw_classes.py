@@ -6,7 +6,8 @@ style, where the Markdown and HTML copies have lost both.
 
     python scripts/extract_dw_classes.py ~/github/Dungeon-World
 
-Only what a sheet needs today: name, base HP, damage die, and the races the class offers.
+What a sheet needs: name, base HP, damage die, the races the class offers, and its looks
+(one list per line of "Choose one for each": eyes, hair, clothes, body).
 Gary has no other source for these, so the extraction fails loudly rather than writing a
 class with a field missing.
 """
@@ -51,11 +52,18 @@ def extract(path: Path) -> dict:
         if racial is not None else []
     )
 
+    look = next((el for el in every if el.get("id") == "look"), None)
+    looks = [] if look is None else [
+        [o.strip() for o in re.split(r",\s*(?:or\s+)?|\s+or\s+", _text(p)) if o.strip()]
+        for p in look.iter("p") if not _text(p).lower().startswith("choose")]
+
     # `is None`, not truthiness: an Element with no children is falsy, which is exactly
     # what the damage span is.
     missing = [n for n, v in (("base HP", hp), ("damage", damage)) if v is None]
     if not races:
         missing.append("races")
+    if not looks or any(len(options) < 2 for options in looks):
+        missing.append("looks")
     if missing:
         raise SystemExit(f"{path.name}: could not find {', '.join(missing)}")
 
@@ -64,6 +72,7 @@ def extract(path: Path) -> dict:
         "base_hp": int(hp[1]),
         "damage": _text(damage),
         "races": races,
+        "looks": looks,
     }
 
 

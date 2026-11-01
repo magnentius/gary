@@ -7,7 +7,7 @@ import asyncio
 import pytest
 
 from gary import choices
-from gary.choices import Choices, steps
+from gary.choices import Choices, look_of, look_steps, steps
 from gary.fsm import Director, SendMessage, UpdateSheet
 from gary.sheets import Draft, SheetError
 
@@ -26,9 +26,26 @@ def test_each_class_chooses_from_the_books_lists():
     poison = steps("Thief", "Halfling")[0]
     assert poison.options == ("Oil of Tagit", "Bloodweed", "Goldenroot", "Serpent’s Tears")
     assert poison.descriptions[1] == "touch: The target deals -1d4 damage ongoing until cured"
-    assert [s.key for s in steps("Fighter", "Human")] == ["look"]
-    assert [s.key for s in steps("Fighter", "Elf")] == ["look", "precise_weapon"]
-    assert steps("Ranger", "Elf") == []
+    def own(cls, race):
+        return [s.key for s in steps(cls, race) if not s.key.startswith("look_")]
+
+    assert own("Fighter", "Human") == ["look"]  # the signature weapon's look
+    assert own("Fighter", "Elf") == ["look", "precise_weapon"]
+    assert own("Ranger", "Elf") == []
+
+
+def test_every_class_has_a_look_from_the_book():
+    fighter = look_steps("Fighter")
+    assert fighter[0].options == ("Hard Eyes", "Dead Eyes", "Eager Eyes") and len(fighter) == 5
+    assert fighter[-1].optional and fighter[-1].written
+    assert look_steps("Barbarian")[2].options == ("Strange tattoos", "Unusual jewelry", "Unmarred by decoration")
+    assert look_steps("Druid")[-2].options[1] == "Practical Leathers"  # three lists, then the free line
+    c = Choices("Ranger", "Elf")
+    for v in ("Wild Eyes", "Bald", "Cape", "Lithe Body", ""):
+        c.choose(v)
+    assert c.complete and look_of({"choices": c.made}) == "Wild Eyes, Bald, Cape, Lithe Body"
+    assert look_of({"choices": {**c.made, "look_own": "a hawk feather behind one ear"}}).endswith(
+        "; a hawk feather behind one ear")
 
 
 def test_choosing_checks_each_step():
@@ -40,6 +57,9 @@ def test_choosing_checks_each_step():
         c.choose("Fishing")
     c.choose("What Lies Beneath")
     c.choose(steps("Cleric", "Dwarf")[2].options[2])
+    assert c.step().key == "look_0"  # then the look
+    for v in ("Kind Eyes", "Bald", "Habit", "Thin Body", ""):
+        c.choose(v)
     assert c.complete and c.made["deity"] == "Krugon the Bleak"
 
 
@@ -146,9 +166,13 @@ def test_the_choices_form_saves_when_all_are_made():
         await (await form._choose("The Great Forests"))(type("I", (), {"response": _Resp()})())
         assert "Your tell" in edits[-1][0]
         await (await form._choose("antlers of birch"))(type("I", (), {"response": _Resp()})())
+        assert "Your look (1 of 3)" in edits[-1][0]  # the Druid's book lists no body
+        for look in ("Wise Eyes", "Braided Hair", "Weathered Hides", ""):
+            await (await form._choose(look))(type("I", (), {"response": _Resp()})())
 
     asyncio.run(run())
-    assert saved == [{"land": "The Great Forests", "tell": "antlers of birch"}]
+    assert saved == [{"land": "The Great Forests", "tell": "antlers of birch", "look_0": "Wise Eyes",
+                      "look_1": "Braided Hair", "look_2": "Weathered Hides", "look_own": ""}]
     assert edits[-1] == ("✅ Chosen.", None)
 
 
@@ -173,7 +197,8 @@ def test_the_confirmation_shows_alignment_and_class_choices():
         d.choose_gear(1, [0])
         d.choose_gear(2, [0])
         d.choose_alignment("Good")
-        for value in ("Testgod", "Civilization", "Petition: Offering"):
+        for value in ("Testgod", "Civilization", "Petition: Offering", "Kind Eyes", "Tonsure", "Habit",
+                      "Thin Body", ""):
             d.choose_class_choice(value)
         d.choose_name("Formtest")
         return view.prompt()

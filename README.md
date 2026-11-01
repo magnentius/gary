@@ -67,8 +67,8 @@ Little is prepared: the world is built at the table, from the players' answers. 
 
 1. **A premise.** Gary offers fantastic places and grabby activities: pick one of each, write
    your own, or ask for others.
-2. **Characters.** Everyone runs `/new`: a private form for class, race, stats, gear and the
-   rest. The character is then yours: only you roll its moves.
+2. **Characters.** Everyone runs `/new`: a private form for class, race, stats, gear, look and
+   the rest. The character is then yours: only you roll its moves.
 3. **Introductions.** Each player says who their character is and what they look like.
 4. **Hook questions.** Gary asks each character a pointed question or two about the premise
    ("Why do you trust the smuggler who betrayed your brother?"). Answer by @-mentioning him;

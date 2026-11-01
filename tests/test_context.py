@@ -391,6 +391,8 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     d.choose_signature_enhancements([3, 5])  # serrated, huge
     d.choose_alignment("Good")
     d.choose_class_choice("Ancient")
+    for look in ("Dead Eyes", "Battered Helm", "Scarred Skin", "Built Body", "missing two fingers"):
+        d.choose_class_choice(look)
     d.choose_name("Kael")
 
     state = empty_state()
@@ -399,6 +401,7 @@ def test_a_character_with_a_sheet_shows_its_numbers_to_the_model():
     rendered = render_live_state(state)
     assert "Kael — Dwarf Fighter 1 (0/8 XP), HP 25/25, armor 3" in rendered
     assert "STR 16 (+2)" in rendered
+    assert "looks: Dead Eyes, Battered Helm, Scarred Skin, Built Body; missing two fingers" in rendered
     assert "wields Signature axe (close, +1 damage, messy, forceful)" in rendered
     assert "- Liriel: carrying nothing" in rendered  # no sheet yet: just the name
 

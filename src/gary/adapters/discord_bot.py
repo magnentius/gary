@@ -1074,7 +1074,7 @@ class GaryClient(discord.Client):
         out["alignment"] = ("Alignment", "⚖️", lambda i: show(i, AlignmentForm(
             (self.store.state().get("sheets") or {}).get(actor, sheet),
             lambda chosen: self._finish_alignment(actor, chosen, channel_id))))
-        out["choices"] = ("Class choices", "📜", lambda i: show(i, ChoicesForm(
+        out["choices"] = ("Choices and look", "📜", lambda i: show(i, ChoicesForm(
             sheet, lambda made: self._finish_choices(actor, made, channel_id)))) if choices.missing(sheet) else (
             f"**{actor}** — {choices.describe(sheet) or 'nothing to choose'}.")
         out["gear"] = (f"**{actor}** already has their gear. `/sheet` shows it." if "gear" in sheet else

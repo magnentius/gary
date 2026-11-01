@@ -21,6 +21,8 @@ def fighter(name="Kael", order=("str", "con", "dex", "wis", "cha")) -> Draft:
     d.choose_signature_enhancements([1, 3])  # sharp, serrated
     d.choose_alignment("Good")
     d.choose_class_choice("Ancient")  # the signature weapon's look
+    for look in ("Hard Eyes", "Wild Hair", "Scarred Skin", "Built Body", ""):
+        d.choose_class_choice(look)
     d.choose_name(name)
     return d
 

@@ -73,7 +73,8 @@ def test_a_barbarian_is_made_with_the_playbooks_hp_load_and_gear():
     d.choose_gear(0, [1])  # two-handed sword
     d.choose_gear(1, [1])  # chainmail
     d.choose_alignment("Chaotic")
-    for value in ("Full Plate and Packing Steel", "Riches and property", "Mortal pleasures"):
+    for value in ("Full Plate and Packing Steel", "Riches and property", "Mortal pleasures",
+                  "Wild eyes", "Mighty thews", "Strange tattoos", "Scraps", "a broken tusk on a cord"):
         d.choose_class_choice(value)
     d.choose_name("Gorm")
     sheet = d.build()

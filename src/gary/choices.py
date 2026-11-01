@@ -6,6 +6,8 @@
     Thief    Poisoner: a poison, safe in their hands, with three uses to start
     Fighter  Signature Weapon: a look -- and an Elf, a weapon type that is always precise
     Barbarian  one of two starting moves, and two Herculean Appetites
+    Everyone   a look: one from each of the class's lists (eyes, hair, clothes, body), and a
+               line in their own words if they like
 
 On the sheet as ``choices`` (key -> what was chosen), and for a Thief ``poison_uses``. The
 lists are read from the move's own text, so the words are the authors'. Most choices are
@@ -13,7 +15,7 @@ the model's to honour; two are numbers Gary runs: the Elf's precise weapon (Hack
 with Dex) and the Thief's poison uses (``use_poison``, ``brew_poison``).
 
 Made step by step in ``Choices``, checked like a sheets.Draft: by ``/new``, and by
-the Class choices button on ``/sheet`` for a character made before.
+the Choices and look button on ``/sheet`` for a character made before.
 """
 
 from __future__ import annotations
@@ -44,6 +46,7 @@ class Step:
     # A written step's text box: Discord shows 45 characters of a label, 100 of a placeholder.
     label: str = ""
     placeholder: str = ""
+    optional: bool = False  # a written step that may be left blank (the look's own words)
 
     @property
     def written(self) -> bool:
@@ -72,7 +75,25 @@ def _named(options: Sequence[str]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
     return tuple(names), tuple(descriptions)
 
 
+def look_steps(class_name: str) -> List[Step]:
+    """The class's look: "Choose one for each" -- and a line of the player's own."""
+    from .sheets import CLASSES
+
+    lists = (CLASSES.get(class_name.lower()) or {}).get("looks") or []
+    out = [Step(f"look_{i}", f"Your look ({i + 1} of {len(lists)}): choose one.", tuple(options))
+           for i, options in enumerate(lists)]
+    if lists:
+        out.append(Step("look_own", "Anything else about how they look? A scar, a tattoo, a limp -- or skip it.",
+                        label="Anything else about your look", placeholder="a scar through one eyebrow…",
+                        optional=True))
+    return out
+
+
 def steps(class_name: str, race: str, favored: bool = False) -> List[Step]:
+    return _class_steps(class_name, race, favored) + ([] if favored else look_steps(class_name))
+
+
+def _class_steps(class_name: str, race: str, favored: bool = False) -> List[Step]:
     cls = class_name.lower()
     if favored and cls in ("paladin", "ranger"):
         # Divine Favor, God Amidst the Wastes: "Dedicate yourself to a deity".
@@ -141,7 +162,7 @@ class Choices:
             raise SheetError("Nothing left to choose.")
         value = " ".join(str(value or "").split())
         if step.written:
-            if not value:
+            if not value and not step.optional:
                 raise SheetError("Write something.")
             if len(value) > MAX_NAME_CHARS * 2:
                 raise SheetError(f"Keep it to {MAX_NAME_CHARS * 2} characters.")
@@ -185,6 +206,14 @@ def appetites_of(sheet: Dict[str, Any]) -> List[str]:
     return [a for a in got if a not in gone]
 
 
+def look_of(sheet: Dict[str, Any]) -> str:
+    """How they look, in a line: "Hard Eyes, Wild Hair, Scarred Skin, Built Body; a scar…"."""
+    c = sheet.get("choices") or {}
+    picks = [c[k] for k in sorted(k for k in c if k.startswith("look_") and k != "look_own") if c[k]]
+    own = str(c.get("look_own") or "").strip()
+    return ", ".join(picks) + (("; " if picks else "") + own if own else "")
+
+
 def describe(sheet: Dict[str, Any]) -> str:
     """One line for the player and the model. "" without choices."""
     c = sheet.get("choices") or {}
@@ -207,6 +236,8 @@ def describe(sheet: Dict[str, Any]) -> str:
         parts.append(f"started with {c['start']}")
     if appetites_of(sheet):
         parts.append("appetites: " + ", ".join(a.lower() for a in appetites_of(sheet)))
+    if look_of(sheet):
+        parts.append(f"looks: {look_of(sheet)}")
     return ("Choices — " + "; ".join(parts)) if parts else ""
 
 

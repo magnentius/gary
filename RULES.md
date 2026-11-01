@@ -60,8 +60,13 @@ whenever your view of the world shifts. The GM sees it.
 and picks a domain and precept, a Druid their land and tell, a Bard their lore, a Thief
 their poison (three uses to start), a Fighter their weapon's look — and an Elf Fighter a
 weapon type that is always precise, so it hacks and slashes with Dex. A character made
-before gets a **Class choices** button on `/sheet`. The GM sees them all; a Thief's poison is spent with each use
+before gets a **Choices and look** button on `/sheet`. The GM sees them all; a Thief's poison is spent with each use
 and brewed three at a time somewhere quiet.
+
+**Look.** `/new` then asks how your character looks: one from each of your class's lists in
+the book (eyes, hair, clothes, body), and a line of your own if you like ("a scar through one
+eyebrow"). It's on `/sheet`, in the introductions `/begin` posts, and in front of the GM every
+turn, so the way you're described stays the way you chose.
 
 **Spells.** A new Cleric or Wizard gets a **Choose spells** button after joining: a Wizard
 fills their spellbook (three first-level spells), a Human picks one spell from the other

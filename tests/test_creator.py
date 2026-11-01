@@ -90,6 +90,9 @@ async def fighter_gear(view):
     await choose(view, ["1", "3"])
     await choose(view, "Good")
     await choose(view, "Ancient")
+    for look in ("Hard Eyes", "Wild Hair", "Scarred Skin", "Built Body"):
+        await choose(view, look)
+    await press(view, "Skip")  # nothing more about the look
 
 
 async def make_kael(view):
