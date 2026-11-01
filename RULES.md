@@ -140,6 +140,23 @@ Amidst the Wastes (Ranger) are how a non-caster gets spells — they make you a 
 1 for spells, one level higher with each level after. Name your deity and choose spells from
 the buttons on `/sheet`, and commune and cast like a Cleric, with Wisdom. The XP is spent and the level is announced to the table.
 
+**Beyond 10th level.** When a level 10 character has the XP for 11th, the Level up button offers
+the book's three choices instead. **Retire to safety**: make a new character with `/new`; the
+old one leaves the story. **Take on an apprentice**: make the apprentice with `/new` and play
+them; the old character travels with them as their mentor, played by the GM, gaining no XP
+(the book has you play both, but Gary seats one character per player). **Change entirely to a
+new class**: keep your stats, race, HP and look, keep up to three of your advanced moves as
+core to who you are, and take the new class's starting moves in place of the rest.
+
+**Ending a campaign.** A campaign's arc is its campaign front. When that front is over, the
+next `/begin` asks the table: **carry on** in the same world (the GM writes a new campaign front
+after the next session), or **close the campaign**. Closing makes the next session an epilogue:
+Gemini shows how the world has changed, then asks each character what becomes of them, and
+each player tells their own ending. `/end` then posts the campaign's chronicle — the premise,
+how many sessions, every character and what became of them, the threats and how they ended,
+the people met — and the campaign is finished. `/reset` posts the chronicle too if you end a
+campaign early, and keeps a copy of the campaign's files before clearing it.
+
 **The Barbarian**, a ninth class from its own playbook, is made like the others: `/new` asks
 which of its two starting moves you start with (Full Plate and Packing Steel, or Unencumbered,
 Unharmed) and your two Herculean Appetites. When you roll while chasing one, the GM marks the

@@ -471,6 +471,12 @@ class Director:
         if hurl:
             stat = "con"  # Velocitas Eradico: "When volleying this way use Con instead of Dex."
 
+        mover_sheet = self._sheet_or_empty(actor)
+        if mover_sheet.get("retired") or mover_sheet.get("mentor"):
+            return [self._refuse(channel_id, f"{actor} is {'retired' if mover_sheet.get('retired') else 'a mentor now, played by you'}"
+                                             " and makes no moves.", "Narrate what they do instead, or choose "
+                                             "another character.")]
+
         # A class move is that class's alone: a Fighter cannot Backstab.
         if rules.classes and self._sheet_for is not None:
             sheet = self._sheet_for(actor)

@@ -76,7 +76,8 @@ class Advance:
     def __init__(self, sheet: Dict[str, Any]) -> None:
         if not ready(sheet):
             if int(sheet.get("level", 1)) >= MAX_LEVEL:
-                raise SheetError(f"{sheet['name']} is level {MAX_LEVEL}, the highest there is.")
+                raise SheetError(f"{sheet['name']} is level {MAX_LEVEL}. With {xp_needed(sheet)} XP they go beyond "
+                                 "it: retire, take on an apprentice, or change class.")
             raise SheetError(
                 f"{sheet['name']} has {int(sheet.get('xp', 0))} XP and needs {xp_needed(sheet)}."
             )

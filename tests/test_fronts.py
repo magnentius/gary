@@ -193,3 +193,13 @@ def test_a_doom_that_came_is_said_so():
     front["dangers"][0].update(reached=1, ended="its doom came to pass: the coast burns")
     assert "Its doom came: the coast burns." in fronts.reveal(front)
     assert not fronts.over({"dangers": []})
+
+
+async def test_the_campaign_fronts_end_marks_the_campaign_over(table):
+    director, store, history = table
+    front = fronts.make("The Old Wyrms", [{**DRAGON, "portents": ["a", "b", "c"]}], STAKES, scope="campaign")
+    store.apply([Mutation(MutationKind.FRONT, "the_old_wyrms", {"front": front})], reason="setup")
+    n = narrator(table, call_response(T.END_DANGER, {"front": "The Old Wyrms", "danger": "The Dragon",
+                                                     "reason": "slain"}), text_response("."))
+    await player(n, "...")
+    assert store.state()["opening"]["campaign_over"]

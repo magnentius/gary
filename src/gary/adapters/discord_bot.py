@@ -22,6 +22,7 @@ import logging
 import signal
 import time
 from dataclasses import dataclass
+from pathlib import Path
 from typing import List, Optional, Tuple
 
 import discord
@@ -365,7 +366,7 @@ class PremiseView(discord.ui.View):
 
 class OpeningButton(
     discord.ui.DynamicItem[discord.ui.Button],
-    template=r"gary:begin:(?P<step>introductions|questions|bonds|playing|mybonds)",
+    template=r"gary:begin:(?P<step>introductions|questions|bonds|playing|mybonds|carryon|finale)",
 ):
     """The next step of /begin, for whoever ran it -- or, "mybonds", anyone's own Bonds form.
     Durable: the stage is in state, so a click after a restart still finds it."""
@@ -374,8 +375,10 @@ class OpeningButton(
         from ..opening import NEXT_LABEL
 
         mine = step == "mybonds"
+        label = "Write my bonds" if mine else NEXT_LABEL[step] if step in ("carryon", "finale") else \
+            f"Next: {NEXT_LABEL[step]}"
         super().__init__(discord.ui.Button(
-            label="Write my bonds" if mine else f"Next: {NEXT_LABEL[step]}", emoji="🤝" if mine else "▶️",
+            label=label, emoji="🤝" if mine else "📖" if step == "finale" else "▶️",
             style=discord.ButtonStyle.secondary if mine else discord.ButtonStyle.primary,
             custom_id=f"gary:begin:{step}",
         ))
@@ -651,6 +654,28 @@ class GaryClient(discord.Client):
                                             else "📜 **End of session** asks the book's questions again:\n")
                                + "\n".join(f"• {q}" for q in shown) + "\nEach yes is 1 XP for everyone.")
 
+    def _keep_a_copy(self) -> Optional[Path]:
+        """Before /reset deletes a campaign, copy it into ``kept/<date-time>`` inside the campaign folder
+        -- inside, because in the container that folder is the only one that outlives a restart -- so a
+        finished campaign is not simply gone. The file backend only; None when nothing was copied."""
+        import shutil
+        from datetime import datetime
+
+        root = Path(getattr(self.settings, "campaign_root", "") or "")
+        if getattr(self.settings, "backend", "file") != "file" or not root.is_dir() or not any(root.iterdir()):
+            return None
+        stamp = f"{datetime.now():%Y-%m-%d-%H%M%S}"
+        target, n = root / "kept" / stamp, 1
+        while target.exists():  # two resets in one second
+            n += 1
+            target = root / "kept" / f"{stamp}-{n}"
+        try:
+            shutil.copytree(root, target, ignore=shutil.ignore_patterns("*.lock", "kept"))
+        except OSError:
+            log.exception("could not keep a copy of the campaign before reset")
+            return None
+        return target
+
     def _state_text(self) -> str:
         """`/state`: what the model is told every turn -- fronts and all, so it is the server
         managers' alone, and private. Notes and NPCs surface only when their subject comes up
@@ -727,30 +752,67 @@ class GaryClient(discord.Client):
             self._set_opening(message.author.display_name, stage="premise", starter=message.author.id, session=1)
             await self.offer_premise(channel_id)
             return
-        if stage in ("playing", "session"):
+        if stage in ("playing", "session", "epilogue"):
             number = int(self._opening().get("session") or 1)
             await self.sender.send(channel_id, f"Session {number} is under way. `/end` finishes it.")
             return
+        if stage == "finished":
+            await self.sender.send(channel_id, "This campaign is finished. `/reset` starts a new one; Gary keeps a "
+                                               "copy of this one first.")
+            return
+        if stage == "done" and self._opening().get("campaign_over"):
+            await self.sender.send(
+                channel_id, "📜 The campaign front is over: the threat behind everything has been met. Carry on "
+                            "in this world (the GM writes a new campaign front after the next session), or close "
+                            "the campaign with an epilogue? Anyone at the table may choose.",
+                prompt=OpeningPrompt(("carryon", "finale")))
+            return
         if stage == "done":
-            await self._next_session(message, channel_id)
+            await self._next_session(message.author.display_name, channel_id)
             return
         nxt = opening.STAGES[opening.STAGES.index(stage) + 1]
         await self.sender.send(channel_id, f"The opening is at **{stage}**. When the table is ready:",
                                prompt=OpeningPrompt(("mybonds", nxt) if stage == "bonds" else (nxt,)))
 
-    async def _next_session(self, message, channel_id: int) -> None:
+    async def _next_session(self, who: str, channel_id: int) -> None:
         """Every session after the first: a recap, anyone ready to level up, the Outsider's
         question, and the scene reframed."""
         from .. import opening
 
         number = int(self._opening().get("session") or 1) + 1
-        self._set_opening(message.author.display_name, stage="session", session=number)
+        self._set_opening(who, stage="session", session=number)
         party = self._party_sheets()
         ready = [s["name"] for s in party if int(s.get("xp", 0)) >= xp_needed(s) and int(s.get("level", 1)) < 10]
         await self.sender.send(channel_id, f"🎲 **Session {number}.**"
                                + (f" {', '.join(ready)}: you can level up from `/sheet` before we start."
                                   if ready else ""))
         await self.runner.run([PromptModel(channel_id, "rules_event", opening.session_event(number, party))])
+
+    async def _campaign_choice(self, interaction: "discord.Interaction", step: str) -> None:
+        """The campaign front is over: carry on in this world, or close with an epilogue."""
+        from .. import opening
+
+        current = self._opening()
+        if current.get("stage") != "done" or not current.get("campaign_over"):
+            await interaction.response.send_message("That choice has been made.", ephemeral=True)
+            return
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            await interaction.response.defer()
+        who = interaction.user.display_name
+        if step == "carryon":
+            self._set_opening(who, campaign_over=False, new_campaign_front=True)
+            await self.sender.send(interaction.channel_id, f"▶️ {who}: the story goes on.")
+            await self._next_session(who, interaction.channel_id)
+            return
+        number = int(current.get("session") or 1) + 1
+        self._set_opening(who, stage="epilogue", session=number)
+        await self.sender.send(interaction.channel_id,
+                               f"📖 **Session {number}: the epilogue.** When everyone has told their character's "
+                               "ending, `/end` closes the campaign.")
+        await self.runner.run([PromptModel(interaction.channel_id, "rules_event",
+                                           opening.epilogue_event(self._party_sheets()))])
 
     async def offer_premise(self, channel_id: int, again: bool = False) -> None:
         from .. import opening
@@ -805,6 +867,9 @@ class GaryClient(discord.Client):
                 await interaction.response.send_message(action, ephemeral=True)
                 return
             await action[2](interaction)
+            return
+        if step in ("carryon", "finale"):
+            await self._campaign_choice(interaction, step)
             return
         if not await self.may_run_opening(interaction):
             return
@@ -1076,14 +1141,25 @@ class GaryClient(discord.Client):
 
         threats = [f"{n['subject']}: {n['body']}" for n in self.store.state().get("notes") or ()
                    if n.get("kind") == "threat"][-20:]
-        stage = self._opening().get("stage")
+        current = self._opening()
+        stage = current.get("stage")
+        if stage == "epilogue":
+            # The last session: no more front work, just the record of what was.
+            self._set_opening("campaign closed", stage="finished")
+            asyncio.create_task(self.sender.send(channel_id, opening.chronicle(self.store.state())
+                                                 + "\n\nThe campaign is closed. `/reset` starts a new one; Gary keeps "
+                                                   "a copy of this one first."))
+            return line
         if stage == "playing":
             self._set_opening("first session over", stage="done")
             event = opening.fronts_event(threats)
         else:
             if stage == "session":
                 self._set_opening("session over", stage="done")
-            event = opening.review_event(threats)
+            new_front = bool(current.get("new_campaign_front"))
+            if new_front:
+                self._set_opening("asking for a new campaign front", new_campaign_front=False)
+            event = opening.review_event(threats, new_front)
         asyncio.create_task(self._front_work(channel_id, event))
         return line
 
@@ -1141,13 +1217,20 @@ class GaryClient(discord.Client):
                 return
             current = (self.store.state().get("sheets") or {}).get(actor, sheet)
             try:
-                form = LevelUpForm(current, lambda levelled: self._finish_level_up(levelled, channel_id))
+                from .. import beyond
+                from .levelup import BeyondForm
+
+                form = (BeyondForm(current, lambda after: self._finish_beyond(after, channel_id))
+                        if beyond.ready(current) else
+                        LevelUpForm(current, lambda levelled: self._finish_level_up(levelled, channel_id)))
             except SheetError as exc:
                 await interaction.response.send_message(str(exc), ephemeral=True)
                 return
             await show(interaction, form)
 
-        if ready(sheet):
+        from ..beyond import ready as beyond_ready
+
+        if ready(sheet) or beyond_ready(sheet):
             out["levelup"] = ("Level up", "⭐", level_up)
         else:
             try:
@@ -1293,6 +1376,33 @@ class GaryClient(discord.Client):
             await self.sender.send(channel_id, f"🙏 **{actor}** is a cleric of level 1 for spells now: "
                                                "`/sheet` has the buttons to name "
                                                "your deity and choose your spells.")
+        return None
+
+    async def _finish_beyond(self, after: dict, channel_id: int) -> Optional[str]:
+        """Beyond 10th Level, stored. Checked again, as a level is."""
+        from .. import beyond
+
+        actor = after["name"]
+        sheet = (self.store.state().get("sheets") or {}).get(actor)
+        if sheet is None or not beyond.ready(sheet):
+            return "That was already chosen."
+        busy = self.director.unsettled(channel_id, "level up")
+        if busy:
+            return busy
+        diff = self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": after})],
+                                reason=f"{actor} goes beyond 10th level")
+        if not diff.ok:
+            return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
+        if after.get("retired"):
+            line = (f"🏡 **{actor}** retires to safety, a legend of 10th level. Make your next character with "
+                    "`/new`; the GM will ask where the old one ended up.")
+        elif after.get("mentor"):
+            line = (f"🧙 **{actor}** takes on an apprentice. Make the apprentice with `/new`: they're yours to "
+                    f"play now, and {actor} travels with them as their mentor, played by the GM, gaining no XP.")
+        else:
+            line = (f"🔄 **{actor}** becomes a **{after['class']}**: same stats, race and HP, new class moves. "
+                    "`/sheet` has the buttons for anything the new class chooses.")
+        await self.sender.send(channel_id, line)
         return None
 
     async def _finish_spells(self, actor: str, changes: dict, channel_id: int) -> Optional[str]:
@@ -1448,6 +1558,12 @@ class GaryClient(discord.Client):
                 return
 
             self._reset_token = None
+            kept = self._keep_a_copy()
+            if (self.store.state().get("sheets") or self.store.state().get("setting")) and \
+                    (self._opening().get("stage") != "finished"):  # a finished one has posted its chronicle
+                from .. import opening
+
+                await self.sender.send(channel_id, opening.chronicle(self.store.state()))
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
             if self.history_backend is not None:
@@ -1458,8 +1574,8 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id,
                 f"Campaign reset. It is {format_world_time(self.store.state())}. "
-                "Characters went with it: everyone run "
-                "`/new` before the first roll.",
+                + (f"A copy of the old campaign is kept on Gary's machine (kept/{kept.name}). " if kept else "")
+                + "`/begin` starts the next adventure.",
             )
             return
 

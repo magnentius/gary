@@ -113,7 +113,7 @@ def render(sheets: Dict[str, Dict[str, Any]]) -> str:
         return ""
     lines = ["THE PARTY'S CLASS MOVES (theirs alone; honour them):"]
     for actor, sheet in sorted(sheets.items()):
-        if "class" not in sheet or sheet.get("dead"):
+        if "class" not in sheet or sheet.get("dead") or sheet.get("retired") or sheet.get("mentor"):
             continue
         moves = moves_of(sheet["class"], sheet.get("race", ""), (sheet.get("choices") or {}).get("start", ""))
         if not moves:

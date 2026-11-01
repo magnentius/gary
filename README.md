@@ -130,14 +130,14 @@ the old way (`?dm …`) gets a pointer to the slash commands.
 
 ## Starting over
 
-`/reset` deletes the whole campaign — characters, world, notes and every channel's memory —
-and there is no undo. Back it up first if you might want it again:
+When the campaign's main threat (its campaign front) is over, the next `/begin` asks whether
+to carry on in the same world or close the campaign with an epilogue, where each player tells
+what becomes of their character. The last `/end` posts the campaign's chronicle.
 
-```bash
-cp -r ~/.local/share/gary/campaign ~/gary-backup-$(date +%F)
-```
-
-Run `/reset`, then confirm with the code it gives you: `/reset code:`. Then start again from
+`/reset` clears the campaign: characters, world, notes and every channel's memory. Before it
+does, Gary posts the chronicle and keeps a copy of the campaign's files in a `kept` folder
+inside the campaign folder, but there is no undo from Discord. Run `/reset`, then confirm with
+the code it gives you: `/reset code:`. Then start again from
 [your first session](#your-first-session).
 
 ## When something goes wrong

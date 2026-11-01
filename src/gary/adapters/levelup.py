@@ -152,3 +152,109 @@ def _moves_text(sheet: dict, level: int) -> str:
     if len(lines) < len(options):
         lines.append(f"…and {len(options) - len(lines)} more, shown in the list.")
     return "\n" + "\n".join(lines)
+
+
+class BeyondForm(discord.ui.View):
+    """Beyond 10th Level: retire, take on an apprentice, or change class -- a ``beyond.Beyond``
+    choice, privately."""
+
+    def __init__(self, sheet: dict, finish: Finish) -> None:
+        from ..beyond import Beyond
+
+        super().__init__(timeout=FORM_TIMEOUT_SECONDS)
+        self.sheet = sheet
+        self.beyond = Beyond(sheet)
+        self._finish = finish
+        self._build()
+
+    def prompt(self, error: Optional[str] = None) -> str:
+        from ..beyond import MAX_KEPT
+
+        b = self.beyond
+        lines = [f"⚠️ {error}"] if error else []
+        lines.append(f"**{self.sheet['name']}** has the XP for 11th level, and the book says things change now.")
+        step = b.step()
+        if step == "choice":
+            lines.append("Retire to safety (make a new character to play), take on an apprentice (you play the "
+                         "apprentice; your old character travels with them, played by the GM, gaining no XP), or "
+                         "change entirely to a new class (keep your stats, race and HP).")
+        elif step == "class":
+            lines.append("Choose your new class: you swap your class moves for its starting moves.")
+        elif step == "keep":
+            lines.append(f"Keep up to {MAX_KEPT} of your advanced moves as core to who you are; the rest go.")
+        else:
+            lines.append(f"{b.summary()} Is that right?")
+        return "\n".join(lines)
+
+    def _build(self) -> None:
+        from ..beyond import LABELS, MAX_KEPT
+        from ..sheets import CLASSES
+
+        self.clear_items()
+        b = self.beyond
+        step = b.step()
+        if step == "choice":
+            self._select("What now?", [discord.SelectOption(label=v, value=k) for k, v in LABELS.items()], b.choose)
+        elif step == "class":
+            self._select("New class", [discord.SelectOption(label=CLASSES[k]["name"], value=k)
+                                       for k in b.class_options()], b.choose_class)
+        elif step == "keep":
+            offered = b.keep_options()[:25]
+            select = discord.ui.Select(placeholder="Core moves to keep (or none)", min_values=0,
+                                       max_values=min(MAX_KEPT, len(offered)),
+                                       options=[discord.SelectOption(label=n[:100], value=n) for n in offered])
+
+            async def kept(interaction: "discord.Interaction") -> None:
+                b.choose_kept(list(select.values))
+                await self._refresh(interaction)
+
+            select.callback = kept
+            self.add_item(select)
+            none = discord.ui.Button(label="Keep none", style=discord.ButtonStyle.secondary)
+
+            async def keep_none(interaction: "discord.Interaction") -> None:
+                b.choose_kept([])
+                await self._refresh(interaction)
+
+            none.callback = keep_none
+            self.add_item(none)
+        else:
+            confirm = discord.ui.Button(label="Do it", emoji="⭐", style=discord.ButtonStyle.success)
+            confirm.callback = self._on_confirm
+            self.add_item(confirm)
+        if step != "choice":
+            again = discord.ui.Button(label="Start over", style=discord.ButtonStyle.secondary)
+            again.callback = self._on_restart
+            self.add_item(again)
+
+    def _select(self, placeholder: str, options, choose) -> None:
+        select = discord.ui.Select(placeholder=placeholder, options=options)
+
+        async def chosen(interaction: "discord.Interaction") -> None:
+            try:
+                choose(select.values[0])
+            except SheetError as exc:
+                await self._refresh(interaction, str(exc))
+                return
+            await self._refresh(interaction)
+
+        select.callback = chosen
+        self.add_item(select)
+
+    async def _refresh(self, interaction: "discord.Interaction", error: Optional[str] = None) -> None:
+        self._build()
+        await interaction.response.edit_message(content=self.prompt(error), view=self)
+
+    async def _on_restart(self, interaction: "discord.Interaction") -> None:
+        from ..beyond import Beyond
+
+        self.beyond = Beyond(self.sheet)
+        await self._refresh(interaction)
+
+    async def _on_confirm(self, interaction: "discord.Interaction") -> None:
+        error = await self._finish(self.beyond.result())
+        if error:
+            await self._refresh(interaction, error)
+            return
+        self.stop()
+        await interaction.response.edit_message(content=f"✅ {self.beyond.summary()}", view=None)

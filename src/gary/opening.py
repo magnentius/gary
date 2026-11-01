@@ -28,7 +28,8 @@ STAGES = ("premise", "characters", "introductions", "questions", "bonds", "playi
 
 #: What each step's button says, by the stage it leads to.
 NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "bonds": "Bonds",
-              "playing": "Begin the adventure"}
+              "playing": "Begin the adventure", "carryon": "Carry on in this world",
+              "finale": "Close the campaign with an epilogue"}
 
 OFFERED = 4  # of each: places and activities
 MAX_PART = 100  # a select option's label is 100 characters
@@ -173,9 +174,10 @@ def opening_event(premise_text: str, party: Sequence[Dict] = ()) -> Dict:
     }
 
 
-def review_event(threats: Sequence[str] = ()) -> Dict:
+def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False) -> Dict:
     """Between sessions: the book's front work, done after every /end but the first."""
     return {
+        "new_campaign_front": new_campaign_front,
         "event": "Between sessions: front work",
         "threats_noted": list(threats),
         "instruction": (
@@ -187,8 +189,10 @@ def review_event(threats: Sequence[str] = ()) -> Dict:
             "danger that has come to bear into an adventure front (move_danger). If an adventure front has "
             "been resolved -- or the party has set off after something new -- write a new adventure front "
             "(create_front scope=adventure), inspired by the campaign front and the threats noted above. "
-            "Keep to two or three fronts in play. Do nothing if nothing calls for it. Reply to the table with "
-            "at most one line, without spoilers."
+            "Keep to two or three fronts in play. Do nothing if nothing calls for it. "
+            + ("The campaign front is over and the table chose to carry on: write a new campaign front "
+               "(create_front scope=campaign) from what the last one left behind. " if new_campaign_front else "")
+            + "Reply to the table with at most one line, without spoilers."
         ),
     }
 
@@ -207,3 +211,59 @@ def fronts_event(threats: Sequence[str] = ()) -> Dict:
             "the world is stirring -- nothing about what the fronts contain."
         ),
     }
+
+
+# -- the end of a campaign -------------------------------------------------------------------
+
+def epilogue_event(party: Sequence[Dict]) -> Dict:
+    """The campaign front is over and the table chose to close the campaign."""
+    names = ", ".join(s["name"] for s in party)
+    return {
+        "event": "The campaign's last session: an epilogue",
+        "characters": names,
+        "instruction": (
+            "The campaign front is over and the table has chosen to end the campaign here. As the book says of a "
+            "resolved front, take time over the aftermath: in a few sentences, show how the world has changed -- "
+            "what came to pass, what was stopped, who rose and who fell. Then ask each character, by name, one at "
+            "a time, what becomes of them now; let each player tell their own ending and add a detail that "
+            "honours it. When everyone has answered, close the story in a short final passage. No new threats, "
+            "no rolls unless a player asks for one."
+        ),
+    }
+
+
+def chronicle(state: Dict) -> str:
+    """The campaign in brief, for the table to keep: the premise, how many sessions, the
+    characters and what became of them, the fronts and how they ended, the people met."""
+    from .npcs import known
+
+    lines = ["📖 **The chronicle of this campaign**"]
+    if state.get("setting"):
+        lines.append(f"*{state['setting']}*")
+    sessions = int((state.get("opening") or {}).get("session") or 0)
+    if sessions:
+        lines.append(f"{sessions} session{'s' if sessions != 1 else ''}.")
+    sheets = list((state.get("sheets") or {}).values())
+    if sheets:
+        lines.append("**The heroes**")
+    for s in sheets:
+        fate = ("died" if s.get("dead") else "retired to safety" if s.get("retired")
+                else "became a mentor" if s.get("mentor") else "")
+        was = f", once a {' and '.join(s['former_classes'])}" if s.get("former_classes") else ""
+        lines.append(f"• {s['name']}, {s.get('race', '')} {s.get('class', '')} {s.get('level', 1)}{was}"
+                     + (f" — {fate}" if fate else ""))
+    fronts = list((state.get("fronts") or {}).values())
+    if fronts:
+        lines.append("**The threats**")
+    for f in fronts:
+        ends = []
+        for d in f.get("dangers") or ():
+            ended = str(d.get("ended") or "")
+            ends.append(f"{d['name']}: " + (ended or "still at large"))
+        lines.append(f"• {f['name']}" + (" (campaign front)" if f.get("scope") == "campaign" else "")
+                     + (" — " + "; ".join(ends) if ends else ""))
+    people = [n["name"] for n in known(state)]
+    if people:
+        lines.append("**People met:** " + ", ".join(people[:20]) + ("…" if len(people) > 20 else ""))
+    text = "\n".join(lines)
+    return text if len(text) <= 1900 else text[:1890].rsplit("\n", 1)[0] + "\n…"

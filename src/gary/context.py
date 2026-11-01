@@ -231,7 +231,9 @@ def render_live_state(state: Dict[str, Any]) -> str:
     # cannot address a quiet player, say "the three of you", or know Dorn is there at all.
     party = state.get("party") or {}
     sheets = state.get("sheets") or {}
-    roster = sorted({*(state.get("players") or {}).values(), *party.keys(), *sheets.keys()})
+    # A retired character has left the story (Beyond 10th Level); a mentor travels on, the GM's.
+    roster = sorted(a for a in {*(state.get("players") or {}).values(), *party.keys(), *sheets.keys()}
+                    if not (sheets.get(a) or {}).get("retired"))
     if roster:
         lines.append("- Party:")
         for actor in roster:
@@ -245,6 +247,8 @@ def render_live_state(state: Dict[str, Any]) -> str:
             carried = "carrying " + ", ".join(inventory[:12]) if inventory else "carrying nothing"
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
+            if (sheets.get(actor) or {}).get("mentor"):
+                who += " — a mentor travelling with their apprentice: YOU play them now; they make no moves"
             lines.append(f"    - {who}: {carried}")
             for extra in ((describe_choices(sheets[actor]), describe_spells(sheets[actor]),
                            describe_companion(sheets[actor]), describe_bonds(sheets[actor]),

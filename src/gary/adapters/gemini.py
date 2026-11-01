@@ -1089,6 +1089,10 @@ class GeminiNarrator:
                     reason=f"front {front['name']}: {danger['name']}")
         if fronts.over(front):
             result["reveal"] = fronts.reveal(front)
+            if front.get("scope") == "campaign":
+                # The campaign's arc is done: the next /begin asks whether to carry on or close it.
+                store.apply([Mutation(MutationKind.OPENING, "", {"campaign_over": True})],
+                            reason=f"campaign front over: {front['name']}")
             result["note"] = ("The front is over, and Gary has shown the table what it held. Look at the "
                               "aftermath: portents that came to pass have changed the world.")
         return result

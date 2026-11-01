@@ -110,7 +110,8 @@ def table(clock):
         MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
 
     for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
-                 "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work", "_next_session"):
+                 "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work", "_next_session",
+                 "_campaign_choice"):
         setattr(_Client, name, getattr(GaryClient, name))
     client = _Client()
     client.store = store
@@ -225,3 +226,79 @@ def test_later_sessions_begin_with_a_recap_the_outsiders_question_and_level_ups(
     asyncio.run(end())
     assert store.state()["opening"]["stage"] == "done"
     assert ran[-1].payload["event"] == "Between sessions: front work"
+
+
+def _ender(client):
+    async def ended(yeses, fulfilled, resolved):
+        return "⭐ End of session"
+
+    client._end_session = ended
+
+    async def end():
+        await client._end_session_then_fronts(7, 0, set(), {})
+        await asyncio.sleep(0)
+
+    return end
+
+
+def test_when_the_campaign_front_is_over_the_table_carries_on_or_closes(table):
+    client, store, sent, ran = table
+    end = _ender(client)
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "done", "session": 4, "campaign_over": True})],
+                reason="t")
+    asyncio.run(client._begin(_Msg(), 7))
+    assert "campaign front is over" in sent[-1][0] and sent[-1][1] == OpeningPrompt(("carryon", "finale"))
+
+    # Carry on: the next session starts, and the review after it writes a new campaign front.
+    asyncio.run(client.on_opening_step(_Interaction(uid=42), "carryon"))
+    assert store.state()["opening"]["stage"] == "session" and store.state()["opening"]["session"] == 5
+    asyncio.run(end())
+    assert ran[-1].payload["new_campaign_front"] and "write a new campaign front" in ran[-1].payload["instruction"]
+    assert not store.state()["opening"]["new_campaign_front"]
+
+    # Or close it: an epilogue, then the chronicle, and the campaign is finished.
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "done", "campaign_over": True})], reason="t")
+    asyncio.run(client.on_opening_step(_Interaction(uid=42), "finale"))
+    assert store.state()["opening"]["stage"] == "epilogue"
+    assert ran[-1].payload["event"] == "The campaign's last session: an epilogue" and "Gorm" in ran[-1].payload["characters"]
+    asyncio.run(end())
+    assert store.state()["opening"]["stage"] == "finished"
+    assert sent[-1][0].startswith("📖 **The chronicle of this campaign**") and "**Gorm**" not in sent[-1][0]
+    assert "• Gorm, Human Barbarian" in sent[-1][0]
+    asyncio.run(client._begin(_Msg(), 7))
+    assert "This campaign is finished" in sent[-1][0]
+
+
+def test_the_chronicle_tells_what_became_of_everyone():
+    state = {"setting": "The adventure: steal the bell -- at the drowned towers.", "opening": {"session": 6},
+             "sheets": {"Kael": {"name": "Kael", "race": "Dwarf", "class": "Wizard", "level": 10, "retired": True,
+                                 "former_classes": ["Fighter"]},
+                        "Ash": {"name": "Ash", "race": "Elf", "class": "Thief", "level": 4, "dead": True}},
+             "fronts": {"c": {"name": "The Choir", "scope": "campaign",
+                              "dangers": [{"name": "The Bell", "ended": "rung, and the towers fell"}]}},
+             "npcs": {"m": {"name": "Mara", "known": True}, "v": {"name": "Vex", "known": False}}}
+    text = opening.chronicle(state)
+    assert "6 sessions." in text
+    assert "• Kael, Dwarf Wizard 10, once a Fighter — retired to safety" in text
+    assert "• Ash, Elf Thief 4 — died" in text
+    assert "• The Choir (campaign front) — The Bell: rung, and the towers fell" in text
+    assert "People met:** Mara" in text and "Vex" not in text
+
+
+def test_a_copy_is_kept_before_a_reset(tmp_path):
+    root = tmp_path / "campaign"
+    (root / "history").mkdir(parents=True)
+    (root / "snapshot.json").write_text("{}")
+    (root / ".gary.lock").write_text("1")
+
+    class _Settings:
+        campaign_root, backend = root, "file"
+
+    client = type("C", (), {"settings": _Settings()})()
+    kept = GaryClient._keep_a_copy(client)
+    assert kept.parent == root / "kept" and (kept / "snapshot.json").exists() and (kept / "history").is_dir()
+    assert not (kept / ".gary.lock").exists()
+    again = GaryClient._keep_a_copy(client)
+    assert not (again / "kept").exists()  # earlier copies are not copied into later ones
+    _Settings.backend = "firestore"
+    assert GaryClient._keep_a_copy(client) is None
