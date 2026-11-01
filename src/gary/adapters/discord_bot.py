@@ -657,7 +657,8 @@ class GaryClient(discord.Client):
 
         known = self.store.state().get("fronts") or {}
         if not known:
-            return "No fronts yet: the GM writes them as threats take shape."
+            return ("No fronts yet. In a campaign's first session the GM only notes threats; the fronts "
+                    "are written after the first `/endsession`.")
         text = "\n\n".join(fronts.describe(f) for f in known.values())
         if len(text) > 1900:
             text = text[:1900].rsplit("\n", 1)[0] + "\n…"
@@ -802,7 +803,7 @@ class GaryClient(discord.Client):
         elif step == "bonds":
             await self.sender.send(channel_id, opening.bonds_text(), prompt=OpeningPrompt(("mybonds", "playing")))
         else:
-            await self.runner.run([PromptModel(channel_id, "rules_event", opening.opening_event(premise))])
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.opening_event(premise, party))])
 
     async def on_message(self, message: "discord.Message") -> None:
         route = route_message(
@@ -1039,8 +1040,12 @@ class GaryClient(discord.Client):
         if line and self._opening().get("stage") == "playing":
             from .. import opening
 
+            # Done first: create_front is refused until the first session is over.
             self._set_opening("first session over", stage="done")
-            asyncio.create_task(self.runner.run([PromptModel(channel_id, "rules_event", opening.fronts_event())]))
+            threats = [f"{n['subject']}: {n['body']}" for n in self.store.state().get("notes") or ()
+                       if n.get("kind") == "threat"]
+            asyncio.create_task(self.runner.run([PromptModel(channel_id, "rules_event",
+                                                             opening.fronts_event(threats[-20:]))]))
         return line
 
     def _sheet_actions(self, channel_id: int, owner: int, actor: str, sheet: dict, prefix: str) -> dict:

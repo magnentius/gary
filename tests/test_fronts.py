@@ -78,3 +78,28 @@ async def test_the_last_portent_brings_the_doom(table):
     await player(n, "...")
     fr = n.client.calls[1]["contents"][-1].parts[0].function_response.response
     assert "impending doom comes to pass: Destruction" in fr["doom"]
+
+
+async def test_no_fronts_in_the_first_session_then_a_campaign_front_after(table):
+    """"Be especially sure to read the rules for fronts, but don't create any yet." """
+    director, store, history = table
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "playing"})], reason="t")
+    n = narrator(table, call_response(T.CREATE_FRONT, {"name": "The Dragon of the Spear", "dangers": [DRAGON]}),
+                 text_response("."))
+    await player(n, "a dragon!")
+    refused = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    assert "first session" in refused["error"] and "kind=threat" in refused["error"]
+    assert not store.state().get("fronts")
+
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "done"})], reason="t")
+    n = narrator(table, call_response(T.CREATE_FRONT, {"name": "The Dragon of the Spear", "dangers": [DRAGON],
+                                                       "scope": "campaign"}), text_response("."))
+    await player(n, "later")
+    front = store.state()["fronts"]["the_dragon_of_the_spear"]
+    assert front["scope"] == "campaign" and "(campaign front)" in fronts.describe(front)
+
+
+def test_a_front_is_campaign_or_adventure():
+    assert fronts.make("Goblins", [DRAGON])["scope"] == "adventure"
+    with pytest.raises(SheetError, match="campaign front or an adventure front"):
+        fronts.make("Goblins", [DRAGON], scope="dungeon")

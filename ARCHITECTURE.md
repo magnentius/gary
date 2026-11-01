@@ -804,8 +804,10 @@ answer is to prepare little and build the world at the table, and `/begin` (`ope
 runs that first session as a sequence, following the recipe in "My Recipe for Starting
 Adventures" (Spouting Lore, 2020): a premise (a fantastic place and a grabby activity), the
 characters, introductions, hook questions to each character, bonds, a tight opening frame
-with a soft move -- and, after the first `/endsession`, fronts written from what play
-turned up. The stage lives in state (`OPENING`, journalled and undoable), so the durable
+that folds in the bonds and asks a question at once -- and, after the first `/endsession`, a
+campaign front and one or two adventure fronts. Until then `create_front` is refused and
+threats are noted (`record_note` kind `threat`), as the book has it: fronts are "built
+outside of active play", and not before the first session. The stage lives in state (`OPENING`, journalled and undoable), so the durable
 **Next** buttons survive a restart and only whoever ran `/begin` can press them.
 
 The premise offer is the one model call that decides nothing: `EffectRunner.ask` returns

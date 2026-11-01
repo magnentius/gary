@@ -990,8 +990,16 @@ class GeminiNarrator:
         current = dict(store.state().get("fronts") or {})
         try:
             if name == T.CREATE_FRONT:
+                stage = (store.state().get("opening") or {}).get("stage")
+                if stage and stage != "done":
+                    # "Be especially sure to read the rules for fronts, but don't create any yet":
+                    # in the first session, threats are noted; fronts are built after it.
+                    return {"ok": False, "error": (
+                        "This is the campaign's first session: no fronts yet. Note the threat with "
+                        "record_note kind=threat; the fronts are built from those notes after the "
+                        "first end of session.")}
                 front = fronts.make(str(args.get("name", "")), list(args.get("dangers") or []),
-                                    list(args.get("stakes") or []))
+                                    list(args.get("stakes") or []), str(args.get("scope") or "adventure"))
                 key = fronts.slug(front["name"])
                 if key in current:
                     return {"ok": False, "error": f"There is already a front called {front['name']}."}

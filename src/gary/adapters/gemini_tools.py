@@ -466,7 +466,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=CREATE_FRONT,
         description=(
             "Write down a threat that will move whether the party looks or not -- a front -- as it "
-            "takes shape: at a campaign's start, from an imported setting, when a villain appears. "
+            "takes shape. Never during the first session of a campaign: then, note threats with "
+            "record_note kind=threat, and the fronts are built from them afterwards. "
             "Each danger has an impulse (what it wants), 2-5 grim portents (escalating steps it takes "
             "if unchecked, each something the party could notice and stop), and an impending doom. "
             "Players never see fronts; you are shown each danger's next portent every turn."
@@ -480,6 +481,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                     "portents": _s(type=_ARRAY, items=_s(type=_STRING)),
                     "doom": _s(type=_STRING, description="'destruction', 'usurpation', or what it means here"),
                 }, required=["name", "impulse", "portents", "doom"])),
+                "scope": _s(type=_STRING, enum=["campaign", "adventure"], description=(
+                    "campaign: the threat that runs session to session (it may be incomplete); "
+                    "adventure: what matters here and now. Default adventure.")),
                 "stakes": _s(type=_ARRAY, items=_s(type=_STRING),
                              description="Questions play will answer, e.g. 'Will the lizardmen side with the dragon?'"),
             },
@@ -978,7 +982,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         parameters=_s(
             type=_OBJECT,
             properties={
-                "kind": _s(type=_STRING, enum=["npc", "clue", "promise", "foreshadow", "general"]),
+                "kind": _s(type=_STRING, enum=["npc", "clue", "promise", "foreshadow", "threat", "general"]),
                 "subject": _s(type=_STRING, description="Who or what this is about."),
                 "body": _s(type=_STRING),
             },

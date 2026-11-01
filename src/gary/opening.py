@@ -95,7 +95,8 @@ def questions_event(premise_text: str, party: Sequence[Dict]) -> Dict:
         "characters": who,
         "instruction": (
             "The adventure starts now, and the world is built at the table. Ask hook questions that pin down "
-            "the premise: its motive, stakes, urgency, dangers, details and complications. Ask one to three "
+            "the premise -- its motive, stakes, urgency, dangers, details and complications -- and how the "
+            "characters know each other and came together, as the book asks during introductions. Ask one to three "
             "per character -- start with one each -- each addressed to a CHARACTER by name, never to the "
             "group. Assert as much as you ask, so each question has hard edges ('Mara, the smuggler who "
             "hired you betrayed your brother once. Why do you trust her now?'). Ask for something that "
@@ -112,30 +113,41 @@ def bonds_text() -> str:
             "**Bonds** on `/sheet`. Each names another character; at least one is enough to start.")
 
 
-def opening_event(premise_text: str) -> Dict:
+def opening_event(premise_text: str, party: Sequence[Dict] = ()) -> Dict:
+    from .bonds import written
+
+    bonds = {s["name"]: [written(b) for b in s.get("bonds") or ()] for s in party if s.get("bonds")}
     return {
         "event": "Opening: the first scene",
         "premise": premise_text,
+        "bonds": bonds,
         "instruction": (
-            "Frame the opening scene tightly, from everything the table has established. Start at the "
-            "threshold of the premise or in the middle of the action. Say who is there, where, when, and what "
-            "they are doing, with no more than three sensory details. Call set_scene for it (and "
-            "add_monsters if a threat is present, advance_time if the hour matters). Then make a soft GM "
-            "move -- show a danger coming, offer an opportunity with a cost -- and end on 'What do you do?' "
-            "to a specific character. Note the questions the setup implies (will they get the cargo through?) "
-            "and drive play toward answering them."
+            "First, the bonds above: they are what the characters think of each other. Pick one or two that "
+            "stand out and fold them into the scene. Then frame the opening tightly, from everything the table "
+            "has established: a tense situation that demands action -- at the threshold of the premise or in "
+            "the middle of it, as the book has it ('outside the entrance to a dungeon, ambushed in a fetid "
+            "swamp'). Say who is there, where, when, and what they are doing, with no more than three sensory "
+            "details. Call set_scene for it (and add_monsters if a threat is present, advance_time if the hour "
+            "matters). Make a soft GM move -- show a danger coming, offer an opportunity with a cost. Ask a "
+            "question right away, to a specific character, that the situation raises ('who is leading the "
+            "ambush against you?'), and end on 'What do you do?'. Note the questions the setup implies (will "
+            "they get the cargo through?) and drive play toward answering them. Threats you introduce are "
+            "noted with record_note kind=threat: fronts come after this session."
         ),
     }
 
 
-def fronts_event() -> Dict:
+def fronts_event(threats: Sequence[str] = ()) -> Dict:
     return {
         "event": "Opening: fronts after the first session",
+        "threats_noted": list(threats),
         "instruction": (
-            "The first session is over. As the book advises, write the campaign's fronts now, from what play "
-            "turned up: the threats, the people and the questions the table cared about. Call create_front "
-            "for one or two, each with its dangers, impending doom and grim portents. Fronts are the GM's "
-            "secret: reply to the table with one line, without spoilers, saying the world is stirring -- "
-            "nothing about what the fronts contain."
+            "The first session is over. As the book advises, write the fronts now, from what play turned up: "
+            "the threats noted above, the dangerous things mentioned but not dealt with, the people and the "
+            "questions the table cared about. Call create_front with scope=campaign once -- the threat that "
+            "runs session to session; it may be incomplete, leave blanks -- and with scope=adventure for one "
+            "or two more, about what matters here and now. Each has its dangers, impending doom and grim "
+            "portents. Fronts are the GM's secret: reply to the table with one line, without spoilers, saying "
+            "the world is stirring -- nothing about what the fronts contain."
         ),
     }

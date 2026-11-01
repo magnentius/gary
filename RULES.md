@@ -24,11 +24,17 @@ build the world at the table from the players' answers. It follows a well-known 
 ("My Recipe for Starting Adventures", Spouting Lore): a **premise**, a fantastic place and a
 grabby activity, chosen from Gary's offers or written by you; **characters**, made with
 `/new`; **introductions**, each character's name, class and look; **hook questions**, one or
-two to each character, with hard edges ("why do you trust her now?"), whose answers Gary
-records as people, places and dangers; **bonds**; and a **first scene** framed in the middle
-of things, ending on "What do you do?". Whoever ran `/begin` presses **Next** at each step;
-`/begin` again shows where it has got to, and `/undo` steps back. After the first
-`/endsession`, the GM writes one or two **fronts** from what play turned up.
+two to each character, with hard edges ("why do you trust her now?"), about the premise and
+how the characters came together, whose answers Gary records as people, places and dangers;
+**bonds**; and a **first scene**: a tense situation that demands action, drawing on your
+bonds, with a question to one of you right away and "What do you do?". Whoever ran `/begin`
+presses **Next** at each step; `/begin` again shows where it has got to, and `/undo` steps
+back.
+
+The book is firm that fronts wait until the first session is over ("don't create any yet"),
+so until the first `/endsession` the GM only notes the threats that come up. Then it writes
+a **campaign front** (the threat that runs session to session, blanks and all) and one or two
+**adventure fronts** from those notes and from what play turned up.
 
 ## Characters
 

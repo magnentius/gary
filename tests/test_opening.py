@@ -148,8 +148,13 @@ def test_the_whole_opening_in_order(table):
     asyncio.run(client.on_opening_step(_Interaction(), "bonds"))
     assert sent[-1][1] == OpeningPrompt(("mybonds", "playing"))
 
+    store.apply([Mutation(MutationKind.SHEET, "Gorm", {"sheet": {
+        **store.state()["sheets"]["Gorm"], "bonds": [{"line": "___ is puny and foolish, but amusing to me.",
+                                                      "with": "Thorin"}]}})], reason="bonds")
     asyncio.run(client.on_opening_step(_Interaction(), "playing"))
     assert ran[-1].payload["event"] == "Opening: the first scene"
+    assert ran[-1].payload["bonds"] == {"Gorm": ["Thorin is puny and foolish, but amusing to me."]}
+    assert "Ask a question right away" in ran[-1].payload["instruction"]
     assert store.state()["opening"]["stage"] == "playing"
 
     # A step out of order is refused.
@@ -170,6 +175,8 @@ def test_the_first_end_of_session_writes_the_fronts_once(table):
 
     client._end_session = ended
     store.apply([Mutation(MutationKind.OPENING, "", {"stage": "playing", "starter": 11})], reason="t")
+    store.apply([Mutation(MutationKind.NOTE, "the Choir", {"kind": "threat", "body": "wants the bell back"})],
+                reason="t")
 
     async def go():
         line = await client._end_session_then_fronts(7, 1, set(), {})
@@ -178,6 +185,8 @@ def test_the_first_end_of_session_writes_the_fronts_once(table):
 
     assert asyncio.run(go()) == "⭐ End of session"
     assert ran[-1].payload["event"] == "Opening: fronts after the first session"
+    assert ran[-1].payload["threats_noted"] == ["the Choir: wants the bell back"]
+    assert "scope=campaign" in ran[-1].payload["instruction"]
     assert store.state()["opening"]["stage"] == "done"
     ran.clear()
     asyncio.run(go())

@@ -36,8 +36,16 @@ def _text(value: Any, what: str) -> str:
     return text[:MAX_TEXT]
 
 
-def make(name: str, dangers: Sequence[Dict[str, Any]], stakes: Sequence[str] = ()) -> Dict[str, Any]:
-    """A front, checked: 1-4 dangers, each with an impulse, 2-5 grim portents and a doom."""
+#: "You'll make your campaign front and first adventure fronts after your first session."
+SCOPES = ("campaign", "adventure")
+
+
+def make(name: str, dangers: Sequence[Dict[str, Any]], stakes: Sequence[str] = (),
+         scope: str = "adventure") -> Dict[str, Any]:
+    """A front, checked: 1-4 dangers, each with an impulse, 2-5 grim portents and a doom. A
+    campaign front runs session to session; an adventure front is about here and now."""
+    if scope not in SCOPES:
+        raise SheetError("A front is a campaign front or an adventure front.")
     built = []
     for d in list(dangers or ())[:MAX_DANGERS + 1]:
         portents = [_text(p, "a portent") for p in d.get("portents") or () if str(p).strip()]
@@ -49,7 +57,7 @@ def make(name: str, dangers: Sequence[Dict[str, Any]], stakes: Sequence[str] = (
                       "reached": 0, "ended": ""})
     if not 1 <= len(built) <= MAX_DANGERS:
         raise SheetError(f"A front has 1 to {MAX_DANGERS} dangers.")
-    return {"name": _text(name, "a name"), "dangers": built,
+    return {"name": _text(name, "a name"), "scope": scope, "dangers": built,
             "stakes": [_text(q, "a question") for q in stakes or () if str(q).strip()][:5]}
 
 
@@ -82,7 +90,7 @@ def render(fronts: Dict[str, Dict[str, Any]]) -> List[str]:
 
 def describe(front: Dict[str, Any]) -> str:
     """The whole front, for the DM."""
-    out = [f"**{front['name']}**"]
+    out = [f"**{front['name']}**" + (" (campaign front)" if front.get("scope") == "campaign" else "")]
     for d in front["dangers"]:
         done = int(d["reached"])
         out.append(f"• **{d['name']}** — impulse: {d['impulse']}"
