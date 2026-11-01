@@ -1037,16 +1037,28 @@ class GaryClient(discord.Client):
         """End of session -- and after the first one of an adventure started with /begin, the
         fronts, written from what play turned up (the book's advice for the first session)."""
         line = await self._end_session(yeses, fulfilled, resolved)
-        if line and self._opening().get("stage") == "playing":
-            from .. import opening
+        if not line:
+            return line
+        from .. import opening
 
-            # Done first: create_front is refused until the first session is over.
+        threats = [f"{n['subject']}: {n['body']}" for n in self.store.state().get("notes") or ()
+                   if n.get("kind") == "threat"][-20:]
+        if self._opening().get("stage") == "playing":
             self._set_opening("first session over", stage="done")
-            threats = [f"{n['subject']}: {n['body']}" for n in self.store.state().get("notes") or ()
-                       if n.get("kind") == "threat"]
-            asyncio.create_task(self.runner.run([PromptModel(channel_id, "rules_event",
-                                                             opening.fronts_event(threats[-20:]))]))
+            event = opening.fronts_event(threats)
+        else:
+            event = opening.review_event(threats)
+        asyncio.create_task(self._front_work(channel_id, event))
         return line
+
+    async def _front_work(self, channel_id: int, event: dict) -> None:
+        """Between sessions: "Fronts are built outside of active play." create_front is open only
+        while this runs."""
+        self._set_opening("front work", front_work=True)
+        try:
+            await self.runner.run([PromptModel(channel_id, "rules_event", event)])
+        finally:
+            self._set_opening("front work done", front_work=False)
 
     def _sheet_actions(self, channel_id: int, owner: int, actor: str, sheet: dict, prefix: str) -> dict:
         """What this character can open from their sheet: name -> (label, emoji, opener), or

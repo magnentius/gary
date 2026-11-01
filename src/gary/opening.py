@@ -137,6 +137,26 @@ def opening_event(premise_text: str, party: Sequence[Dict] = ()) -> Dict:
     }
 
 
+def review_event(threats: Sequence[str] = ()) -> Dict:
+    """Between sessions: the book's front work, done after every /endsession but the first."""
+    return {
+        "event": "Between sessions: front work",
+        "threats_noted": list(threats),
+        "instruction": (
+            "The session is over; this is the GM's time between sessions, out of play. Look over the fronts "
+            "and what happened. Fronts continue apace whether the characters are there or not: advance "
+            "(advance_portent) any danger the party neglected or did not see. End dangers that were dealt "
+            "with (end_danger). Revise what is still to come where play changed it (revise_front). Move an "
+            "unresolved danger you like from an adventure front up to the campaign front, or a campaign "
+            "danger that has come to bear into an adventure front (move_danger). If an adventure front has "
+            "been resolved -- or the party has set off after something new -- write a new adventure front "
+            "(create_front scope=adventure), inspired by the campaign front and the threats noted above. "
+            "Keep to two or three fronts in play. Do nothing if nothing calls for it. Reply to the table with "
+            "at most one line, without spoilers."
+        ),
+    }
+
+
 def fronts_event(threats: Sequence[str] = ()) -> Dict:
     return {
         "event": "Opening: fronts after the first session",

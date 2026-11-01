@@ -601,12 +601,24 @@ Impervious Defender's 12+ replaces Defend's hold in `_guard`. `_after_strike` re
 
 ### 6.9 Fronts and the GM's tools
 
-`fronts.py` checks a front (1–4 dangers, each an impulse, 2–5 grim portents and an impending
-doom; stakes questions) and renders it. Fronts live in state as `fronts`, written only by the
-journalled `FRONT` mutation, whose inverse is the record as it was. The model's
-`create_front`, `advance_portent` (the next portent comes true; the last one returns the doom)
-and `end_danger` post nothing to the table; the live state shows each live danger's impulse,
-progress and next portent. `/fronts` answers ephemerally, so only whoever asked sees it.
+`fronts.py` checks a front against the book's recipe: campaign or adventure; 1–3 dangers, each
+of a type from the book's five families (which gives its default impulse and its family's GM
+moves); grim portents, 1–3 on an adventure front and 3–5 on the campaign front; an impending
+doom of one of the six kinds with a concrete form; 1–3 stakes questions; a description, cast
+and custom moves (text the model honours). Fronts live in state as `fronts`, written only by
+the journalled `FRONT` mutation, whose inverse is the record as it was.
+
+The book builds fronts "outside of active play", so `create_front` is refused except while
+Gary holds the front-work window open (`opening.front_work`): after the first `/endsession`
+for the first campaign and adventure fronts, and after every later one for a between-session
+review (advance what was neglected, end what was dealt with, revise, move a danger between
+fronts, write a new adventure front when one resolves). In play the model notes threats
+(`record_note` kind `threat`), and may `advance_portent` (descriptively, offscreen, or as a
+hard move; the last one brings the doom and resolves the danger), `revise_front` (what is
+still to come; what has come to pass stays) and `move_danger` (with its progress; applied
+target-first, so half an `/undo` leaves it in both fronts, never neither). None of it posts to
+the table; the live state shows each live danger's type, impulse, progress and next portent,
+the custom moves, and once per family in play its GM moves. `/fronts` answers ephemerally.
 
 **Instant NPCs** (`npcs.py`, `data/npcs.json` from the authors' NPCs appendix): `instant_npc`
 rolls a d100 instinct and knack through `Director.dice` and a name not used by an NPC or sheet.

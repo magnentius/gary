@@ -988,39 +988,76 @@ class GeminiNarrator:
 
         store = self._store
         current = dict(store.state().get("fronts") or {})
+
+        def named(value: Any) -> str:
+            key = fronts.slug(str(value or ""))
+            if key not in current:
+                raise SheetError(f"No front {value!r}. Fronts: "
+                                 f"{', '.join(f['name'] for f in current.values()) or 'none'}.")
+            return key
+
         try:
             if name == T.CREATE_FRONT:
-                stage = (store.state().get("opening") or {}).get("stage")
-                if stage and stage != "done":
-                    # "Be especially sure to read the rules for fronts, but don't create any yet":
-                    # in the first session, threats are noted; fronts are built after it.
+                opening = store.state().get("opening") or {}
+                if not opening.get("front_work"):
+                    # "Fronts are built outside of active play" -- and not before the first session.
+                    first = opening.get("stage") and opening.get("stage") != "done"
                     return {"ok": False, "error": (
-                        "This is the campaign's first session: no fronts yet. Note the threat with "
-                        "record_note kind=threat; the fronts are built from those notes after the "
-                        "first end of session.")}
+                        ("This is the campaign's first session: no fronts yet. " if first else
+                         "Fronts are built between sessions, not in play. ")
+                        + "Note the threat with record_note kind=threat; fronts are written from those notes "
+                          "after the end of session. In play you may advance_portent, revise_front or "
+                          "move_danger.")}
                 front = fronts.make(str(args.get("name", "")), list(args.get("dangers") or []),
-                                    list(args.get("stakes") or []), str(args.get("scope") or "adventure"))
+                                    list(args.get("stakes") or []), str(args.get("scope") or "adventure"),
+                                    str(args.get("description") or ""), list(args.get("cast") or []),
+                                    list(args.get("moves") or []))
                 key = fronts.slug(front["name"])
                 if key in current:
                     return {"ok": False, "error": f"There is already a front called {front['name']}."}
-                if len(current) >= fronts.MAX_FRONTS:
-                    return {"ok": False, "error": f"At most {fronts.MAX_FRONTS} fronts; end one first."}
+                live = [f for f in current.values() if any(not d.get("ended") for d in f["dangers"])]
+                if len(live) >= fronts.MAX_FRONTS:
+                    return {"ok": False, "error": f"At most {fronts.MAX_FRONTS} fronts in play; resolve one first."}
+                if front["scope"] == "campaign" and any(f.get("scope") == "campaign" for f in live):
+                    return {"ok": False, "error": "There is already a campaign front: revise it, or move dangers "
+                                                  "into it."}
                 store.apply([Mutation(MutationKind.FRONT, key, {"front": front})],
                             reason=f"front: {front['name']}")
                 return {"ok": True, "front": front["name"],
                         "note": "Foreshadow the first portents; the state shows what comes next."}
-            key = fronts.slug(str(args.get("front", "")))
-            if key not in current:
-                return {"ok": False, "error": f"No front {args.get('front')!r}. Fronts: "
-                                              f"{', '.join(f['name'] for f in current.values()) or 'none'}."}
-            front = json.loads(json.dumps(current[key]))
-            danger = fronts.danger_of(front, str(args.get("danger", "")))
             reason = " ".join(str(args.get("reason", "") or "").split())
             if not reason:
                 return {"ok": False, "error": "Say what happened (reason)."}
+            key = named(args.get("front"))
+            front = json.loads(json.dumps(current[key]))
+            if name == T.REVISE_FRONT:
+                lists = {k: list(args[k]) for k in ("portents", "stakes") if args.get(k) is not None}
+                revised = fronts.revise(front, str(args.get("danger") or ""), lists.get("portents"),
+                                        str(args.get("doom") or ""), str(args.get("doom_type") or ""),
+                                        lists.get("stakes"), list(args.get("cast") or []),
+                                        str(args.get("description") or ""), list(args.get("moves") or []))
+                store.apply([Mutation(MutationKind.FRONT, key, {"front": revised})],
+                            reason=f"front {front['name']} revised: {reason}")
+                return {"ok": True, "revised": front["name"]}
+            if name == T.MOVE_DANGER:
+                to = named(args.get("to_front"))
+                if to == key:
+                    return {"ok": False, "error": "Name a different front to move it to."}
+                source, target = fronts.move(front, json.loads(json.dumps(current[to])), str(args.get("danger", "")))
+                # Target first: /undo reverses one change at a time, and half a move undone should
+                # leave the danger in both fronts, never in neither.
+                store.apply([Mutation(MutationKind.FRONT, to, {"front": target}),
+                             Mutation(MutationKind.FRONT, key, {"front": source})],
+                            reason=f"danger moved from {front['name']} to {target['name']}: {reason}")
+                return {"ok": True, "moved": args.get("danger"), "to": target["name"]}
+            danger = fronts.danger_of(front, str(args.get("danger", "")))
             if name == T.END_DANGER:
                 danger["ended"] = reason
                 result = {"ok": True, "ended": danger["name"]}
+                if all(d.get("ended") for d in front["dangers"]):
+                    result["note"] = ("The front is resolved. Look at the aftermath: any portents that came to "
+                                      "pass have changed the world. Leftovers may move to the campaign front "
+                                      "between sessions.")
             else:
                 if danger.get("ended"):
                     return {"ok": False, "error": f"{danger['name']} has ended: {danger['ended']}."}
@@ -1029,10 +1066,13 @@ class GeminiNarrator:
                 happened = danger["portents"][int(danger["reached"])]
                 danger["reached"] = int(danger["reached"]) + 1
                 result = {"ok": True, "portent": happened, "reached": danger["reached"],
-                          "of": len(danger["portents"])}
+                          "of": len(danger["portents"]),
+                          "check": "A portent that comes to pass may change the other dangers: revise them."}
                 if danger["reached"] >= len(danger["portents"]):
                     result["doom"] = (f"The impending doom comes to pass: {danger['doom']}. Make it "
-                                      "real in the fiction, now or as soon as the party can see it.")
+                                      "real in the fiction, now or as soon as the party can see it; the setting "
+                                      "has changed for good.")
+                    danger["ended"] = f"its doom came to pass: {danger['doom']}"
                 else:
                     result["next"] = danger["portents"][danger["reached"]]
         except SheetError as exc:
@@ -1118,7 +1158,7 @@ class GeminiNarrator:
                 reason=str(args.get("reason", "")),
             ))
 
-        if name in (T.CREATE_FRONT, T.ADVANCE_PORTENT, T.END_DANGER):
+        if name in (T.CREATE_FRONT, T.ADVANCE_PORTENT, T.END_DANGER, T.REVISE_FRONT, T.MOVE_DANGER):
             return self._front_tool(name, args)
 
         if name in (T.CREATE_STEADING, T.ADJUST_STEADING):

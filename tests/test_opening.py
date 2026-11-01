@@ -110,7 +110,7 @@ def table(clock):
         MAX_SETTING_CHARS = GaryClient.MAX_SETTING_CHARS
 
     for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
-                 "on_premise", "on_opening_step", "_end_session_then_fronts"):
+                 "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work"):
         setattr(_Client, name, getattr(GaryClient, name))
     client = _Client()
     client.store = store
@@ -167,7 +167,7 @@ def test_the_whole_opening_in_order(table):
     assert "has begun" in sent[-1][0]
 
 
-def test_the_first_end_of_session_writes_the_fronts_once(table):
+def test_the_first_end_of_session_writes_the_fronts_then_each_reviews_them(table):
     client, store, sent, ran = table
 
     async def ended(yeses, fulfilled, resolved):
@@ -188,9 +188,10 @@ def test_the_first_end_of_session_writes_the_fronts_once(table):
     assert ran[-1].payload["threats_noted"] == ["the Choir: wants the bell back"]
     assert "scope=campaign" in ran[-1].payload["instruction"]
     assert store.state()["opening"]["stage"] == "done"
+    assert store.state()["opening"]["front_work"] is False  # open only while the work runs
     ran.clear()
-    asyncio.run(go())
-    assert ran == []
+    asyncio.run(go())  # every later session: the between-session review
+    assert ran[-1].payload["event"] == "Between sessions: front work"
 
 
 def test_begin_mid_opening_shows_the_next_step(table):

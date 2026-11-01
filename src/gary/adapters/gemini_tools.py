@@ -21,6 +21,7 @@ from google.genai import types
 
 from ..moves import MOVES
 from ..compendium import CLASSES as COMPENDIUM_CLASSES, describe_requirements
+from ..fronts import DOOMS, type_names as front_types
 from ..sheets import STATS
 
 MAKE_MOVE = "make_move"
@@ -67,6 +68,8 @@ TREASURE = "roll_treasure"
 FIRST_AID = "hireling_first_aid"
 BOLSTER = "bolster"
 CREATE_FRONT = "create_front"
+REVISE_FRONT = "revise_front"
+MOVE_DANGER = "move_danger"
 ADVANCE_PORTENT = "advance_portent"
 END_DANGER = "end_danger"
 UPDATE_HIRELING = "update_hireling"
@@ -465,37 +468,81 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=CREATE_FRONT,
         description=(
-            "Write down a threat that will move whether the party looks or not -- a front -- as it "
-            "takes shape. Never during the first session of a campaign: then, note threats with "
-            "record_note kind=threat, and the fronts are built from them afterwards. "
-            "Each danger has an impulse (what it wants), 2-5 grim portents (escalating steps it takes "
-            "if unchecked, each something the party could notice and stop), and an impending doom. "
-            "Players never see fronts; you are shown each danger's next portent every turn."
+            "Write a front, by the book's recipe. Only when Gary opens front work (after an end of "
+            "session) -- fronts are built outside play; in play, note threats with record_note "
+            "kind=threat. A front is campaign (the slow threat across sessions; 3-5 portents a danger; "
+            "it may be incomplete) or adventure (here and now; 1-3 portents a danger). 1-3 dangers, each "
+            "of a type from the book (its impulse and its family's GM moves come with it), with grim "
+            "portents -- steps it takes if unchecked, each something the party could notice -- and an "
+            "impending doom: a kind and its concrete form. 1-3 stakes questions: what you want play to "
+            "find out. Players never see fronts."
         ),
         parameters=_s(
             type=_OBJECT,
             properties={
-                "name": _s(type=_STRING, description="e.g. 'The Dragon of the Spear'."),
+                "name": _s(type=_STRING, description="e.g. 'The Opening of the White Gate'."),
+                "scope": _s(type=_STRING, enum=["campaign", "adventure"]),
                 "dangers": _s(type=_ARRAY, items=_s(type=_OBJECT, properties={
-                    "name": _s(type=_STRING), "impulse": _s(type=_STRING, description="'to defend her young'"),
+                    "name": _s(type=_STRING, description="'The College of Arcanists'"),
+                    "type": _s(type=_STRING, enum=front_types()),
+                    "impulse": _s(type=_STRING, description="Optional: the type's impulse is the default."),
                     "portents": _s(type=_ARRAY, items=_s(type=_STRING)),
-                    "doom": _s(type=_STRING, description="'destruction', 'usurpation', or what it means here"),
-                }, required=["name", "impulse", "portents", "doom"])),
-                "scope": _s(type=_STRING, enum=["campaign", "adventure"], description=(
-                    "campaign: the threat that runs session to session (it may be incomplete); "
-                    "adventure: what matters here and now. Default adventure.")),
+                    "doom_type": _s(type=_STRING, enum=list(DOOMS)),
+                    "doom": _s(type=_STRING, description="Its concrete form: 'the College seizes the north'."),
+                }, required=["name", "type", "portents", "doom_type", "doom"])),
                 "stakes": _s(type=_ARRAY, items=_s(type=_STRING),
-                             description="Questions play will answer, e.g. 'Will the lizardmen side with the dragon?'"),
+                             description="1-3: 'Who will be the champion?' -- concrete, never the same after."),
+                "description": _s(type=_STRING, description="The front in a nutshell."),
+                "cast": _s(type=_ARRAY, items=_s(type=_STRING), description="Its people, each with a detail."),
+                "moves": _s(type=_ARRAY, items=_s(type=_STRING), description=(
+                    "Custom moves a danger suggests, written out ('When you stand in the Light From Beyond, "
+                    "roll+WIS...'). You honour them; Gary does not roll them.")),
             },
-            required=["name", "dangers"],
+            required=["name", "scope", "dangers", "stakes"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=REVISE_FRONT,
+        description=(
+            "Change a front in play, as the book allows ('these often change in play'): a danger's "
+            "portents still to come or its doom, the stakes, the cast (added to), the description, "
+            "a custom move. Portents already come to pass stay."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "front": _s(type=_STRING), "danger": _s(type=_STRING),
+                "portents": _s(type=_ARRAY, items=_s(type=_STRING), description="Replaces those not yet reached."),
+                "doom_type": _s(type=_STRING), "doom": _s(type=_STRING),
+                "stakes": _s(type=_ARRAY, items=_s(type=_STRING), description="Replaces them: 1-3."),
+                "cast": _s(type=_ARRAY, items=_s(type=_STRING)), "description": _s(type=_STRING),
+                "moves": _s(type=_ARRAY, items=_s(type=_STRING)),
+                "reason": _s(type=_STRING, description="What in play changed it."),
+            },
+            required=["front", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=MOVE_DANGER,
+        description=(
+            "Move a danger to another front with its progress: an unresolved one from an adventure front "
+            "up to the campaign front, or one from the campaign front that has come to bear into an "
+            "adventure front."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"front": _s(type=_STRING), "danger": _s(type=_STRING),
+                        "to_front": _s(type=_STRING), "reason": _s(type=_STRING)},
+            required=["front", "danger", "to_front", "reason"],
         ),
     ),
     types.FunctionDeclaration(
         name=ADVANCE_PORTENT,
         description=(
-            "A danger's next grim portent comes true -- onscreen, or offscreen while the party is "
-            "elsewhere or ignores the signs. Then show its signs in the fiction. When the last one "
-            "falls, its impending doom comes to pass."
+            "A danger's next grim portent comes true: descriptively, when play has shown it happen; "
+            "offscreen, while the party is elsewhere or ignores the signs; or prescriptively, as your "
+            "hard move after a miss or a golden opportunity. Then show its effects and ask what they do. "
+            "When the last one falls, its impending doom comes to pass."
         ),
         parameters=_s(
             type=_OBJECT,

@@ -426,11 +426,17 @@ it pays off ("+1 preparation"). The clock moves the weeks.
 
 ## The GM's tools
 
-**Fronts.** The GM writes the threats that move on their own as fronts — dangers with an
-impulse, a few grim portents and an impending doom — and ticks portents off as the story
-goes, including while the party is elsewhere. Gemini is shown each danger's next portent
-every turn, so it can foreshadow it. Players never see them; `/fronts` shows them only to
-whoever runs it. Every change undoes with `/undo`.
+**Fronts.** The GM writes the threats that move on their own as fronts, by the book's recipe:
+a campaign front, the slow threat behind everything, and one or two adventure fronts about
+here and now. Each has up to three dangers of the book's types (a Cult, a Dragon, a Dark
+Portal…), grim portents, an impending doom (tyranny, pestilence, destruction, usurpation,
+impoverishment or rampant chaos, made concrete) and a few stakes questions. As the book says,
+fronts are written between sessions, not in play: after each `/endsession` the GM quietly
+reviews them — advancing what the party neglected, ending what they dealt with, moving an
+unresolved danger up to the campaign front, writing a new adventure front when one is
+resolved. In play the GM notes new threats, ticks portents off (as play shows them, offscreen,
+or as a hard move after a miss), and uses each danger's GM moves. Players never see fronts;
+`/fronts` shows them only to whoever runs it. Every change undoes with `/undo`.
 
 **People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
 met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or
