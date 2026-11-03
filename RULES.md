@@ -399,7 +399,9 @@ at an inn or as someone's guest costs no ration — "only mark off a ration if y
 from the food you carry". Rations are a day's food and water together; the book has no
 separate thirst rule. Run out and you go hungry: the book sets no penalty, so you still heal,
 and the GM makes something of the hunger instead (weakness, a short temper, a debility if it
-goes on). If something comes in the night, whoever is on watch rolls
+goes on). Gary notes when the party last slept; past a day without it, the GM is reminded,
+and weariness is the GM's to make something of — the book has no rule for it, so there's no
+fixed penalty. If something comes in the night, whoever is on watch rolls
 **Take Watch** (+Wis) and nobody heals. You can't make camp with creatures still standing or while
 anyone's roll is unresolved (a Last Breath above all); anywhere else unsafe — a chase, a
 storm — the GM refuses the rest or lets something come for you. Every camp says where it is

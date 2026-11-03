@@ -380,6 +380,7 @@ class GeminiNarrator:
                     try:
                         # Once for the party: a rest is per character, the night is not.
                         self._store.advance_time(480, reason="the party makes camp")
+                        self._rested()
                     except StateError as exc:
                         result["clock"] = str(exc)
                 effects.extend(camp_effects)
@@ -406,6 +407,7 @@ class GeminiNarrator:
                         # A day at a time: the store bounds one advance at a day.
                         for _ in range(result["days"]):
                             self._store.advance_time(1440, reason="the party recovers")
+                        self._rested()
                     except StateError as exc:
                         result["clock"] = str(exc)
                 effects.extend(rest_effects)
@@ -1022,6 +1024,11 @@ class GeminiNarrator:
         if menu:
             result["post"] = menu
         return result
+
+    def _rested(self) -> None:
+        """The party slept: when, on the scene, so a long stretch without it can be seen (sky.py)."""
+        minutes = int(self._store.state().get("world_minutes", 0))
+        self._store.apply([Mutation(MutationKind.SCENE, "", {"rested_at": minutes})], reason="the party rested")
 
     def _downtime(self, key: str) -> str:
         """What downtime in this steading offers, for the table -- "" while a fight is on."""

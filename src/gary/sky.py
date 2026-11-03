@@ -66,8 +66,31 @@ def weavers(state: Dict[str, Any]) -> List[str]:
                   if a in sheets and has(sheets[a], "Weather Weaver") and not sheets[a].get("dead"))
 
 
+#: Past this, the party's want of sleep is worth the GM's notice.
+AWAKE_HOURS = 24
+
+
+def weariness(state: Dict[str, Any]) -> str:
+    """A line when the party hasn't slept in over a day. The book has no rule for going without
+    sleep -- healing needs "a few uninterrupted hours", and that is all -- so this is a fact for
+    the GM to make something of, not a penalty."""
+    rested = (state.get("scene") or {}).get("rested_at")
+    if rested is None:
+        return ""
+    hours = (int(state.get("world_minutes", 0)) - int(rested)) // 60
+    if hours <= AWAKE_HOURS:
+        return ""
+    return (f"- Rest: the party last slept {hours} hours ago. Weariness is yours to make something of -- "
+            "stumbling, short tempers, a Defy Danger to stay alert, a debility if it goes on.")
+
+
 def lines(state: Dict[str, Any]) -> List[str]:
-    """For the live state: today's weather, or what to do about it."""
+    """For the live state: today's weather (or what to do about it), and weariness."""
+    tired = [weariness(state)] if weariness(state) else []
+    return _weather_lines(state) + tired
+
+
+def _weather_lines(state: Dict[str, Any]) -> List[str]:
     known = weather(state)
     if known:
         return [f"- Weather today: {known}"]
