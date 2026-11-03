@@ -68,6 +68,7 @@ RESOLVE_APPETITE = "resolve_appetite"
 GIVE_MAGIC_ITEM = "give_magic_item"
 RUMMAGE = "rummage"
 SET_WEATHER = "set_weather"
+PAY_FOR = "pay_for"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -947,6 +948,23 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=PAY_FOR,
+        description=(
+            "A character pays for something off the book's price list that isn't equipment: a stay at an inn "
+            "('a night at a civilized inn', 'a week at a peasant inn'), a meal or a feast, an escort, a chirurgeon, "
+            "passage, a horse or a cart, a cottage, a bribe, a gift or finery. Gary charges the book's price -- less "
+            "their Charisma where the book says so, less a Minstrel's skill in town -- and keeps what is kept (a "
+            "horse, a house). For equipment use buy; for something unlisted name a price and use give_coins."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"actor": _s(type=_STRING), "what": _s(type=_STRING),
+                        "times": _s(type=_INTEGER, description="How many: nights, meals, days of escort. Default 1."),
+                        "reason": _s(type=_STRING)},
+            required=["actor", "what"],
         ),
     ),
     types.FunctionDeclaration(

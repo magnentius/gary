@@ -69,3 +69,33 @@ def test_rummaging_marks_off_a_use_and_the_last_empties_the_pack():
         trade.rummage(sheet, "a torch")
     with pytest.raises(trade.TradeError, match="Say what they pull out"):
         trade.rummage(SHEET, "")
+
+
+def test_paying_for_a_service_charges_the_book_less_charisma():
+    rich = {**SHEET, "coins": 100}  # Cha 13: +1
+    sheet, label, cost = trade.pay_for(rich, "a week at a civilized inn")
+    assert (label, cost, sheet["coins"]) == ("A week's stay at a civilized inn", 29, 71)
+    sheet, label, cost = trade.pay_for(rich, "a night at the inn", times=2)
+    assert cost == 2 * 5 and label.startswith("a night at")  # ceil((30-1)/7) = 5 a night
+    sheet, label, cost = trade.pay_for(rich, "a hearty meal for one", times=3)
+    assert cost == 3
+    sheet, label, cost = trade.pay_for(rich, "a night at a peasant inn", discount=1)  # a Minstrel in town
+    assert cost == 1
+
+
+def test_a_horse_is_kept_and_the_unlisted_or_unaffordable_refused():
+    sheet, label, cost = trade.pay_for({**SHEET, "coins": 100}, "horse")
+    assert cost == 75 and sheet["gear"][-1]["name"] == "Horse" and sheet["gear"][-1]["tags"] == ["load 10"]
+    with pytest.raises(trade.TradeError, match="costs 75 coins"):
+        trade.pay_for(SHEET, "horse")
+    with pytest.raises(trade.TradeError, match="isn't on the book's price list"):
+        trade.pay_for(SHEET, "a dragon egg")
+
+
+def test_service_names_match_sensibly():
+    from gary import services
+
+    assert services.find("a dinner")[0] is None or "inn" not in services.find("a dinner")[0]["name"]
+    assert services.find("an assassination")[0]["name"] == "An assassination"
+    assert services.find("cottage")[0]["name"] == "A cottage"
+    assert services.find("a night at the Drowned Rat inn") [1] is True

@@ -393,6 +393,13 @@ you redeem yourself and the GM releases you.
 
 ## Rest and travel
 
+**Inns, meals and services.** The book prices more than equipment: a week at an inn (peasant,
+civilized or the fanciest in town), meals and feasts, escorts, a chirurgeon, passage, horses,
+carts and boats, land and buildings, bribes, gifts and finery. Gary charges those prices,
+less your Charisma where the book says "−Charisma", less a Minstrel's skill in town. A night
+at an inn is a seventh of the week's price (Gary's arithmetic; the book prices weeks). A horse,
+a cottage or finery you buy to keep goes on your sheet.
+
 **Make Camp heals.** When the party beds down, Gary eats a ration for each of you and, if
 the night is quiet, heals everyone half their max HP and moves the clock eight hours. A night
 at an inn or as someone's guest costs no ration — "only mark off a ration if you're eating

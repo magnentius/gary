@@ -65,6 +65,37 @@ def _rations_for(sheet: Dict[str, Any], item) -> int:
     return item.rations
 
 
+def pay_for(sheet: Dict[str, Any], what: str, times: int = 1, discount: int = 0) -> Tuple[Dict[str, Any], str, int]:
+    """A service, a meal, transport, land, a bribe or a gift, at the book's price (services.py):
+    (new sheet, what was paid for, total cost). What is bought to keep goes on the sheet."""
+    from .services import find, options, price
+    from .sheets import stat_modifier
+
+    service, night = find(what)
+    if service is None:
+        raise TradeError(f"{what!r} isn't on the book's price list. Listed: " + "; ".join(options()[:12])
+                         + "... For anything else, name a price in the fiction and use give_coins.")
+    times = max(1, min(int(times or 1), 30))
+    cha = stat_modifier(sheet, "cha") if "stats" in sheet else 0
+    each = price(service, cha, night, discount)
+    cost = each * times
+    _, _, coins = _counts(sheet)
+    label = (f"a night at {service['name'].split(' at ', 1)[1]}" if night else service["name"]) + (
+        f" × {times}" if times > 1 else "")
+    if cost > coins:
+        raise TradeError(f"{label} costs {cost} coins; {sheet['name']} has {coins}.")
+    sheet = give_coins(sheet, -cost)
+    if service.get("kept"):
+        tags = [f"load {service['load']}"] if service.get("load") else []
+        gear = list(sheet.get("gear") or []) + [{"name": service["name"].removeprefix("A ").removeprefix("An "),
+                                                  "tags": tags, "weight": 0, "armor": 0, "shield": 0, "damage": 0,
+                                                  "piercing": 0, "ammo": 0, "needs_ammo": False, "rations": 0,
+                                                  "possession": True} for _ in range(times)]
+        ammo, rations, coins_now = _counts(sheet)
+        sheet = _recount(sheet, gear, ammo, rations, coins_now)
+    return sheet, label, cost
+
+
 def rummage(sheet: Dict[str, Any], what: str) -> Tuple[Dict[str, Any], int]:
     """Adventuring gear: "When you rummage through your adventuring gear for some useful mundane
     item, you find what you need and mark off a use." (new sheet, uses left). The last use takes

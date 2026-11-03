@@ -1,0 +1,321 @@
+{
+ "attribution": "Dungeon World by Sage LaTorra and Adam Koebel, CC BY 3.0: the Services, Meals, Transport, Land and Buildings, Bribes, and Gifts and Finery price lists, transcribed by hand.",
+ "services": [
+  {
+   "category": "Services",
+   "name": "A week's stay at a peasant inn",
+   "price": 14,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A week's stay at a civilized inn",
+   "price": 30,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A week's stay at the fanciest inn in town",
+   "price": 43,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A week's unskilled mundane labor",
+   "price": 10,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A month's pay for enlistment in an army",
+   "price": 30,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A night's companionship",
+   "price": 20,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "An evening of song and dance",
+   "price": 18,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "Escort for a day along a bandit-infested road",
+   "price": 20,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "Escort for a day along a monster-infested road",
+   "price": 54,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A run-of-the-mill killing",
+   "price": 5,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "An assassination",
+   "price": 120,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "Healing from a chirurgeon",
+   "price": 5,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Services",
+   "name": "A month's prayers for the departed",
+   "price": 1,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Meals",
+   "name": "A hearty meal for one",
+   "price": 1,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Meals",
+   "name": "A poor meal for a family",
+   "price": 1,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Meals",
+   "name": "A feast (per person)",
+   "price": 15,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Transport",
+   "name": "Cart and donkey",
+   "price": 50,
+   "minus_cha": false,
+   "kept": true,
+   "load": 20
+  },
+  {
+   "category": "Transport",
+   "name": "Horse",
+   "price": 75,
+   "minus_cha": false,
+   "kept": true,
+   "load": 10
+  },
+  {
+   "category": "Transport",
+   "name": "Warhorse",
+   "price": 400,
+   "minus_cha": false,
+   "kept": true,
+   "load": 12
+  },
+  {
+   "category": "Transport",
+   "name": "Wagon",
+   "price": 150,
+   "minus_cha": false,
+   "kept": true,
+   "load": 40
+  },
+  {
+   "category": "Transport",
+   "name": "Barge",
+   "price": 50,
+   "minus_cha": false,
+   "kept": true,
+   "load": 15
+  },
+  {
+   "category": "Transport",
+   "name": "River boat",
+   "price": 150,
+   "minus_cha": false,
+   "kept": true,
+   "load": 20
+  },
+  {
+   "category": "Transport",
+   "name": "Merchant ship",
+   "price": 5000,
+   "minus_cha": false,
+   "kept": true,
+   "load": 200
+  },
+  {
+   "category": "Transport",
+   "name": "War ship",
+   "price": 20000,
+   "minus_cha": false,
+   "kept": true,
+   "load": 100
+  },
+  {
+   "category": "Transport",
+   "name": "Passage on a safe route",
+   "price": 1,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Transport",
+   "name": "Passage on a tough route",
+   "price": 10,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Transport",
+   "name": "Passage on a dangerous route",
+   "price": 100,
+   "minus_cha": false,
+   "kept": false
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A hovel",
+   "price": 20,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A cottage",
+   "price": 500,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A house",
+   "price": 2500,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A mansion",
+   "price": 50000,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A keep",
+   "price": 75000,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A castle",
+   "price": 250000,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Land and Buildings",
+   "name": "A grand castle",
+   "price": 1000000,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Bribes",
+   "name": "A peasant dowry",
+   "price": 20,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Bribes",
+   "name": "Protection for a small business",
+   "price": 100,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Bribes",
+   "name": "A government bribe",
+   "price": 50,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Bribes",
+   "name": "A compelling bribe",
+   "price": 80,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Bribes",
+   "name": "An offer you can't refuse",
+   "price": 500,
+   "minus_cha": true,
+   "kept": false
+  },
+  {
+   "category": "Gifts and Finery",
+   "name": "A peasant gift",
+   "price": 1,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Gifts and Finery",
+   "name": "A fine gift",
+   "price": 55,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Gifts and Finery",
+   "name": "A noble gift",
+   "price": 200,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Gifts and Finery",
+   "name": "A ring or cameo",
+   "price": 75,
+   "minus_cha": false,
+   "kept": true
+  },
+  {
+   "category": "Gifts and Finery",
+   "name": "Finery",
+   "price": 105,
+   "minus_cha": false,
+   "kept": true
+  }
+ ]
+}
