@@ -1380,7 +1380,10 @@ class GaryClient(discord.Client):
                     f"**{actor}** is ready for level {int(sheet.get('level', 1)) + 1}:" if only == "levelup" else
                     f"**{actor}**:")
         else:
-            extra = [line for line in (alignment_line(sheet), choices.describe(sheet), carrying_line(sheet),
+            from ..magic import describe as describe_magic
+
+            extra = [line for line in (alignment_line(sheet), choices.describe(sheet), describe_magic(sheet),
+                                       carrying_line(sheet),
                                        spells.describe(sheet), companions.describe(sheet), bonds.describe(sheet),
                                        hirelings.describe(sheet)) if line]
             # Bonds and alignment always; the rest only while there is something to do.

@@ -28,8 +28,8 @@ from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
 from . import (
-    advanced, bonds, choices, companion as companions, damage, hirelings, multiclass, quests, reactions, slimes,
-    spells, steadings, trade,
+    advanced, bonds, choices, companion as companions, damage, hirelings, magic, multiclass, quests, reactions,
+    slimes, spells, steadings, trade,
 )
 from .gear import armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
@@ -2336,7 +2336,7 @@ class Director:
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet:
             return "d6", 0, ""
-        die = advanced.shaped_die(sheet, sheet["damage"])
+        die = advanced.shaped_die(sheet, magic.damage_die(sheet) or sheet["damage"])
         # Halfling Thief: "When you attack with a ranged weapon, deal +2 damage."
         knack = 2 if (MOVES[check.move].ranged and sheet.get("class") == "Thief"
                       and sheet.get("race") == "Halfling") else 0

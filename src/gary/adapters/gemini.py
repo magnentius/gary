@@ -356,7 +356,7 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
-            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL):
+            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL, T.GIVE_MAGIC_ITEM):
                 trade_effects, result = self._trade(channel_id, name, args)
                 effects.extend(trade_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -836,7 +836,8 @@ class GeminiNarrator:
             **({"magic_item_ideas": [{"name": i["name"], "tags": i["tags"], "text": i["text"]}
                                      for i in found.ideas]} if found.ideas else {}),
             "note": ("The coins and valuables are on their sheet already. Describe what they find, "
-                     "honestly; name what you_decide asks you to, and give any item with give_items."),
+                     "honestly; name what you_decide asks you to, and give any item with give_items -- a "
+                     "magic one with give_magic_item, so its text stays with them."),
         }
 
     def _trade(self, channel_id: int, name: str, args: Dict[str, Any]) -> Tuple[List[Any], Dict[str, Any]]:
@@ -860,7 +861,12 @@ class GeminiNarrator:
 
         sheet = sheets[actor]
         try:
-            if name == T.GIVE_ITEMS:
+            if name == T.GIVE_MAGIC_ITEM:
+                new, got_name = trade.add_magic_item(sheet, str(args.get("name", "")), str(args.get("text", "") or ""),
+                                                     [str(t) for t in args.get("tags") or []])
+                line = f"✨ **{actor}** gets **{got_name}**" + (f" — {reason}" if reason else "") + "."
+                result = {"ok": True, "got": got_name, "note": "Its text is shown to you under them every turn."}
+            elif name == T.GIVE_ITEMS:
                 new, got = trade.add_items(sheet, [str(i) for i in args.get("items", [])])
                 line = f"🎒 **{actor}** gets {', '.join(got)}" + (f" — {reason}" if reason else "") + "."
                 result = {"ok": True, "got": got}

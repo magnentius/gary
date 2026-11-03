@@ -25,7 +25,7 @@ STYLE = ("painterly digital fantasy illustration with visible, textured brushwor
          "browns, greens and deep shadow; dramatic soft lighting; gritty, weathered realism, like concept art "
          "for a dark fantasy game")
 
-KINDS = ("character", "npc", "creature", "place")
+KINDS = ("character", "npc", "creature", "place", "item")
 
 
 def slug(text: str) -> str:
@@ -42,6 +42,10 @@ def subjects(state: Dict[str, Any]) -> List[Tuple[str, str]]:
                      and not sheets[a].get("dead") and not out_of_play(sheets[a])})
     out: List[Tuple[str, str]] = [("character", a) for a in seated]
     out += [("npc", str(n["name"])) for n in known(state)]
+    for a in seated:  # magic items the party carries
+        for g in sheets[a].get("gear") or ():
+            if g.get("magic") and ("item", g["name"]) not in out:
+                out.append(("item", str(g["name"])))
     kinds = []
     for record in (state.get("monsters") or {}).values():
         kind = str(record.get("kind") or "")
@@ -79,6 +83,11 @@ def prompt(state: Dict[str, Any], kind: str, name: str) -> str:
         public = str(npc.get("public") or "").strip()
         what = (f"A head-and-shoulders portrait of {name}" + (f", {public}" if public else "") + "."
                 + (f" As pictured before: {npc['portrait']}." if npc.get("portrait") else ""))
+    elif kind == "item":
+        item = next((g for s in (state.get("sheets") or {}).values() for g in s.get("gear") or ()
+                     if g.get("magic") and g.get("name") == name), {})
+        what = (f"A magic item, {name}, shown alone on a plain surface, with an air of power: "
+                f"{str(item.get('magic', ''))[:300]}. Only the item: no people.")
     elif kind == "creature":
         from .monsters import lookup
 

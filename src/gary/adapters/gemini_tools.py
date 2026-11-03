@@ -65,6 +65,7 @@ SPELL_AUGMENTATION = "spell_augmentation"
 STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
 RESOLVE_APPETITE = "resolve_appetite"
+GIVE_MAGIC_ITEM = "give_magic_item"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -941,6 +942,26 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=GIVE_MAGIC_ITEM,
+        description=(
+            "A character gains a magic item -- spoils, a reward, a ritual's making. One of the book's (name it: "
+            "'Vorpal Sword', 'Bag of Holding') comes with the book's text and tags; one you invent needs text "
+            "(what it does -- something more interesting than +1 damage) and its tags ('close', '2 weight', "
+            "'1 armor', '+1 armor' for a shield, '2 piercing'). It is carried as gear, its weight counts, and its "
+            "text is shown to you under them every turn. Magic items are never sold; take_items removes one."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "actor": _s(type=_STRING), "name": _s(type=_STRING),
+                "text": _s(type=_STRING, description="Only for one you invent: what it does."),
+                "tags": _s(type=_ARRAY, items=_s(type=_STRING), description="Only for one you invent."),
+                "reason": _s(type=_STRING),
+            },
+            required=["actor", "name", "reason"],
         ),
     ),
     types.FunctionDeclaration(

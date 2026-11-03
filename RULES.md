@@ -446,6 +446,13 @@ sheet; a gem or a crown sells for exactly what it is worth. What else turns up �
 item, a clue, a portal, something magical — the GM names, and for anything magical the GM
 is shown a few of the book's 39 magic items for ideas. A creature is searched once.
 
+**Magic items.** The book's are "ideas" and "ultimately for you to decide", and none is for
+sale ("not for coin, anyway"). When the GM gives you one — from the book or invented — it goes
+on your sheet as gear with its text: its weight counts, a magic weapon can be swung or
+thrown, magic armor and shields protect, and Argo-Thaan gives a Paladin a d12 damage die. The
+GM is shown what each one does every turn, so it works the same in session ten as in the
+session you found it. `/picture` can draw any magic item the party carries.
+
 **Hirelings.** Put out word that you're hiring and the GM calls Recruit: +1 each for
 generous pay, saying what you're setting out to do, offering a share, and a useful
 reputation. Whoever joins is made by the book — skills (Adept, Burglar, Minstrel, Priest,

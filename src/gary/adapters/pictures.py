@@ -20,7 +20,7 @@ from .. import pictures
 log = logging.getLogger(__name__)
 
 #: Portraits tall, creatures a little wide, places wide.
-ASPECT = {"character": "3:4", "npc": "3:4", "creature": "4:3", "place": "16:9"}
+ASPECT = {"character": "3:4", "npc": "3:4", "creature": "4:3", "place": "16:9", "item": "1:1"}
 SIZE = "1K"  # Discord shows a few hundred pixels and opens larger on click; 2K and 4K would be waste
 TIMEOUT_SECONDS = 90.0
 

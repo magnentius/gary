@@ -65,6 +65,19 @@ def _rations_for(sheet: Dict[str, Any], item) -> int:
     return item.rations
 
 
+def add_magic_item(sheet: Dict[str, Any], name: str, text: str = "", tags: Sequence[str] = ()) -> Tuple[Dict[str, Any], str]:
+    """Give a magic item: carried as gear, with its text (magic.py)."""
+    from .magic import entry
+
+    try:
+        item = entry(name, text, tags)
+    except ValueError as exc:
+        raise TradeError(str(exc)) from exc
+    gear = list(sheet.get("gear") or []) + [item]
+    ammo, rations, coins = _counts(sheet)
+    return _recount(sheet, gear, ammo + int(item.get("ammo", 0)), rations, coins), item["name"]
+
+
 def add_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, Any], List[str]]:
     """Give items to a character. Returns (new sheet, what they got, as the table reads it).
 
@@ -135,6 +148,11 @@ def give_coins(sheet: Dict[str, Any], amount: int) -> Dict[str, Any]:
 
 
 def buy(sheet: Dict[str, Any], name: str, price: int = None, discount: int = 0) -> Tuple[Dict[str, Any], str, int]:
+    from .magic import book_item
+
+    if book_item(name) is not None:
+        # "It'll buy you mundane stuff... The special stuff, like magic weapons, isn't for sale."
+        raise TradeError(f"{name} isn't for sale -- magic items aren't, not for coin. It is found, earned or made.")
     """At the book's price -- or, after Supply, at the price the GM names: never below the
     book's, at most twice it, and for something the book does not price at most
     MAX_SPECIAL_PRICE. Returns (new sheet, item label, total cost)."""

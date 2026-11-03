@@ -1061,6 +1061,7 @@ src/gary/
   compendium.py    compendium classes: requirements, starting and follow-on moves   §6.10
   playbooks.py     classes from standalone playbooks (the Barbarian), merged in     §6.1
   beyond.py        Beyond 10th Level: retire, take an apprentice, change class      §6.10
+  magic.py         magic items as gear with their text; the book's looked up        §6.4
   pictures.py      /picture's subjects (only what the table knows) and prompts      §10
                    (adapters/pictures.py draws them: a style reference image sent
                    with every request, 1K, the first kept per subject, a daily cap)
