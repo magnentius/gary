@@ -808,6 +808,10 @@ layers, in order:
    each character's moments in the recent turns (a player message attributed to them, a
    `make_move` with them as actor; the two together are one moment) and names the quiet ones
    once the gap is three or more -- the book's "spread the spotlight" as a fact, not a hope.
+   Then, only when the recent run is lopsided (five of the last six one way), a **beats** line
+   (`beats.py`): up and down read from the journal -- strong hits, creatures to 0 HP, looting
+   and HP regained up; misses, Last Breath, HP lost and debilities down -- asking the model to
+   lean the next thing it introduces the other way, never a roll.
 3. **Retrieved memory** — NPCs and notes relevant to the scene: a note surfaces when its
    subject is a party member, the current location, or is named in what was just said
    (whole subject or any distinctive word, so "Toby Cole" answers to "Toby"), plus a

@@ -206,6 +206,11 @@ class GeminiNarrator:
         tally = spotlight(moments_in(contents), seated)
         if tally:
             blocks.append(tally)
+        from ..beats import beats, line as beat_line
+
+        rhythm = beat_line(beats(self._store.journal(limit=200)))
+        if rhythm:
+            blocks.append(rhythm)
         moves = render_class_moves(state.get("sheets") or {})
         if moves:
             blocks.append(moves)

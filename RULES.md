@@ -222,6 +222,13 @@ narrated. When the party settles into a village, town, keep or city with no figh
 what downtime there offers — buying and selling (what's for sale here), Supply, Recover,
 Carouse, Recruit, Bolster, and levelling up for anyone ready — with what the place's tags change.
 
+**Upward and downward beats.** Good moments and setbacks should alternate (Mike Shea's "Upward
+and Downward Beats"): too many wins feel dull, too many losses hopeless. Gary reads the recent
+run from what it records (strong hits, creatures brought down, treasure and healing up; misses,
+wounds, debilities and Last Breath down) and, only when the run leans hard one way, tells the GM
+to make the next thing it introduces go the other way: a friendly face or a safe place after a
+hard run, a stronger foe or an ambush after easy wins. The dice still decide every roll.
+
 **Sharing the spotlight.** Dungeon World has no turns; the GM spreads the spotlight. Gary
 keeps count of who has had the recent moments (speaking to Gary, making a move) and shows the
 GM a tally every turn ("Gorm 8, Thorin 2, Liriel 0"), naming whoever has been quiet so the
