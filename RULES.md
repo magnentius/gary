@@ -493,6 +493,16 @@ torch that lights the way also draws attention from eyes in the dark"). Torches,
 spikes come from adventuring gear: pull one out and Gary marks off a use, five to a pack, and
 when the pack is empty you don't have one. Light and Darkness are spells, cast as usual.
 
+**Making things.** Dungeon World has no crafting system, only moves. A Wizard's **Ritual** draws
+on a place of power to create a magical effect: the GM sets one to four conditions (weeks of
+work, help from someone, a lot of money, a lesser version, danger, something to disenchant).
+Gary keeps the ritual on the Wizard's sheet with each condition ticked off as play fulfils it,
+so its terms last between sessions; what it makes is recorded as a magic item. A Fighter with
+**Blacksmith** can, at a forge, graft a magic weapon's powers onto their signature weapon, and
+the magic weapon is destroyed. A Thief brews their poison with time and a quiet place. Or pay
+for it: a custom item from a blacksmith is the item's price plus 50 coins, and repairs are a
+quarter of its price.
+
 **Magic items.** The book's are "ideas" and "ultimately for you to decide", and none is for
 sale ("not for coin, anyway"). When the GM gives you one — from the book or invented — it goes
 on your sheet as gear with its text: its weight counts, a magic weapon can be swung or
