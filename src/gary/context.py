@@ -336,6 +336,13 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines += [f"    - {describe_steading(s)}" + (" ← the party is here" if s is current else "")
                   for s in known.values()]
 
+    from .worldmap import render as render_world
+
+    world = render_world(state.get("world"))
+    if world:
+        lines.append("- Campaign map (draw maps, leave blanks; a known route takes its days):")
+        lines += [f"    {line}" for line in world.splitlines()]
+
     from .dungeons import creatures as setting_creatures, current as current_dungeon, render as render_map
 
     dungeon = current_dungeon(state)

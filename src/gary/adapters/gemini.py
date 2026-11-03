@@ -389,11 +389,20 @@ class GeminiNarrator:
                 continue
 
             if name == T.PERILOUS_JOURNEY:
+                from .. import worldmap
+
+                scene = self._store.state().get("scene") or {}
+                origin = scene.get("steading") or scene.get("dungeon") or scene.get("location") or ""
+                known_days = worldmap.distance(self._store.state().get("world"), origin,
+                                               str(args.get("destination", "") or ""))
                 journey_effects, result = self._director.perilous_journey(
                     channel_id=channel_id, destination=str(args.get("destination", "") or ""),
-                    days=int(args.get("days") or 0), trailblazer=str(args.get("trailblazer", "") or ""),
+                    days=known_days or int(args.get("days") or 0), trailblazer=str(args.get("trailblazer", "") or ""),
                     scout=str(args.get("scout", "") or ""), quartermaster=str(args.get("quartermaster", "") or ""),
                     wilderness=bool(args.get("wilderness")))
+                if known_days and result.get("ok"):
+                    result["note"] = (result.get("note", "") + f" The map has this route at {known_days} days; "
+                                      "that is how long it takes.").strip()
                 effects.extend(journey_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
@@ -1034,6 +1043,13 @@ class GeminiNarrator:
         except SheetError as exc:
             return {"ok": False, "error": str(exc)}
         mutations = [Mutation(MutationKind.STEADING, key, {"steading": record})]
+        if name == T.CREATE_STEADING:
+            from .. import worldmap
+
+            world = store.state().get("world")
+            if worldmap.slug(record["name"]) not in ((world or {}).get("places") or {}):
+                mutations.append(Mutation(MutationKind.WORLD, "", {
+                    "world": worldmap.place(world, record["name"], "steading", f"a {record.get('kind', 'steading')}")}))
         # A steading made while the scene names none is where the party is: that is when the
         # persona says to make one. Observed 2026-10-31 -- the model made a town and bought a
         # potion in the same round, before set_scene, so the purchase missed the town's tags.
@@ -1268,6 +1284,28 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.WORLD_MAP:
+            from .. import worldmap
+
+            world = store.state().get("world")
+            action = str(args.get("action") or "")
+            try:
+                if action == "place":
+                    world = worldmap.place(world, str(args.get("name") or ""), str(args.get("kind") or "landmark"),
+                                           str(args.get("note") or ""))
+                elif action == "route":
+                    world = worldmap.route(world, str(args.get("from_place") or ""), str(args.get("to") or ""),
+                                           int(args.get("days") or 0), str(args.get("terrain") or ""))
+                elif action in ("sign", "unsign"):
+                    world = worldmap.sign(world, str(args.get("name") or ""), str(args.get("near") or ""),
+                                          remove=action == "unsign")
+                else:
+                    return {"ok": False, "error": "action is place, route, sign or unsign."}
+            except ValueError as exc:
+                return {"ok": False, "error": str(exc)}
+            return _diff_result(store.apply([Mutation(MutationKind.WORLD, "", {"world": world})],
+                                            reason=f"campaign map: {action}"))
+
         if name == T.SET_WEATHER:
             from ..sky import today
 
@@ -1305,7 +1343,13 @@ class GeminiNarrator:
                                                 str(args.get("via") or ""), [str(e) for e in args.get("exits") or []])
                     except ValueError as exc:
                         return {"ok": False, "error": str(exc)}
-                    store.apply([Mutation(MutationKind.DUNGEON, key, {"dungeon": record})], reason=f"map: {named}")
+                    changes = [Mutation(MutationKind.DUNGEON, key, {"dungeon": record})]
+                    from .. import worldmap
+
+                    world = store.state().get("world")
+                    if worldmap.slug(named) not in ((world or {}).get("places") or {}):
+                        changes.append(Mutation(MutationKind.WORLD, "", {"world": worldmap.place(world, named, "dungeon")}))
+                    store.apply(changes, reason=f"map: {named}")
             from ..steadings import slug
 
             before = slug((store.state().get("scene") or {}).get("steading") or "")

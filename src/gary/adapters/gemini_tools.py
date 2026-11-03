@@ -71,6 +71,7 @@ SET_WEATHER = "set_weather"
 PAY_FOR = "pay_for"
 MOUNT = "mount"
 RITUAL = "ritual"
+WORLD_MAP = "world_map"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
@@ -952,6 +953,30 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=WORLD_MAP,
+        description=(
+            "The campaign map: draw maps, leave blanks. action=place adds a place (kind steading, dungeon, "
+            "landmark or terrain, with a note) -- steadings and dungeons go on by themselves; action=route joins two "
+            "places, days apart (a day is a ration), across terrain ('the moor', 'a rocky pass'), or with to= a road "
+            "leading off unexplored ('the north road') -- a blank; action=sign marks a front's presence as the "
+            "characters would see it ('smoke over Pigton', 'the dead orchard'), near a place -- never the front "
+            "itself; action=unsign removes one when its front changes. A journey on a known route takes its days."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={
+                "action": _s(type=_STRING, enum=["place", "route", "sign", "unsign"]),
+                "name": _s(type=_STRING, description="place: its name. sign/unsign: the sign."),
+                "kind": _s(type=_STRING, enum=["steading", "dungeon", "landmark", "terrain"]),
+                "note": _s(type=_STRING),
+                "from_place": _s(type=_STRING), "to": _s(type=_STRING),
+                "days": _s(type=_INTEGER), "terrain": _s(type=_STRING),
+                "near": _s(type=_STRING, description="sign: the place it's near."),
+            },
+            required=["action"],
         ),
     ),
     types.FunctionDeclaration(

@@ -267,6 +267,7 @@ class MutationKind(str, Enum):
     SESSION_QUESTIONS = "session_questions"
     OPENING = "opening"  # /begin: where the table is in starting the adventure
     DUNGEON = "dungeon"  # a dungeon's map: its areas, how they connect, the blanks
+    WORLD = "world"  # the campaign map: places, routes in days, the blanks, signs of the fronts
     CALENDAR = "calendar"
 
 

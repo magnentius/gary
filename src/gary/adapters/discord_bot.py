@@ -700,16 +700,23 @@ class GaryClient(discord.Client):
                                  reason=f"portrait of {name}")
 
     def map_text(self, name: Optional[str] = None) -> str:
-        """/map: the dungeon they're in (or one named), as the players know it."""
-        from .. import dungeons
+        """/map: the dungeon they're in (or one named), or the campaign map, as the players know it."""
+        from .. import dungeons, worldmap
 
         state = self.store.state()
         known = state.get("dungeons") or {}
-        record = known.get(dungeons.slug(name)) if name else dungeons.current(state)
+        wants_world = str(name or "").strip().lower() in ("world", "the world", "campaign")
+        record = None if wants_world else (known.get(dungeons.slug(name)) if name else dungeons.current(state))
         if record is None:
-            listed = ", ".join(d["name"] for d in known.values())
-            return ("You're not in a dungeon." if not name else f"No map of {name!r}.") + (
-                f" Maps: {listed} (`/map dungeon:`)." if listed else "")
+            if name and not wants_world:
+                listed = ", ".join(d["name"] for d in known.values())
+                return f"No map of {name!r}." + (f" Maps: World, {listed}." if listed else "")
+            world = worldmap.render(state.get("world"))
+            if not world:
+                return "No campaign map yet: it's drawn as you travel and hear of places."
+            text = "🗺️ **The campaign map**\n" + world + (
+                f"\nDungeon maps: {', '.join(d['name'] for d in known.values())} (`/map dungeon:`)." if known else "")
+            return text if len(text) <= 1990 else text[:1980].rsplit("\n", 1)[0] + "\n…"
         text = "🗺️ " + dungeons.render(record, for_players=True)
         blanks = dungeons.blanks(record)
         text += f"\n{blanks} way{'s' if blanks != 1 else ''} not yet taken." if blanks else ""

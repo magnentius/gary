@@ -493,6 +493,15 @@ torch that lights the way also draws attention from eyes in the dark"). Torches,
 spikes come from adventuring gear: pull one out and Gary marks off a use, five to a pack, and
 when the pack is empty you don't have one. Light and Darkness are spells, cast as usual.
 
+**The campaign map.** The book has the GM start a campaign map once the party first heads back
+to civilisation, and keep drawing it. Gary keeps it: steadings and dungeons go on as soon as
+they exist, the GM adds landmarks and terrain, and routes between places are measured in days
+(a day is a ration) across the ground they cross — "two days across the moor" — so a journey
+along a known route always takes as long. A road mentioned but never travelled stays a blank.
+Fronts never appear on it by name; their signs do, as you'd see them — smoke over a village,
+refugees on the road — and change as the threats do. `/map` shows it when you're not in a
+dungeon (or `/map dungeon:World`).
+
 **Dungeons.** Dungeon World doesn't draw dungeons in advance; the GM builds them as you
 explore, with the book's Dungeon Moves (change the environment, point to a looming threat,
 introduce a new faction or creature, use a threat from one, make you backtrack, present riches

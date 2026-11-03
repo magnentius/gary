@@ -1068,6 +1068,7 @@ src/gary/
   magic.py         magic items as gear with their text; the book's looked up        §6.4
   sky.py           daylight from hour and season; the day's weather; Weather Weaver §8
   dungeons.py      dungeon maps: areas, exits, blanks; monster settings; /map        §8
+  worldmap.py      the campaign map: places, routes in days, blanks, front signs    §8
   pictures.py      /picture's subjects (only what the table knows) and prompts      §10
                    (adapters/pictures.py draws them: a style reference image sent
                    with every request, 1K, the first kept per subject, a daily cap)

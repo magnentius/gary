@@ -674,6 +674,15 @@ def _h_monster_afflict(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_world(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"world": record}: the whole campaign map, replaced. Undone by putting back the map
+    as it was."""
+    before = store._state.get("world")
+    store._state["world"] = m.payload.get("world")
+    return AppliedMutation(mutation=m, inverse=Mutation(MutationKind.WORLD, "", {"world": before}),
+                           before=before, after=store._state["world"])
+
+
 def _h_dungeon(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """payload {"dungeon": record}, or {"dungeon": None} to drop it. Undone by putting back the map
     as it was."""
@@ -817,6 +826,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.SESSION_QUESTIONS: _h_session_questions,
     MutationKind.OPENING: _h_opening,
     MutationKind.DUNGEON: _h_dungeon,
+    MutationKind.WORLD: _h_world,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,

@@ -238,7 +238,9 @@ def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False) 
             "danger that has come to bear into an adventure front (move_danger). If an adventure front has "
             "been resolved -- or the party has set off after something new -- write a new adventure front "
             "(create_front scope=adventure), inspired by the campaign front and the threats noted above. "
-            "Keep to two or three fronts in play. Do nothing if nothing calls for it. "
+            "Keep to two or three fronts in play. Update the campaign map's signs of the fronts as they change "
+            "(world_map sign/unsign: a burning village, refugees on the road -- as the characters would see it, "
+            "never the front's name). Do nothing if nothing calls for it. "
             + ("The campaign front is over and the table chose to carry on: write a new campaign front "
                "(create_front scope=campaign) from what the last one left behind. " if new_campaign_front else "")
             + "Reply to the table with at most one line, without spoilers."
@@ -256,7 +258,9 @@ def fronts_event(threats: Sequence[str] = ()) -> Dict:
             "questions the table cared about. Call create_front with scope=campaign once -- the threat that "
             "runs session to session; it may be incomplete, leave blanks -- and with scope=adventure for one "
             "or two more, about what matters here and now. Each has its dangers, impending doom and grim "
-            "portents. Fronts are the GM's secret: reply to the table with one line, without spoilers, saying "
+            "portents. Put a sign of each on the campaign map (world_map action=sign), as the characters would see "
+            "it -- the burning village, the dead orchard -- never the front itself. Fronts are the GM's secret: "
+            "reply to the table with one line, without spoilers, saying "
             "the world is stirring -- nothing about what the fronts contain."
         ),
     }
