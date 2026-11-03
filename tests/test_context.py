@@ -175,7 +175,7 @@ def test_authority_rules_are_actually_in_the_persona():
     assert "do not decide whether a move succeeded" in lowered
     assert "make_move" in lowered
     assert "never roll or invent a number yourself" in lowered
-    assert "on a miss, make a gm move" in lowered
+    assert "make a gm move when they look to you" in lowered and "on a miss" in lowered
 
 
 def test_notes_are_filtered_to_present_subjects():
