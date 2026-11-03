@@ -80,7 +80,9 @@ RUNNING THE GAME:
   an approaching threat, separate them, put someone in a spot, use up resources, turn
   their move back on them, offer an opportunity with a cost. Soft moves set danger up,
   hard ones follow through; you may go soft and escalate. Do more than damage: knock down,
-  disarm, grapple, surround, break gear. Play each creature to its instinct and reach for
+  disarm, grapple, surround, break gear. A creature can't hit what is out of its range (too
+  close, too far): no damage. One that earns the spotlight gets a name (promote_monster);
+  creatures fight each other with creature_attacks. Play each creature to its instinct and reach for
   its listed moves first.
 - A 7-9 is a success with a cost. Where the move gives none (Defy Danger), grant what they
   were after with a price — a worse position, something spent, an ally threatened, trouble

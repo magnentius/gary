@@ -72,6 +72,8 @@ PAY_FOR = "pay_for"
 MOUNT = "mount"
 RITUAL = "ritual"
 WORLD_MAP = "world_map"
+PROMOTE_MONSTER = "promote_monster"
+CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
@@ -953,6 +955,33 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=PROMOTE_MONSTER,
+        description=(
+            "A creature stops being an arrow and becomes someone: the spotlight fell on it -- it fled and swore "
+            "revenge, Spout Lore found its story, it beat them. Give it a name ('Goblin 3' becomes 'Grizzlegut'), "
+            "keeping its HP, and a line on why it matters; it is noted as a threat for the fronts between sessions."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"monster": _s(type=_STRING, description="Its instance name now, e.g. 'Goblin 3'."),
+                        "name": _s(type=_STRING), "why": _s(type=_STRING)},
+            required=["monster", "name", "why"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=CREATURE_ATTACKS,
+        description=(
+            "One creature hurts another -- an ogre swats a goblin, rival factions clash, a charmed beast turns on "
+            "its pack. Gary rolls the attacker's damage through the target's armor. For a creature hurting a "
+            "character, use monster_attacks."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"attacker": _s(type=_STRING), "target": _s(type=_STRING), "reason": _s(type=_STRING)},
+            required=["attacker", "target"],
         ),
     ),
     types.FunctionDeclaration(

@@ -3570,6 +3570,30 @@ class Director:
 
     # -- the Paladin's Quest (quests.py) ---------------------------------------------------------
 
+    def creature_attacks(self, *, channel_id: int, attacker: str, target: str, reason: str = ""
+                         ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """"A monster deals its damage to another monster or a player whenever it causes them
+        physical harm": one creature's damage rolled through another's armor."""
+        scene = self._monsters()
+        by = next((n for n in scene if normalize_actor(n) == normalize_actor(attacker)), None)
+        at = next((n for n in scene if normalize_actor(n) == normalize_actor(target)), None)
+        if by is None or at is None or by == at:
+            standing = ", ".join(n for n, r in scene.items() if int(r.get("hp", 0)) > 0) or "none"
+            return [], {"ok": False, "error": f"Name two different creatures in the scene. Here: {standing}."}
+        if int(scene[by].get("hp", 0)) <= 0 or int(scene[at].get("hp", 0)) <= 0:
+            return [], {"ok": False, "error": "A creature at 0 HP is out of the fight."}
+        hit = damage.roll(self.dice, damage.parse(str(scene[by]["damage"])))
+        target_record = scene[at]
+        dealt = damage.through_armor(hit.total, int(target_record.get("armor", 0)), int(scene[by].get("piercing", 0)),
+                                     bool(scene[by].get("ignores_armor")))
+        hp = int(target_record["hp"]) - dealt
+        down = " — **defeated**" if hp <= 0 else ""
+        line = (f"🗡️ **{by}** hits **{at}** for **{dealt} damage** ({hit.render()}, armor "
+                f"{target_record.get('armor', 0)}) — HP {target_record['hp']} → {max(hp, 0)}{down}."
+                + (f" {reason}" if reason else ""))
+        return [SendMessage(channel_id, line), ChangeHp(channel_id, "monster", at, hp)], {
+            "ok": True, "dealt": dealt, "hp": max(hp, 0), "defeated": hp <= 0}
+
     def ritual(
         self, *, channel_id: int, character: str, action: str, goal: str = "",
         conditions: Sequence[str] = (), condition: str = "", outcome: str = "",

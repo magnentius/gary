@@ -570,6 +570,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.CREATURE_ATTACKS:
+                fight_effects, result = self._director.creature_attacks(
+                    channel_id=channel_id, attacker=str(args.get("attacker", "")),
+                    target=str(args.get("target", "")), reason=str(args.get("reason", "") or ""))
+                effects.extend(fight_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.RITUAL, T.GRAFT):
                 if name == T.RITUAL:
                     craft_effects, result = self._director.ritual(
@@ -1292,6 +1300,26 @@ class GeminiNarrator:
                           {"kind": str(args.get("kind", "general")), "body": str(args.get("body", ""))})],
                 reason="narrative note",
             ))
+
+        if name == T.PROMOTE_MONSTER:
+            scene = store.state().get("monsters") or {}
+            old = next((n for n in scene if n.lower() == str(args.get("monster", "")).strip().lower()), None)
+            new = " ".join(str(args.get("name", "")).split())[:60]
+            why = " ".join(str(args.get("why", "")).split())[:200]
+            if old is None:
+                return {"ok": False, "error": f"No creature {args.get('monster')!r} here: {', '.join(scene) or 'none'}."}
+            if not new or not why or new.lower() in (n.lower() for n in scene):
+                return {"ok": False, "error": "Give it a new name no one here has, and why it matters now."}
+            record = {**scene[old], "named": True, "why": why}
+            result = _diff_result(store.apply([
+                Mutation(MutationKind.MONSTERS_REMOVE, "", {"names": [old]}),
+                Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {new: record}}),
+                Mutation(MutationKind.NOTE, new, {"kind": "threat", "body": f"Once {old}: {why}"}),
+            ], reason=f"{old} becomes {new}"))
+            if result.get("ok"):
+                result["post"] = f"⭐ **{old}** is no longer just one of them: this is **{new}**."
+                result["note"] = "Named, HP kept, and noted as a threat: consider a danger for it between sessions."
+            return result
 
         if name == T.WORLD_MAP:
             from .. import worldmap

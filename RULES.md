@@ -318,7 +318,12 @@ how it hunts (horde, group or alone), how big it is, its defence, what it's know
 its attack is like, what else describes it — and Gary works out its HP, armor, damage and tags
 from the answers, so it's as tough as the book says such a thing should be; it gets an
 instinct and moves too. Fights aren't balanced, by design: the book says your first duty is
-to the fiction and to a real threat, "not to make a balanced fight". Hack and Slash and Volley are
+to the fiction and to a real threat, "not to make a balanced fight". Most creatures are arrows
+the GM fires at you, but one that earns the spotlight — it fled swearing revenge, Spout Lore
+found its story, it beat you — gets a name ("Goblin 3" becomes Grizzlegut), keeps its wounds,
+and is noted as a threat the fronts may take up between sessions. Creatures can hurt each other
+too — the ogre swatting a goblin, rival bands clashing — with the attacker's damage through the
+target's armor. A creature can't hurt what is out of its range. Hack and Slash and Volley are
 aimed at one of them. A hit gives you a **Roll damage** button; your class's damage die
 (plus or minus a d6 if your choice said so) goes through its armor, and a weak-hit Hack and
 Slash means it hits you back in the same breath:
