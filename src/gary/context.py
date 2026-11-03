@@ -306,6 +306,11 @@ def render_live_state(state: Dict[str, Any]) -> str:
                              if not any(t in ("hand", "close", "reach", "near", "far", "thrown")
                                         for t in g.get("tags", ()))] + inventory
             carried = "carrying " + ", ".join(inventory[:12]) if inventory else "carrying nothing"
+            lying = [t["name"] + (f" ×{t['ammo']}" if t.get("ammo") else "")
+                     for t in (sheets.get(actor) or {}).get("thrown") or ()]
+            if lying:
+                carried += ("; thrown, lying where it fell until picked up (give_items gives back the very one): "
+                            + ", ".join(lying))
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
             if (sheets.get(actor) or {}).get("mentor"):

@@ -92,6 +92,15 @@ _GENERIC = {"the", "of", "and", "edge", "road", "north", "south", "east", "west"
             "hills", "river", "lake", "marsh", "swamp", "mountains", "pass", "ruins", "tower", "mine", "cave"}
 
 
+def same_place(a: str, b: str) -> bool:
+    """Two scene locations are the same place if one names the other, or they share a name's own
+    word: "The Weeping Ravine" and "the ravine floor, Weeping Ravine" are; the road beyond isn't."""
+    sa, sb = slug(a), slug(b)
+    if not sa or not sb:
+        return True
+    return sa in sb or sb in sa or bool(_distinct(a) & _distinct(b))
+
+
 def _distinct(name: str) -> set:
     return {w for w in slug(name).split("_") if len(w) > 2 and w not in _GENERIC}
 

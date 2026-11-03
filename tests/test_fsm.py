@@ -1298,3 +1298,31 @@ def test_their_best_never_throws_a_weapon_away_unasked():
 
     kit = [gear.HUNTERS_BOW.to_dict(), gear.ARROWS.to_dict(), gear.DRUID_SPEAR.to_dict()]
     assert gear.weapon_for(kit, ranged=True, ammo=3).name == "Hunter's bow"
+
+
+def test_a_thrown_weapon_is_kept_and_comes_back_as_the_very_one(director, dice, scene):
+    from gary import trade
+    from gary.fsm import UpdateSheet
+    from gary.gear import DRUID_SPEAR, THROWING_DAGGERS
+
+    scene["Goblin 1"] = goblin(hp=20)
+    _geared(director, "Kethra", [DRUID_SPEAR, THROWING_DAGGERS])
+    sheet = director._sheet_for("Kethra")
+    sheet["gear"][0]["magic"] = "Kantos's spear: it returns no one's call but Kethra's."  # a magic one
+    make_move(director, "volley", weapon="spear")
+    dice.queue(1, 1)
+    (update,) = [e for e in roll(director) if isinstance(e, UpdateSheet) and "thrown" in e.changes]
+    sheet.update(update.changes)
+    assert sheet["thrown"][0]["item"]["magic"].startswith("Kantos")
+    back, got = trade.add_items(sheet, ["my spear"])
+    assert got == ["Spear (recovered)"] and back["thrown"] == []
+    assert next(g for g in back["gear"] if g["name"] == "Spear")["magic"].startswith("Kantos")
+
+
+def test_thrown_daggers_are_picked_up_as_ammo():
+    from gary import trade
+
+    sheet = {"name": "Kethra", "gear": [], "ammo": 1, "rations": 0, "coins": 0,
+             "thrown": [{"name": "Throwing daggers", "ammo": 2}]}
+    back, got = trade.add_items(sheet, ["throwing daggers"])
+    assert back["ammo"] == 3 and back["thrown"] == [] and got == ["Throwing daggers (recovered)"]

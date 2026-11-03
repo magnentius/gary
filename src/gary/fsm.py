@@ -1496,18 +1496,26 @@ class Director:
         if used is None:
             return []
         sheet = self._sheet_for(check.actor)
+        thrown = [dict(t) for t in sheet.get("thrown") or []]
         if used.needs_ammo:
             left = max(0, int(sheet.get("ammo", 0)) - 1)
+            pile = next((t for t in thrown if t["name"] == used.name and not t.get("item")), None)
+            if pile is None:
+                thrown.append({"name": used.name, "ammo": 1})
+            else:
+                pile["ammo"] = int(pile.get("ammo", 0)) + 1
             return [SendMessage(channel_id, f"**{check.actor}** throws one — {left} left."),
-                    SpendAmmo(channel_id, check.actor, left)]
+                    SpendAmmo(channel_id, check.actor, left),
+                    UpdateSheet(channel_id, check.actor, {"thrown": thrown})]
         gear = [dict(g) for g in sheet["gear"]]
         at = next((i for i, g in enumerate(gear) if g.get("name") == used.name), None)
         if at is None:
             return []
-        del gear[at]
+        # Kept, stats and magic and all, until it's picked up -- or left behind.
+        thrown.append({"name": used.name, "item": gear.pop(at)})
         return [SendMessage(channel_id, f"**{check.actor}**'s {used.name.lower()} is thrown — gone until "
                                         "it's recovered."),
-                UpdateSheet(channel_id, check.actor, {"gear": gear, "armor": gear_armor(
+                UpdateSheet(channel_id, check.actor, {"gear": gear, "thrown": thrown, "armor": gear_armor(
                     gear, str(sheet.get("grip") or ""))})]
 
     def _banners(self, check: PendingCheck, dice: Roll, said: str) -> Tuple[Roll, str]:

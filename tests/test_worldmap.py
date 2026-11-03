@@ -108,3 +108,27 @@ def test_the_front_work_is_given_the_monster_settings():
     for event in (opening.fronts_event((), w), opening.review_event(world=w)):
         assert "Undead:" in event["monster_settings"] and event["places_by_setting"] == ["Fenwick Woods: Woods"]
         assert "monster settings" in event["instruction"]
+
+
+def test_same_place_survives_rewording():
+    assert worldmap.same_place("The Weeping Ravine", "the floor of the Weeping Ravine")
+    assert worldmap.same_place("The Weeping Ravine", "Weeping Ravine, the far ledge")
+    assert not worldmap.same_place("The Weeping Ravine", "The old road east")
+
+
+async def test_leaving_a_place_leaves_thrown_weapons_behind(rig):
+    from gary.models import Mutation, MutationKind
+
+    director, store, history = rig
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {
+        "name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "xp": 0, "hp": 20, "max_hp": 20, "armor": 0,
+        "damage": "d10", "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13}, "gear": [],
+        "thrown": [{"name": "Spear", "item": {"name": "Spear", "tags": ["reach", "thrown", "near"]}}]}}),
+        Mutation(MutationKind.SCENE, "", {"location": "The Weeping Ravine"})], reason="setup")
+    assert "Spear" in render_live_state(store.state()) and "lying where it fell" in render_live_state(store.state())
+    n = narrator(rig, call_response(T.SET_SCENE, {"location": "Weeping Ravine, the far ledge"}),
+                 call_response(T.SET_SCENE, {"location": "The old road east"}), text_response("."))
+    result = await player(n, "we move on")
+    assert store.state()["sheets"]["Dorn"]["thrown"] == []
+    assert any(getattr(e, "text", "") == "🗡️ Left behind at Weeping Ravine, the far ledge: Dorn's spear."
+               for e in result.effects)

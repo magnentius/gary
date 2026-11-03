@@ -13,7 +13,7 @@ Armor has no such history and is recomputed from what is carried.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .gear import armor_of, item_for, items_of, price_of
 
@@ -187,12 +187,21 @@ def add_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, An
         raise TradeError("Name what they get.")
     gear = list(sheet.get("gear") or [])
     ammo, rations, coins = _counts(sheet)
+    thrown = [dict(t) for t in sheet.get("thrown") or []]
     got: List[str] = []
     count = 0
     for raw in names:
         if m := _COINS.match(str(raw)):
             coins += int(m[1])
             got.append(f"{int(m[1])} coins")
+            continue
+        back = recovered(thrown, str(raw))
+        if back is not None:  # the very weapon they threw: its magic and all
+            thrown.remove(back)
+            if back.get("item"):
+                gear.append(dict(back["item"]))
+            ammo += int(back.get("ammo", 0))
+            got.append(f"{back['name']} (recovered)")
             continue
         qty, name = _quantity(raw)
         count += qty
@@ -204,7 +213,18 @@ def add_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, An
             ammo += item.ammo
             rations += _rations_for(sheet, item)
         got.append(item.label() if qty == 1 else f"{qty} × {item.label()}")
-    return _recount(sheet, gear, ammo, rations, coins), got
+    out = _recount(sheet, gear, ammo, rations, coins)
+    if "thrown" in sheet:
+        out["thrown"] = thrown
+    return out, got
+
+
+def recovered(thrown: Sequence[Dict[str, Any]], name: str) -> Optional[Dict[str, Any]]:
+    """The thrown weapon this name picks up ("my spear", "the spear", "Spear of Kantos"), if any."""
+    wanted = re.sub(r"^(my|the|his|her|their|a|an)\s+", "", " ".join(str(name).split()).lower())
+    wanted = re.sub(r"^\d+\s+", "", wanted)
+    return next((t for t in thrown if t["name"].lower() == wanted), None) or next(
+        (t for t in thrown if wanted and (wanted in t["name"].lower() or t["name"].lower() in wanted)), None)
 
 
 def remove_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, Any], List[str]]:

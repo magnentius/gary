@@ -527,7 +527,9 @@ what lives where, to populate dangers and the threats that are only tangentially
 what you attack with ("I stab him with my dagger") and that weapon's damage, piercing and magic
 are the ones used; say nothing and Gary uses your best for the move. A thrown weapon is gone
 once you throw it, whatever you roll, until you recover it: a spear leaves your sheet (its blow
-still lands), throwing daggers count down one a throw. And Volley's "take several shots" isn't an
+still lands), throwing daggers count down one a throw. Gary remembers what's lying where it fell,
+and when you pick it up you get back the very weapon — its magic and all — or the daggers you
+threw. Move on without it and it's left behind for good. And Volley's "take several shots" isn't an
 option with one — you can't mark off ammo with a weapon that's already in the air.
 
 **Shields and two-handed weapons.** A shield is +1 armor on top of what you wear; you hold one,

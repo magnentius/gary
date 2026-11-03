@@ -1424,9 +1424,21 @@ class GeminiNarrator:
             from ..steadings import slug
 
             before = slug((store.state().get("scene") or {}).get("steading") or "")
-            result = _diff_result(store.apply(
-                [Mutation(MutationKind.SCENE, "", payload)], reason="scene change"
-            ))
+            from ..worldmap import same_place
+
+            was = str((store.state().get("scene") or {}).get("location") or "")
+            left: List[str] = []
+            changes = [Mutation(MutationKind.SCENE, "", payload)]
+            if was and payload["location"] and not same_place(was, payload["location"]):
+                # Thrown and never picked up: left behind where it fell.
+                for who, sheet in (store.state().get("sheets") or {}).items():
+                    if sheet.get("thrown"):
+                        left += [f"{who}'s {t['name'].lower()}" for t in sheet["thrown"]]
+                        changes.append(Mutation(MutationKind.SHEET, who, {"sheet": {**sheet, "thrown": []}}))
+            result = _diff_result(store.apply(changes, reason="scene change"))
+            if left and result.get("ok"):
+                result["post"] = f"🗡️ Left behind at {was}: {', '.join(left)}."
+                result["note"] = "Thrown weapons not picked up stay where they fell; they're off the sheet for good."
             arrived = slug(payload.get("steading") or "")
             menu = self._downtime(arrived) if result.get("ok") and arrived and arrived != before else ""
             if menu:  # settling into a steading, with no fight on
