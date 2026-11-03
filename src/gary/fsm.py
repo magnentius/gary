@@ -3562,6 +3562,72 @@ class Director:
 
     # -- the Paladin's Quest (quests.py) ---------------------------------------------------------
 
+    def ritual(
+        self, *, channel_id: int, character: str, action: str, goal: str = "",
+        conditions: Sequence[str] = (), condition: str = "", outcome: str = "",
+    ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """The Wizard's Ritual, kept: start it with the GM's conditions, meet them one by one, and
+        finish (or abandon) it. What it makes, if an item, is give_magic_item."""
+        from . import crafting
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if not starting_move(sheet, "Ritual") and not advanced.has(sheet, "Ritual"):
+            return [], {"ok": False, "error": f"{actor} has no Ritual (a Wizard's move)."}
+        current = sheet.get("ritual")
+        try:
+            if action == "start":
+                if current:
+                    return [], {"ok": False, "error": f"{actor} is already working a ritual: {current['goal']}."}
+                made = crafting.start_ritual(goal, conditions)
+                terms = "; ".join(c["text"] for c in made["conditions"])
+                return [SendMessage(channel_id, f"🔮 **{actor}** begins a ritual: {made['goal']}.\nThe conditions: {terms}."),
+                        UpdateSheet(channel_id, actor, {"ritual": made})], {
+                    "ok": True, "note": "Recorded on their sheet, shown to you every turn. Mark each condition with "
+                                        "action=meet as play fulfils it; action=finish when it's done."}
+            if not current:
+                return [], {"ok": False, "error": f"{actor} has no ritual under way."}
+            if action == "meet":
+                updated = crafting.meet(current, condition)
+                met = next(c["text"] for o, c in zip(current["conditions"], updated["conditions"]) if c["met"] and not o["met"])
+                return [SendMessage(channel_id, f"🔮 **{actor}**'s ritual: {met} — done."
+                                    + (" Every condition is met." if crafting.done(updated) else "")),
+                        UpdateSheet(channel_id, actor, {"ritual": updated})], {"ok": True, "all_met": crafting.done(updated)}
+            if action in ("finish", "abandon"):
+                outcome = " ".join(str(outcome or "").split())[:200]
+                if action == "finish" and not crafting.done(current):
+                    left = "; ".join(c["text"] for c in current["conditions"] if not c["met"])
+                    return [], {"ok": False, "error": f"Conditions still unmet: {left}. Meet them, or abandon it."}
+                said = (f"🔮 **{actor}** completes the ritual: {current['goal']}" if action == "finish"
+                        else f"🔮 **{actor}** abandons the ritual: {current['goal']}")
+                return [SendMessage(channel_id, said + (f" — {outcome}." if outcome else ".")),
+                        UpdateSheet(channel_id, actor, {"ritual": None})], {
+                    "ok": True, "note": "If it made an item, give it with give_magic_item." if action == "finish" else ""}
+        except SheetError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        return [], {"ok": False, "error": "action is start, meet, finish or abandon."}
+
+    def graft(self, *, channel_id: int, character: str, weapon: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """Blacksmith: a magic weapon's powers grafted onto the signature weapon, at a forge."""
+        from . import crafting
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if not advanced.has(sheet, "Blacksmith"):
+            return [], {"ok": False, "error": f"{actor} doesn't have Blacksmith."}
+        try:
+            gear, signature, destroyed = crafting.graft(sheet, weapon)
+        except SheetError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        return [SendMessage(channel_id, f"🔨 At the forge, **{actor}** grafts the powers of {destroyed} onto their "
+                                        f"{signature.lower()}; {destroyed} is no more."
+                            + (f" — {reason}" if reason else "")),
+                UpdateSheet(channel_id, actor, {"gear": gear})], {"ok": True, "signature": signature}
+
     def start_quest(
         self, *, channel_id: int, character: str, mission: str, subject: str,
         boons: Sequence[Dict[str, Any]] = (), vows: Sequence[str] = (),

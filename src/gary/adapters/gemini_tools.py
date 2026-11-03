@@ -70,6 +70,8 @@ RUMMAGE = "rummage"
 SET_WEATHER = "set_weather"
 PAY_FOR = "pay_for"
 MOUNT = "mount"
+RITUAL = "ritual"
+GRAFT = "graft"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -949,6 +951,36 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=RITUAL,
+        description=(
+            "A Wizard's Ritual: drawing on a place of power to create a magical effect. action=start with the goal "
+            "and your one to four conditions (it takes days/weeks/months; first you must...; help from...; a lot "
+            "of money; only a lesser version; danger from...; disenchanting something). It is kept on their sheet "
+            "and shown to you every turn. action=meet marks a condition fulfilled (its number or a word from it); "
+            "action=finish when all are met (then give_magic_item if it made one); action=abandon."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING),
+                        "action": _s(type=_STRING, enum=["start", "meet", "finish", "abandon"]),
+                        "goal": _s(type=_STRING), "conditions": _s(type=_ARRAY, items=_s(type=_STRING)),
+                        "condition": _s(type=_STRING), "outcome": _s(type=_STRING)},
+            required=["character", "action"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=GRAFT,
+        description=(
+            "Blacksmith (Fighter): at a forge, the powers of a magic weapon they carry are grafted onto their "
+            "signature weapon, and the magic weapon is destroyed. Gary moves its text, piercing and reach."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "weapon": _s(type=_STRING), "reason": _s(type=_STRING)},
+            required=["character", "weapon"],
         ),
     ),
     types.FunctionDeclaration(

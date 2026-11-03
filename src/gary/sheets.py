@@ -533,6 +533,10 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         line += f" · may take at next level: {', '.join(sheet['compendium_qualified'])} (compendium)"
     if sheet.get("sworn_enemy"):
         line += f" · sworn to defeat {sheet['sworn_enemy']} (Exterminatus)"
+    if sheet.get("ritual"):
+        from .crafting import describe as ritual_line
+
+        line += " · " + ritual_line(sheet)
     if sheet.get("quest"):
         from .quests import describe as quest_line
 

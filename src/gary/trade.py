@@ -65,12 +65,41 @@ def _rations_for(sheet: Dict[str, Any], item) -> int:
     return item.rations
 
 
+_CUSTOM = re.compile(r"^(?:an? )?(custom|repair(?:s|ing)?(?: to| of)?|mend(?:ing)?)\s+(?:an? |the |my )?(.+)$",
+                     re.IGNORECASE)
+
+
+def _made_or_mended(sheet: Dict[str, Any], what: str, discount: int):
+    """The services priced from an item: "A custom item from a blacksmith: Base Item + 50 coins";
+    "Repairs to a mundane item: 25% of the item's cost". None if it isn't one of those."""
+    m = _CUSTOM.match(" ".join(str(what or "").split()))
+    if not m:
+        return None
+    item = m[2].removesuffix(" from a blacksmith").strip()
+    base = price_of(item)
+    if base is None:
+        raise TradeError(f"{item!r} has no price in the book to work from: name a price and use give_coins.")
+    custom = m[1].lower() == "custom"
+    cost = max(1, (base + 50 if custom else -(-base // 4)) - int(discount or 0))
+    _, _, coins = _counts(sheet)
+    if cost > coins:
+        raise TradeError(f"That costs {cost} coins; {sheet['name']} has {coins}.")
+    sheet = give_coins(sheet, -cost)
+    if custom:
+        sheet, got = add_items(sheet, [item])
+        return sheet, f"a custom {got[0]} from a blacksmith", cost
+    return sheet, f"repairs to their {item}", cost
+
+
 def pay_for(sheet: Dict[str, Any], what: str, times: int = 1, discount: int = 0) -> Tuple[Dict[str, Any], str, int]:
     """A service, a meal, transport, land, a bribe or a gift, at the book's price (services.py):
     (new sheet, what was paid for, total cost). What is bought to keep goes on the sheet."""
     from .services import find, options, price
     from .sheets import stat_modifier
 
+    made = _made_or_mended(sheet, what, discount)
+    if made is not None:
+        return made
     service, night = find(what)
     if service is None:
         raise TradeError(f"{what!r} isn't on the book's price list. Listed: " + "; ".join(options()[:12])

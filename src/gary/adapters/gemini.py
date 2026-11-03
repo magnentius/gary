@@ -552,6 +552,21 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.RITUAL, T.GRAFT):
+                if name == T.RITUAL:
+                    craft_effects, result = self._director.ritual(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        action=str(args.get("action", "")), goal=str(args.get("goal", "") or ""),
+                        conditions=[str(c) for c in args.get("conditions") or []],
+                        condition=str(args.get("condition", "") or ""), outcome=str(args.get("outcome", "") or ""))
+                else:
+                    craft_effects, result = self._director.graft(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        weapon=str(args.get("weapon", "")), reason=str(args.get("reason", "") or ""))
+                effects.extend(craft_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.MARK_XP:
                 session = int((self._store.state().get("opening") or {}).get("session") or 1)
                 xp_effects, result = self._director.mark_xp(
