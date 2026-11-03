@@ -1249,22 +1249,48 @@ def test_a_weapon_they_dont_carry_or_that_doesnt_fit_is_refused(director):
     assert "no 'bow'" in note.payload["error"]
 
 
-def test_a_thrown_spear_is_gone_when_its_ammo_is_marked_off(director, registry, dice):
+def test_a_thrown_spear_is_gone_once_thrown_and_still_deals_its_damage(director, registry, dice, scene):
+    """Thrown: "once you throw it, it's gone until you can recover it" -- whatever the roll."""
     from gary.fsm import SpendAmmo, UpdateSheet
     from gary.gear import ARROWS, DRUID_SPEAR, HUNTERS_BOW
 
+    scene["Goblin 1"] = goblin(hp=20)
     _geared(director, "Kethra", [HUNTERS_BOW, ARROWS, DRUID_SPEAR])
+    sheet = director._sheet_for("Kethra")
     make_move(director, "volley", weapon="spear")
-    dice.queue(3, 2)
-    roll(director)
-    check_id = only_check(registry).check_id
-    choose(director, check_id, [2])  # take several shots: "mark off ammo"
-    dice.queue(4)
-    effects = roll_damage(director, check_id)
-    assert not [e for e in effects if isinstance(e, SpendAmmo)]  # the arrows are untouched
+    dice.queue(6, 6)
+    effects = roll(director)
     (update,) = [e for e in effects if isinstance(e, UpdateSheet)]
     assert [g["name"] for g in update.changes["gear"]] == ["Hunter's bow", "Bundle of arrows"]
-    assert any("spear is gone" in e.text for e in sends_in(effects))
+    assert not [e for e in effects if isinstance(e, SpendAmmo)]  # the arrows are untouched
+    assert any("spear is thrown" in e.text for e in sends_in(effects))
+    sheet["gear"] = update.changes["gear"]  # as the runner would
+    assert any("roll your damage" in e.text and "Spear" in e.text for e in sends_in(effects))
+    dice.queue(4)
+    hit = sends_in(roll_damage(director, only_check(registry).check_id))[0].text
+    assert "Goblin 1** takes" in hit  # the spear's blow lands, though it's left the sheet
+
+
+def test_a_thrown_weapon_cannot_take_several_shots(director, registry, dice):
+    from gary.gear import DRUID_SPEAR
+
+    _geared(director, "Kethra", [DRUID_SPEAR])
+    make_move(director, "volley")
+    dice.queue(3, 2)  # weak hit
+    roll(director)
+    check_id = only_check(registry).check_id
+    (said,) = sends_in(choose(director, check_id, [2]))  # take several shots: refused
+    assert "can't take several shots" in said.text and not only_check(registry).picks
+
+
+def test_throwing_daggers_lose_one_a_throw(director, dice):
+    from gary.fsm import SpendAmmo
+    from gary.gear import THROWING_DAGGERS
+
+    _geared(director, "Kethra", [THROWING_DAGGERS])  # 3
+    make_move(director, "volley")
+    dice.queue(1, 1)  # even a miss: thrown is thrown
+    assert SpendAmmo(CHANNEL, "Kethra", 2) in roll(director)
 
 
 def test_their_best_never_throws_a_weapon_away_unasked():

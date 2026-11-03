@@ -525,9 +525,10 @@ what lives where, to populate dangers and the threats that are only tangentially
 (arm's reach and a foot or two), reach (several feet), near (the whites of their eyes), far
 (shouting distance) — with no bonuses or penalties: the GM judges whether the distance fits. Say
 what you attack with ("I stab him with my dagger") and that weapon's damage, piercing and magic
-are the ones used; say nothing and Gary uses your best for the move. A thrown weapon with no ammo
-count of its own — a spear, a hand axe — is gone when Volley's "mark off ammo" comes up, until
-you pick it up again.
+are the ones used; say nothing and Gary uses your best for the move. A thrown weapon is gone
+once you throw it, whatever you roll, until you recover it: a spear leaves your sheet (its blow
+still lands), throwing daggers count down one a throw. And Volley's "take several shots" isn't an
+option with one — you can't mark off ammo with a weapon that's already in the air.
 
 **Shields and two-handed weapons.** A shield is +1 armor on top of what you wear; you hold one,
 so a second doesn't add. If you carry both a shield and a two-handed weapon (a halberd, a staff),

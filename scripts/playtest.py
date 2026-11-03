@@ -219,6 +219,21 @@ SCENARIOS: Dict[str, Scenario] = {
         goals={"Dorn": "Free the ogre so it turns on the goblins, then deal with their boss.",
                "Thorin": "Turn the ogre against its captors and keep clear of it; mark where the boss flees."},
     ),
+    "spear": Scenario(
+        "spear",
+        "Low fantasy borderlands. Goblin raiders harry the old road.",
+        ("The Weeping Ravine", "A rope bridge has been cut. Across the ravine, thirty feet off, a goblin archer "
+                               "on a ledge looses arrows; a second goblin saws at the last rope. No way across."),
+        [
+            ("Dorn", "I hurl my spear across the ravine at the archer!"),
+            ("Thorin", "I shout a prayer to Krugon and hold my shield over us both."),
+            ("Dorn", "Whatever's left, I throw at the goblin cutting the rope."),
+            ("Dorn", "Once it's quiet, I climb down where the spear fell and get it back."),
+        ],
+        setup={"Dorn": {"add_gear": ["Spear"]}},
+        goals={"Dorn": "Throw your spear at the goblins across the ravine -- your sword can't reach -- then recover it.",
+               "Thorin": "Keep Dorn alive while he fights the goblins across the ravine."},
+    ),
     "camp": Scenario(
         "camp",
         "Low fantasy borderlands. Goblin raiders harry the old road.",
@@ -375,7 +390,14 @@ class Table:
     def prepare(self, scenario: Scenario) -> None:
         sheets = self.store.state().get("sheets") or {}
         for actor, changes in scenario.setup.items():
-            self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": {**sheets[actor], **changes}})],
+            changes = dict(changes)
+            extra = changes.pop("add_gear", ())
+            sheet = {**sheets[actor], **changes}
+            if extra:
+                from gary.gear import item_for
+
+                sheet["gear"] = [*sheet.get("gear", []), *(item_for(name)[0].to_dict() for name in extra)]
+            self.store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": sheet})],
                              reason=f"playtest sets up {actor}")
 
     def set_stage(self, scenario: Scenario) -> None:

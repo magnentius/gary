@@ -23,7 +23,8 @@ and their actual roll was then silently dropped.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass, replace
+import json
+from dataclasses import asdict, dataclass, replace
 from enum import Enum
 from typing import Any, Callable, Dict, List, Optional, Sequence, Set, Tuple
 
@@ -31,7 +32,7 @@ from . import (
     advanced, bonds, choices, companion as companions, damage, hirelings, magic, multiclass, quests, reactions,
     slimes, spells, steadings, trade,
 )
-from .gear import MELEE, RANGED, armor_of as gear_armor, items_of, rations_of, weapon_for
+from .gear import MELEE, RANGED, Item, armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
@@ -1470,7 +1471,44 @@ class Director:
             channel_id,
             f"🎲 **{check.actor}** rolls {dice.render()} — {_RESULT[band(dice)]}." + capped,
         )
-        return [rolled, *self._next(channel_id, check, dice)]
+        thrown = self._thrown_weapon(check)
+        if thrown is not None and not any(f.startswith("weapon:") for f in check.flags):
+            check = replace(check, flags=(*check.flags, f"weapon:{thrown.name}"))  # damage after it's gone
+        if thrown is not None and not thrown.needs_ammo:
+            # Held with the check, so the damage still comes from the spear once it has left the sheet.
+            check = replace(check, flags=(*check.flags, f"thrown:{json.dumps(asdict(thrown))}"))
+        return [rolled, *self._thrown(channel_id, check), *self._next(channel_id, check, dice)]
+
+    def _thrown_weapon(self, check: PendingCheck):
+        """The thrown weapon this Volley uses, if it is one."""
+        if check.move != "volley" or "hurl" in check.flags or self._sheet_for is None:
+            return None
+        sheet = self._sheet_for(check.actor)
+        if not sheet or "gear" not in sheet:
+            return None
+        used = self._weapon(sheet, check.move, check)
+        return used if used is not None and "thrown" in used.tags else None
+
+    def _thrown(self, channel_id: int, check: PendingCheck) -> List[Effect]:
+        """Thrown: "once you throw it, it's gone until you can recover it" -- whatever the roll.
+        A weapon counted in ammo (throwing daggers) loses one; a spear leaves the sheet."""
+        used = self._thrown_weapon(check)
+        if used is None:
+            return []
+        sheet = self._sheet_for(check.actor)
+        if used.needs_ammo:
+            left = max(0, int(sheet.get("ammo", 0)) - 1)
+            return [SendMessage(channel_id, f"**{check.actor}** throws one — {left} left."),
+                    SpendAmmo(channel_id, check.actor, left)]
+        gear = [dict(g) for g in sheet["gear"]]
+        at = next((i for i, g in enumerate(gear) if g.get("name") == used.name), None)
+        if at is None:
+            return []
+        del gear[at]
+        return [SendMessage(channel_id, f"**{check.actor}**'s {used.name.lower()} is thrown — gone until "
+                                        "it's recovered."),
+                UpdateSheet(channel_id, check.actor, {"gear": gear, "armor": gear_armor(
+                    gear, str(sheet.get("grip") or ""))})]
 
     def _banners(self, check: PendingCheck, dice: Roll, said: str) -> Tuple[Roll, str]:
         """Call the Banners: "When you recruit from your stronghold or the lands it protects you
@@ -1984,6 +2022,10 @@ class Director:
         ):
             return []
 
+        if any(rules.choice.options[p].spends_ammo for p in picks) and self._thrown_weapon(check) is not None:
+            # Thrown: "If you volley with this weapon, you can't choose to mark off ammo on a 7-9."
+            return [SendMessage(channel_id, f"**{check.actor}**, a thrown weapon can't take several shots — "
+                                            "it's gone once it's thrown. Choose another.")]
         chosen = replace(check, picks=tuple(sorted(picks)))
         said = SendMessage(
             channel_id,
@@ -2330,8 +2372,13 @@ class Director:
 
     def _weapon(self, sheet: Dict[str, Any], move: str, wanted: str = ""):
         """The weapon this attack uses: the one they named, else the best that fits."""
+        flags: Tuple[str, ...] = ()
         if isinstance(wanted, PendingCheck):
+            flags = wanted.flags
             wanted = next((f[len("weapon:"):] for f in wanted.flags if f.startswith("weapon:")), "")
+        thrown = next((f[len("thrown:"):] for f in (flags or ()) if f.startswith("thrown:")), "")
+        if thrown:
+            return Item.from_dict(json.loads(thrown))  # already in the air
         if wanted:
             from .gear import weapon_named
 
@@ -2388,20 +2435,6 @@ class Director:
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet or "gear" not in sheet:
             return []
-        used = self._weapon(sheet, check.move, check)
-        if used is not None and "thrown" in used.tags and not used.needs_ammo:
-            # Thrown: "your options to 'mark off ammo' instead mean you have no more of this
-            # weapon left, it's gone" -- until someone picks it up.
-            gear = [dict(g) for g in sheet["gear"]]
-            at = next((i for i, g in enumerate(gear) if g.get("name") == used.name), None)
-            if at is not None:
-                del gear[at]
-                return [
-                    SendMessage(channel_id, f"**{check.actor}**'s {used.name.lower()} is gone — thrown; "
-                                            "it can be picked up later."),
-                    UpdateSheet(channel_id, check.actor, {"gear": gear, "armor": gear_armor(
-                        gear, str(sheet.get("grip") or ""))}),
-                ]
         left = max(0, int(sheet.get("ammo", 0)) - 1)
         return [
             SendMessage(channel_id, f"**{check.actor}** has {left} ammo left."),

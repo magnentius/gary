@@ -94,7 +94,7 @@ MACE = _i("Mace", "close", weight=1)
 STAFF = _i("Staff", "close", "two-handed", weight=1)
 SHILLELAGH = _i("Shillelagh", "close", weight=2)
 DRUID_SPEAR = _i("Spear", "close", "thrown", "near", weight=1)
-SPEAR = _i("Spear", "reach", weight=1)
+SPEAR = _i("Spear", "reach", "thrown", "near", weight=1)  # the book's list: reach, thrown, near
 HALBERD = _i("Halberd", "reach", "+1 damage", "two-handed", damage=1, weight=2)
 LONG_SWORD = _i("Long sword", "close", "+1 damage", damage=1, weight=1)
 WORN_BOW = _i("Worn bow", "near", needs_ammo=True, weight=2)
