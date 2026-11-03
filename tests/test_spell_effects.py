@@ -9,6 +9,10 @@ from gary.fsm import (
     ChangeHp, ConditionMonster, Director, Dismiss, UpdateSheet, creature_harmed, summon_fell,
 )
 
+from tests.test_gemini import rig as _rig
+
+rig = _rig
+
 CHANNEL, ALICE = 555, 111
 STATS = {"str": 10, "dex": 16, "con": 13, "int": 16, "wis": 12, "cha": 9}
 BOOK = ["Sleep", "Charm Person", "Invisibility", "Mirror Image", "Alarm", "Dominate", "Summon Monster",
@@ -168,3 +172,63 @@ def test_contingency_holds_a_spell_and_releases_it_without_a_roll(director, dice
     effects, released = director.contingency(channel_id=CHANNEL, character="Mae", action="release", target="Goblin 2")
     apply(effects, sheets, scene)
     assert released["ok"] and scene["Goblin 2"]["hp"] == 0 and sheets["Mae"]["contingency"] is None
+
+
+# -- area spells ---------------------------------------------------------------------------
+
+def _here(director, location):
+    director._scene = lambda: {"location": location}
+
+
+def test_fireball_catches_a_friend_nearby_with_the_same_roll(director, dice, sheets, scene):
+    sheets["Mae"]["spells"].append("Fireball")
+    sheets["Mae"]["spellbook"].append("Fireball")
+    director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Mae", move="cast_a_spell", spell="Fireball",
+                       target="Goblin 1, Goblin 2, Dorn")
+    dice.queue(6, 6)
+    apply(director.roll(channel_id=CHANNEL, user_id=ALICE), sheets, scene)
+    check = director.registry.open_checks(CHANNEL)[0]
+    dice.queue(3, 4)  # 2d6: 7, ignoring armor
+    effects = director.roll_damage(channel_id=CHANNEL, user_id=ALICE, check_id=check.check_id)
+    apply(effects, sheets, scene)
+    assert scene["Goblin 1"]["hp"] <= 0 and scene["Goblin 2"]["hp"] <= 0
+    assert sheets["Dorn"]["hp"] == 13 and any("**Dorn** is hurt — Fireball" in getattr(e, "text", "") for e in effects)
+
+
+def test_cloudkill_stays_where_it_was_cast(director, dice, sheets, scene):
+    _here(director, "The Drowned Crypt")
+    sheets["Mae"]["ongoing"] = [{"spell": "Cloudkill", "target": "", "where": "The Drowned Crypt"}]
+    assert director._cloudkill()
+    _here(director, "the crypt stairs, Drowned Crypt")
+    assert director._cloudkill()  # still the crypt
+    _here(director, "The old road east")
+    assert not director._cloudkill()
+
+
+def test_cloudkill_hurts_whatever_takes_damage_in_it(director, dice, sheets, scene):
+    _here(director, "The Drowned Crypt")
+    sheets["Mae"]["ongoing"] = [{"spell": "Cloudkill", "target": "", "where": "The Drowned Crypt"}]
+    scene["Ogre 1"] = {"kind": "Ogre", "hp": 10, "max_hp": 10, "armor": 1, "damage": "d10"}
+    dice.queue(4, 2)  # the ogre's d10: 4, through armor 1 = 3, +1d6 Cloudkill 2
+    _, hit = director.creature_attacks(channel_id=CHANNEL, attacker="Ogre 1", target="Goblin 3")
+    assert hit["dealt"] == 5
+    dice.queue(3, 5)  # a goblin's d6: 3 on Dorn (armor 0), +1d6 Cloudkill 5
+    _, blow = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Dorn")
+    assert blow["dealt"] == 8
+
+
+async def test_leaving_ends_a_cloudkill_out_of_sight(rig):
+    from gary.adapters import gemini_tools as T
+    from gary.models import Mutation, MutationKind
+    from tests.test_gemini import call_response, narrator, player, text_response
+
+    director, store, history = rig
+    store.apply([Mutation(MutationKind.SHEET, "Mae", {"sheet": {
+        "name": "Mae", "class": "Wizard", "race": "Human", "level": 9, "xp": 0, "hp": 15, "max_hp": 15,
+        "armor": 0, "damage": "d4", "stats": STATS,
+        "ongoing": [{"spell": "Cloudkill", "target": "", "where": "The Drowned Crypt"}]}}),
+        Mutation(MutationKind.SCENE, "", {"location": "The Drowned Crypt"})], reason="setup")
+    n = narrator(rig, call_response(T.SET_SCENE, {"location": "The old road east"}), text_response("."))
+    result = await player(n, "we get out of there")
+    assert store.state()["sheets"]["Mae"]["ongoing"] == []
+    assert any("Mae's Cloudkill (out of sight, it fades)" in getattr(e, "text", "") for e in result.effects)

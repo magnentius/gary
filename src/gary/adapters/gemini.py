@@ -1530,15 +1530,25 @@ class GeminiNarrator:
             left: List[str] = []
             changes = [Mutation(MutationKind.SCENE, "", payload)]
             if was and payload["location"] and not same_place(was, payload["location"]):
-                # Thrown and never picked up: left behind where it fell.
+                # Thrown and never picked up: left behind where it fell. Cloudkill "persists so long as
+                # you can see the affected area": out of sight, it's gone.
                 for who, sheet in (store.state().get("sheets") or {}).items():
+                    fresh = dict(sheet)
                     if sheet.get("thrown"):
                         left += [f"{who}'s {t['name'].lower()}" for t in sheet["thrown"]]
-                        changes.append(Mutation(MutationKind.SHEET, who, {"sheet": {**sheet, "thrown": []}}))
+                        fresh["thrown"] = []
+                    fog = [e for e in sheet.get("ongoing") or [] if e.get("spell") == "Cloudkill"
+                           and e.get("where") and not same_place(e["where"], payload["location"])]
+                    if fog:
+                        left.append(f"{who}'s Cloudkill (out of sight, it fades)")
+                        fresh["ongoing"] = [e for e in sheet["ongoing"] if e not in fog]
+                    if fresh != sheet:
+                        changes.append(Mutation(MutationKind.SHEET, who, {"sheet": fresh}))
             result = _diff_result(store.apply(changes, reason="scene change"))
             if left and result.get("ok"):
                 result["post"] = f"🗡️ Left behind at {was}: {', '.join(left)}."
-                result["note"] = "Thrown weapons not picked up stay where they fell; they're off the sheet for good."
+                result["note"] = ("What's left behind stays there: thrown weapons are off the sheet for good, and a "
+                                  "Cloudkill out of sight has ended.")
             arrived = slug(payload.get("steading") or "")
             menu = self._downtime(arrived) if result.get("ok") and arrived and arrived != before else ""
             if menu:  # settling into a steading, with no fight on

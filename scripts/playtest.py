@@ -369,6 +369,7 @@ class Table:
             sheet_for=lambda a: (self.store.state().get("sheets") or {}).get(a),
             monsters=lambda: self.store.state().get("monsters") or {},
             steading=lambda: here(self.store.state()),
+            scene=lambda: self.store.state().get("scene") or {},
         )
         self.narrator = RecordingNarrator(
             client=client, director=self.director,

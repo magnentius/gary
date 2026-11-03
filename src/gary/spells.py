@@ -485,6 +485,9 @@ CONDITION_OF: Dict[str, str] = {
 BROKEN_BY_HARM = ("asleep", "charmed", "held")
 #: A creature in one of these can't attack anyone.
 HELPLESS = ("asleep", "held", "caged")
+#: Spells laid on a place: they stay where they were cast (and Cloudkill, "so long as you can see
+#: the affected area", ends when the party leaves it).
+AREA_SPELLS = ("Cloudkill", "Darkness", "Sanctuary", "Alarm")
 
 #: Summon Monster and Animate Dead: the dice for how many traits, and the traits.
 SUMMONS: Dict[str, Dict[str, Any]] = {

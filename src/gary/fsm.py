@@ -293,6 +293,17 @@ def starting_move(sheet: Dict[str, Any], name: str) -> bool:
     chosen = (sheet.get("choices") or {}).get("start", "")
     return any(m["name"] == name for m in moves_of(str(sheet.get("class", "")), str(sheet.get("race", "")), chosen))
 
+@dataclass(frozen=True)
+class _Rolled:
+    """A damage roll already made, handed on: one Fireball, many burned."""
+
+    total: int
+    shown: str
+
+    def render(self) -> str:
+        return self.shown
+
+
 def helpless(creature: Dict[str, Any]) -> str:
     """What stops this creature attacking (asleep, held, caged), or ""."""
     return next((c["kind"] for c in creature.get("conditions") or () if c.get("kind") in spells.HELPLESS), "")
@@ -371,6 +382,7 @@ class Director:
         sheet_for: Optional[Callable[[str], Optional[dict]]] = None,
         monsters: Optional[Callable[[], Dict[str, dict]]] = None,
         steading: Optional[Callable[[], Optional[dict]]] = None,
+        scene: Optional[Callable[[], dict]] = None,
     ) -> None:
         self.registry = registry
         self.clock = clock
@@ -391,6 +403,8 @@ class Director:
         self._monsters = monsters or (lambda: {})
         # The steading the party is in, if any: its tags change Supply and Recruit.
         self._steading = steading or (lambda: None)
+        # Where the party is (set_scene's record): area spells -- Cloudkill, Darkness -- stay put.
+        self._scene = scene or (lambda: {})
         self._known_actors = {normalize_actor(a) for a in self.players.values()}
 
     def set_player_character(self, user_id: int, actor: str) -> None:
@@ -1059,6 +1073,8 @@ class Director:
 
         if spell.target == "creature":
             standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
+            if spell.area:  # "your target and everyone nearby": the party too, if they're close
+                standing.update({a.lower(): a for a, _ in self._party()})
             wanted = [t.strip() for t in str(target or "").split(",") if t.strip()]
             if not spell.area:
                 wanted = wanted[:1]
@@ -1072,7 +1088,8 @@ class Director:
                     f"Standing: {', '.join(sorted(standing.values())) or 'none'}.",
                     "Add the creature with add_monsters first if it is new, then re-issue "
                     "make_move with target set to its exact name"
-                    + (" -- for Fireball, every creature caught in it, comma-separated." if spell.area else "."),
+                    + (" -- for Fireball, everyone caught in it, creatures and characters, comma-separated."
+                       if spell.area else "."),
                 )]
             target = ", ".join(dict.fromkeys(standing[t.lower()] for t in wanted))
         elif spell.target == "character":
@@ -1942,6 +1959,8 @@ class Director:
             lifted = self._lift(channel_id, check.actor, ended)
         if spell.lasts:
             entry: Dict[str, Any] = {"spell": spell.name, "target": check.target}
+            if spell.name in spells.AREA_SPELLS and (self._scene() or {}).get("location"):
+                entry["where"] = self._scene()["location"]  # "filling the immediate area": here
             if spell.name == "Dominate":
                 entry["hold"] = self.dice.roll("1d4").total  # "You gain 1d4 hold"
                 facts["hold"] = entry["hold"]
@@ -2282,6 +2301,14 @@ class Director:
         hits = []
         spread = (spell is not None and spell.area) or "spread" in check.flags  # Blot Out the Sun
         for name in check.target.split(", ") if spread else [check.target]:
+            if spread and name not in self._monsters() and self._character(name):
+                # A friend in the blast: the same roll, as a blow to a character (armor, Last Breath...).
+                caught, _ = self._attack(channel_id, spell.name if spell else check.actor,
+                                         {"damage": spell.damage if spell and spell.damage else die,
+                                          "ignores_armor": ignores, "piercing": piercing},
+                                         self._character(name), hit=_Rolled(total, shown), hazard=True)
+                effects.extend(caught)
+                continue
             hurt, facts, said = self._hurt(channel_id, name, total, piercing, ignores)
             effects.extend(hurt)
             hits.append(facts)
@@ -2500,7 +2527,18 @@ class Director:
         """Is anyone's Cloudkill running? Gary cannot see who stands in the fog, so while it
         lasts it counts for every creature in the scene; the model ends it when it no longer
         covers them (end_spell)."""
-        return any(s.name == "Cloudkill" for _, sheet in self._party() for s, _ in spells.running(sheet))
+        from .worldmap import same_place
+
+        here = str((self._scene() or {}).get("location") or "")
+        return any(e.get("spell") == "Cloudkill" and (not e.get("where") or not here or same_place(e["where"], here))
+                   for _, sheet in self._party() for e in sheet.get("ongoing") or ())
+
+    def _fog(self) -> Tuple[int, str]:
+        """Cloudkill's separate 1d6, ignoring armor, for any creature hurt in the area -- or nothing."""
+        if not self._cloudkill():
+            return 0, ""
+        fog = self.dice.roll("1d6").total
+        return fog, f", +{fog} Cloudkill"
 
     def _hurt(
         self, channel_id: int, name: str, total: int, piercing: int, ignores_armor: bool
@@ -2512,12 +2550,10 @@ class Director:
             facts["note"] = "The target was no longer in the scene; the damage lands on nothing."
             return [], facts, f" — {name} is gone."
         dealt = damage.through_armor(total, target["armor"], piercing, ignores_armor)
-        cloud = ""
-        if dealt > 0 and self._cloudkill():
-            # Cloudkill: "Whenever a creature in the area takes damage it takes an additional,
-            # separate 1d6 damage which ignores armor."
-            fog = self.dice.roll("1d6").total
-            dealt, cloud = dealt + fog, f", +{fog} Cloudkill"
+        # Cloudkill: "Whenever a creature in the area takes damage it takes an additional,
+        # separate 1d6 damage which ignores armor."
+        fog, cloud = self._fog() if dealt > 0 else (0, "")
+        dealt += fog
         after = int(target["hp"]) - dealt
         facts.update(armor=target["armor"], dealt=dealt, hp_before=target["hp"],
                      hp_after=max(after, 0), defeated=after <= 0,
@@ -2879,6 +2915,9 @@ class Director:
         )
         if halve:
             dealt //= 2  # Defend: "halve its effect or damage"
+        if dealt > 0:
+            fog, cloud = self._fog()  # a character in the cloud is a creature in the area too
+            dealt, shown = dealt + fog, shown + cloud
         facts: Dict[str, Any] = {"attacker": name, "character": character,
                                  "rolled": rolled, "armor": armor, "dealt": dealt}
         line = f"🗡️ **{name}** hits **{character}** — {shown}"
@@ -4067,10 +4106,12 @@ class Director:
         target_record = scene[at]
         dealt = damage.through_armor(hit.total, int(target_record.get("armor", 0)), int(scene[by].get("piercing", 0)),
                                      bool(scene[by].get("ignores_armor")))
+        fog, cloud = self._fog() if dealt > 0 else (0, "")
+        dealt += fog
         hp = int(target_record["hp"]) - dealt
         down = " — **defeated**" if hp <= 0 else ""
         line = (f"🗡️ **{by}** hits **{at}** for **{dealt} damage** ({hit.render()}, armor "
-                f"{target_record.get('armor', 0)}) — HP {target_record['hp']} → {max(hp, 0)}{down}."
+                f"{target_record.get('armor', 0)}{cloud}) — HP {target_record['hp']} → {max(hp, 0)}{down}."
                 + (f" {reason}" if reason else ""))
         return [SendMessage(channel_id, line), ChangeHp(channel_id, "monster", at, hp)], {
             "ok": True, "dealt": dealt, "hp": max(hp, 0), "defeated": hp <= 0}

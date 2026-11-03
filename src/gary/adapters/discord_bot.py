@@ -1998,6 +1998,7 @@ def build_client(
         sheet_for=lambda actor: (store.state().get("sheets") or {}).get(actor),
         monsters=lambda: store.state().get("monsters") or {},
         steading=lambda: here(store.state()),
+        scene=lambda: store.state().get("scene") or {},
     )
 
     if narrator is None:

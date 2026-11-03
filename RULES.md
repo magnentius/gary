@@ -102,8 +102,9 @@ clears your spells and posts the button again. Casting is a move: +Wis for a Cle
 for a Wizard, only a spell you hold. On a 7–9 you choose attention, −1 ongoing to cast
 until you next prepare, or losing the spell until then. Each running ongoing spell costs −1
 to cast (Invisibility, Dominate and Mimic forbid casting) until the GM ends it. Gary rolls
-what spells do to numbers: Cure Wounds heal, Magic Missile and Fireball (every creature
-named, ignoring armor) and Harm (which burns you too) deal damage, Bless gives its target
+what spells do to numbers: Cure Wounds heal, Magic Missile and Fireball (one roll on everyone
+caught — "your target and everyone nearby", friends included — ignoring armor) and Harm (which
+burns you too) deal damage, Bless gives its target
 +1 while creatures stand, Magic Weapon adds 1d4 to the caster's weapon. The rest the GM
 narrates from the spell's text.
 
@@ -116,7 +117,10 @@ when you next prepare, anything "until you cast" when you cast again. **Mirror I
 blow on a d6 of 4–6 and is gone. **Summon Monster** and **Animate Dead** roll their traits; the
 creature joins you as your character with the basic moves, and is destroyed at 0 HP or
 dismissed when the spell ends. **Contingency** holds a spell and its trigger (no more words than
-your level) and releases it without a roll.
+your level) and releases it without a roll. Spells laid on a place — Cloudkill, Darkness,
+Sanctuary, Alarm — stay where they were cast: Cloudkill's extra 1d6 lands on anything hurt
+there (creatures and characters, by any blow), and it ends once the party leaves, as it lasts
+"so long as you can see the affected area".
 
 **Animal Companion.** A Ranger presses **Choose companion** on `/sheet` (Gary reminds them after `/new`): a
 private form for species, base, strengths, trainings and weaknesses — as many as its
