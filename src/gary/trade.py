@@ -96,6 +96,21 @@ def pay_for(sheet: Dict[str, Any], what: str, times: int = 1, discount: int = 0)
     return sheet, label, cost
 
 
+def mount(sheet: Dict[str, Any], name: str, with_party: bool) -> Tuple[Dict[str, Any], str]:
+    """A mount or beast of burden left behind (stabled, tied at the dungeon's mouth) or back with
+    them: its load counts toward theirs only while it's with them. (new sheet, its name)."""
+    wanted = " ".join(str(name or "").split()).lower()
+    gear = list(sheet.get("gear") or [])
+    index = next((i for i, g in enumerate(gear) if g.get("possession")
+                  and any(str(t).startswith("load ") for t in g.get("tags") or ())
+                  and (str(g["name"]).lower() == wanted or wanted in str(g["name"]).lower())), None)
+    if index is None:
+        raise TradeError(f"{sheet['name']} has no mount or beast of burden called {name!r}.")
+    gear[index] = {**gear[index], "with_party": bool(with_party)}
+    ammo, rations, coins = _counts(sheet)
+    return _recount(sheet, gear, ammo, rations, coins), str(gear[index]["name"])
+
+
 def rummage(sheet: Dict[str, Any], what: str) -> Tuple[Dict[str, Any], int]:
     """Adventuring gear: "When you rummage through your adventuring gear for some useful mundane
     item, you find what you need and mark off a use." (new sheet, uses left). The last use takes

@@ -99,3 +99,22 @@ def test_service_names_match_sensibly():
     assert services.find("an assassination")[0]["name"] == "An assassination"
     assert services.find("cottage")[0]["name"] == "A cottage"
     assert services.find("a night at the Drowned Rat inn") [1] is True
+
+
+def test_a_mounts_load_counts_while_it_is_with_them():
+    from gary.sheets import encumbrance, load
+
+    base = load(SHEET)
+    sheet, _, _ = trade.pay_for({**SHEET, "coins": 100}, "horse")
+    assert load(sheet) == base + 10
+    sheet, _ = trade.add_items(sheet, ["plate"])  # heavy: fine with the horse along
+    assert encumbrance(sheet) == "fine"
+    stabled, name = trade.mount(sheet, "horse", with_party=False)
+    assert name == "Horse" and load(stabled) == base
+    from gary.sheets import carrying_line
+
+    assert "Horse (load 10), left behind" in carrying_line(stabled)
+    back, _ = trade.mount(stabled, "Horse", with_party=True)
+    assert load(back) == base + 10
+    with pytest.raises(trade.TradeError, match="no mount"):
+        trade.mount(SHEET, "horse", with_party=False)

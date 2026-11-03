@@ -116,8 +116,19 @@ def clumsy(sheet: Dict[str, Any]) -> str:
     return next((g["name"] for g in sheet.get("gear") or () if "clumsy" in (g.get("tags") or ())), "")
 
 
+def mount_load(sheet: Dict[str, Any]) -> int:
+    """What their mounts and beasts of burden carry for them, while with them -- the book gives a
+    horse "load 10", a cart and donkey "load 20". One left behind (stabled, tied at a dungeon's
+    mouth) carries nothing for them."""
+    total = 0
+    for g in sheet.get("gear") or ():
+        if g.get("possession") and g.get("with_party", True):
+            total += next((int(t.split()[1]) for t in g.get("tags") or () if str(t).startswith("load ")), 0)
+    return total
+
+
 def load(sheet: Dict[str, Any]) -> int:
-    return LOAD_BASE.get(str(sheet.get("class", "")).lower(), 9) + stat_modifier(sheet, "str")
+    return LOAD_BASE.get(str(sheet.get("class", "")).lower(), 9) + stat_modifier(sheet, "str") + mount_load(sheet)
 
 
 def carried(sheet: Dict[str, Any]) -> int:
@@ -416,6 +427,8 @@ def carrying_line(sheet: Dict[str, Any]) -> str:
         label = item.label()
         if "uses" in g:
             label = f"{item.name} ({g['uses']} uses left)"
+        if g.get("possession") and g.get("with_party") is False:
+            label += ", left behind"
         labels.append(label)
     grouped: Dict[str, int] = {}
     for label in labels:

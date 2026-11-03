@@ -400,6 +400,13 @@ less your Charisma where the book says "−Charisma", less a Minstrel's skill in
 at an inn is a seventh of the week's price (Gary's arithmetic; the book prices weeks). A horse,
 a cottage or finery you buy to keep goes on your sheet.
 
+**Mounts and pack animals.** The book gives a mount a load (a horse 10, a cart and donkey 20)
+and no other rules. A mount you own adds its load to what you can carry while it's with you;
+leave it stabled or tied at a dungeon's mouth and the GM marks it left behind, so the weight is
+yours again (`/sheet` shows it). Riding, a spooked horse or a wounded one stay in the story.
+The Ranger's animal companion is different: a full character of its own (ferocity, cunning,
+armor, training), built from `/sheet` by the book.
+
 **Make Camp heals.** When the party beds down, Gary eats a ration for each of you and, if
 the night is quiet, heals everyone half their max HP and moves the clock eight hours. A night
 at an inn or as someone's guest costs no ration — "only mark off a ration if you're eating

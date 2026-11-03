@@ -69,6 +69,7 @@ GIVE_MAGIC_ITEM = "give_magic_item"
 RUMMAGE = "rummage"
 SET_WEATHER = "set_weather"
 PAY_FOR = "pay_for"
+MOUNT = "mount"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -948,6 +949,20 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=MOUNT,
+        description=(
+            "A character's mount or beast of burden (a horse, a cart and donkey) is left behind -- stabled, tied "
+            "at a dungeon's mouth, tethered while they climb -- or is back with them. Its load counts toward "
+            "what they can carry only while it's with them. A mount lost, stolen or killed: take_items."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"actor": _s(type=_STRING), "name": _s(type=_STRING),
+                        "with_party": _s(type=types.Type.BOOLEAN), "reason": _s(type=_STRING)},
+            required=["actor", "name", "with_party"],
         ),
     ),
     types.FunctionDeclaration(

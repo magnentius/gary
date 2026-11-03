@@ -361,7 +361,8 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
-            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL, T.GIVE_MAGIC_ITEM, T.RUMMAGE, T.PAY_FOR):
+            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL, T.GIVE_MAGIC_ITEM, T.RUMMAGE, T.PAY_FOR,
+                        T.MOUNT):
                 trade_effects, result = self._trade(channel_id, name, args)
                 effects.extend(trade_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -869,7 +870,13 @@ class GeminiNarrator:
 
         sheet = sheets[actor]
         try:
-            if name == T.PAY_FOR:
+            if name == T.MOUNT:
+                with_party = bool(args.get("with_party"))
+                new, beast = trade.mount(sheet, str(args.get("name", "")), with_party)
+                line = (f"🐎 **{actor}**'s {beast} is " + ("back with them" if with_party else "left behind")
+                        + (f" — {reason}" if reason else "") + ".")
+                result = {"ok": True, "mount": beast, "with_party": with_party}
+            elif name == T.PAY_FOR:
                 from .. import hirelings as hired
 
                 new, label, cost = trade.pay_for(sheet, str(args.get("what", "")), int(args.get("times") or 1),
