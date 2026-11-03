@@ -185,7 +185,7 @@ async def test_a_front_that_is_over_is_shown_to_the_table(table):
     assert "Never happened: She turns the lizardmen; Her hatchlings feed." in shown[0]
     assert "Its doom would have been: the coast burns. Stopped: Gorm slew her on the cliffs." in shown[0]
     answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
-    assert "reveal" not in answer and "aftermath" in answer["note"]  # the model is told, not handed the text
+    assert "post" not in answer and "aftermath" in answer["note"]  # the model is told, not handed the text
 
 
 def test_a_doom_that_came_is_said_so():

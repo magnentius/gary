@@ -182,3 +182,42 @@ def _parallel(*responses):
     from tests.test_gemini import _Response
 
     return _Response([part for r in responses for part in r.candidates[0].content.parts])
+
+
+async def test_settling_into_a_steading_shows_the_table_its_downtime(table):
+    director, store, history = table
+    town = S.make("Ennet Bend", "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"])
+    store.apply([Mutation(MutationKind.STEADING, "ennet_bend", {"steading": town})], reason="setup")
+    n = narrator(table,
+                 call_response(T.SET_SCENE, {"location": "Ennet Bend, the square", "steading": "Ennet Bend"}),
+                 call_response(T.SET_SCENE, {"location": "Ennet Bend, the inn", "steading": "Ennet Bend"}),
+                 text_response("."))
+    result = await player(n, "we walk into town")
+    shown = [e.text for e in result.effects if getattr(e, "text", "")]
+    assert len(shown) == 1  # once, on arriving -- not again for the inn in the same town
+    menu = shown[0]
+    assert menu.startswith("🏘️ **Ennet Bend** — some downtime.") and "Recover" in menu and "Carouse" in menu
+    assert "+1 here (Market)" in menu  # this town's Market
+    answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    assert "post" not in answer and "downtime" in answer["note"]
+
+
+async def test_no_downtime_menu_in_a_fight(table):
+    director, store, history = table
+    town = S.make("Ennet Bend", "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"])
+    store.apply([Mutation(MutationKind.STEADING, "ennet_bend", {"steading": town}),
+                 Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Bandit 1": {
+                     "kind": "Bandit", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"}}})], reason="setup")
+    n = narrator(table, call_response(T.SET_SCENE, {"location": "Ennet Bend gate", "steading": "Ennet Bend"}),
+                 text_response("."))
+    result = await player(n, "we run for the gate")
+    assert not [e for e in result.effects if getattr(e, "text", "").startswith("🏘️")]
+
+
+async def test_a_steading_made_on_arrival_shows_its_downtime_too(table):
+    director, store, history = table
+    n = narrator(table, call_response(T.CREATE_STEADING, {"name": "Pigton", "kind": "village", "option": 0,
+                                                          "problem": 0, "details": ["eels", "Castonshire"]}),
+                 text_response("A muddy village."))
+    result = await player(n, "we reach the village")
+    assert any(getattr(e, "text", "").startswith("🏘️ **Pigton**") for e in result.effects)

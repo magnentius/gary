@@ -214,6 +214,14 @@ He answers when:
 - the channel is in `GARY_FREEFORM_CHANNELS`, **or**
 - you have a **check open** — your next message is read as an answer to it.
 
+**Pacing.** The book treats time "like in a movie where pacing depends on the circumstances",
+and the GM is told to pace it that way: start scenes close to the trouble, end them once their
+question is answered, and sum up the dull parts — a safe road, routine shopping, a quiet night
+— in a sentence. Only travel through hostile ground is a Perilous Journey; a safe road is just
+narrated. When the party settles into a village, town, keep or city with no fight on, Gary posts
+what downtime there offers — buying and selling (what's for sale here), Supply, Recover,
+Carouse, Recruit, Bolster, and levelling up for anyone ready — with what the place's tags change.
+
 **Sharing the spotlight.** Dungeon World has no turns; the GM spreads the spotlight. Gary
 keeps count of who has had the recent moments (speaking to Gary, making a move) and shows the
 GM a tally every turn ("Gorm 8, Thorin 2, Liriel 0"), naming whoever has been quiet so the

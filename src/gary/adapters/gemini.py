@@ -674,9 +674,9 @@ class GeminiNarrator:
                 log.exception("tool %s failed", name)
                 result = {"ok": False, "error": str(exc)}
 
-            reveal = result.pop("reveal", None) if isinstance(result, dict) else None
-            if reveal:
-                effects.append(SendMessage(channel_id, reveal))  # a front that is over, for the table
+            post = result.pop("post", None) if isinstance(result, dict) else None
+            if post:
+                effects.append(SendMessage(channel_id, post))  # for the table: a front that is over, a town's downtime
             responses.append(types.Part.from_function_response(name=name, response=result))
 
         return False, responses
@@ -1005,7 +1005,25 @@ class GeminiNarrator:
                 if arrived else
                 "Recorded. When the party is there, name it as steading in set_scene: what is for sale, "
                 "prices, Supply and Recruit follow its tags.")
-        return {"ok": True, "steading": places.describe(record), "note": note}
+        result = {"ok": True, "steading": places.describe(record), "note": note}
+        menu = self._downtime(key) if arrived else ""
+        if menu:
+            result["post"] = menu
+        return result
+
+    def _downtime(self, key: str) -> str:
+        """What downtime in this steading offers, for the table -- "" while a fight is on."""
+        from ..sheets import xp_needed
+        from ..steadings import downtime
+
+        state = self._store.state()
+        record = (state.get("steadings") or {}).get(key)
+        if record is None or any(int(m.get("hp", 0)) > 0 for m in (state.get("monsters") or {}).values()):
+            return ""
+        sheets = state.get("sheets") or {}
+        ready = [a for a in sorted(set((state.get("players") or {}).values())) if a in sheets
+                 and int(sheets[a].get("xp", 0)) >= xp_needed(sheets[a]) and int(sheets[a].get("level", 1)) < 10]
+        return downtime(record, ready)
 
     def _front_tool(self, name: str, args: Dict[str, Any]) -> Dict[str, Any]:
         """Fronts: the GM's own plans, so nothing is posted to the table -- only stored,
@@ -1103,7 +1121,7 @@ class GeminiNarrator:
         store.apply([Mutation(MutationKind.FRONT, key, {"front": front})],
                     reason=f"front {front['name']}: {danger['name']}")
         if fronts.over(front):
-            result["reveal"] = fronts.reveal(front)
+            result["post"] = fronts.reveal(front)
             if front.get("scope") == "campaign":
                 # The campaign's arc is done: the next /begin asks whether to carry on or close it.
                 store.apply([Mutation(MutationKind.OPENING, "", {"campaign_over": True})],
@@ -1214,9 +1232,18 @@ class GeminiNarrator:
                 if named and slug(named) not in (store.state().get("steadings") or {}):
                     return {"ok": False, "error": f"No steading {named!r} yet: create_steading first."}
                 payload["steading"] = named
-            return _diff_result(store.apply(
+            from ..steadings import slug
+
+            before = slug((store.state().get("scene") or {}).get("steading") or "")
+            result = _diff_result(store.apply(
                 [Mutation(MutationKind.SCENE, "", payload)], reason="scene change"
             ))
+            arrived = slug(payload.get("steading") or "")
+            menu = self._downtime(arrived) if result.get("ok") and arrived and arrived != before else ""
+            if menu:  # settling into a steading, with no fight on
+                result["post"] = menu
+                result["note"] = "Gary has shown the table what downtime here offers; play whatever they choose."
+            return result
 
         return {"ok": False, "error": f"unknown tool {name!r}"}
 

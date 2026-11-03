@@ -188,9 +188,10 @@ def _homebrew(entry: Dict[str, Any]) -> Dict[str, Any]:
     missing = [k for k in ("hp", "armor", "damage") if entry.get(k) in (None, "")]
     if missing:
         raise MonsterError(
-            f"{name!r} is not in the Dungeon World bestiary, so give its "
-            f"{', '.join(missing)} yourself (horde 3 HP, group 6, solitary 12; armor 0-4; "
-            "damage like d6, d8+2 or b[2d10])."
+            f"{name!r} is not in the Dungeon World bestiary: give a recipe (the book's Making Monsters "
+            "answers: organization, size, defense, and what it is known for) with an instinct and a move, "
+            f"and Gary works out its numbers -- or give its {', '.join(missing)} yourself (horde 3 HP, "
+            "group 6, solitary 12; armor 0-4; damage like d6, d8+2 or b[2d10])."
         )
     hp, armor = int(entry["hp"]), int(entry["armor"])
     if not HP_RANGE[0] <= hp <= HP_RANGE[1]:

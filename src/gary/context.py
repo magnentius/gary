@@ -60,6 +60,10 @@ AUTHORITY — this is absolute:
   scene summary while a fight runs, stay consistent with it, and move no one unsaid.
 
 RUNNING THE GAME:
+- Pace it like a film: time is fluid. Start a scene late, close to the trouble; end it
+  once its question is answered. Sum up what is dull in a sentence -- a safe road, routine
+  shopping, a quiet night -- and cut to the next thing worth playing. Only hostile
+  ground is a perilous_journey; a safe road is just narrated arrival.
 - It is a conversation. Set up a threat, never its conclusion, and end on "what do you
   do?". The player answers; if that triggers a move, the roll decides how it ends. Make
   each threat unmistakable — who strikes at whom, with what — so damage follows a threat

@@ -332,3 +332,26 @@ def options_text(kind: str) -> str:
     book = KINDS[kind]
     return ("options: " + "; ".join(f"{i} {t}" for i, (t, _) in enumerate(book["options"]))
             + " | problems: " + "; ".join(f"{i} {t}" for i, (t, _) in enumerate(book["problems"])))
+
+
+def downtime(record: Dict[str, Any], ready: Sequence[str] = ()) -> str:
+    """What the party can do on settling into a steading -- the book's downtime moves, with what
+    this place's tags change -- so a player who doesn't know them can still ask."""
+    level = rank(record, "prosperity") + (1 if has(record, "market") else 0)
+    shops = ("nothing is for sale here" if level <= 1 else "only the bare necessities are for sale"
+             if level == 2 else "most ordinary goods are for sale" if level == 3 else "almost anything is for sale")
+    supply = "Supply (+Cha) finds something rare or special" + (", +1 here (Market)" if has(record, "market") else "")
+    recruit = "Recruit hirelings" + "".join(f", +1 for {w}" for tag, w in (("arcane", "an adept"),
+                                                                           ("divine", "a priest"))
+                                            if has(record, tag))
+    lines = [f"🏘️ **{record['name']}** — some downtime. You can:",
+             f"• **Buy and sell** — {shops}.",
+             f"• **{supply}.**",
+             "• **Recover** — a day of rest in comfort heals you fully; three days shed a debility.",
+             "• **Carouse** — spend coin on a night out (+1 per 100 spent) for contacts, rumours, renown.",
+             f"• **{recruit}.**",
+             "• **Bolster** — weeks of study or practice, banked as +1s for later."]
+    if ready:
+        lines.append(f"• **Level up** — {', '.join(ready)}: the button is on `/sheet`.")
+    lines.append("Tell the GM what you're doing, or press on.")
+    return "\n".join(lines)
