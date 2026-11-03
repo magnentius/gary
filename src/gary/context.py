@@ -197,6 +197,50 @@ def attribute(display_name: str, actor: Optional[str], text: str) -> str:
     return f"Player {who} says: {sanitize_player_text(text)}"
 
 
+_PLAYING = re.compile(r"^Player .*? \(playing (.+?)\) says:")
+
+#: How far back the spotlight tally looks, in moments (a player speaking to Gary, a move made).
+SPOTLIGHT_WINDOW = 24
+
+
+def spotlight(moments: Sequence[str], party: Sequence[str]) -> str:
+    """The book's "spread the spotlight", made a fact: who has had the recent moments. Each
+    moment is a character's name -- they spoke to Gary, or made a move. One line, only with two
+    or more characters and enough moments to mean something; "" otherwise."""
+    names = [n for n in party if n]
+    recent = [m for m in moments if m in names][-SPOTLIGHT_WINDOW:]
+    if len(names) < 2 or len(recent) < 4:
+        return ""
+    counts = {n: recent.count(n) for n in names}
+    fewest = min(counts.values())
+    quiet = [n for n in names if counts[n] == fewest and counts[n] < max(counts.values())]
+    line = (f"SPOTLIGHT (the last {len(recent)} moments: who spoke to you or made a move): "
+            + ", ".join(f"{n} {c}" for n, c in sorted(counts.items(), key=lambda kv: -kv[1])) + ".")
+    if quiet and max(counts.values()) >= fewest + 3:
+        line += (f" Turn to {' and '.join(quiet)} next: a question, a threat aimed at them, an opportunity "
+                 "only they can take.")
+    return line
+
+
+def moments_in(turns: Sequence[Any]) -> List[str]:
+    """Characters' moments, oldest first, from a conversation's turns: each player message
+    attributed to a character, and each make_move's actor."""
+    out: List[str] = []
+    for turn in turns:
+        for part in getattr(turn, "parts", None) or ():
+            text = getattr(part, "text", None)
+            if text and getattr(turn, "role", "") == "user":
+                m = _PLAYING.match(text)
+                if m:
+                    out.append(m[1])
+            call = getattr(part, "function_call", None)
+            if call is not None and getattr(call, "name", "") == "make_move":
+                actor = str((getattr(call, "args", None) or {}).get("actor") or "")
+                if actor and (not out or out[-1] != actor):  # their message and its move are one moment
+                    out.append(actor)
+    return out
+
+
 # -- layers -------------------------------------------------------------------------------
 
 

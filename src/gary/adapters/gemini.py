@@ -168,7 +168,7 @@ class GeminiNarrator:
         # What was just said, plus the recent exchange, so a note surfaces when its
         # subject comes up rather than only when it is a party member or the location.
         system_instruction = self._system_instruction(
-            summary, recent_text=_recent_text(payload, contents)
+            summary, recent_text=_recent_text(payload, contents), contents=contents
         )
 
         try:
@@ -193,10 +193,19 @@ class GeminiNarrator:
 
     # -- context (§8) ------------------------------------------------------------------
 
-    def _system_instruction(self, summary: str, recent_text: str = "") -> List[str]:
+    def _system_instruction(self, summary: str, recent_text: str = "", contents: Sequence[Any] = ()) -> List[str]:
         """Layers 1-3. Rebuilt every call; layer 4 is the contents list."""
+        from ..beyond import out_of_play
+        from ..context import moments_in, spotlight
+
         state = self._store.state()
         blocks = [DM_SYSTEM_INSTRUCTION, render_live_state(state)]
+        sheets = state.get("sheets") or {}
+        seated = sorted({a for a in (state.get("players") or {}).values()
+                         if not (sheets.get(a) or {}).get("dead") and not out_of_play(sheets.get(a) or {})})
+        tally = spotlight(moments_in(contents), seated)
+        if tally:
+            blocks.append(tally)
         moves = render_class_moves(state.get("sheets") or {})
         if moves:
             blocks.append(moves)

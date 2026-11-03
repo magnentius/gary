@@ -804,6 +804,10 @@ layers, in order:
    each character's alignment, rolled moves by key, narrative and advanced moves in the
    book's words, and a caster's castable spells with their text. Rebuilt from the store
    every turn, which is what makes the store the source of truth in practice.
+   With two or more characters seated, a **spotlight tally** follows: `context.spotlight` counts
+   each character's moments in the recent turns (a player message attributed to them, a
+   `make_move` with them as actor; the two together are one moment) and names the quiet ones
+   once the gap is three or more -- the book's "spread the spotlight" as a fact, not a hope.
 3. **Retrieved memory** — NPCs and notes relevant to the scene: a note surfaces when its
    subject is a party member, the current location, or is named in what was just said
    (whole subject or any distinctive word, so "Toby Cole" answers to "Toby"), plus a

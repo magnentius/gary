@@ -214,6 +214,11 @@ He answers when:
 - the channel is in `GARY_FREEFORM_CHANNELS`, **or**
 - you have a **check open** — your next message is read as an answer to it.
 
+**Sharing the spotlight.** Dungeon World has no turns; the GM spreads the spotlight. Gary
+keeps count of who has had the recent moments (speaking to Gary, making a move) and shows the
+GM a tally every turn ("Gorm 8, Thorin 2, Liriel 0"), naming whoever has been quiet so the
+next question, threat or opportunity goes to them.
+
 ### A turn, end to end
 
 ```
