@@ -76,3 +76,11 @@ async def test_making_camp_marks_when_they_slept(clock):
     n = narrator(rig, call_response(T.MAKE_CAMP, {"reason": "a dry cave, the entrance hidden"}), text_response("."))
     await player(n, "we camp")
     assert store.state()["scene"]["rested_at"] == store.state()["world_minutes"] == 600 + 480
+
+
+def test_underground_there_is_no_daylight():
+    noon = at("06-21", 12)
+    assert sky.daylight(noon) == "daylight"
+    below = {**noon, "scene": {"dungeon": "The Barrow", "location": "Crypt"}}
+    assert sky.daylight(below) == "underground: no light but what they carry"
+    assert "(underground: no light but what they carry)" in render_live_state(below)

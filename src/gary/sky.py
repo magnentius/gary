@@ -39,6 +39,9 @@ def sun(state: Dict[str, Any]) -> Tuple[float, float]:
 
 
 def daylight(state: Dict[str, Any]) -> str:
+    """dawn, daylight, dusk or night -- or, in a dungeon, the dark: no sun reaches it."""
+    if (state.get("scene") or {}).get("dungeon"):
+        return "underground: no light but what they carry"
     _, hour, _ = _now(state)
     rise, set_ = sun(state)
     if abs(hour - rise) <= TWILIGHT:
