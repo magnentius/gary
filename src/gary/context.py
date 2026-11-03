@@ -405,7 +405,9 @@ def _render_people(npcs: Dict[str, Any], subjects: Sequence[str], mentioned_in: 
             bits += f" (disposition {disposition:+d})"
         if not npc.get("known", True):
             bits += " [the party has not met or heard of them]"
-        notes = "; ".join(str(n) for n in ([npc["public"]] if npc.get("public") else []) + (npc.get("notes") or [])[-3:])
+        seen = [f"as pictured: {npc['portrait']}"] if npc.get("portrait") else []
+        notes = "; ".join(str(n) for n in ([npc["public"]] if npc.get("public") else []) + seen
+                          + (npc.get("notes") or [])[-3:])
         lines.append(f"- {bits}" + (f": {notes}" if notes else ""))
     return "PEOPLE:\n" + "\n".join(lines) if lines else ""
 

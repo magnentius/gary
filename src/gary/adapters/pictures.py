@@ -30,9 +30,11 @@ class PictureError(RuntimeError):
 
 
 class Painter:
-    def __init__(self, api_key: str, model: str, folder: Path, per_day: int, client: Any = None) -> None:
+    def __init__(self, api_key: str, model: str, folder: Path, per_day: int, client: Any = None,
+                 describe_model: str = "") -> None:
         self._api_key, self.model, self.folder, self.per_day = api_key, model, Path(folder), int(per_day)
         self._client = client
+        self.describe_model = describe_model  # a cheap text model that says what a portrait shows
 
     @property
     def enabled(self) -> bool:
@@ -56,7 +58,8 @@ class Painter:
         self._count_file().write_text(json.dumps({date.today().isoformat(): self.made_today() + 1}))
 
     async def picture(self, state: Dict[str, Any], kind: str, name: str, redraw: bool = False) -> Tuple[Path, bool]:
-        """(the image file, whether it was just made)."""
+        """(the image file, whether it was just made). A redraw sends the kept picture too, so the
+        subject stays itself; ``describe`` then says what a new portrait shows."""
         if not self.enabled:
             raise PictureError("Pictures are off: Gary needs a Gemini key, and GARY_IMAGES_PER_DAY above 0.")
         path = self.path_for(kind, name)
@@ -65,25 +68,52 @@ class Painter:
         if self.made_today() >= self.per_day:
             raise PictureError(f"That's today's {self.per_day} new pictures. Kept ones can still be shown; more "
                                "tomorrow.")
-        data = await self._draw(pictures.prompt(state, kind, name), ASPECT.get(kind, "1:1"))
+        before = path.read_bytes() if path.exists() else None
+        text = pictures.prompt(state, kind, name)
+        if before is not None:
+            text += " " + pictures.SAME_SUBJECT.format(kind="person" if pictures.is_person(kind) else kind)
+        data = await self._draw(text, ASPECT.get(kind, "1:1"), before)
         self.folder.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
         self._count_one()
         return path, True
 
-    async def _draw(self, text: str, aspect: str) -> bytes:
-        from google import genai
+    def _client_now(self) -> Any:
+        if self._client is None:
+            from google import genai
+
+            self._client = genai.Client(api_key=self._api_key)
+        return self._client
+
+    async def describe(self, path: Path) -> str:
+        """What a portrait shows, in a line, so the narration and later pictures match it. "" if
+        there is no model for it or it fails -- the picture stands without it."""
+        if not self.describe_model:
+            return ""
         from google.genai import types
 
-        if self._client is None:
-            self._client = genai.Client(api_key=self._api_key)
+        try:
+            response = await asyncio.wait_for(self._client_now().aio.models.generate_content(
+                model=self.describe_model,
+                contents=[types.Part.from_bytes(data=path.read_bytes(), mime_type="image/jpeg"), pictures.DESCRIBE]),
+                timeout=TIMEOUT_SECONDS)
+        except Exception:  # noqa: BLE001
+            log.exception("could not describe a portrait")
+            return ""
+        return " ".join(str(getattr(response, "text", "") or "").split())[:240]
+
+    async def _draw(self, text: str, aspect: str, before: Optional[bytes] = None) -> bytes:
+        from google.genai import types
+
+        self._client_now()
         reference = types.Part.from_bytes(data=pictures.STYLE_REFERENCE.read_bytes(), mime_type="image/jpeg")
+        contents = [reference] + ([types.Part.from_bytes(data=before, mime_type="image/jpeg")] if before else [])
         config = types.GenerateContentConfig(
             response_modalities=["IMAGE"],
             image_config=types.ImageConfig(aspect_ratio=aspect, image_size=SIZE))
         try:
             response = await asyncio.wait_for(self._client.aio.models.generate_content(
-                model=self.model, contents=[reference, text], config=config), timeout=TIMEOUT_SECONDS)
+                model=self.model, contents=[*contents, text], config=config), timeout=TIMEOUT_SECONDS)
         except asyncio.TimeoutError as exc:
             raise PictureError("The image model took too long. Try again in a moment.") from exc
         except Exception as exc:  # noqa: BLE001 - the table hears a sentence, the log the detail

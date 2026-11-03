@@ -238,6 +238,8 @@ def describe(sheet: Dict[str, Any]) -> str:
         parts.append("appetites: " + ", ".join(a.lower() for a in appetites_of(sheet)))
     if look_of(sheet):
         parts.append(f"looks: {look_of(sheet)}")
+    if sheet.get("portrait"):
+        parts.append(f"as pictured: {sheet['portrait']}")
     return ("Choices — " + "; ".join(parts)) if parts else ""
 
 

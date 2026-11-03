@@ -238,6 +238,8 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
         except PictureError as exc:
             await interaction.followup.send(str(exc))
             return
+        if new and pictures.is_person(kind):
+            client._remember_portrait(kind, name, await client.painter.describe(path))
         caption = f"🎨 **{name}**" + ("" if new else " (kept from before; `redraw:True` draws a new one)")
         await interaction.followup.send(caption, file=discord.File(str(path), filename=path.name))
 

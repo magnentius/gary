@@ -518,7 +518,8 @@ class GaryClient(discord.Client):
 
         self.painter = Painter(getattr(settings, "gemini_api_key", ""), getattr(settings, "gemini_image_model", ""),
                                Path(getattr(settings, "campaign_root", ".")) / "pictures",
-                               int(getattr(settings, "images_per_day", 0)))
+                               int(getattr(settings, "images_per_day", 0)),
+                               describe_model=getattr(settings, "gemini_summary_model", ""))
         self.history_backend = history_backend
         self._reset_token: Optional[str] = None
         self.sender = ChannelSender(
@@ -681,6 +682,22 @@ class GaryClient(discord.Client):
             log.exception("could not keep a copy of the campaign before reset")
             return None
         return target
+
+    def _remember_portrait(self, kind: str, name: str, described: str) -> None:
+        """What a new portrait shows goes on the record, so the GM narrates the person as drawn and
+        the next picture of them starts from it."""
+        if not described:
+            return
+        state = self.store.state()
+        if kind == "character" and name in (state.get("sheets") or {}):
+            self.store.apply([Mutation(MutationKind.SHEET, name, {"sheet": {**state["sheets"][name],
+                                                                            "portrait": described}})],
+                             reason=f"portrait of {name}")
+        elif kind == "npc":
+            key = next((k for k, n in (state.get("npcs") or {}).items() if str(n.get("name")) == name), None)
+            if key is not None:
+                self.store.apply([Mutation(MutationKind.NPC_RELATION, key, {"portrait": described})],
+                                 reason=f"portrait of {name}")
 
     def _state_text(self) -> str:
         """`/state`: what the model is told every turn -- fronts and all, so it is the server

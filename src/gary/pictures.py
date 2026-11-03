@@ -72,11 +72,13 @@ def prompt(state: Dict[str, Any], kind: str, name: str) -> str:
         sheet = (state.get("sheets") or {}).get(name) or {}
         look = look_of(sheet)
         what = (f"A head-and-shoulders character portrait of {name}, a {sheet.get('race', '')} "
-                f"{sheet.get('class', 'adventurer')}" + (f": {look}" if look else "") + ".")
+                f"{sheet.get('class', 'adventurer')}" + (f": {look}" if look else "") + "."
+                + (f" As pictured before: {sheet['portrait']}." if sheet.get("portrait") else ""))
     elif kind == "npc":
         npc = next((n for n in (state.get("npcs") or {}).values() if str(n.get("name")) == name), {})
         public = str(npc.get("public") or "").strip()
-        what = f"A head-and-shoulders portrait of {name}" + (f", {public}" if public else "") + "."
+        what = (f"A head-and-shoulders portrait of {name}" + (f", {public}" if public else "") + "."
+                + (f" As pictured before: {npc['portrait']}." if npc.get("portrait") else ""))
     elif kind == "creature":
         from .monsters import lookup
 
@@ -88,7 +90,8 @@ def prompt(state: Dict[str, Any], kind: str, name: str) -> str:
         if record.get("attack"):
             details.append(f"attacks with its {str(record['attack']).lower()}")
         what = (f"A fantasy creature, the {name}, shown whole in its surroundings, menacing"
-                + ("; " + "; ".join(d for d in details if d) if any(details) else "") + ".")
+                + ("; " + "; ".join(d for d in details if d) if any(details) else "") + ". Only the creature: no "
+                "people or adventurers in the picture.")
     else:
         from .steadings import describe as describe_steading
 
@@ -99,7 +102,27 @@ def prompt(state: Dict[str, Any], kind: str, name: str) -> str:
         else:
             summary = str(scene.get("summary") or "") if scene.get("location") == name else ""
             what = f"A wide view of {name}, a fantasy location" + (f": {summary}" if summary else "") + "."
+    if kind == "place":
+        # The party's looks come only from their own portraits: a stranger standing in for Gorm
+        # in a landscape would contradict his.
+        what += " No people or characters in it: the place alone."
     # No premise: put in, it drew the adventure's MacGuffin into every picture.
     return (f"{what} The reference image shows the art style ONLY: match its brushwork, palette and lighting -- "
             f"{STYLE} -- but copy nothing of its subject: not the person, face, hair, clothing, tattoos, jewellery "
             "or pose. Draw only what is described here. No text, lettering, borders or watermarks.")
+
+
+#: Asked of a fresh portrait, so the story and later pictures match what was drawn.
+DESCRIBE = ("Describe the person in this portrait in one line, under 30 words, for someone who has to recognise "
+            "them later: hair, face, marks, clothing, anything they wear or carry. Plain words, no style or "
+            "painting terms, no name.")
+
+#: The second reference on a redraw.
+SAME_SUBJECT = ("The second image is this same {kind} as drawn before. Keep WHO or WHAT it is the same -- face, "
+                "build, features, colours, what it wears and carries -- but make a genuinely new picture: a clearly "
+                "different pose, angle, expression and background, as if seen on another day. It must not look like a "
+                "copy of the second image.")
+
+
+def is_person(kind: str) -> bool:
+    return kind in ("character", "npc")

@@ -488,8 +488,12 @@ never did, and what its doom was or would have been. Every change undoes with `/
 **Pictures.** Anyone can ask for a `/picture` of a character, someone the party has met or heard
 of, a creature in the scene, or a place they know — never anything still hidden. Gary draws it
 from what's recorded (a character's look, a person's description, a creature's tags), always in
-the same painted style, and keeps the first picture of each, so a face stays the same; `redraw`
-makes a new one. New pictures are capped per day.
+the same painted style, and keeps the first picture of each, so a face stays the same. `redraw`
+draws a new picture of the same subject — the kept one goes along with it, so it's the same
+person in a new pose and place, not a stranger. When a portrait of a person is made, Gary notes
+what it shows ("a dark headscarf, a scar by her mouth, a coin pendant"), so the GM describes them
+as drawn and later pictures start from it. Pictures of places and creatures leave people out,
+so nobody's look comes from anywhere but their own portrait. New pictures are capped per day.
 
 **People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
 met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or

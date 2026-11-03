@@ -80,3 +80,53 @@ def test_a_refusal_is_said_plainly(tmp_path):
 def test_off_without_a_key_or_a_budget(tmp_path):
     assert not Painter("", "gemini-3.1-flash-image", tmp_path, 30).enabled
     assert not Painter("key", "gemini-3.1-flash-image", tmp_path, 0).enabled
+
+
+def test_a_redraw_sends_the_kept_picture_so_the_subject_stays_itself(tmp_path):
+    painter, models = _painter(tmp_path, per_day=5)
+    asyncio.run(painter.picture(STATE, "npc", "Mara"))
+    assert len(models.calls[0][1]) == 2  # the style reference and the words
+    asyncio.run(painter.picture(STATE, "npc", "Mara", redraw=True))
+    contents = models.calls[1][1]
+    assert len(contents) == 3 and contents[1].inline_data.data == b"JPEG"  # the kept picture too
+    assert "same person as drawn before" in contents[2] and "not look like a copy" in contents[2]
+
+
+def test_places_and_creatures_are_drawn_without_people():
+    assert "No people or characters in it" in pictures.prompt(STATE, "place", "The salt flats")
+    assert "no people or adventurers" in pictures.prompt(STATE, "creature", "Dragon")
+    assert "No people" not in pictures.prompt(STATE, "character", "Gorm")
+
+
+def test_what_a_portrait_shows_goes_back_on_the_record():
+    from gary.choices import describe
+    from gary.context import _render_people
+
+    drawn = {**STATE["sheets"]["Gorm"], "portrait": "braided dark hair, a bone necklace"}
+    assert "as pictured: braided dark hair, a bone necklace" in describe(drawn)
+    state = {**STATE, "sheets": {"Gorm": drawn}}
+    assert "As pictured before: braided dark hair" in pictures.prompt(state, "character", "Gorm")
+    npcs = {"mara": {**STATE["npcs"]["mara"], "portrait": "a bandana, a coin pendant"}}
+    assert "as pictured: a bandana, a coin pendant" in _render_people(npcs, ["Mara"], "")
+
+
+def test_describing_a_portrait_asks_the_cheap_model_and_never_fails_the_picture(tmp_path):
+    class _Text:
+        def __init__(self, fail=False):
+            self.fail, self.asked = fail, []
+
+        async def generate_content(self, *, model, contents):
+            self.asked.append(model)
+            if self.fail:
+                raise RuntimeError("down")
+            return type("R", (), {"text": "  braided dark hair,\n a bone necklace "})()
+
+    for fail, expected in ((False, "braided dark hair, a bone necklace"), (True, "")):
+        models = _Text(fail)
+        client = type("Cl", (), {"aio": type("A", (), {"models": models})()})()
+        painter = Painter("", "gemini-3.1-flash-image", tmp_path, 5, client=client, describe_model="gemini-3.5-flash-lite")
+        portrait = tmp_path / "p.jpg"
+        portrait.write_bytes(b"JPEG")
+        assert asyncio.run(painter.describe(portrait)) == expected
+        assert models.asked == ["gemini-3.5-flash-lite"]
+    assert asyncio.run(Painter("", "m", tmp_path, 5).describe(portrait)) == ""
