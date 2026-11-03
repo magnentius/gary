@@ -38,6 +38,7 @@ __Starting__
 
 __At the table__
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
+`/moves` · `/moves move:` — your character's moves and everyone's, privately
 `/npcs` · `/npcs name:` — the people you've met or heard of
 `/picture subject:` — a picture of a character, someone you've met, a creature here, or a place (`redraw:True` for a new one)
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
@@ -138,6 +139,23 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
                 ephemeral=True)
             return
         await interaction.response.send_message(text(), ephemeral=True)
+
+    async def my_moves(interaction: "discord.Interaction", current: str) -> List[app_commands.Choice[str]]:
+        from .. import movelist
+
+        sheet = client.own_sheet(interaction.user.id) or {}
+        names = [n for n, _ in movelist.own(sheet)] + [n for n, _ in movelist.basic()] if sheet else \
+            [n for n, _ in movelist.basic()]
+        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names if current.lower() in n.lower()][:25]
+
+    @tree.command(name="moves", description="Your character's moves, and everyone's -- privately")
+    @app_commands.describe(move="Just this one, in full")
+    @app_commands.autocomplete(move=my_moves)
+    async def moves(interaction: "discord.Interaction", move: Optional[str] = None) -> None:
+        if not playing_here(interaction):
+            await not_here(interaction)
+            return
+        await client.show_moves(interaction, move)
 
     @tree.command(name="fronts", description="The threats the GM is planning — server managers only, privately")
     @app_commands.default_permissions(manage_guild=True)

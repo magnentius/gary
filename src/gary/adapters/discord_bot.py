@@ -487,7 +487,7 @@ class DiscordTransport:
 
 
 #: Internal commands that open one of the sheet's buttons.
-_SHEET_ACTIONS = ("spells", "companion", "bonds", "alignment", "choices", "gear", "levelup")
+_SHEET_ACTIONS = ("spells", "companion", "bonds", "moves", "alignment", "choices", "gear", "levelup")
 
 #: What a typed `?dm` command gets now: the commands are slash commands.
 SLASH_ONLY = "Gary uses slash commands now: type `/` and pick one (`/help` lists them)."
@@ -698,6 +698,30 @@ class GaryClient(discord.Client):
             if key is not None:
                 self.store.apply([Mutation(MutationKind.NPC_RELATION, key, {"portrait": described})],
                                  reason=f"portrait of {name}")
+
+    def own_sheet(self, user_id: int) -> Optional[dict]:
+        actor = self.director.players.get(user_id)
+        return (self.store.state().get("sheets") or {}).get(actor) if actor else None
+
+    async def show_moves(self, interaction: "discord.Interaction", move: Optional[str] = None) -> None:
+        """/moves, and the Moves button on /sheet: privately, in as many messages as it takes."""
+        from .. import movelist
+
+        sheet = self.own_sheet(interaction.user.id)
+        if move:
+            found = movelist.find(sheet or {}, move)
+            text = (f"**{found[0]}** — {' '.join(found[1].split())}"[:1990] if found
+                    else f"No move called {move!r}. `/moves` lists them.")
+            await interaction.response.send_message(text, ephemeral=True)
+            return
+        if sheet is None:
+            pages = ["You have no character yet: `/new` makes one. Everyone's moves:\n"
+                     + "\n".join(f"• **{n}** — {t}" for n, t in movelist.basic())[:1800]]
+        else:
+            pages = movelist.pages(sheet)
+        await interaction.response.send_message(pages[0], ephemeral=True)
+        for page in pages[1:]:
+            await interaction.followup.send(page, ephemeral=True)
 
     def _state_text(self) -> str:
         """`/state`: what the model is told every turn -- fronts and all, so it is the server
@@ -1316,6 +1340,7 @@ class GaryClient(discord.Client):
         out["bonds"] = ("Bonds", "🤝", lambda i: show(i, BondsForm(
             sheets.get(actor, sheet), others, lambda edited: self._finish_bonds(edited, channel_id)))) if others else (
             "Bonds are with your companions, and nobody else at the table has a character yet.")
+        out["moves"] = ("Moves", "📖", lambda i: self.show_moves(i))
         out["alignment"] = ("Alignment", "⚖️", lambda i: show(i, AlignmentForm(
             (self.store.state().get("sheets") or {}).get(actor, sheet),
             lambda chosen: self._finish_alignment(actor, chosen, channel_id))))

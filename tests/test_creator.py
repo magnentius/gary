@@ -333,7 +333,7 @@ async def test_dm_sheet_shows_your_sheet_or_says_how_to_make_one(table):
     assert "\nCarrying: Signature sword (close, +1 damage, 2 piercing), Dungeon rations" in text
     assert "2 × Healing Potion" in text
     # Alone at the table, a made Fighter has only alignment to revisit: no bonds yet, no level.
-    assert [b.label for b in view.children] == ["Alignment"]
+    assert [b.label for b in view.children] == ["Moves", "Alignment"]
 
 
 

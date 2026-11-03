@@ -56,7 +56,7 @@ in `~/.local/share/gary/campaign`. Run **one** Gary per campaign.
 **On Google Cloud:** an always-on free-tier VM running the same image —
 [`deploy/gcp/README.md`](deploy/gcp/README.md).
 
-When Gary connects, its log says `registered 16 slash command(s) in <your server>`. In the
+When Gary connects, its log says `registered 17 slash command(s) in <your server>`. In the
 game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
 ## Your first session
@@ -97,7 +97,8 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/end` | End the session: the end-of-session questions, everyone's XP, and the GM's work between sessions. |
 | **At the table** | |
 | `/new` | Make a character, in a private form. |
-| `/sheet` | Your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up. |
+| `/sheet` | Your sheet, privately, with buttons for moves, spells, bonds, companion, alignment and level-up. |
+| `/moves` | Your character's moves in full, and everyone's moves with when they come up, privately; `move:` for one in full. |
 | `/playing character:` | Claim a character someone else made. |
 | `/checks` | What Gary is waiting on, with a button to cancel your own move. |
 | `/dice` | How the table's dice have fallen, against fair 2d6; `character:` for one character. |
@@ -112,7 +113,7 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/help` | This list, privately. |
 | `/reset` | **Delete the campaign.** Two steps (`/reset`, then `/reset code:`), and no undo. |
 
-`/new`, `/sheet`, `/fronts`, `/state` and `/help` answer only you. Gemini is the GM, so the
+`/new`, `/sheet`, `/moves`, `/fronts`, `/state` and `/help` answer only you. Gemini is the GM, so the
 GM's secrets are kept from the players: Discord hides `/fronts` and `/state` from anyone
 without Manage Server (a server admin can change who sees them under Server Settings →
 Integrations). When a front is over, Gary shows the whole table what it held. A message typed
