@@ -148,14 +148,14 @@ def give_coins(sheet: Dict[str, Any], amount: int) -> Dict[str, Any]:
 
 
 def buy(sheet: Dict[str, Any], name: str, price: int = None, discount: int = 0) -> Tuple[Dict[str, Any], str, int]:
+    """At the book's price -- or, after Supply, at the price the GM names: never below the
+    book's, at most twice it, and for something the book does not price at most
+    MAX_SPECIAL_PRICE. Returns (new sheet, item label, total cost)."""
     from .magic import book_item
 
     if book_item(name) is not None:
         # "It'll buy you mundane stuff... The special stuff, like magic weapons, isn't for sale."
         raise TradeError(f"{name} isn't for sale -- magic items aren't, not for coin. It is found, earned or made.")
-    """At the book's price -- or, after Supply, at the price the GM names: never below the
-    book's, at most twice it, and for something the book does not price at most
-    MAX_SPECIAL_PRICE. Returns (new sheet, item label, total cost)."""
     qty, item_name = _quantity(name)
     book = price_of(item_name)
     if price is None:
