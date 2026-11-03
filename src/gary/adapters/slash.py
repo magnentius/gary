@@ -40,6 +40,7 @@ __At the table__
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
 `/moves` · `/moves move:` — your character's moves and everyone's, privately
 `/npcs` · `/npcs name:` — the people you've met or heard of
+`/map` · `/map dungeon:` — the dungeon's map: where you've been, the ways not taken
 `/picture subject:` — a picture of a character, someone you've met, a creature here, or a place (`redraw:True` for a new one)
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
 `/checks` — what Gary is waiting on, with a button to cancel your own
@@ -156,6 +157,19 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
             await not_here(interaction)
             return
         await client.show_moves(interaction, move)
+
+    async def known_dungeons(interaction: "discord.Interaction", current: str) -> List[app_commands.Choice[str]]:
+        names = [str(d["name"]) for d in (client.store.state().get("dungeons") or {}).values()]
+        return [app_commands.Choice(name=n[:100], value=n[:100]) for n in names if current.lower() in n.lower()][:25]
+
+    @tree.command(name="map", description="The map of the dungeon you're in: where you've been, the ways not taken")
+    @app_commands.describe(dungeon="Another dungeon you've explored")
+    @app_commands.autocomplete(dungeon=known_dungeons)
+    async def map_(interaction: "discord.Interaction", dungeon: Optional[str] = None) -> None:
+        if not playing_here(interaction):
+            await not_here(interaction)
+            return
+        await interaction.response.send_message(client.map_text(dungeon), ephemeral=True)
 
     @tree.command(name="fronts", description="The threats the GM is planning — server managers only, privately")
     @app_commands.default_permissions(manage_guild=True)

@@ -699,6 +699,22 @@ class GaryClient(discord.Client):
                 self.store.apply([Mutation(MutationKind.NPC_RELATION, key, {"portrait": described})],
                                  reason=f"portrait of {name}")
 
+    def map_text(self, name: Optional[str] = None) -> str:
+        """/map: the dungeon they're in (or one named), as the players know it."""
+        from .. import dungeons
+
+        state = self.store.state()
+        known = state.get("dungeons") or {}
+        record = known.get(dungeons.slug(name)) if name else dungeons.current(state)
+        if record is None:
+            listed = ", ".join(d["name"] for d in known.values())
+            return ("You're not in a dungeon." if not name else f"No map of {name!r}.") + (
+                f" Maps: {listed} (`/map dungeon:`)." if listed else "")
+        text = "🗺️ " + dungeons.render(record, for_players=True)
+        blanks = dungeons.blanks(record)
+        text += f"\n{blanks} way{'s' if blanks != 1 else ''} not yet taken." if blanks else ""
+        return text if len(text) <= 1990 else text[:1980].rsplit("\n", 1)[0] + "\n…"
+
     def own_sheet(self, user_id: int) -> Optional[dict]:
         actor = self.director.players.get(user_id)
         return (self.store.state().get("sheets") or {}).get(actor) if actor else None

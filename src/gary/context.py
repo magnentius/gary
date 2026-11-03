@@ -64,6 +64,11 @@ RUNNING THE GAME:
   once its question is answered. Sum up what is dull in a sentence -- a safe road, routine
   shopping, a quiet night -- and cut to the next thing worth playing. Only hostile
   ground is a perilous_journey; a safe road is just narrated arrival.
+- In a dungeon, build it as they explore with the Dungeon Moves, above all when they enter
+  a new area or miss: change the environment, point to a looming threat, introduce a new
+  faction or creature, use a threat from one, make them backtrack, present riches at a
+  price, present a challenge to one of them. Put every area on the map (set_scene with
+  dungeon, via, exits) and leave blanks.
 - It is a conversation. Set up a threat, never its conclusion, and end on "what do you
   do?". The player answers; if that triggers a move, the roll decides how it ends. Make
   each threat unmistakable — who strikes at whom, with what — so damage follows a threat
@@ -330,6 +335,15 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines.append("- Steadings (their tags decide what is for sale, prices, Supply and Recruit):")
         lines += [f"    - {describe_steading(s)}" + (" ← the party is here" if s is current else "")
                   for s in known.values()]
+
+    from .dungeons import creatures as setting_creatures, current as current_dungeon, render as render_map
+
+    dungeon = current_dungeon(state)
+    if dungeon is not None:
+        lines.append("- Dungeon map (draw maps, leave blanks -- every new area goes on it with its exits):")
+        lines += [f"    {line}" for line in render_map(dungeon).splitlines()]
+        if dungeon.get("setting"):
+            lines.append(f"    Creatures of the {dungeon['setting']}, first: {', '.join(setting_creatures(dungeon['setting']))}.")
 
     from .fronts import render as render_fronts
 

@@ -1231,6 +1231,16 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "steading": _s(type=_STRING, description=(
                     "The steading they are in, as create_steading named it -- or \"\" when they leave "
                     "for the wilds or a dungeon. What is for sale, prices, Supply and Recruit follow it.")),
+                "dungeon": _s(type=_STRING, description=(
+                    "In a dungeon or other hostile place explored room by room: its name ('the Barrow of "
+                    "Xa'th'al'). Each location you set in it goes on its map. Leaving it: \"\".")),
+                "via": _s(type=_STRING, description="In a dungeon: the exit they took to get here ('the iron door')."),
+                "exits": _s(type=_ARRAY, items=_s(type=_STRING), description=(
+                    "In a dungeon: the ways out of this area they can see ('a narrow stair down', 'a collapsed "
+                    "arch north'). Untaken ones stay on the map as blanks.")),
+                "setting": _s(type=_STRING, enum=["Caverns", "Depths", "Experiments", "Folk", "Hordes", "Planes",
+                                                  "Swamp", "Undead", "Woods"], description=(
+                    "A new dungeon's monster setting, from the bestiary: its inhabitants come first from it.")),
             },
             required=["location"],
         ),

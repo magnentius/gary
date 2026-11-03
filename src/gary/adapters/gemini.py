@@ -1289,6 +1289,23 @@ class GeminiNarrator:
                 if named and slug(named) not in (store.state().get("steadings") or {}):
                     return {"ok": False, "error": f"No steading {named!r} yet: create_steading first."}
                 payload["steading"] = named
+            if "dungeon" in args:
+                from .. import dungeons
+
+                named = " ".join(str(args.get("dungeon") or "").split())
+                payload["dungeon"] = named
+                if named:
+                    key = dungeons.slug(named)
+                    record = (store.state().get("dungeons") or {}).get(key) or dungeons.new(
+                        named, str(args.get("setting") or ""))
+                    scene_now = store.state().get("scene") or {}
+                    came_from = scene_now.get("location", "") if dungeons.slug(scene_now.get("dungeon", "")) == key else ""
+                    try:
+                        record = dungeons.enter(record, payload["location"], str(args.get("summary") or ""), came_from,
+                                                str(args.get("via") or ""), [str(e) for e in args.get("exits") or []])
+                    except ValueError as exc:
+                        return {"ok": False, "error": str(exc)}
+                    store.apply([Mutation(MutationKind.DUNGEON, key, {"dungeon": record})], reason=f"map: {named}")
             from ..steadings import slug
 
             before = slug((store.state().get("scene") or {}).get("steading") or "")

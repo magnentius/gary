@@ -493,6 +493,16 @@ torch that lights the way also draws attention from eyes in the dark"). Torches,
 spikes come from adventuring gear: pull one out and Gary marks off a use, five to a pack, and
 when the pack is empty you don't have one. Light and Darkness are spells, cast as usual.
 
+**Dungeons.** Dungeon World doesn't draw dungeons in advance; the GM builds them as you
+explore, with the book's Dungeon Moves (change the environment, point to a looming threat,
+introduce a new faction or creature, use a threat from one, make you backtrack, present riches
+at a price, present a challenge to one of you), made above all when you enter a new area or
+miss a roll. Gary keeps the map, as the GM's principle "draw maps, leave blanks" asks: every
+area you enter goes on it with what was found there, the way you came in and the exits you saw,
+and an exit not yet taken stays a blank, waiting. The GM is shown the map every turn, so the
+layout holds and backtracking works; you see it with `/map`. A dungeon can have a monster
+setting from the bestiary (Caverns, Depths, Undead…), so what lives there belongs together.
+
 **Making things.** Dungeon World has no crafting system, only moves. A Wizard's **Ritual** draws
 on a place of power to create a magical effect: the GM sets one to four conditions (weeks of
 work, help from someone, a lot of money, a lesser version, danger, something to disenchant).

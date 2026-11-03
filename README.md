@@ -56,7 +56,7 @@ in `~/.local/share/gary/campaign`. Run **one** Gary per campaign.
 **On Google Cloud:** an always-on free-tier VM running the same image —
 [`deploy/gcp/README.md`](deploy/gcp/README.md).
 
-When Gary connects, its log says `registered 17 slash command(s) in <your server>`. In the
+When Gary connects, its log says `registered 18 slash command(s) in <your server>`. In the
 game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
 ## Your first session
@@ -103,6 +103,7 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/checks` | What Gary is waiting on, with a button to cancel your own move. |
 | `/dice` | How the table's dice have fallen, against fair 2d6; `character:` for one character. |
 | `/npcs` | The people you've met or heard of, how they feel about you; `name:` for one. |
+| `/map` | The map of the dungeon you're in: the areas you've explored and the ways not yet taken, privately; `dungeon:` for another. |
 | `/picture subject:` | A picture of a character, someone you've met, a creature in the scene, or a place you know, all in one painted style. The first one is kept; `redraw:True` makes a new one. |
 | `/undo` | Reverse the last change to the world. |
 | `/questions` | Show the end-of-session questions; `first:` `second:` `third:` set this adventure's own, `default:True` restores the book's. |

@@ -674,6 +674,20 @@ def _h_monster_afflict(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_dungeon(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"dungeon": record}, or {"dungeon": None} to drop it. Undone by putting back the map
+    as it was."""
+    dungeons = store._state.setdefault("dungeons", {})
+    before = dungeons.get(m.target)
+    record = m.payload.get("dungeon")
+    if record is None:
+        dungeons.pop(m.target, None)
+    else:
+        dungeons[m.target] = record
+    return AppliedMutation(mutation=m, inverse=Mutation(MutationKind.DUNGEON, m.target, {"dungeon": before}),
+                           before=before, after=record)
+
+
 def _h_front(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """payload {"front": record}, or {"front": None} to drop it. Undone by putting back what
     was there -- a portent ticked off comes un-ticked."""
@@ -802,6 +816,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.STEADING: _h_steading,
     MutationKind.SESSION_QUESTIONS: _h_session_questions,
     MutationKind.OPENING: _h_opening,
+    MutationKind.DUNGEON: _h_dungeon,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,
