@@ -1231,6 +1231,15 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.SET_WEATHER:
+            from ..sky import today
+
+            text = " ".join(str(args.get("weather", "")).split())[:200]
+            if not text:
+                return {"ok": False, "error": "Say what the weather is."}
+            return _diff_result(store.apply([Mutation(MutationKind.SCENE, "", {
+                "weather": text, "weather_day": today(store.state())})], reason="weather"))
+
         if name == T.SET_SCENE:
             payload = {"location": str(args.get("location", ""))}
             if args.get("summary"):

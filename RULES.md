@@ -461,6 +461,12 @@ sheet; a gem or a crown sells for exactly what it is worth. What else turns up �
 item, a clue, a portal, something magical — the GM names, and for anything magical the GM
 is shown a few of the book's 39 magic items for ideas. A creature is searched once.
 
+**Day, night and weather.** The book has no rules for them, so they stay in the story — but Gary
+keeps them straight. The GM is shown the light with the clock ("18:30, dusk"), worked out from
+the hour and the season, so a winter evening is dark early. Each day's weather is set once and
+kept until the next day, so it doesn't change at random; the story can still change it. A Druid
+with Weather Weaver is asked at sunrise what the day's weather will be, and it comes to pass.
+
 **Adventuring gear, torches and the dark.** The book has no rules for light, vision or darkvision:
 darkness is part of the story, met with Defy Danger, Discern Realities and the GM's moves ("the
 torch that lights the way also draws attention from eyes in the dark"). Torches, rope, chalk and

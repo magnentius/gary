@@ -67,6 +67,7 @@ SWEAR_ENEMY = "swear_enemy"
 RESOLVE_APPETITE = "resolve_appetite"
 GIVE_MAGIC_ITEM = "give_magic_item"
 RUMMAGE = "rummage"
+SET_WEATHER = "set_weather"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -944,6 +945,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=SET_WEATHER,
+        description=(
+            "Set today's weather, once a day, fitting the season and the place ('hard frost, a white sky, no "
+            "wind'), or when the story changes it (a storm rolls in). It is shown to you every turn until the "
+            "next day, so keep to it. A Druid with Weather Weaver says what it is at sunrise: use their words."
+        ),
+        parameters=_s(type=_OBJECT, properties={"weather": _s(type=_STRING)}, required=["weather"]),
     ),
     types.FunctionDeclaration(
         name=RUMMAGE,

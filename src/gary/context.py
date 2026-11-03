@@ -266,7 +266,10 @@ def render_live_state(state: Dict[str, Any]) -> str:
     if setting:
         # Ahead of everything else: it is the frame the rest is read inside.
         lines.append(f"- Setting: {setting}")
-    lines.append(f"- Time: {format_world_time(state)}")
+    from .sky import daylight, lines as sky_lines
+
+    lines.append(f"- Time: {format_world_time(state)} ({daylight(state)})")
+    lines += sky_lines(state)
 
     scene = state.get("scene") or {}
     if scene.get("location"):
