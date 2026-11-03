@@ -73,3 +73,20 @@ def test_a_recipe_with_its_instinct_and_moves_tucked_inside_is_accepted():
         "organization": "group", "traits": ["devious", "cautious"], "known_for": ["deft"], "defense": "leather",
         "size": "small", "instinct": "To enslave the weak"}})
     assert record["hp"] > 0 and record["recipe"]
+
+
+async def test_a_poisoned_character_and_antitoxin(clock):
+    director, store = _table(clock)
+    sheet = {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "xp": 0, "hp": 20, "max_hp": 20,
+             "armor": 0, "damage": "d10", "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13},
+             "gear": [{"name": "Antitoxin", "tags": []}]}
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": sheet})], reason="setup")
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.POISON_CHARACTER, {"character": "Dorn", "poison": "bloodweed"}),
+                 call_response(T.POISON_CHARACTER, {"character": "Dorn", "poison": "wyvern venom",
+                                                    "effect": "numb limbs"}), text_response("."))
+    await player(n, "the goblin's blade nicks me")
+    dorn = store.state()["sheets"]["Dorn"]
+    assert dorn["afflictions"] == ["Bloodweed", "wyvern venom"]
+    from gary.sheets import describe
+    assert "poisoned: Bloodweed, wyvern venom (numb limbs)" in describe(dorn)

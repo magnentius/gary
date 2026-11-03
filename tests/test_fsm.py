@@ -1326,3 +1326,18 @@ def test_thrown_daggers_are_picked_up_as_ammo():
              "thrown": [{"name": "Throwing daggers", "ammo": 2}]}
     back, got = trade.add_items(sheet, ["throwing daggers"])
     assert back["ammo"] == 3 and back["thrown"] == [] and got == ["Throwing daggers (recovered)"]
+
+
+def test_a_poisoned_characters_blows_are_weaker(director, registry, dice, scene):
+    from gary.gear import LONG_SWORD
+
+    scene["Goblin 1"] = goblin(hp=20)
+    _geared(director, "Dorn", [LONG_SWORD])
+    director._sheet_for("Dorn")["afflictions"] = ["Bloodweed"]
+    make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB)
+    dice.queue(6, 6)
+    roll(director, user_id=BOB)
+    choose(director, only_check(registry).check_id, [0], user_id=BOB)
+    dice.queue(5, 3)  # d10 5 +1, then the Bloodweed d4: 3
+    text = sends_in(roll_damage(director, only_check(registry).check_id, user_id=BOB))[0].text
+    assert "-1d4 Bloodweed: 3 = 3" in text

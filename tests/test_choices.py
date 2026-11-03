@@ -115,7 +115,7 @@ def director(registry, clock, dice, sheets, scene):
 def test_using_poison_spends_a_use_until_none_are_left(director, sheets):
     effects, result = director.use_poison(channel_id=CHANNEL, character="nim", target="the guard")
     assert result["ok"] and result["uses_left"] == 0 and "-1d4 damage" in result["effect"]
-    assert UpdateSheet(CHANNEL, "Nim", {"poison_uses": 0}) in effects
+    assert UpdateSheet(CHANNEL, "Nim", {"poison_uses": 0, "poisons_used": ["Bloodweed"]}) in effects
     sheets["Nim"]["poison_uses"] = 0
     _, result = director.use_poison(channel_id=CHANNEL, character="Nim")
     assert "no Bloodweed left" in result["error"]
@@ -207,3 +207,55 @@ def test_the_confirmation_shows_alignment_and_class_choices():
     assert "Alignment — Good: Endanger yourself to heal another." in text
     assert "serves Testgod, god of Civilization (Petition: Offering)" in text
     assert text.endswith("Create this character?")
+
+
+# -- the Thief's poison moves -------------------------------------------------------------
+
+def _dose(name):
+    from gary.gear import item_for
+
+    return item_for(name)[0].to_dict()
+
+
+def test_a_bought_serpents_tears_is_recognised_however_its_spelt(director, sheets):
+    sheets["Nim"] = {**THIEF, "choices": {}, "gear": [_dose("Serpent's Tears")]}
+    _, result = director.use_poison(channel_id=CHANNEL, character="Nim", poison="serpent's tears")
+    assert result["ok"] and result["poison"] == "Serpent’s Tears" and "Dangerous" in result["note"]
+
+
+def test_poison_master_used_once_is_no_longer_dangerous(director, sheets):
+    sheets["Nim"] = {**THIEF, "advanced_moves": ["Poison Master"], "poisons_used": ["Goldenroot"],
+                     "gear": [_dose("Goldenroot"), _dose("Oil of Tagit")]}
+    _, known = director.use_poison(channel_id=CHANNEL, character="Nim", poison="Goldenroot")
+    _, new = director.use_poison(channel_id=CHANNEL, character="Nim", poison="Oil of Tagit")
+    assert "Poison Master" in known["note"] and new["note"].startswith("Dangerous")
+
+
+def test_envenom_makes_a_safe_poison_on_a_weapon_touch(director, sheets):
+    sheets["Nim"] = {**THIEF, "advanced_moves": ["Envenom"]}
+    _, result = director.use_poison(channel_id=CHANNEL, character="Nim", target="the guard", on_weapon=True)
+    assert result["note"].startswith("Envenom")
+
+
+def test_brewer_makes_three_doses_of_a_poison_used_before(director, sheets):
+    sheets["Nim"] = {**THIEF, "advanced_moves": ["Brewer"], "poisons_used": ["Goldenroot"], "gear": []}
+    effects, result = director.brew_poison(channel_id=CHANNEL, character="Nim", reason="a locked cellar",
+                                           poison="goldenroot")
+    assert result["ok"] and [g["name"] for g in effects[1].changes["gear"]] == ["Goldenroot"] * 3
+    _, refused = director.brew_poison(channel_id=CHANNEL, character="Nim", reason="a locked cellar",
+                                      poison="Oil of Tagit")
+    assert "never used Oil of Tagit" in refused["error"]
+
+
+def test_alchemist_designs_a_poison_with_caveats(director, sheets):
+    sheets["Nim"] = {**THIEF, "advanced_moves": ["Alchemist"], "gear": []}
+    _, refused = director.brew_poison(channel_id=CHANNEL, character="Nim", reason="a locked cellar",
+                                      poison="Widow's Kiss", effect="paralyses for a minute")
+    assert "caveats" in refused["error"]
+    effects, made = director.brew_poison(channel_id=CHANNEL, character="Nim", reason="a locked cellar",
+                                         poison="Widow's Kiss", effect="paralyses for a minute",
+                                         caveats=["only in the dark"])
+    assert made["ok"] and "only in the dark" in made["effect"]
+    sheets["Nim"].update(effects[1].changes)
+    _, used = director.use_poison(channel_id=CHANNEL, character="Nim", poison="Widow's Kiss")
+    assert used["ok"] and "paralyses" in used["effect"]

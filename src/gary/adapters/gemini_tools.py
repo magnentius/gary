@@ -74,6 +74,7 @@ RITUAL = "ritual"
 WORLD_MAP = "world_map"
 PROMOTE_MONSTER = "promote_monster"
 SET_GRIP = "set_grip"
+POISON_CHARACTER = "poison_character"
 CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
@@ -930,7 +931,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         parameters=_s(
             type=_OBJECT,
             properties={"character": _s(type=_STRING), "target": _s(type=_STRING, description="Who or what it is used on."),
-                        "poison": _s(type=_STRING, description="Which poison, if not their mastered one.")},
+                        "poison": _s(type=_STRING, description="Which poison, if not their mastered one."),
+                        "on_weapon": _s(type=types.Type.BOOLEAN, description="Put on their weapon (Envenom: touch).")},
             required=["character"],
         ),
     ),
@@ -938,11 +940,16 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=BREW_POISON,
         description=(
             "A Thief with time to gather materials and a safe place brews three more uses of "
-            "their poison. Not mid-fight; say where and why it is safe."
+            "their poison. Not mid-fight; say where and why it is safe. With Brewer, poison= any one "
+            "they've used before (three doses); with Alchemist, also a poison of their own design: give "
+            "its effect and the caveats you set (only works under specific circumstances; a weaker "
+            "version; it'll take a while)."
         ),
         parameters=_s(
             type=_OBJECT,
-            properties={"character": _s(type=_STRING), "reason": _s(type=_STRING)},
+            properties={"character": _s(type=_STRING), "reason": _s(type=_STRING), "poison": _s(type=_STRING),
+                        "effect": _s(type=_STRING),
+                        "caveats": _s(type=_ARRAY, items=_s(type=_STRING))},
             required=["character", "reason"],
         ),
     ),
@@ -960,6 +967,23 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=POISON_CHARACTER,
+        description=(
+            "A character is poisoned -- a blade, a bite, a trap, a drugged cup -- or recovers. Gary keeps it on their "
+            "sheet until cured: Bloodweed takes d4 off every damage roll they make; Serpent's Tears makes anything "
+            "hurting them roll twice, take the better; Oil of Tagit, Goldenroot and others are yours to narrate as "
+            "written. Antitoxin cures one. cured=true when it wears off or is treated."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "poison": _s(type=_STRING, description=(
+                "Bloodweed, Serpent's Tears, Oil of Tagit, Goldenroot, or a monster's own ('wyvern venom').")),
+                        "effect": _s(type=_STRING, description="For a poison not in the book: what it does."),
+                        "cured": _s(type=types.Type.BOOLEAN)},
+            required=["character", "poison"],
         ),
     ),
     types.FunctionDeclaration(

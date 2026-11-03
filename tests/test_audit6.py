@@ -125,4 +125,13 @@ async def test_antitoxin_is_drunk_and_spent(clock):
     await player(n, "I drink the antitoxin")
     assert store.state()["sheets"]["Dorn"]["gear"] == []
     answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
-    assert "cured of one poison" in answer["note"]
+    assert "cured of it" in answer["note"]  # no poison on the sheet: whatever was narrated
+
+    sheet = store.state()["sheets"]["Dorn"]
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {
+        **sheet, "gear": [{"name": "Antitoxin", "tags": [], "weight": 0}],
+        "afflictions": ["Bloodweed", "Serpent\u2019s Tears"]}})], reason="poisoned")
+    n = narrator(table, call_response(T.USE_ITEM, {"actor": "Dorn", "item": "antitoxin", "cure": "serpent's tears"}),
+                 text_response("Better."))
+    await player(n, "I drink the antitoxin for the tears")
+    assert store.state()["sheets"]["Dorn"]["afflictions"] == ["Bloodweed"]

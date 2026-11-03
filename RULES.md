@@ -378,7 +378,11 @@ line — except for Fighters and Paladins, whose Armored move ignores it.
 **Poisons** from the equipment list can be used by anyone who carries a dose — spent, and
 Dangerous unless it's the one a Thief mastered. On a creature, Bloodweed takes 1d4 off its
 every damage roll and Serpent's Tears makes everyone's damage against it roll twice, better
-kept. **Stun damage** costs no HP, but until the GM says you've cleared your head, anything
+kept — and the same goes for you if you're poisoned: it stays on your sheet until it wears off
+or antitoxin cures it (one poison a dose, the one you name). A Thief's poison moves work too:
+**Poison Master** (a poison you've used before is no longer dangerous to you), **Envenom** (a
+safe poison on your weapon works by touch), **Brewer** (three doses of any poison you've used)
+and **Alchemist** (that, or a poison of your own design, with the GM's caveats). **Stun damage** costs no HP, but until the GM says you've cleared your head, anything
 you do is Defy Danger. **Cover** counts as armor against a creature's blow (+1 partial, +2
 major). Dwarven Hardtack only feeds Dwarves. Cloudkill adds a separate 1d6, ignoring armor,
 to every creature's wound while it lasts; Consume Unlife drains an undead creature to heal you.

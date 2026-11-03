@@ -662,10 +662,12 @@ class GeminiNarrator:
                 if name == T.USE_POISON:
                     poison_effects, result = self._director.use_poison(
                         channel_id=channel_id, character=character, target=str(args.get("target", "") or ""),
-                        poison=str(args.get("poison", "") or ""))
+                        poison=str(args.get("poison", "") or ""), on_weapon=bool(args.get("on_weapon")))
                 else:
                     poison_effects, result = self._director.brew_poison(
-                        channel_id=channel_id, character=character, reason=str(args.get("reason", "") or ""))
+                        channel_id=channel_id, character=character, reason=str(args.get("reason", "") or ""),
+                        poison=str(args.get("poison", "") or ""), effect=str(args.get("effect", "") or ""),
+                        caveats=[str(c) for c in args.get("caveats") or ()])
                 effects.extend(poison_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
@@ -822,9 +824,19 @@ class GeminiNarrator:
                 user, _ = trade.remove_items(sheets[actor], ["antitoxin"])
             except trade.TradeError as exc:
                 return [], {"ok": False, "error": str(exc)}
+            have = list(user.get("afflictions") or [])
+            wanted = " ".join(str(args.get("cure", "") or "").split()).lower().replace("'", "\u2019")
+            gone = next((p for p in have if p.lower().replace("'", "\u2019") == wanted), have[0] if have else "")
+            if gone:
+                have.remove(gone)
+                user = {**user, "afflictions": have, "affliction_effects": {
+                    k: v for k, v in (user.get("affliction_effects") or {}).items() if k != gone}}
             self._store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": user})], reason=f"{actor} drinks antitoxin")
-            return [SendMessage(channel_id, f"🧪 **{actor}** drinks antitoxin.")], {
-                "ok": True, "note": "They are cured of one poison affecting them. Narrate which, and end its effects."}
+            return [SendMessage(channel_id, f"🧪 **{actor}** drinks antitoxin" + (
+                f" — cured of {gone}." if gone else "."))], {
+                "ok": True, "cured": gone, "still": have, "note": (
+                    f"Cured of {gone}; end its effects." if gone else
+                    "Gary has no poison on them: if one is narrated, they're cured of it.")}
         try:
             user, patient, healed, remedy = healing.use(
                 sheets[actor], str(args.get("item", "")), target, fighting, str(args.get("cure", "") or "")
@@ -1315,6 +1327,39 @@ class GeminiNarrator:
                           {"kind": str(args.get("kind", "general")), "body": str(args.get("body", ""))})],
                 reason="narrative note",
             ))
+
+        if name == T.POISON_CHARACTER:
+            from ..fsm import POISONS
+
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            if who is None:
+                return {"ok": False, "error": f"No character {args.get('character')!r}."}
+            raw = " ".join(str(args.get("poison", "")).split())[:60].replace("'", "\u2019")
+            poison = next((p for p in POISONS if p.lower() == raw.lower()), raw.replace("\u2019", "'"))
+            if not poison:
+                return {"ok": False, "error": "Name the poison."}
+            sheet = sheets[who]
+            have = list(sheet.get("afflictions") or [])
+            effects_known = dict(sheet.get("affliction_effects") or {})
+            if args.get("cured"):
+                if poison not in have:
+                    return {"ok": False, "error": f"{who} isn't poisoned with {poison}: {', '.join(have) or 'nothing'}."}
+                have.remove(poison)
+                effects_known.pop(poison, None)
+                line = f"💧 **{who}** is free of {poison}."
+            else:
+                if poison not in have:
+                    have.append(poison)
+                if poison not in POISONS:
+                    effects_known[poison] = " ".join(str(args.get("effect", "")).split())[:200]
+                line = f"☠️ **{who}** is poisoned: {poison}" + (f" — {POISONS[poison]}" if poison in POISONS else (
+                    f" — {effects_known[poison]}" if effects_known.get(poison) else "") + ".")
+            new = {**sheet, "afflictions": have, "affliction_effects": effects_known}
+            result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})], reason=line))
+            if result.get("ok"):
+                result["post"] = line
+            return result
 
         if name == T.SET_GRIP:
             from ..gear import GRIPS, armor_of, has_grip

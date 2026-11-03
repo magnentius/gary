@@ -87,6 +87,17 @@ def _poisons() -> Dict[str, str]:
 
 POISONS = _poisons()
 
+
+def _poison_name(name: str) -> str:
+    """The book's name for a poison, however it's spelt ("Serpent's Tears" or "serpent’s tears");
+    a poison not in the book keeps its own."""
+    folded = " ".join(str(name or "").split()).lower().replace("'", "\u2019")
+    return next((p for p in POISONS if p.lower() == folded), " ".join(str(name or "").split()))
+
+
+def _poisonish(gear_entry: Dict[str, Any], sheet: Dict[str, Any]) -> bool:
+    return _poison_name(gear_entry["name"]) in POISONS or gear_entry["name"] in (sheet.get("custom_poisons") or {})
+
 #: Every move rolls this.
 MOVE_DICE = "2d6"
 #: Herculean Appetites: "instead of rolling 2d6 you roll 1d6+1d8" -- the d6 first.
@@ -2093,6 +2104,10 @@ class Director:
             hit = damage.roll(self.dice, damage.parse(die), self._damage_extra(check, dice))
             total, shown, ignores = hit.total, hit.render(), False
             total, shown = self._serpents_tears(check.target, die, total, shown, self._damage_extra(check, dice))
+            mover = self._sheet_for(check.actor) if self._sheet_for is not None else None
+            if "Bloodweed" in ((mover or {}).get("afflictions") or ()):
+                weed = self.dice.roll("1d4").total  # a poisoned character's blows are weaker too
+                total, shown = max(0, total - weed), f"{shown}, -1d4 Bloodweed: {weed} = {max(0, total - weed)}"
             if self._magic_weapon(check):
                 bonus = self.dice.roll("1d4").total
                 total, shown = total + bonus, f"{shown}, +1d4 Magic Weapon: {bonus} = {total + bonus}"
@@ -2699,6 +2714,12 @@ class Director:
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         rolled, shown = hit.total, hit.render()
+        if "Serpent\u2019s Tears" in ((sheet or {}).get("afflictions") or ()) and creature.get("damage"):
+            again = damage.roll(self.dice, damage.parse(creature["damage"]))
+            if again.total > rolled:
+                rolled, shown = again.total, f"{again.render()} (Serpent's Tears: rolled again, better than {hit.total})"
+            else:
+                shown = f"{shown} (Serpent's Tears: rolled again, {again.total})"
         if "Bloodweed" in (creature.get("afflictions") or ()):
             # "whenever the afflicted rolls damage, they roll an additional d4 and subtract that
             # result from their normal damage"
@@ -4069,7 +4090,7 @@ class Director:
             "ok": True, "note": "No HP lost. Their moves are Defy Danger until you end it (stun end=true)."}
 
     def use_poison(self, *, channel_id: int, character: str, target: str = "",
-                   poison: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+                   poison: str = "", on_weapon: bool = False) -> Tuple[List[Effect], Dict[str, Any]]:
         """A poison used: the one a Thief mastered, which is "no longer dangerous for you to
         use", or a dose anyone carries (bought or found), which is spent -- and Dangerous.
         What it does is the poison's text; on a creature in the scene, Bloodweed and Serpent's
@@ -4081,11 +4102,11 @@ class Director:
         name = (sheet.get("choices") or {}).get("poison")
         wanted = " ".join(str(poison or "").split()).lower().replace("'", "\u2019")
         if wanted and (not name or name.lower() != wanted):
-            return self._use_carried_poison(channel_id, actor, sheet, wanted, target)
+            return self._use_carried_poison(channel_id, actor, sheet, wanted, target, on_weapon)
         if not name:
-            carried = [g for g in sheet.get("gear") or () if g["name"] in POISONS]
+            carried = [g for g in sheet.get("gear") or () if _poisonish(g, sheet)]
             if carried:
-                return self._use_carried_poison(channel_id, actor, sheet, carried[0]["name"].lower(), target)
+                return self._use_carried_poison(channel_id, actor, sheet, carried[0]["name"].lower(), target, on_weapon)
             return [], {"ok": False, "error": f"{actor} has mastered no poison and carries none."}
         left = int(sheet.get("poison_uses", 0))
         if left <= 0:
@@ -4094,39 +4115,60 @@ class Director:
         on = f" on {target}" if target else ""
         return [
             SendMessage(channel_id, f"🧪 **{actor}** uses {name}{on} — {left - 1} uses left."),
-            UpdateSheet(channel_id, actor, {"poison_uses": left - 1}),
+            UpdateSheet(channel_id, actor, {"poison_uses": left - 1, "poisons_used": self._used(sheet, name)}),
             *self._afflict(channel_id, target, name),
         ], {"ok": True, "poison": name, "effect": choices.poison_text(name), "uses_left": left - 1,
-            "note": "Applied poisons must reach the target or what they eat or drink; touch poisons "
-                    "need only touch, a blade will do. Narrate the effect as written."}
+            "note": self._delivery(sheet, on_weapon, dangerous=False) + " Narrate the effect as written."}
+
+    @staticmethod
+    def _used(sheet: Dict[str, Any], name: str) -> List[str]:
+        """The poisons they've used: Poison Master, Brewer and Alchemist turn on it."""
+        used = list(sheet.get("poisons_used") or [])
+        return used if name in used else [*used, name]
+
+    @staticmethod
+    def _delivery(sheet: Dict[str, Any], on_weapon: bool, dangerous: bool) -> str:
+        # Envenom: "When you apply a poison that's not dangerous for you to use to your weapon
+        # it's touch instead of applied."
+        if on_weapon and not dangerous and advanced.has(sheet, "Envenom"):
+            return "Envenom: on their weapon it works as a touch poison -- a scratch delivers it."
+        return ("Applied poisons must reach the target or what they eat or drink; touch poisons need only "
+                "touch, a blade will do.")
 
     def _use_carried_poison(self, channel_id: int, actor: str, sheet: Dict[str, Any], wanted: str,
-                            target: str) -> Tuple[List[Effect], Dict[str, Any]]:
-        dose = next((g for g in sheet.get("gear") or () if g["name"].lower() == wanted and g["name"] in POISONS), None)
+                            target: str, on_weapon: bool = False) -> Tuple[List[Effect], Dict[str, Any]]:
+        dose = next((g for g in sheet.get("gear") or () if _poisonish(g, sheet)
+                     and _poison_name(g["name"]).lower().replace("\u2019", "'") == wanted.replace("\u2019", "'")), None)
         if dose is None:
-            carried = ", ".join(g["name"] for g in sheet.get("gear") or () if g["name"] in POISONS) or "none"
+            carried = ", ".join(g["name"] for g in sheet.get("gear") or () if _poisonish(g, sheet)) or "none"
             return [], {"ok": False, "error": f"{actor} carries no {wanted}. Poisons carried: {carried}."}
         gear = list(sheet["gear"])
         gear.remove(dose)
+        name = _poison_name(dose["name"])
+        custom = (sheet.get("custom_poisons") or {}).get(dose["name"])
+        # Poison Master: "After you've used a poison once it's no longer dangerous for you to use."
+        mastered = advanced.has(sheet, "Poison Master") and name in (sheet.get("poisons_used") or ())
         on = f" on {target}" if target else ""
+        risk = ("Not dangerous to them (Poison Master)." if mastered else
+                "Dangerous: used without the proper precautions, it may turn on them -- a GM move if the fiction allows.")
         return [
             SendMessage(channel_id, f"🧪 **{actor}** uses {dose['name']}{on} — the dose is spent."),
-            UpdateSheet(channel_id, actor, {"gear": gear}),
-            *self._afflict(channel_id, target, dose["name"]),
-        ], {"ok": True, "poison": dose["name"], "effect": POISONS[dose["name"]], "note": (
-            "Dangerous: used without the proper precautions, it may turn on them -- a GM move if the "
-            "fiction allows. Applied poisons must reach the target or what they eat or drink; touch "
-            "poisons need only touch. Narrate the effect as written.")}
+            UpdateSheet(channel_id, actor, {"gear": gear, "poisons_used": self._used(sheet, name)}),
+            *self._afflict(channel_id, target, name),
+        ], {"ok": True, "poison": name, "effect": custom or POISONS.get(name, ""), "note": (
+            f"{risk} {self._delivery(sheet, on_weapon, dangerous=not mastered)} Narrate the effect as written.")}
 
     def _afflict(self, channel_id: int, target: str, poison: str) -> List[Effect]:
         """Bloodweed and Serpent's Tears on a creature in the scene, kept on its record."""
         creature = self._monsters().get(target or "")
+        poison = _poison_name(poison)
         if creature is None or poison not in ("Bloodweed", "Serpent\u2019s Tears"):
             return []
         have = list(creature.get("afflictions") or [])
         return [AfflictMonster(channel_id, target, tuple(have + [poison] if poison not in have else have))]
 
-    def brew_poison(self, *, channel_id: int, character: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+    def brew_poison(self, *, channel_id: int, character: str, reason: str = "", poison: str = "",
+                    effect: str = "", caveats: Sequence[str] = ()) -> Tuple[List[Effect], Dict[str, Any]]:
         """"Whenever you have time to gather materials and a safe place to brew you can make
         three uses of the poison you choose for free." Guarded like camp."""
         actor = self._character(character)
@@ -4134,6 +4176,9 @@ class Director:
         if sheet is None:
             return [], {"ok": False, "error": f"{character!r} has no character sheet."}
         name = (sheet.get("choices") or {}).get("poison")
+        wanted = _poison_name(poison) if poison else ""
+        if wanted and wanted != name:
+            return self._brew_other(channel_id, actor, sheet, wanted, reason, effect, caveats)
         if not name:
             return [], {"ok": False, "error": f"{actor} has mastered no poison."}
         unsettled = self.unsettled(channel_id, "brew poison")
@@ -4147,6 +4192,49 @@ class Director:
             SendMessage(channel_id, f"🧪 **{actor}** brews {name} — {reason}. {uses} uses."),
             UpdateSheet(channel_id, actor, {"poison_uses": uses}),
         ], {"ok": True, "poison": name, "uses": uses}
+
+    def _brew_other(self, channel_id: int, actor: str, sheet: Dict[str, Any], poison: str, reason: str,
+                    effect: str, caveats: Sequence[str]) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Brewer: "three doses of any one poison you've used before". Alchemist: the same -- or a
+        poison of their own design, which the GM allows "with one or more caveats": it works only
+        under specific circumstances, it's a weaker version, or it takes a while."""
+        brewer, alchemist = advanced.has(sheet, "Brewer"), advanced.has(sheet, "Alchemist")
+        if not (brewer or alchemist):
+            return [], {"ok": False, "error": f"{actor} can brew only the poison they mastered."}
+        unsettled = self.unsettled(channel_id, "brew poison")
+        if unsettled:
+            return [], {"ok": False, "error": unsettled}
+        reason = " ".join(str(reason or "").split())
+        if not reason:
+            return [], {"ok": False, "error": "Say where they brew and why it is safe (reason)."}
+        custom = dict(sheet.get("custom_poisons") or {})
+        used = sheet.get("poisons_used") or ()
+        if poison not in used and poison not in custom:
+            if not alchemist:
+                return [], {"ok": False, "error": (f"{actor} has never used {poison}: Brewer makes only poisons "
+                                                   f"used before ({', '.join(used) or 'none yet'}).")}
+            effect = " ".join(str(effect or "").split())[:200]
+            kept = [" ".join(str(c).split())[:120] for c in caveats or () if str(c).strip()]
+            if poison in POISONS:
+                effect = effect or POISONS[poison]
+            if not effect or not kept:
+                return [], {"ok": False, "error": (
+                    "Alchemist, a new poison: describe its effect, and give one or more caveats -- it only works "
+                    "under specific circumstances; the best they can manage is a weaker version; it'll take a while.")}
+            custom[poison] = f"{effect} (caveats: {'; '.join(kept)})"
+        from .gear import item_for
+
+        dose = item_for(poison)[0].to_dict() if poison in POISONS else {
+            "name": poison, "tags": ["Dangerous"], "weight": 0}
+        gear = [*sheet.get("gear", []), *(dict(dose) for _ in range(choices.POISON_BATCH))]
+        changes: Dict[str, Any] = {"gear": gear}
+        if custom != (sheet.get("custom_poisons") or {}):
+            changes["custom_poisons"] = custom
+        return [
+            SendMessage(channel_id, f"🧪 **{actor}** brews three doses of {poison} — {reason}."),
+            UpdateSheet(channel_id, actor, changes),
+        ], {"ok": True, "poison": poison, "doses": choices.POISON_BATCH,
+            "effect": custom.get(poison) or POISONS.get(poison, "")}
 
     # -- Shapeshifter's form ------------------------------------------------------------------
 
