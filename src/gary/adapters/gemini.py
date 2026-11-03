@@ -374,6 +374,7 @@ class GeminiNarrator:
                     watcher=str(args.get("watch", "") or ""),
                     reason=str(args.get("reason", "") or ""),
                     dungeon_or_city=bool(args.get("dungeon_or_city")),
+                    fed_by_host=bool(args.get("fed_by_host")),
                 )
                 if result.get("ok") and not args.get("something_approaches"):
                     try:

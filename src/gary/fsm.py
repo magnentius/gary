@@ -2823,14 +2823,16 @@ class Director:
 
     def make_camp(
         self, *, channel_id: int, approaches: bool = False, watcher: str = "", reason: str = "",
-        dungeon_or_city: bool = False,
+        dungeon_or_city: bool = False, fed_by_host: bool = False,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """The party settles in to rest -- once for all of them, however many sleep.
 
-        Everyone eats a ration. If the night passes quietly, everyone who ate heals half
-        their max HP; whoever had no ration goes hungry and heals nothing. If something
-        approaches -- the model's call, like any GM move -- nobody heals, and the watcher
-        rolls Take Watch.
+        Everyone eats a ration -- unless they paid for a meal or are someone's guest:
+        "only mark off a ration if you're eating from the food you carry, not paying for a
+        meal or receiving hospitality". If the night passes quietly, everyone heals half their
+        max HP. The book sets no penalty for having no ration, so the hungry heal too, and
+        the model is told to make a GM move of their hunger. If something approaches -- the
+        model's call, like any GM move -- nobody heals, and the watcher rolls Take Watch.
 
         Refused, back to the model, when the rules can see the party cannot settle in:
         creatures still standing, or anyone mid-move -- above all a Last Breath not yet
@@ -2891,7 +2893,7 @@ class Director:
             sustained = sustained or (dungeon_or_city and sheet.get("class") == "Ranger"
                                       and _race_move_of(sheet, "Human"))
             sustained = sustained or quests.has_boon(sheet, "sustenance")  # Quest: no hunger
-            if "gear" in sheet and not sustained:  # sheets made before gear do not count rations
+            if "gear" in sheet and not sustained and not fed_by_host:  # sheets made before gear do not count rations
                 have = int(sheet["rations"]) if "rations" in sheet else rations_of(sheet["gear"])
                 fed = have > 0
                 if fed:
@@ -2899,20 +2901,21 @@ class Director:
             entry: Dict[str, Any] = {"ate": fed}
             if "rations" in changes:
                 entry["rations_left"] = changes["rations"]
-            if fed and not approaches:
+            if not approaches:
                 healed = min(int(sheet["max_hp"]) - int(sheet["hp"]),
                              int(sheet["max_hp"]) // 2 + (songs.total if songs else 0) + ministry)
                 changes["hp"] = int(sheet["hp"]) + healed
                 entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
+                ate = ("eats at their host's table" if fed_by_host else "eats" if fed else "goes hungry, with no rations,")
                 lines.append(
-                    f"**{actor}** eats" + (f" ({changes['rations']} rations left)" if "rations" in changes else "")
+                    f"**{actor}** {ate}" + (f" ({changes['rations']} rations left)" if "rations" in changes else "")
                     + (f" and heals {healed} — HP {changes['hp']}/{sheet['max_hp']}." if healed
                        else f", already whole — HP {changes['hp']}/{sheet['max_hp']}.")
                 )
             elif fed:
                 lines.append(f"**{actor}** eats" + (f" ({changes['rations']} rations left)." if "rations" in changes else "."))
             else:
-                lines.append(f"**{actor}** has no rations: goes hungry, and does not heal.")
+                lines.append(f"**{actor}** has no rations and goes hungry.")
             if changes:
                 effects.append(UpdateSheet(channel_id, actor, changes))
             report[actor] = entry
@@ -2930,6 +2933,12 @@ class Director:
         else:
             facts["note"] = ("The night passes. The world clock has moved eight hours for the "
                              "whole party; do not advance it again.")
+        hungry = [a for a, e in report.items() if not e["ate"]]
+        if hungry:
+            # The book sets no penalty for an empty pack: hunger is the GM's to make something of.
+            facts["hungry"] = hungry
+            facts["note"] += (f" {', '.join(hungry)} had nothing to eat: make a GM move of it -- weakness, a "
+                              "temper, a debility if it goes on, a desperate choice. Not a lost night's healing.")
         return effects, facts
 
     def unsettled(self, channel_id: int, doing: str) -> str:

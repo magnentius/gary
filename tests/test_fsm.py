@@ -960,16 +960,28 @@ def test_a_quiet_night_feeds_and_heals_half_max_hp(director, scene):
     assert "**Kethra** eats (4 rations left) and heals 9 — HP 14/19." in summary
 
 
-def test_no_ration_no_healing(director, scene):
+def test_no_ration_goes_hungry_but_heals_by_the_book(director, scene):
+    """The book says to eat a ration, and sets no penalty for having none: the hungry heal, and
+    the GM makes something of the hunger."""
+    scene.clear()
+    _camp_party(director)
+    director._sheet_for("Kethra")["rations"] = 0
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
+    assert facts["party"]["Kethra"]["ate"] is False and facts["party"]["Kethra"]["healed"] > 0
+    assert facts["hungry"] == ["Kethra"] and "make a GM move of it" in facts["note"]
+    assert "**Kethra** goes hungry, with no rations, and heals" in sends_in(effects)[0].text
+
+
+def test_an_inn_or_a_host_feeds_them_without_rations(director, scene):
+    """"Only mark off a ration if you're eating from the food you carry, not paying for a meal or
+    receiving hospitality." """
     scene.clear()
     from gary.fsm import UpdateSheet
 
     _camp_party(director)
-    director._sheet_for("Kethra")["rations"] = 0
-    effects, facts = director.make_camp(channel_id=CHANNEL, reason=CAMP)
-    assert facts["party"]["Kethra"] == {"ate": False}
-    assert not [e for e in effects if isinstance(e, UpdateSheet) and e.name == "Kethra"]
-    assert "**Kethra** has no rations: goes hungry, and does not heal." in sends_in(effects)[0].text
+    effects, facts = director.make_camp(channel_id=CHANNEL, reason="the Drowned Rat's back room", fed_by_host=True)
+    assert not any(isinstance(e, UpdateSheet) and "rations" in e.changes for e in effects)
+    assert "eats at their host's table" in sends_in(effects)[0].text and "hungry" not in facts
 
 
 def test_something_in_the_night_means_take_watch_and_no_healing(director, registry, scene):

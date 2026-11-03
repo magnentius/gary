@@ -374,6 +374,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             properties={
                 "reason": _s(type=_STRING, description="Where they rest and why it is safe enough to sleep, e.g. 'the cleared guardroom, door barred'. Shown to the table."),
                 "something_approaches": _s(type=types.Type.BOOLEAN, description="True if something comes in the night."),
+                "fed_by_host": _s(type=types.Type.BOOLEAN, description=(
+                    "True at an inn where they pay for a meal, or as someone's guest: nobody eats from their "
+                    "own rations.")),
                 "watch": _s(type=_STRING, description="Who is on watch, if something approaches."),
                 "dungeon_or_city": _s(type=types.Type.BOOLEAN, description="True if they camp inside a dungeon or a city (a Human Ranger eats no ration there)."),
             },
