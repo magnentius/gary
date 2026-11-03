@@ -403,6 +403,15 @@ class GeminiNarrator:
                 if known_days and result.get("ok"):
                     result["note"] = (result.get("note", "") + f" The map has this route at {known_days} days; "
                                       "that is how long it takes.").strip()
+                elif result.get("ok") and origin and args.get("destination"):
+                    # A journey made draws its route: both ends on the map, the days it took.
+                    world = self._store.state().get("world")
+                    for end in (origin, str(args["destination"])):
+                        if worldmap.slug(end) not in ((world or {}).get("places") or {}):
+                            world = worldmap.place(world, end, "landmark")
+                    world = worldmap.route(world, origin, str(args["destination"]), int(result.get("days") or 0))
+                    self._store.apply([Mutation(MutationKind.WORLD, "", {"world": world})],
+                                      reason=f"campaign map: the road to {args['destination']}")
                 effects.extend(journey_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue

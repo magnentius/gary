@@ -64,6 +64,9 @@ RUNNING THE GAME:
   once its question is answered. Sum up what is dull in a sentence -- a safe road, routine
   shopping, a quiet night -- and cut to the next thing worth playing. Only hostile
   ground is a perilous_journey; a safe road is just narrated arrival.
+- Draw the campaign map as they travel and hear of places (world_map): the moment a place
+  is named or reached, put it on; when they travel between two, add the route with its days
+  and ground. Leave blanks: roads mentioned but not taken.
 - In a dungeon, build it as they explore with the Dungeon Moves, above all when they enter
   a new area or miss: change the environment, point to a looming threat, introduce a new
   faction or creature, use a threat from one, make them backtrack, present riches at a
@@ -342,6 +345,9 @@ def render_live_state(state: Dict[str, Any]) -> str:
     if world:
         lines.append("- Campaign map (draw maps, leave blanks; a known route takes its days):")
         lines += [f"    {line}" for line in world.splitlines()]
+    elif state.get("setting"):
+        lines.append("- Campaign map: not started. Start it (world_map): where the party is, the nearest steading "
+                     "a day or two off, and the ground between.")
 
     from .dungeons import creatures as setting_creatures, current as current_dungeon, render as render_map
 

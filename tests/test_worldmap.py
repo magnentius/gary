@@ -49,3 +49,40 @@ async def test_steadings_and_dungeons_go_on_the_map_and_a_known_route_sets_a_jou
     places = store.state()["world"]["places"]
     assert places["pigton"]["kind"] == "steading" and places["the_barrow"]["kind"] == "dungeon"
     assert "Pigton [steading]: a village — to The Barrow (3 days, the moor)" in render_live_state(store.state())
+
+
+async def test_a_journey_on_a_known_route_takes_the_maps_days(clock, known=True):
+    """The model asked for five days; the map says two, so two it is -- the same trip never changes length."""
+    from gary.fsm import Director
+    from gary.models import Mutation, MutationKind
+    from gary.registry import PendingCheckRegistry
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.history import InMemoryHistoryBackend
+    from gary.state.store import CampaignStore
+    from tests.test_gemini import CHANNEL
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    director = Director(registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL},
+                        players={1: "Dorn"}, sheet_for=lambda a: (store.state().get("sheets") or {}).get(a))
+    world = worldmap.route(worldmap.place(worldmap.place(None, "Fenwick", "steading"), "The Barrow", "dungeon"),
+                           "Fenwick", "The Barrow", 2, "the moor")
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {
+        "name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "xp": 0, "hp": 20, "max_hp": 20,
+        "armor": 0, "damage": "d10", "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13},
+        "gear": [], "rations": 10}}),
+        *([Mutation(MutationKind.WORLD, "", {"world": world})] if known else []),
+        Mutation(MutationKind.SCENE, "", {"location": "Fenwick, the gate", "steading": ""})], reason="setup")
+    store.apply([Mutation(MutationKind.SCENE, "", {"location": "Fenwick"})], reason="at Fenwick")
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.PERILOUS_JOURNEY, {"destination": "The Barrow", "days": 5, "trailblazer": "Dorn"}),
+                 text_response("."))
+    await player(n, "we set out for the barrow")
+    answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    if known:
+        assert answer["days"] == 2 and "2 days" in answer["note"]
+    else:  # no route yet: the journey draws one, the days it took
+        assert answer["days"] == 5 and worldmap.distance(store.state()["world"], "Fenwick", "The Barrow") == 5
+
+
+async def test_a_journey_on_no_known_route_draws_it(clock):
+    await test_a_journey_on_a_known_route_takes_the_maps_days(clock, known=False)
