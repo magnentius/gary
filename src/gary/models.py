@@ -268,6 +268,7 @@ class MutationKind(str, Enum):
     OPENING = "opening"  # /begin: where the table is in starting the adventure
     DUNGEON = "dungeon"  # a dungeon's map: its areas, how they connect, the blanks
     WORLD = "world"  # the campaign map: places, routes in days, the blanks, signs of the fronts
+    MONSTER_CONDITIONS = "monster_conditions"  # what spells hold a creature: asleep, charmed, caged...
     CALENDAR = "calendar"
 
 

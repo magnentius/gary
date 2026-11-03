@@ -43,6 +43,9 @@ def test_spell_augmentation_shunts_a_spell_into_the_creature_just_hit(director, 
     dice.queue(3)
     apply(director.deal_damage(channel_id=CHANNEL, character="Eva", target="Orc 1", reason="x")[0], sheets, scene)
     assert sheets["Eva"]["last_struck"] == "Orc 1"
+    # Her strike ended the Invisibility (it "persists until the target attacks"); shunt another spell.
+    assert sheets["Eva"]["ongoing"] == []
+    sheets["Eva"]["ongoing"] = [{"spell": "Invisibility", "target": "Bram"}]
     effects, result = director.spell_augmentation(channel_id=CHANNEL, character="Eva", spell="invisibility")
     apply(effects, sheets, scene)
     assert result["dealt"] == 1 and scene["Orc 1"]["hp"] == 6 and sheets["Eva"]["ongoing"] == []

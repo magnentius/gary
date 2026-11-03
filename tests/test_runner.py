@@ -372,3 +372,27 @@ async def test_sheet_updates_are_journalled():
     assert store.state()["sheets"]["Thorin"] == {"name": "Thorin", "hp": 0, "dead": True}
     store.undo_last()
     assert "dead" not in store.state()["sheets"]["Thorin"]
+
+
+async def test_a_blow_wakes_a_sleeper_and_a_summon_at_zero_is_gone(clock):
+    """The runner applies what a blow breaks: Sleep ends on pain; a summoned creature at 0 HP is dismissed."""
+    from gary.fsm import ChangeHp, ConditionMonster
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Goblin 1": {
+        "kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6"}}}),
+        Mutation(MutationKind.SHEET, "Mae", {"sheet": {"name": "Mae", "hp": 10, "ongoing": [
+            {"spell": "Summon Monster", "target": "Vex"}]}}),
+        Mutation(MutationKind.SHEET, "Vex", {"sheet": {"name": "Vex", "hp": 1, "summoned_by": "Mae",
+                                                       "summoned_spell": "Summon Monster"}})], reason="setup")
+    sender = FakeSender()
+    r = EffectRunner(sender, EchoNarrator(), store=store)
+    await r.run([ConditionMonster(CHANNEL, "Goblin 1", ({"kind": "asleep", "spell": "Sleep", "caster": "Mae"},)),
+                 ChangeHp(CHANNEL, "monster", "Goblin 1", 2), ChangeHp(CHANNEL, "character", "Vex", 0)])
+    state = store.state()
+    assert state["monsters"]["Goblin 1"]["conditions"] == []
+    assert "Vex" not in state["sheets"] and state["sheets"]["Mae"]["ongoing"] == []
+    assert any("no longer asleep" in text for _, text in sender.sent)

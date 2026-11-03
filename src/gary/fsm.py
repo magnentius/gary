@@ -247,6 +247,23 @@ class AfflictMonster(Effect):
 
 
 @dataclass(frozen=True)
+class ConditionMonster(Effect):
+    """Set what spells hold a creature (asleep, charmed, caged...). Journalled by the runner."""
+
+    channel_id: int
+    name: str
+    conditions: tuple
+
+
+@dataclass(frozen=True)
+class Dismiss(Effect):
+    """A summoned creature's sheet goes: dismissed, destroyed, or its spell ended."""
+
+    channel_id: int
+    name: str
+
+
+@dataclass(frozen=True)
 class RecordOutcome(Effect):
     """Journal a resolved move. History, not state.
 
@@ -275,6 +292,65 @@ def starting_move(sheet: Dict[str, Any], name: str) -> bool:
 
     chosen = (sheet.get("choices") or {}).get("start", "")
     return any(m["name"] == name for m in moves_of(str(sheet.get("class", "")), str(sheet.get("race", "")), chosen))
+
+def helpless(creature: Dict[str, Any]) -> str:
+    """What stops this creature attacking (asleep, held, caged), or ""."""
+    return next((c["kind"] for c in creature.get("conditions") or () if c.get("kind") in spells.HELPLESS), "")
+
+
+def creature_harmed(state: Dict[str, Any], name: str, channel_id: int) -> List["Effect"]:
+    """A creature just took damage: what that breaks. Sleep, Charm Person and Hold Person end;
+    Dominate loses a hold ("If the target takes damage you lose 1 hold") and ends at none."""
+    creature = (state.get("monsters") or {}).get(name) or {}
+    conditions = [dict(c) for c in creature.get("conditions") or []]
+    if not conditions:
+        return []
+    out: List[Effect] = []
+    sheets = state.get("sheets") or {}
+    kept: List[Dict[str, Any]] = []
+    for c in conditions:
+        caster = sheets.get(c.get("caster", ""))
+        ongoing = [dict(e) for e in (caster or {}).get("ongoing") or []]
+        mine = next((e for e in ongoing if e.get("spell") == c.get("spell")
+                     and name.lower() in str(e.get("target", "")).lower()), None)
+        if c["kind"] in spells.BROKEN_BY_HARM:
+            out.append(SendMessage(channel_id, f"✨ The pain breaks it: **{name}** is no longer {c['kind']} "
+                                               f"({c['spell']})."))
+            if caster and mine is not None and c["kind"] != "asleep":
+                ongoing.remove(mine)
+                out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": ongoing}))
+            continue
+        if c["kind"] == "dominated" and caster and mine is not None:
+            mine["hold"] = int(mine.get("hold", 0)) - 1
+            if mine["hold"] <= 0:
+                ongoing.remove(mine)
+                out.append(SendMessage(channel_id, f"✨ **{name}** is hurt and tears free of {c['caster']}'s "
+                                                   "Dominate."))
+                out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": ongoing}))
+                continue
+            out.append(SendMessage(channel_id, f"✨ **{name}** is hurt: {c['caster']}'s Dominate slips — "
+                                               f"{mine['hold']} hold left."))
+            out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": ongoing}))
+        kept.append(c)
+    if len(kept) != len(conditions):
+        out.insert(0, ConditionMonster(channel_id, name, tuple(kept)))
+    return out
+
+
+def summon_fell(state: Dict[str, Any], name: str, channel_id: int) -> List["Effect"]:
+    """A summoned creature at 0 HP: "until it dies" -- gone, and its spell with it."""
+    sheet = (state.get("sheets") or {}).get(name) or {}
+    caster = sheet.get("summoned_by")
+    if not caster:
+        return []
+    out: List[Effect] = [SendMessage(channel_id, f"✨ **{name}** is destroyed and unravels."), Dismiss(channel_id, name)]
+    theirs = (state.get("sheets") or {}).get(caster)
+    if theirs:
+        kept = [e for e in theirs.get("ongoing") or [] if not (e.get("spell") == sheet.get("summoned_spell")
+                                                              and e.get("target") == name)]
+        out.append(UpdateSheet(channel_id, caster, {"ongoing": kept}))
+    return out
+
 
 class Director:
     """Stateless decision layer.
@@ -804,6 +880,8 @@ class Director:
                                           if n.lower() == str(e).strip().lower()]])
             spend = [*spend, SpendAmmo(channel_id, actor, spent_ammo)]
             notes.append(f"{len(extra_targets)} extra ammo for extra targets")
+        if rules.attacks:
+            spend = [*spend, *self._unveil(channel_id, actor)]
         striker = ""
         if ally:
             # Setup Strike, Tandem Strike: "When you hack and slash, choose an ally."
@@ -1006,7 +1084,11 @@ class Director:
                 )]
             target = found
         else:
-            target = ""
+            # Whoever or whatever it's cast on, kept as named: Sleep's goblins, Charm Person's reeve, the
+            # ally made invisible. Creatures go by their scene names, so their conditions can be set.
+            scene_names = {n.lower(): n for n in self._monsters()}
+            named = [t.strip() for t in str(target or "").split(",") if t.strip()]
+            target = ", ".join(scene_names.get(t.lower()) or self._character(t) or t for t in named)[:120]
 
         stat = "wis" if spells.caster_class(sheet) == "cleric" else "int"
         mod = stat_modifier(sheet, stat)
@@ -1287,6 +1369,7 @@ class Director:
                                     + (" — **defeated**." if after <= 0 else ".")),
             ChangeHp(channel_id, "monster", target, after),
             UpdateSheet(channel_id, actor, {"ongoing": kept, "last_struck": None}),
+            *self._lift(channel_id, actor, [found.name]),
         ], {"ok": True, "dealt": found.level, "hp_after": max(after, 0), "defeated": after <= 0}
 
     def channel_balance(
@@ -1852,11 +1935,18 @@ class Director:
         before = list(sheet.get("ongoing") or [])
         ended = [s.name for s, _ in spells.running(sheet) if s.ends_when_casting]
         ongoing = [e for e in before if e.get("spell") not in ended]
+        lifted: List[Effect] = []
         if ended:
             facts["ended"] = ended
             lines.append(f"{_and(ended)} ends, as {check.actor} casts again.")
+            lifted = self._lift(channel_id, check.actor, ended)
         if spell.lasts:
-            ongoing.append({"spell": spell.name, "target": check.target})
+            entry: Dict[str, Any] = {"spell": spell.name, "target": check.target}
+            if spell.name == "Dominate":
+                entry["hold"] = self.dice.roll("1d4").total  # "You gain 1d4 hold"
+                facts["hold"] = entry["hold"]
+                lines.append(f"{check.actor} holds {entry['hold']} over {check.target or 'them'}.")
+            ongoing.append(entry)
             facts["ongoing"] = True
             lines.append(f"{spell.name} lasts{' on ' + check.target if check.target else ''}"
                          + (" — -1 to cast while it does." if spell.penalty else
@@ -1875,7 +1965,22 @@ class Director:
                          f"{spells.PREPARE_NAMES[spells.caster_class(sheet)].lower()}.")
         facts["note"] = ("The spell takes effect as its text says. Any healing or damage in it "
                          "has been rolled and applied; narrate the rest.")
-        effects: List[Effect] = []
+        held, held_lines, held_facts = self._take_hold(channel_id, check, spell)
+        lines += held_lines
+        facts.update(held_facts)
+        if spell.name in spells.SUMMONS:
+            recipe = spells.SUMMONS[spell.name]
+            traits = self.dice.roll(recipe["dice"]).total
+            changes["summoning"] = {"spell": spell.name, "traits": traits}
+            facts["summon"] = (f"Up to {traits} traits ({recipe['dice']}): the player picks from "
+                               f"{'; '.join(f'{k}: {v}' for k, v in recipe['traits'].items())}. Then call "
+                               "summon_ally with its name, what it is, and the traits.")
+            lines.append(f"{spell.name}: {traits} trait{'s' if traits != 1 else ''} to choose.")
+        if spell.name == "Contingency":
+            changes["contingency_ready"] = True
+            facts["contingency"] = ("Ask which 5th-level-or-lower spell they hold and its trigger (no more words "
+                                    "than their level), then call contingency action=hold.")
+        effects: List[Effect] = [*lifted, *held]
         if lines:
             effects.append(SendMessage(channel_id, "✨ " + " ".join(lines)))
         if changes:
@@ -2013,6 +2118,8 @@ class Director:
         never lapses the way a declined one does.
         """
         rules = MOVES[move]
+        if move == "last_breath" and (self._sheet_or_empty(actor)).get("summoned_by"):
+            return []  # a summoned creature at 0 HP is simply gone (the runner dismisses it)
         user_id = next((uid for uid, a in self.players.items()
                         if normalize_actor(a) == normalize_actor(actor)), 0)
         mod = 0
@@ -2528,6 +2635,10 @@ class Director:
                                                   f"Standing: {listing}."}
             if found not in names:
                 names.append(found)
+            stuck = helpless(scene[found])
+            if stuck:
+                return [], {"ok": False, "error": f"{found} is {stuck} and can't attack. End the spell first, or "
+                                                  "narrate it waking or breaking free, if the fiction does."}
         # "If multiple creatures attack at once roll the highest damage among them and add +1
         # damage for each monster beyond the first." The one with the highest damage leads: its
         # die, piercing and armor-breaking count.
@@ -2648,6 +2759,7 @@ class Director:
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
                                                   f"No roll needed: {shown}{said}"))
+        effects = [*self._unveil(channel_id, actor), *effects]
         return effects, {"ok": True, **facts, "note": (
             "No move was rolled: the fiction gave them the blow. Narrate it landing, as bad as its "
             "severity; a creature not defeated is still in the fight.")}
@@ -2738,6 +2850,9 @@ class Director:
         """A blow landing on a character: a creature's (``name`` is it), or a hazard's
         (``name`` is what happened -- a fall, a trap, fire)."""
         sheet = self._sheet_for(character) if self._sheet_for is not None else None
+        mirror = "" if hazard else self._mirror_image(channel_id, name, character, sheet)
+        if isinstance(mirror, tuple):
+            return mirror  # the image took it
         if hit is None:
             hit = damage.roll(self.dice, damage.parse(creature["damage"]))
         rolled, shown = hit.total, hit.render()
@@ -2767,7 +2882,7 @@ class Director:
         facts: Dict[str, Any] = {"attacker": name, "character": character,
                                  "rolled": rolled, "armor": armor, "dealt": dealt}
         line = f"🗡️ **{name}** hits **{character}** — {shown}"
-        effects: List[Effect] = []
+        effects: List[Effect] = [SendMessage(channel_id, mirror)] if mirror else []
         if sheet is not None:
             after = int(sheet["hp"]) - dealt
             facts.update(hp_before=sheet["hp"], hp_after=max(after, 0), down=after <= 0,
@@ -2806,6 +2921,24 @@ class Director:
                    for a, s in self._party()):
                 return [SendMessage(channel_id, line, prompt=ReactPrompt(hit_id)), *effects], facts
         return [SendMessage(channel_id, line), *effects], facts
+
+    def _mirror_image(self, channel_id: int, name: str, character: str, sheet: Optional[Dict[str, Any]]):
+        """Mirror Image: "When you are attacked, roll a d6. On a 4, 5, or 6 the attack hits the illusion
+        instead, the image then dissipates and the spell ends." The whole result when the image takes
+        it, a line to show when it doesn't, or "" without the spell."""
+        ongoing = list((sheet or {}).get("ongoing") or [])
+        at = next((i for i, e in enumerate(ongoing) if e.get("spell") == "Mirror Image"), None)
+        if at is None:
+            return ""
+        d6 = self.dice.roll("1d6").total
+        if d6 < 4:
+            return f"🪞 Mirror Image (d6: {d6}): {name} finds the real {character}."
+        del ongoing[at]
+        return ([SendMessage(channel_id, f"🪞 **{name}** strikes {character}'s mirror image (d6: {d6}) — it "
+                                         "bursts like smoke, and the spell ends. No harm done."),
+                 UpdateSheet(channel_id, character, {"ongoing": ongoing})],
+                {"attacker": name, "character": character, "dealt": 0, "mirror_image": True,
+                 "hp_before": int((sheet or {}).get("hp", 0)), "hp_after": int((sheet or {}).get("hp", 0))})
 
     def hazard_damage(
         self, *, channel_id: int, characters: Sequence[str], severity: str, reason: str,
@@ -3117,6 +3250,11 @@ class Director:
                         if normalize_actor(a) == normalize_actor(actor)), 0)
         verb = "communes with their deity" if cls == "cleric" else "studies their spellbook"
         forgetting = spells.forgetting()
+        # Alarm: "Until you prepare spells again".
+        lasting = [e for e in sheet.get("ongoing") or []
+                   if not getattr(spells.find(sheet, e.get("spell", "")), "until_prepared", False)]
+        if lasting != list(sheet.get("ongoing") or []):
+            forgetting["ongoing"] = lasting
         if cls == "cleric" and reactions.hold_from_commune(sheet):
             forgetting["intervention"] = reactions.hold_from_commune(sheet)
         return [
@@ -3151,7 +3289,198 @@ class Director:
         return [
             SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
             UpdateSheet(channel_id, actor, {"ongoing": kept}),
+            *self._lift(channel_id, actor, [name]),
         ], {"ok": True, "ended": name}
+
+    def _lift(self, channel_id: int, caster: str, spell_names: Sequence[str]) -> List[Effect]:
+        """A caster's spells end: the conditions they left on creatures go, and a summoned creature
+        is dismissed."""
+        names = set(spell_names)
+        out: List[Effect] = []
+        for name, record in self._monsters().items():
+            conditions = list(record.get("conditions") or [])
+            kept = [c for c in conditions if not (c.get("spell") in names and normalize_actor(c.get("caster", ""))
+                                                  == normalize_actor(caster))]
+            if len(kept) != len(conditions):
+                out.append(ConditionMonster(channel_id, name, tuple(kept)))
+        caster_sheet = self._sheet_or_empty(caster)
+        for entry in caster_sheet.get("ongoing") or ():
+            if entry.get("spell") in names and entry.get("spell") in spells.SUMMONS and entry.get("target"):
+                summoned = self._sheet_or_empty(entry["target"])
+                if summoned.get("summoned_by") and normalize_actor(summoned["summoned_by"]) == normalize_actor(caster):
+                    out += [SendMessage(channel_id, f"✨ **{entry['target']}** is dismissed."),
+                            Dismiss(channel_id, entry["target"])]
+        return out
+
+    def _take_hold(self, channel_id: int, check: PendingCheck, spell: "spells.Spell"
+                   ) -> Tuple[List[Effect], List[str], Dict[str, Any]]:
+        """Sleep, Charm Person, Hold Person, Cage, Cause Fear, Polymorph, Dominate: the condition on
+        each creature the spell takes. Sleep takes 1d4 of those named ("1d4 enemies you can see of
+        the GM's choice")."""
+        kind = spells.CONDITION_OF.get(spell.name)
+        if not kind or not check.target:
+            return [], [], {}
+        scene = self._monsters()
+        found = []
+        for wanted in (t.strip() for t in check.target.split(",") if t.strip()):
+            name = next((n for n in scene if normalize_actor(n) == normalize_actor(wanted)), None)
+            if name and int(scene[name].get("hp", 0)) > 0 and name not in found:
+                found.append(name)
+        if not found:
+            return [], [], {}
+        lines: List[str] = []
+        facts: Dict[str, Any] = {}
+        if spell.name == "Sleep":
+            many = self.dice.roll("1d4").total
+            facts["sleep_roll"] = many
+            if len(found) > many:
+                lines.append(f"Sleep takes {many} (1d4): the rest stay awake.")
+            found = found[:many]
+        effects: List[Effect] = []
+        for name in found:
+            others = [c for c in scene[name].get("conditions") or [] if c.get("spell") != spell.name]
+            effects.append(ConditionMonster(channel_id, name, tuple(
+                [*others, {"kind": kind, "spell": spell.name, "caster": check.actor}])))
+        lines.append(f"{_and(found)} {'is' if len(found) == 1 else 'are'} {kind}.")
+        facts["conditions"] = {n: kind for n in found}
+        return effects, lines, facts
+
+    def _unveil(self, channel_id: int, actor: str) -> List[Effect]:
+        """Invisibility: "The spell persists until the target attacks"."""
+        out: List[Effect] = []
+        for caster, sheet in self._party():
+            ongoing = list(sheet.get("ongoing") or [])
+            kept = [e for e in ongoing if not (e.get("spell") == "Invisibility"
+                                               and normalize_actor(e.get("target") or caster) == normalize_actor(actor))]
+            if len(kept) != len(ongoing):
+                out += [SendMessage(channel_id, f"✨ **{actor}** attacks — and is visible again."),
+                        UpdateSheet(channel_id, caster, {"ongoing": kept})]
+        return out
+
+    def dominate(self, *, channel_id: int, character: str, command: str, reason: str = ""
+                 ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Dominate: "Spend one hold to make the target take one of these actions... If you run out
+        of hold the spell ends." """
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        ongoing = [dict(e) for e in sheet.get("ongoing") or []]
+        mine = next((e for e in ongoing if e.get("spell") == "Dominate"), None)
+        if mine is None:
+            return [], {"ok": False, "error": f"{actor} dominates no one."}
+        wanted = " ".join(str(command or "").split()).lower()
+        order = next((c for c in spells.DOMINATE_COMMANDS if wanted and (wanted in c or c.split()[0] == wanted.split()[0])), None)
+        if order is None:
+            return [], {"ok": False, "error": "Dominate's commands: " + "; ".join(spells.DOMINATE_COMMANDS) + "."}
+        mine["hold"] = int(mine.get("hold", 0)) - 1
+        target = mine.get("target") or "the target"
+        line = f"✨ **{actor}** spends a hold: {target} must {order}" + (f" — {reason}" if reason else "") + "."
+        if mine["hold"] <= 0:
+            ongoing.remove(mine)
+            return [SendMessage(channel_id, line + " The hold is spent; Dominate ends."),
+                    UpdateSheet(channel_id, actor, {"ongoing": ongoing}), *self._lift(channel_id, actor, ["Dominate"])], {
+                "ok": True, "hold": 0, "ended": True}
+        return [SendMessage(channel_id, line + f" ({mine['hold']} hold left.)"),
+                UpdateSheet(channel_id, actor, {"ongoing": ongoing})], {"ok": True, "hold": mine["hold"]}
+
+    def summon_ally(self, *, channel_id: int, character: str, name: str, kind: str, traits: Sequence[str] = (),
+                    boosted: str = "", adaptation: str = "") -> Tuple[List[Effect], Dict[str, Any], Optional[Dict[str, Any]]]:
+        """Summon Monster / Animate Dead: "Treat it as your character, but with access to only the basic
+        moves. It has +1 modifier for all stats, 1 HP" -- and the traits chosen of those rolled.
+        Returns (effects, facts, the new creature's sheet)."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}, None
+        pending = sheet.get("summoning")
+        if not pending:
+            return [], {"ok": False, "error": f"{actor} has no summoning waiting: cast Summon Monster or Animate Dead."}, None
+        recipe = spells.SUMMONS[pending["spell"]]
+        chosen = list(dict.fromkeys(str(t).strip().lower() for t in traits or () if str(t).strip()))
+        unknown = [t for t in chosen if t not in recipe["traits"]]
+        if unknown or len(chosen) > int(pending["traits"]):
+            return [], {"ok": False, "error": (f"Up to {pending['traits']} of: " + "; ".join(
+                f"{k} ({v})" for k, v in recipe["traits"].items()) + ".")}, None
+        name = " ".join(str(name or "").split())[:40]
+        if not name or self._sheet_for(name) is not None:
+            return [], {"ok": False, "error": "Give it a name no one here has."}, None
+        level = int(sheet.get("level", 1))
+        stats = {s: 13 for s in ("str", "dex", "con", "int", "wis", "cha")}  # +1 each
+        if "boost" in chosen:
+            stat = str(boosted or "").strip().lower()[:3]
+            if stat not in stats:
+                return [], {"ok": False, "error": "boost: say which stat gets +2 (boosted)."}, None
+            stats[stat] = 16
+        hp = 1 + (2 * level if "durable" in chosen else 0)
+        ally = {"name": name, "class": "Summoned", "race": " ".join(str(kind or "creature").split())[:40],
+                "level": level, "xp": 0, "hp": hp, "max_hp": hp, "armor": 0,
+                "damage": "d8" if "d8" in chosen else str(sheet.get("damage", "d6")), "stats": stats,
+                "summoned_by": actor, "summoned_spell": pending["spell"],
+                "traits": [recipe["traits"][t] for t in chosen]
+                + ([f"adaptation: {' '.join(adaptation.split())[:80]}"] if "adaptation" in chosen and adaptation else [])}
+        ongoing = [dict(e) for e in sheet.get("ongoing") or []]
+        mine = next((e for e in reversed(ongoing) if e.get("spell") == pending["spell"] and not e.get("target")), None)
+        if mine is None:
+            mine = {"spell": pending["spell"]}
+            ongoing.append(mine)
+        mine["target"] = name
+        return [SendMessage(channel_id, f"✨ **{name}** answers {actor}'s {pending['spell']} — {ally['race']}, "
+                                        f"HP {hp}, damage {ally['damage']}"
+                                        + (f"; {'; '.join(ally['traits'])}" if ally["traits"] else "") + "."),
+                UpdateSheet(channel_id, actor, {"summoning": None, "ongoing": ongoing})], {
+            "ok": True, "name": name, "hp": hp, "note": (
+                f"{name} acts as {actor}'s character with only the basic moves (make_move actor={name}). "
+                "At 0 HP it is destroyed; ending the spell dismisses it.")}, ally
+
+    def contingency(self, *, channel_id: int, character: str, action: str, spell: str = "", trigger: str = "",
+                    target: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """Contingency: "Choose a 5th level or lower spell you know. Describe a trigger condition using a
+        number of words equal to your level... You don't have to roll for the held spell, it just
+        takes effect." One held at a time."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if action == "hold":
+            if not sheet.get("contingency_ready"):
+                return [], {"ok": False, "error": f"{actor} has not just cast Contingency."}
+            held = spells.find(sheet, spell)
+            if held is None or held.level > 5 or held.name == "Contingency":
+                return [], {"ok": False, "error": "A 5th level or lower spell they know."}
+            words = len(str(trigger or "").split())
+            if not words or words > int(sheet.get("level", 1)):
+                return [], {"ok": False, "error": f"The trigger takes at most {sheet.get('level', 1)} words (their level)."}
+            replaced = (sheet.get("contingency") or {}).get("spell")
+            return [SendMessage(channel_id, f"✨ **{actor}** holds {held.name} in waiting — "
+                                            f"until \"{' '.join(trigger.split())}\"."
+                                            + (f" ({replaced} is let go.)" if replaced else "")),
+                    UpdateSheet(channel_id, actor, {"contingency": {"spell": held.name, "trigger": " ".join(trigger.split())},
+                                                    "contingency_ready": False})], {"ok": True, "held": held.name}
+        if action != "release":
+            return [], {"ok": False, "error": "action is hold or release."}
+        waiting = sheet.get("contingency")
+        if not waiting:
+            return [], {"ok": False, "error": f"{actor} holds no contingent spell."}
+        held = spells.find(sheet, waiting["spell"])
+        check = PendingCheck(check_id="", channel_id=channel_id, user_id=0, actor=actor, move="cast_a_spell",
+                             stat="", modifier=0, stakes="", dice="2d6", created_at=0, expires_at=0,
+                             target=target or "", spell=held.name if held else waiting["spell"])
+        effects, facts = self._cast(channel_id, check, Roll(spec="2d6", faces=(6, 6)))
+        out: List[Effect] = [SendMessage(channel_id, f"✨ **{actor}**'s contingency fires: {waiting['spell']}"
+                                                     + (f" on {target}" if target else "") + "."),
+                             UpdateSheet(channel_id, actor, {"contingency": None}), *effects]
+        if held is not None and held.damage and target:
+            creature = self._monsters().get(target)
+            if creature is not None:
+                hit = self.dice.roll(held.damage)
+                dealt = damage.through_armor(hit.total, int(creature.get("armor", 0)), 0, held.ignores_armor)
+                after = int(creature["hp"]) - dealt
+                out += [SendMessage(channel_id, f"✨ {held.name} hits **{target}** for **{dealt} damage** "
+                                                f"({held.damage}: {hit.render()}) — HP {creature['hp']} → {max(after, 0)}"
+                                                + (" — **defeated**." if after <= 0 else ".")),
+                        ChangeHp(channel_id, "monster", target, after)]
+        return out, {"ok": True, "released": waiting["spell"], **(facts or {})}
 
     # -- Undertake a Perilous Journey -----------------------------------------------------------
 
@@ -3732,6 +4061,8 @@ class Director:
             return [], {"ok": False, "error": f"Name two different creatures in the scene. Here: {standing}."}
         if int(scene[by].get("hp", 0)) <= 0 or int(scene[at].get("hp", 0)) <= 0:
             return [], {"ok": False, "error": "A creature at 0 HP is out of the fight."}
+        if helpless(scene[by]):
+            return [], {"ok": False, "error": f"{by} is {helpless(scene[by])} and can't attack."}
         hit = damage.roll(self.dice, damage.parse(str(scene[by]["damage"])))
         target_record = scene[at]
         dealt = damage.through_armor(hit.total, int(target_record.get("armor", 0)), int(scene[by].get("piercing", 0)),

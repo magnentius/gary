@@ -89,9 +89,15 @@ class Spell:
         return "until you cast" in self.text.lower()
 
     @property
+    def until_prepared(self) -> bool:
+        """Alarm: "Until you prepare spells again"."""
+        return "until you prepare spells again" in self.text.lower()
+
+    @property
     def lasts(self) -> bool:
-        """Still running after it is cast, so it goes on the sheet's ongoing list."""
-        return self.ongoing or self.ends_when_casting
+        """Still running after it is cast, so it goes on the sheet's ongoing list. Mirror Image
+        lasts until a blow takes the image; Alarm until they prepare spells again."""
+        return self.ongoing or self.ends_when_casting or self.until_prepared or self.name == "Mirror Image"
 
     @property
     def target(self) -> Optional[str]:
@@ -343,6 +349,15 @@ def describe(sheet: Dict[str, Any]) -> str:
         parts.append(f"{penalty} to cast")
     if sheet.get("preparing"):
         parts.append(f"choosing new spells ({PREPARE_NAMES[cls]})")
+    if sheet.get("contingency"):
+        held = sheet["contingency"]
+        parts.append(f"contingency: {held['spell']} until \"{held['trigger']}\" (release when it happens)")
+    if sheet.get("summoning"):
+        parts.append(f"summoning waiting: {sheet['summoning']['spell']}, up to {sheet['summoning']['traits']} traits "
+                     "(summon_ally)")
+    hold = [e for e in sheet.get("ongoing") or () if e.get("spell") == "Dominate"]
+    if hold:
+        parts.append(f"Dominate hold: {hold[0].get('hold', 0)}")
     return "Spells — " + " · ".join(parts) + "."
 
 
@@ -456,3 +471,31 @@ def forgetting() -> Dict[str, Any]:
 def needs_setup(sheet: Dict[str, Any]) -> bool:
     """A caster who has never chosen spells: made before spells existed, or just made."""
     return caster_class(sheet) is not None and "spells" not in sheet
+
+
+# -- what spells do to creatures, and to the world ----------------------------------------
+
+#: The condition a spell leaves on each creature it takes, until the spell ends.
+CONDITION_OF: Dict[str, str] = {
+    "Sleep": "asleep", "Charm Person": "charmed", "Hold Person": "held", "Cage": "caged",
+    "Cause Fear": "afraid", "Polymorph": "polymorphed", "Dominate": "dominated",
+}
+#: Harm breaks these: Sleep ("They awake as normal: loud noises, jolts, pain"), Charm Person
+#: ("until they take damage"), Hold Person ("ends immediately if the target takes damage").
+BROKEN_BY_HARM = ("asleep", "charmed", "held")
+#: A creature in one of these can't attack anyone.
+HELPLESS = ("asleep", "held", "caged")
+
+#: Summon Monster and Animate Dead: the dice for how many traits, and the traits.
+SUMMONS: Dict[str, Dict[str, Any]] = {
+    "Summon Monster": {"dice": "1d6", "traits": {
+        "boost": "+2 instead of +1 to one stat", "careful": "it's not reckless", "d8": "it does 1d8 damage",
+        "durable": "its bond to your plane is strong: +2 HP for each level you have",
+        "adaptation": "it has some useful adaptation"}},
+    "Animate Dead": {"dice": "1d4", "traits": {
+        "boost": "it's talented: +2 to one stat", "durable": "it's durable: +2 HP for each level you have",
+        "brain": "it has a functioning brain and can complete complex tasks",
+        "lifelike": "it does not appear obviously dead, at least for a day or two"}},
+}
+DOMINATE_COMMANDS = ("speak a few words of your choice", "give you something they hold",
+                     "make a concerted attack on a target of your choice", "truthfully answer one question")

@@ -325,6 +325,10 @@ def render_live_state(state: Dict[str, Any]) -> str:
                             + ", ".join(lying))
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
+            if (sheets.get(actor) or {}).get("summoned_by"):
+                ally = sheets[actor]
+                who += (f" — summoned by {ally['summoned_by']} ({ally.get('summoned_spell')}): their character, basic "
+                        "moves only" + (f"; {'; '.join(ally.get('traits') or [])}" if ally.get("traits") else ""))
             if (sheets.get(actor) or {}).get("mentor"):
                 who += " — a mentor travelling with their apprentice: YOU play them now; they make no moves"
             lines.append(f"    - {who}: {carried}")

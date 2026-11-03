@@ -493,6 +493,33 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name in (T.DOMINATE, T.CONTINGENCY):
+                if name == T.DOMINATE:
+                    spell_effects, result = self._director.dominate(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        command=str(args.get("command", "") or ""), reason=str(args.get("reason", "") or ""))
+                else:
+                    spell_effects, result = self._director.contingency(
+                        channel_id=channel_id, character=str(args.get("character", "")),
+                        action=str(args.get("action", "") or ""), spell=str(args.get("spell", "") or ""),
+                        trigger=str(args.get("trigger", "") or ""), target=str(args.get("target", "") or ""))
+                effects.extend(spell_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
+            if name == T.SUMMON_ALLY:
+                ally_effects, result, ally = self._director.summon_ally(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    name=str(args.get("name", "") or ""), kind=str(args.get("kind", "") or ""),
+                    traits=[str(t) for t in args.get("traits") or ()], boosted=str(args.get("boosted", "") or ""),
+                    adaptation=str(args.get("adaptation", "") or ""))
+                if ally is not None:
+                    self._store.apply([Mutation(MutationKind.SHEET, ally["name"], {"sheet": ally})],
+                                      reason=f"{ally['name']} is summoned")
+                effects.extend(ally_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.SHARE_PIPELEAF:
                 leaf_effects, result = self._director.share_pipeleaf(
                     channel_id=channel_id, character=str(args.get("character", "")),

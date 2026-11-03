@@ -77,6 +77,9 @@ SET_GRIP = "set_grip"
 POISON_CHARACTER = "poison_character"
 SHARE_PIPELEAF = "share_pipeleaf"
 WEAR_ARMOR = "wear_armor"
+DOMINATE = "dominate"
+SUMMON_ALLY = "summon_ally"
+CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
@@ -974,6 +977,40 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=DOMINATE,
+        description=("Dominate: the caster spends one hold to make the target speak a few words of their choice, "
+                     "give them something they hold, make a concerted attack on a target of their choice, or "
+                     "truthfully answer one question. At no hold the spell ends; damage to the target costs a hold."),
+        parameters=_s(type=_OBJECT, properties={
+            "character": _s(type=_STRING), "command": _s(type=_STRING, enum=["speak", "give", "attack", "answer"]),
+            "reason": _s(type=_STRING, description="What exactly: the words, the item, the target, the question.")},
+            required=["character", "command"]),
+    ),
+    types.FunctionDeclaration(
+        name=SUMMON_ALLY,
+        description=("After Summon Monster or Animate Dead is cast: the creature arrives with the traits the player "
+                     "chose (no more than Gary rolled). It acts as the caster's character with only the basic moves "
+                     "(make_move actor=its name), +1 to all stats, 1 HP; at 0 HP it's destroyed."),
+        parameters=_s(type=_OBJECT, properties={
+            "character": _s(type=_STRING, description="The caster."), "name": _s(type=_STRING),
+            "kind": _s(type=_STRING, description="What it is: 'a shadow mastiff', 'the bandit's corpse'."),
+            "traits": _s(type=_ARRAY, items=_s(type=_STRING, enum=[
+                "boost", "careful", "d8", "durable", "adaptation", "brain", "lifelike"])),
+            "boosted": _s(type=_STRING, description="boost: which stat gets +2 (str, dex, con, int, wis, cha)."),
+            "adaptation": _s(type=_STRING, description="adaptation: what it is (wings, gills, climbs walls).")},
+            required=["character", "name", "kind"]),
+    ),
+    types.FunctionDeclaration(
+        name=CONTINGENCY,
+        description=("Contingency: action=hold right after it's cast -- the 5th-level-or-lower spell they hold and its "
+                     "trigger (no more words than their level); action=release when the trigger happens or they "
+                     "choose -- it takes effect without a roll, on target if it needs one."),
+        parameters=_s(type=_OBJECT, properties={
+            "character": _s(type=_STRING), "action": _s(type=_STRING, enum=["hold", "release"]),
+            "spell": _s(type=_STRING), "trigger": _s(type=_STRING), "target": _s(type=_STRING)},
+            required=["character", "action"]),
     ),
     types.FunctionDeclaration(
         name=WEAR_ARMOR,

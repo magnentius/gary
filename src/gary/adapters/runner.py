@@ -18,9 +18,12 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Optional, Sequence
 
-from ..fsm import AfflictMonster, ChangeHp, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo, UpdateSheet
+from ..fsm import (
+    AfflictMonster, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
+    UpdateSheet, creature_harmed, summon_fell,
+)
 from ..models import Mutation, MutationKind
 from ..ports import Narrator, NarrationResult
 
@@ -77,7 +80,29 @@ class EffectRunner:
             return
 
         if isinstance(effect, ChangeHp):
+            before = self._hp_of(effect)
             self._change_hp(effect)
+            if self._store is not None and before is not None and effect.hp < before:
+                state = self._store.state()
+                follow = (creature_harmed(state, effect.name, effect.channel_id) if effect.kind == "monster" else
+                          summon_fell(state, effect.name, effect.channel_id) if effect.hp <= 0 else [])
+                for more in follow:  # what the blow broke: a spell's hold, a summoned creature
+                    await self._run_one(more, depth)
+            return
+
+        if isinstance(effect, ConditionMonster):
+            if self._store is not None:
+                diff = self._store.apply([Mutation(MutationKind.MONSTER_CONDITIONS, effect.name,
+                                                   {"conditions": [dict(c) for c in effect.conditions]})],
+                                         reason=f"{effect.name}: {[c.get('kind') for c in effect.conditions] or 'free'}")
+                if not diff.ok:
+                    log.warning("conditions on %s refused: %s", effect.name, diff.rejected)
+            return
+
+        if isinstance(effect, Dismiss):
+            if self._store is not None:
+                self._store.apply([Mutation(MutationKind.SHEET, effect.name, {"sheet": None})],
+                                  reason=f"{effect.name} is gone")
             return
 
         if isinstance(effect, UpdateSheet):
@@ -110,6 +135,14 @@ class EffectRunner:
             return
 
         log.warning("no handler for effect %r", type(effect).__name__)
+
+    def _hp_of(self, effect: ChangeHp) -> Optional[int]:
+        if self._store is None:
+            return None
+        state = self._store.state()
+        record = (state.get("monsters") if effect.kind == "monster" else state.get("sheets") or {}) or {}
+        found = record.get(effect.name)
+        return int(found["hp"]) if found and "hp" in found else None
 
     def _change_hp(self, effect: ChangeHp) -> None:
         """Journalled like any other change, so ``/undo`` takes a blow back."""

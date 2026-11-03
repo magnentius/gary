@@ -658,6 +658,19 @@ def _h_monster_looted(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_monster_conditions(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the instance name; payload {"conditions": [{"kind", "spell", "caster"}]}: what
+    spells hold it (asleep, charmed, caged...). Undone by putting the old list back."""
+    record = store._state.setdefault("monsters", {}).get(m.target)
+    if record is None:
+        raise StateError(f"no creature named {m.target!r} in this scene")
+    before = [dict(c) for c in record.get("conditions") or []]
+    record["conditions"] = [dict(c) for c in m.payload.get("conditions") or []]
+    return AppliedMutation(mutation=m, inverse=Mutation(MutationKind.MONSTER_CONDITIONS, m.target,
+                                                        {"conditions": before}),
+                           before=before, after=record["conditions"])
+
+
 def _h_monster_afflict(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """``m.target`` is the instance name; payload {"afflictions": [...]}: the poisons working on
     it (Bloodweed, Serpent's Tears). Undone by putting the old list back."""
@@ -827,6 +840,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.OPENING: _h_opening,
     MutationKind.DUNGEON: _h_dungeon,
     MutationKind.WORLD: _h_world,
+    MutationKind.MONSTER_CONDITIONS: _h_monster_conditions,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,
