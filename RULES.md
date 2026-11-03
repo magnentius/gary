@@ -502,6 +502,12 @@ torch that lights the way also draws attention from eyes in the dark"). Torches,
 spikes come from adventuring gear: pull one out and Gary marks off a use, five to a pack, and
 when the pack is empty you don't have one. Light and Darkness are spells, cast as usual.
 
+**The rest of the dungeon gear** does what the book says. Open a **keg of dwarven stout** for
+everyone and your Carouse takes +1 (the keg is gone). When your **bag of books** has just the
+right book, Spout Lore takes +1 and a use is marked off. Share **halfling pipeleaf** with someone
+and two uses buy +1 forward to Parley with them. Bandages, poultices, healing potions, antitoxin
+and every ration count their uses as they're spent.
+
 **The campaign map.** The book has the GM start a campaign map once the party first heads back
 to civilisation, and keep drawing it. Gary keeps it: steadings and dungeons go on as soon as
 they exist, the GM adds landmarks and terrain, and routes between places are measured in days

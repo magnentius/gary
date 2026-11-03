@@ -1341,3 +1341,46 @@ def test_a_poisoned_characters_blows_are_weaker(director, registry, dice, scene)
     dice.queue(5, 3)  # d10 5 +1, then the Bloodweed d4: 3
     text = sends_in(roll_damage(director, only_check(registry).check_id, user_id=BOB))[0].text
     assert "-1d4 Bloodweed: 3 = 3" in text
+
+
+# -- dungeon gear: the keg, the bag of books, the pipeleaf -----------------------------------
+
+def _with(director, name, *items, coins=0):
+    from gary.gear import item_for
+
+    _geared(director, name, [item_for(i)[0] for i in items])
+    director._sheet_for(name)["coins"] = coins
+
+
+def test_a_keg_of_stout_broached_for_all_is_plus_one_to_carouse(director, registry):
+    from gary.fsm import UpdateSheet
+
+    _with(director, "Kethra", "Keg of dwarven stout", coins=200)
+    effects = make_move(director, "carouse", coins=100, keg=True)
+    assert any(isinstance(e, UpdateSheet) and e.changes["gear"] == [] for e in effects)
+    assert only_check(registry).modifier == 1
+    _with(director, "Kethra", coins=200)
+    (note,) = prompts_in(make_move(director, "carouse", coins=100, keg=True))
+    assert "keg" in note.payload["error"].lower()
+
+
+def test_the_right_book_is_plus_one_to_spout_lore_and_a_use(director, registry):
+    from gary.fsm import UpdateSheet
+
+    _with(director, "Kethra", "Bag of books")
+    effects = make_move(director, "spout_lore", book=True)
+    (update,) = [e for e in effects if isinstance(e, UpdateSheet)]
+    assert update.changes["gear"][0]["uses"] == 4
+    assert any("+1 the right book (4 left in the bag)" in e.text for e in sends_in(effects))
+
+
+def test_sharing_pipeleaf_spends_two_uses_for_plus_one_forward(director):
+    from gary.fsm import UpdateSheet
+
+    _with(director, "Kethra", "Halfling pipeleaf")
+    effects, result = director.share_pipeleaf(channel_id=CHANNEL, character="Kethra", with_whom="the reeve")
+    assert result["ok"] and result["uses_left"] == 4
+    assert any(isinstance(e, UpdateSheet) and e.changes.get("gear", [{}])[0].get("uses") == 4 for e in effects)
+    director._sheet_for("Kethra")["gear"][0]["uses"] = 1
+    _, refused = director.share_pipeleaf(channel_id=CHANNEL, character="Kethra", with_whom="the reeve")
+    assert "only 1 use left" in refused["error"]

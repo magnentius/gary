@@ -426,6 +426,8 @@ class Director:
         movement: bool = False,
         mortal_magic: bool = False,
         weapon: str = "",
+        keg: bool = False,
+        book: bool = False,
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -530,7 +532,7 @@ class Director:
                     return [*spend, *cast]
             return cast
         if rules.key == "carouse":
-            return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds)
+            return self._open_carouse(channel_id, user_id, actor, int(coins or 0), stakes, ttl_seconds, keg)
         if rules.stat == OFFERS:
             return self._open_recruit(channel_id, user_id, actor, offers, stakes, ttl_seconds, forward, target)
         if rules.stat == LOYALTY:
@@ -777,6 +779,18 @@ class Director:
         if appetite:
             flags.append("appetite")
             notes.append("1d6+1d8, chasing an appetite")
+        if book and rules.key == "spout_lore":
+            # Bag of Books: "When your bag of books contains just the right book for the subject
+            # you're spouting lore on, consult the book, mark off a use, and take +1 to your roll."
+            from . import trade
+
+            try:
+                consulted, left = trade.use_up(self._sheet_or_empty(actor), "Bag of Books")
+            except trade.TradeError as exc:
+                return [self._refuse(channel_id, str(exc), "Re-issue make_move without book.")]
+            mod += 1
+            notes.append(f"+1 the right book ({left} left in the bag)")
+            spend = [*spend, UpdateSheet(channel_id, actor, {"gear": consulted["gear"]})]
         if movement:
             mod += 1  # On the Move: "When you defy a danger caused by movement... take +1"
             notes.append("+1 On the Move")
@@ -1019,7 +1033,7 @@ class Director:
 
     def _open_carouse(
         self, channel_id: int, user_id: int, actor: str, coins: int, stakes: str,
-        ttl_seconds: Optional[float],
+        ttl_seconds: Optional[float], keg: bool = False,
     ) -> List[Effect]:
         """Carouse: "spend 100 coin and roll + extra 100s of coin spent". Whole hundreds only;
         the coin goes when the party is resolved, so a party never thrown costs nothing."""
@@ -1038,9 +1052,22 @@ class Director:
                                  "Re-issue make_move with coins they can afford, or narrate them "
                                  "short of the money.")]
         extra = spend // 100 - 1
-        return self._open(channel_id, user_id, actor, "carouse", NOTHING, extra, stakes, "",
-                          ttl_seconds, f"Carouse with {spend} coins", ["+1 for each 100 past the first"]
-                          if extra else ())
+        notes = ["+1 for each 100 past the first"] if extra else []
+        opened: List[Effect] = []
+        if keg:
+            # "When you open a keg of dwarven stout and let everyone drink freely, take +1 to your
+            # Carouse roll."
+            from . import trade
+
+            try:
+                drunk, _ = trade.use_up(sheet, "Keg of Dwarven Stout")
+            except trade.TradeError as exc:
+                return [self._refuse(channel_id, str(exc), "Re-issue make_move without keg.")]
+            extra += 1
+            notes.append("+1 a keg of dwarven stout, broached for all")
+            opened = [UpdateSheet(channel_id, actor, {"gear": drunk["gear"]})]
+        return [*opened, *self._open(channel_id, user_id, actor, "carouse", NOTHING, extra, stakes, "",
+                                     ttl_seconds, f"Carouse with {spend} coins", notes)]
 
     def _open_recruit(
         self, channel_id: int, user_id: int, actor: str, offers: Sequence[str], stakes: str,
@@ -3632,6 +3659,28 @@ class Director:
         if not reason:
             return [], {"ok": False, "error": "Say what it is for (reason): when it applies."}
         return self._grant(channel_id, actor, reason, amount=amount), {"ok": True, "forward": amount}
+
+    def share_pipeleaf(self, *, channel_id: int, character: str, with_whom: str) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Halfling Pipeleaf: "When you share halfling pipeleaf with someone, expend two uses and
+        take +1 forward to parley with them." """
+        from . import trade
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        who = " ".join(str(with_whom or "").split())[:60]
+        if not who:
+            return [], {"ok": False, "error": "Say who they share it with."}
+        try:
+            smoked, left = trade.use_up(sheet, "Halfling Pipeleaf", uses=2)
+        except trade.TradeError as exc:
+            return [], {"ok": False, "error": str(exc)}
+        return [
+            SendMessage(channel_id, f"🍂 **{actor}** shares halfling pipeleaf with {who} ({left} uses left)."),
+            UpdateSheet(channel_id, actor, {"gear": smoked["gear"]}),
+            *self._grant(channel_id, actor, f"to parley with {who} (shared pipeleaf)", amount=1),
+        ], {"ok": True, "uses_left": left, "note": f"+1 forward to Parley with {who} only: set forward=true then."}
 
     # -- debilities -----------------------------------------------------------------------------
 

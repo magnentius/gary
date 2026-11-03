@@ -75,6 +75,7 @@ WORLD_MAP = "world_map"
 PROMOTE_MONSTER = "promote_monster"
 SET_GRIP = "set_grip"
 POISON_CHARACTER = "poison_character"
+SHARE_PIPELEAF = "share_pipeleaf"
 CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
@@ -134,6 +135,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "own stat; omit it."
                     ),
                 ),
+                "keg": _s(type=types.Type.BOOLEAN, description=(
+                    "carouse: they open a keg of dwarven stout they carry for everyone (+1, the keg is gone).")),
+                "book": _s(type=types.Type.BOOLEAN, description=(
+                    "spout_lore: their bag of books holds just the right book (+1, a use marked off).")),
                 "weapon": _s(type=_STRING, description=(
                     "For hack_and_slash or volley: the weapon they say they use, from their sheet ('dagger', "
                     "'spear') -- one whose range suits the distance (hand: grappling; close: arm's reach; reach: "
@@ -968,6 +973,13 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=SHARE_PIPELEAF,
+        description=("A character shares halfling pipeleaf with someone: two uses spent, +1 forward to Parley "
+                     "with them."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "with_whom": _s(type=_STRING)},
+                      required=["character", "with_whom"]),
     ),
     types.FunctionDeclaration(
         name=POISON_CHARACTER,

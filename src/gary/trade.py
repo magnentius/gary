@@ -147,14 +147,24 @@ def rummage(sheet: Dict[str, Any], what: str) -> Tuple[Dict[str, Any], int]:
     what = " ".join(str(what or "").split())
     if not what:
         raise TradeError("Say what they pull out (a torch, a rope, chalk, spikes...).")
+    return use_up(sheet, "Adventuring gear")
+
+
+def use_up(sheet: Dict[str, Any], item_name: str, uses: int = 1) -> Tuple[Dict[str, Any], int]:
+    """Mark off ``uses`` of an item with uses (a bag of books, pipeleaf, adventuring gear): (new
+    sheet, uses left). The last use takes the item, and its weight with it; an item without uses
+    (a keg) is used up whole."""
     gear = list(sheet.get("gear") or [])
-    index = next((i for i, g in enumerate(gear) if str(g.get("name", "")).lower() == "adventuring gear"), None)
+    index = next((i for i, g in enumerate(gear) if str(g.get("name", "")).lower() == item_name.lower()), None)
     if index is None:
-        raise TradeError(f"{sheet['name']} has no adventuring gear left: they don't have one to hand.")
+        raise TradeError(f"{sheet['name']} has no {item_name.lower()} left: they don't have one to hand.")
     item = dict(gear[index])
-    uses = int(item["uses"]) if "uses" in item else next(
-        (int(m[1]) for t in item.get("tags") or () if (m := re.fullmatch(r"(\d+) uses?", str(t)))), 5)
-    left = uses - 1
+    have = int(item["uses"]) if "uses" in item else next(
+        (int(m[1]) for t in item.get("tags") or () if (m := re.fullmatch(r"(\d+) uses?", str(t)))), 1)
+    if have < uses:
+        raise TradeError(f"{sheet['name']}'s {item_name.lower()} has only {have} use{'s' if have != 1 else ''} left; "
+                         f"this takes {uses}.")
+    left = have - uses
     if left <= 0:
         gear.pop(index)
     else:

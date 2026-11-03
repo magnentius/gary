@@ -493,6 +493,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.SHARE_PIPELEAF:
+                leaf_effects, result = self._director.share_pipeleaf(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    with_whom=str(args.get("with_whom", "") or ""))
+                effects.extend(leaf_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.FORWARD:
                 fwd_effects, result = self._director.give_forward(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -772,6 +780,8 @@ class GeminiNarrator:
             dragon_nature=bool(args.get("dragon_nature")),
             hurl=bool(args.get("hurl")),
             weapon=str(args.get("weapon", "") or ""),
+            keg=bool(args.get("keg")),
+            book=bool(args.get("book")),
             appetite=bool(args.get("appetite")),
             movement=bool(args.get("movement")),
             mortal_magic=bool(args.get("mortal_magic")),
