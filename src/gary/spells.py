@@ -342,6 +342,12 @@ def describe(sheet: Dict[str, Any]) -> str:
     if sheet.get("borrowed_spell"):
         parts.append(f"borrowed: {sheet['borrowed_spell']}")
     ongoing = [s.name + (f" on {t}" if t else "") for s, t in running(sheet)]
+    servant = next((e for e in sheet.get("ongoing") or () if e.get("spell") == "Unseen Servant"), None)
+    if servant is not None and ongoing:
+        load = servant.get("carrying") or []
+        weight = sum(int(g.get("weight", 0)) for g in load)
+        ongoing = [o + (f" (carrying {', '.join(g['name'] for g in load) or 'nothing'}: {weight} of 3)"
+                        if o.startswith("Unseen Servant") else "") for o in ongoing]
     if ongoing:
         parts.append(f"ongoing: {', '.join(ongoing)}")
     penalty, _ = casting_modifier(sheet)

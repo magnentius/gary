@@ -78,6 +78,7 @@ POISON_CHARACTER = "poison_character"
 SHARE_PIPELEAF = "share_pipeleaf"
 WEAR_ARMOR = "wear_armor"
 DOMINATE = "dominate"
+UNSEEN_SERVANT = "unseen_servant"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -977,6 +978,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=UNSEEN_SERVANT,
+        description=("The caster hands their Unseen Servant an item (give) or takes one back (take). It carries up "
+                     "to weight 3, which leaves the caster's load; it can't pick things up itself. If it takes damage "
+                     "or leaves their presence, end_spell: it drops what it carried where it was."),
+        parameters=_s(type=_OBJECT, properties={
+            "character": _s(type=_STRING), "action": _s(type=_STRING, enum=["give", "take"]),
+            "item": _s(type=_STRING)}, required=["character", "action", "item"]),
     ),
     types.FunctionDeclaration(
         name=DOMINATE,

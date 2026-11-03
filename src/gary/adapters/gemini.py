@@ -493,6 +493,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.UNSEEN_SERVANT:
+                servant_effects, result = self._director.unseen_servant(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    action=str(args.get("action", "") or ""), item=str(args.get("item", "") or ""))
+                effects.extend(servant_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name in (T.DOMINATE, T.CONTINGENCY):
                 if name == T.DOMINATE:
                     spell_effects, result = self._director.dominate(

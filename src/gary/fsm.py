@@ -3325,11 +3325,67 @@ class Director:
             running = ", ".join(e["spell"] for e in before) or "none"
             return [], {"ok": False, "error": f"{actor} has no {spell!r} running. Ongoing: {running}."}
         name = next(e["spell"] for e in before if e.get("spell", "").lower() == folded)
+        changes: Dict[str, Any] = {"ongoing": kept}
+        line = f"✨ **{actor}**'s {name} ends."
+        load = [g for e in before if e.get("spell") == name for g in e.get("carrying") or ()]
+        if load:
+            # "An unseen servant that takes damage or leaves your presence is immediately dispelled,
+            # dropping any items it carried": on the ground, to pick up or leave behind.
+            changes["thrown"] = [*(sheet.get("thrown") or []), *({"name": g["name"], "item": g} for g in load)]
+            line += f" What it carried drops where it was: {', '.join(g['name'] for g in load)}."
         return [
-            SendMessage(channel_id, f"✨ **{actor}**'s {name} ends."),
-            UpdateSheet(channel_id, actor, {"ongoing": kept}),
+            SendMessage(channel_id, line),
+            UpdateSheet(channel_id, actor, changes),
             *self._lift(channel_id, actor, [name]),
-        ], {"ok": True, "ended": name}
+        ], {"ok": True, "ended": name, **({"dropped": [g["name"] for g in load]} if load else {})}
+
+    def unseen_servant(self, *, channel_id: int, character: str, action: str, item: str
+                       ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Unseen Servant: "It has load 3 and carries anything you hand to it. It cannot pick up items
+        on its own." Handed items leave the caster's load; taken back, they return."""
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        ongoing = [dict(e) for e in sheet.get("ongoing") or []]
+        servant = next((e for e in ongoing if e.get("spell") == "Unseen Servant"), None)
+        if servant is None:
+            return [], {"ok": False, "error": f"{actor} has no Unseen Servant running."}
+        load = [dict(g) for g in servant.get("carrying") or []]
+        wanted = " ".join(str(item or "").split()).lower()
+        gear = [dict(g) for g in sheet.get("gear") or []]
+        ammo, rations = int(sheet.get("ammo", 0)), int(sheet.get("rations", 0))
+        if action == "give":
+            found = next((g for g in gear if g["name"].lower() == wanted), None) or next(
+                (g for g in gear if wanted and wanted in g["name"].lower()), None)
+            if found is None:
+                return [], {"ok": False, "error": f"{actor} isn't carrying {item!r}."}
+            weight = int(found.get("weight", 0))
+            held = sum(int(g.get("weight", 0)) for g in load)
+            if held + weight > 3:
+                return [], {"ok": False, "error": f"The servant's load is 3: it holds {held}, and {found['name']} "
+                                                  f"weighs {weight}."}
+            gear.remove(found)
+            load.append(found)
+            ammo, rations = max(0, ammo - int(found.get("ammo", 0))), max(0, rations - int(found.get("rations", 0)))
+            line = f"✨ **{actor}** hands the unseen servant {found['name']} — it floats a few paces behind."
+        elif action == "take":
+            found = next((g for g in load if g["name"].lower() == wanted), None) or next(
+                (g for g in load if wanted and wanted in g["name"].lower()), None)
+            if found is None:
+                return [], {"ok": False, "error": f"The servant isn't carrying {item!r}: "
+                                                  f"{', '.join(g['name'] for g in load) or 'nothing'}."}
+            load.remove(found)
+            gear.append(found)
+            ammo, rations = ammo + int(found.get("ammo", 0)), rations + int(found.get("rations", 0))
+            line = f"✨ **{actor}** takes {found['name']} back from the unseen servant."
+        else:
+            return [], {"ok": False, "error": "action is give or take."}
+        servant["carrying"] = load
+        return [SendMessage(channel_id, line), UpdateSheet(channel_id, actor, {
+            "gear": gear, "ongoing": ongoing, "ammo": ammo, "rations": rations, "armor": armor_for(sheet, gear)})], {
+            "ok": True, "carrying": [g["name"] for g in load],
+            "load": f"{sum(int(g.get('weight', 0)) for g in load)} of 3"}
 
     def _lift(self, channel_id: int, caster: str, spell_names: Sequence[str]) -> List[Effect]:
         """A caster's spells end: the conditions they left on creatures go, and a summoned creature

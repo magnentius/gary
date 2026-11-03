@@ -112,7 +112,9 @@ Spells that take hold of a creature mark it, and Gary keeps to it: Sleep (1d4 of
 name), Charm Person, Hold Person, Cage, Cause Fear, Polymorph and Dominate. An asleep, held or
 caged creature can't attack. Pain wakes a sleeper and breaks Charm and Hold; each blow costs
 Dominate a hold (1d4 to start, one spent per command, the spell ends at none). Ending a spell
-frees the creature. Spells also end themselves: Invisibility when its target attacks, Alarm
+frees the creature. An **Unseen Servant** carries what you hand it, up to weight 3, off your
+own load; dispelled (a blow, out of your presence, or dismissed), it drops it all where it was,
+to pick up again or leave behind. Spells also end themselves: Invisibility when its target attacks, Alarm
 when you next prepare, anything "until you cast" when you cast again. **Mirror Image** takes a
 blow on a d6 of 4–6 and is gone. **Summon Monster** and **Animate Dead** roll their traits; the
 creature joins you as your character with the basic moves, and is destroyed at 0 HP or

@@ -232,3 +232,30 @@ async def test_leaving_ends_a_cloudkill_out_of_sight(rig):
     result = await player(n, "we get out of there")
     assert store.state()["sheets"]["Mae"]["ongoing"] == []
     assert any("Mae's Cloudkill (out of sight, it fades)" in getattr(e, "text", "") for e in result.effects)
+
+
+def test_unseen_servant_carries_up_to_three_and_drops_it_when_dispelled(director, sheets):
+    from gary import gear
+    from gary.sheets import carried
+
+    books, rope = gear.item_for("Bag of books")[0].to_dict(), gear.item_for("Adventuring gear")[0].to_dict()
+    tome = {"name": "Tome of Ash", "tags": [], "weight": 2}
+    sheets["Mae"].update(gear=[books, rope, tome], coins=0, ammo=0, rations=0,
+                         ongoing=[{"spell": "Unseen Servant", "target": ""}])
+    before = carried(sheets["Mae"])
+    effects, given = director.unseen_servant(channel_id=CHANNEL, character="Mae", action="give", item="bag of books")
+    apply(effects, sheets, {})
+    assert given["load"] == "2 of 3" and carried(sheets["Mae"]) == before - 2
+    _, too_heavy = director.unseen_servant(channel_id=CHANNEL, character="Mae", action="give", item="tome of ash")
+    assert "load is 3" in too_heavy["error"]
+    effects, _ = director.unseen_servant(channel_id=CHANNEL, character="Mae", action="give", item="adventuring gear")
+    apply(effects, sheets, {})
+    from gary.spells import describe
+    assert "Unseen Servant (carrying Bag of Books, Adventuring Gear: 3 of 3)" in describe(sheets["Mae"])
+    effects, ended = director.end_spell(channel_id=CHANNEL, character="Mae", spell="Unseen Servant")
+    apply(effects, sheets, {})
+    assert ended["dropped"] == ["Bag of Books", "Adventuring Gear"]
+    assert [t["name"] for t in sheets["Mae"]["thrown"]] == ["Bag of Books", "Adventuring Gear"]
+    from gary import trade
+    back, got = trade.add_items(sheets["Mae"], ["bag of books"])  # picked up again: the very one
+    assert got == ["Bag of Books (recovered)"]
