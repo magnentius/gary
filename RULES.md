@@ -521,6 +521,12 @@ Planes. In the Greyfen (Swamp), the GM reaches for the Swamp's creatures first, 
 dungeon with a setting. When the GM writes and reviews fronts it gets every setting's creatures and
 what lives where, to populate dangers and the threats that are only tangentially related to them.
 
+**Shields and two-handed weapons.** A shield is +1 armor on top of what you wear; you hold one,
+so a second doesn't add. If you carry both a shield and a two-handed weapon (a halberd, a staff),
+you have one or the other in hand: shield up (its armor, and you fight with a one-handed weapon)
+or both hands (the two-handed weapon, and no shield armor). Switching is something you do in the
+story — slinging the shield, taking up the halberd — and the GM records it; `/sheet` shows which.
+
 **Dungeons.** Dungeon World doesn't draw dungeons in advance; the GM builds them as you
 explore, with the book's Dungeon Moves (change the environment, point to a looming threat,
 introduce a new faction or creature, use a threat from one, make you backtrack, present riches

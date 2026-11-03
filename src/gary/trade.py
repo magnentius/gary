@@ -44,7 +44,7 @@ def _quantity(name: str) -> Tuple[int, str]:
 
 def _recount(sheet: Dict[str, Any], gear: List[Dict[str, Any]], ammo: int, rations: int,
              coins: int) -> Dict[str, Any]:
-    return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": max(0, ammo),
+    return {**sheet, "gear": gear, "armor": armor_of(gear, str(sheet.get("grip") or "")), "ammo": max(0, ammo),
             "rations": max(0, rations), "coins": max(0, coins)}
 
 

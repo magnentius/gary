@@ -281,13 +281,27 @@ def items_of(gear: Sequence[Dict[str, Any]]) -> List[Item]:
     return [Item.from_dict(g) for g in gear]
 
 
-def armor_of(gear: Sequence[Dict[str, Any]]) -> int:
-    """The best worn armor plus every shield. Two coats of mail are not twice the armor."""
+GRIPS = ("shield", "both hands")
+
+
+def has_grip(gear: Sequence[Dict[str, Any]]) -> bool:
+    """A shield and a two-handed weapon: one or the other is in hand -- "It takes two hands to use
+    it effectively." Only then does a grip matter."""
     items = items_of(gear)
-    return max((i.armor for i in items), default=0) + sum(i.shield for i in items)
+    return any(i.shield for i in items) and any("two-handed" in i.tags for i in items)
 
 
-def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int) -> Optional[Item]:
+def armor_of(gear: Sequence[Dict[str, Any]], grip: str = "") -> int:
+    """The best worn armor plus a shield. Two coats of mail are not twice the armor, and one arm
+    holds one shield. With both hands on a two-handed weapon, the shield isn't up."""
+    items = items_of(gear)
+    shield = max((i.shield for i in items), default=0)
+    if grip == "both hands" and has_grip(gear):
+        shield = 0
+    return max((i.armor for i in items), default=0) + shield
+
+
+def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int, grip: str = "") -> Optional[Item]:
     """The weapon a character attacks with at that range, or None if they have none.
 
     The best of what reaches -- most damage, then most piercing -- and a weapon that
@@ -298,6 +312,8 @@ def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int) -> Optio
         i for i in items_of(gear)
         if any(r in reach for r in i.ranges) and (not i.needs_ammo or ammo > 0)
     ]
+    if grip != "both hands" and has_grip(gear):  # shield up: a two-handed weapon only if nothing else
+        usable = [i for i in usable if "two-handed" not in i.tags] or usable
     return max(usable, key=lambda i: (i.damage, i.piercing), default=None)
 
 

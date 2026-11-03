@@ -77,7 +77,23 @@ def here(world: Optional[Dict[str, Any]], scene: Dict[str, Any]) -> Optional[Dic
         if key in places:
             return places[key]
     where = slug(scene.get("location") or "")
-    return next((places[k] for k in sorted(places, key=len, reverse=True) if k and k in where), None)
+    found = next((places[k] for k in sorted(places, key=len, reverse=True) if k and k in where), None)
+    if found:
+        return found
+    # "The Greyfen - western margin" is at "The Edge of the Greyfen": match on the names' own words.
+    words = set(where.split("_"))
+    scored = [(len(_distinct(p["name"]) & words), p) for p in places.values()]
+    best = max(scored, key=lambda t: t[0], default=(0, None))
+    return best[1] if best[0] else None
+
+
+_GENERIC = {"the", "of", "and", "edge", "road", "north", "south", "east", "west", "old", "great", "little",
+            "upper", "lower", "deep", "high", "new", "town", "village", "keep", "city", "woods", "wood", "forest",
+            "hills", "river", "lake", "marsh", "swamp", "mountains", "pass", "ruins", "tower", "mine", "cave"}
+
+
+def _distinct(name: str) -> set:
+    return {w for w in slug(name).split("_") if len(w) > 2 and w not in _GENERIC}
 
 
 def route(world: Optional[Dict[str, Any]], a: str, b: str, days: int = 0, terrain: str = "") -> Dict[str, Any]:

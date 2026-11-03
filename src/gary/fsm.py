@@ -2314,7 +2314,7 @@ class Director:
 
     def _weapon(self, sheet: Dict[str, Any], move: str):
         return weapon_for(sheet.get("gear") or [], ranged=MOVES[move].ranged,
-                          ammo=int(sheet.get("ammo", 0)))
+                          ammo=int(sheet.get("ammo", 0)), grip=str(sheet.get("grip") or ""))
 
     def _damage_die(self, check: PendingCheck) -> Tuple[str, int, str]:
         """(damage expression, piercing, weapon name) for this attack.

@@ -95,6 +95,10 @@ def test_a_place_has_a_monster_setting_and_the_gm_sees_its_creatures_there():
     assert worldmap.place(w, "The Greyfen", setting="Moonbase")["places"]["the_greyfen"]["setting"] == "Swamp"
     shown = render_live_state({"world": w, "scene": {"location": "Deep in the Greyfen, a drowned causeway"}})
     assert "Creatures of The Greyfen (Swamp), first:" in shown
+    edge = worldmap.place(None, "The Edge of the Greyfen", "terrain", setting="Swamp")  # as seen live
+    edge = worldmap.place(edge, "Fenwick Woods", "terrain", setting="Woods")
+    assert worldmap.here(edge, {"location": "The Greyfen - western margin"})["setting"] == "Swamp"
+    assert worldmap.here(edge, {"location": "A clearing in the woods"}) is None  # "woods" alone is no name
 
 
 def test_the_front_work_is_given_the_monster_settings():

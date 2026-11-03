@@ -1315,6 +1315,25 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.SET_GRIP:
+            from ..gear import GRIPS, armor_of, has_grip
+
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            grip = str(args.get("grip", "")).strip().lower()
+            if who is None or grip not in GRIPS:
+                return {"ok": False, "error": "Name a character, and grip 'shield' or 'both hands'."}
+            sheet = sheets[who]
+            if not has_grip(sheet.get("gear") or []):
+                return {"ok": False, "error": f"{who} doesn't carry both a shield and a two-handed weapon."}
+            new = {**sheet, "grip": grip, "armor": armor_of(sheet["gear"], grip)}
+            result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})],
+                                              reason=f"{who}: {grip}"))
+            if result.get("ok"):
+                result["post"] = (f"🛡️ **{who}** raises the shield — armor {new['armor']}." if grip == "shield" else
+                                  f"⚔️ **{who}** takes the weapon in both hands — armor {new['armor']}, shield slung.")
+            return result
+
         if name == T.PROMOTE_MONSTER:
             scene = store.state().get("monsters") or {}
             old = next((n for n in scene if n.lower() == str(args.get("monster", "")).strip().lower()), None)

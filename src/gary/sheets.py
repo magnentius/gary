@@ -403,7 +403,7 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
             gear.extend(item_for(m[2])[0].to_dict() for _ in range(int(m[1])))
         else:
             gear.append(i.to_dict())
-    return {**sheet, "gear": gear, "armor": armor_of(gear), "ammo": ammo_of(gear),
+    return {**sheet, "gear": gear, "armor": armor_of(gear, str(sheet.get("grip") or "")), "ammo": ammo_of(gear),
             "rations": rations_of(gear), "coins": int(sheet.get("coins", 0)) + coins}
 
 
@@ -468,6 +468,14 @@ def xp_line(sheet: Dict[str, Any]) -> str:
     return f"{xp}/{needed} XP" + (", ready to level up" if xp >= needed else "")
 
 
+def _grip_note(sheet: Dict[str, Any]) -> str:
+    from .gear import has_grip
+
+    if not has_grip(sheet.get("gear") or []):
+        return ""
+    return " (two-handed weapon in both hands, shield slung)" if sheet.get("grip") == "both hands" else " (shield up)"
+
+
 def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     """One line for the table and for the model: who, what, and the numbers rolls use.
 
@@ -480,7 +488,7 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
     who = f"{sheet['name']} — " if with_name else ""
     line = (
         f"{who}{sheet['race']} {sheet['class']} {sheet['level']} ({xp_line(sheet)}), "
-        f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}, "
+        f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}{_grip_note(sheet)}, "
         f"damage {sheet['damage']} · {stats}"
     )
     if sheet.get("debilities"):

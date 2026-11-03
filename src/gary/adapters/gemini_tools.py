@@ -73,6 +73,7 @@ MOUNT = "mount"
 RITUAL = "ritual"
 WORLD_MAP = "world_map"
 PROMOTE_MONSTER = "promote_monster"
+SET_GRIP = "set_grip"
 CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
@@ -955,6 +956,19 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=SET_GRIP,
+        description=(
+            "A character carrying both a shield and a two-handed weapon changes what's in hand: 'shield' (the "
+            "shield's armor, a one-handed weapon) or 'both hands' (the two-handed weapon, no shield armor). It takes "
+            "a moment in the fiction -- slinging the shield, drawing the halberd -- and can be dangerous mid-fight."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"character": _s(type=_STRING), "grip": _s(type=_STRING, enum=["shield", "both hands"])},
+            required=["character", "grip"],
         ),
     ),
     types.FunctionDeclaration(
