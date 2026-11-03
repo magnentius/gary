@@ -3371,6 +3371,14 @@ class Director:
         existing = hirelings.find(sheet, hired["name"])
         if existing:
             return [], {"ok": False, "error": f"{actor} already employs {existing['name']}."}
+        top = max((int(r) for r in (hired.get("skills") or {}).values()), default=0)
+        if top > int(sheet.get("level", 1)):
+            # "Generally hirelings only work for adventurers of equal or higher level than their
+            # highest skill."
+            return [], {"ok": False, "error": (
+                f"{hired['name']}'s best skill is rank {top}, and hirelings generally only work for "
+                f"adventurers of at least that level; {actor} is level {sheet.get('level', 1)}. Offer someone "
+                f"whose best rank is {sheet.get('level', 1)} or less.")}
         return [
             SendMessage(channel_id, f"🤝 **{actor}** hires {hirelings.label(hired)}."),
             UpdateSheet(channel_id, actor, {"hirelings": [*(sheet.get("hirelings") or []), hired]}),

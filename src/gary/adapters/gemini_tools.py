@@ -835,7 +835,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "Give their skills with ranks (Adept, Burglar, Minstrel, Priest, Protector, Tracker, "
             "Warrior), loyalty, cost (The Thrill of Victory, Money, Uncovered Knowledge, Fame and Glory, "
             "Debauchery, Good Accomplished) and where they were found: their loyalty and skill ranks "
-            "share village 5, town 6, keep 8 or city 10 points. Starting loyalty is usually 0-2."
+            "share village 5, town 6, keep 8 or city 10 points. Starting loyalty is usually 0-2. No skill "
+            "may outrank the employer's level: hirelings work for adventurers at least as experienced."
         ),
         parameters=_s(
             type=_OBJECT,

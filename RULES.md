@@ -524,7 +524,8 @@ session you found it. `/picture` can draw any magic item the party carries.
 generous pay, saying what you're setting out to do, offering a share, and a useful
 reputation. Whoever joins is made by the book — skills (Adept, Burglar, Minstrel, Priest,
 Protector, Tracker, Warrior) with ranks, loyalty and a cost, their points set by where you
-found them (village 5 up to city 10) — and kept on your sheet. Ordering one into something
+found them (village 5 up to city 10) — and kept on your sheet. As the book has it, no hireling's
+best skill outranks your level: a level 2 character can't hire a rank 4 warrior. Ordering one into something
 dangerous or degrading is Order Hirelings, +their loyalty (-1 while their pay lapses). The
 GM sees each skill's rule, and Gary applies the ones with numbers: a hired Priest adds their
 skill to camp healing and can give first aid (2×skill HP, -1 forward); a Warrior aiding your

@@ -54,7 +54,15 @@ def test_recruit_rolls_plus_one_for_each_offer(director, registry):
     assert "No Recruit offer 'free beer'" in note.payload["error"]
 
 
+def test_a_hireling_works_only_for_an_adventurer_of_their_level_or_more(director, sheets):
+    """"Generally hirelings only work for adventurers of equal or higher level than their highest skill." """
+    _, result = director.hire(channel_id=CHANNEL, character="dorn", name="Bram", skills={"Protector": 3},
+                              loyalty=1, cost="Money", found_in="town")
+    assert "best skill is rank 3" in result["error"] and "level 1" in result["error"]
+
+
 def test_hiring_paying_and_losing_one(director, sheets):
+    sheets["Dorn"]["level"] = 3
     effects, result = director.hire(channel_id=CHANNEL, character="dorn", name="Bram",
                                     skills={"Protector": 3}, loyalty=1, cost="Money", found_in="town")
     assert result["ok"] and UpdateSheet(CHANNEL, "Dorn", {"hirelings": [BRAM]}) in effects
