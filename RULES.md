@@ -521,6 +521,14 @@ Planes. In the Greyfen (Swamp), the GM reaches for the Swamp's creatures first, 
 dungeon with a setting. When the GM writes and reviews fronts it gets every setting's creatures and
 what lives where, to populate dangers and the threats that are only tangentially related to them.
 
+**Which weapon.** Range tags say how far a weapon is useful — hand (within your reach), close
+(arm's reach and a foot or two), reach (several feet), near (the whites of their eyes), far
+(shouting distance) — with no bonuses or penalties: the GM judges whether the distance fits. Say
+what you attack with ("I stab him with my dagger") and that weapon's damage, piercing and magic
+are the ones used; say nothing and Gary uses your best for the move. A thrown weapon with no ammo
+count of its own — a spear, a hand axe — is gone when Volley's "mark off ammo" comes up, until
+you pick it up again.
+
 **Shields and two-handed weapons.** A shield is +1 armor on top of what you wear; you hold one,
 so a second doesn't add. If you carry both a shield and a two-handed weapon (a halberd, a staff),
 you have one or the other in hand: shield up (its armor, and you fight with a one-handed weapon)

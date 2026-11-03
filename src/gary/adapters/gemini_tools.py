@@ -133,6 +133,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "own stat; omit it."
                     ),
                 ),
+                "weapon": _s(type=_STRING, description=(
+                    "For hack_and_slash or volley: the weapon they say they use, from their sheet ('dagger', "
+                    "'spear') -- one whose range suits the distance (hand: grappling; close: arm's reach; reach: "
+                    "several feet; near: the whites of their eyes; far: shouting distance). Omit for their best.")),
                 "target": _s(
                     type=_STRING,
                     description=(

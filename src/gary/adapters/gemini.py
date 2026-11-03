@@ -769,6 +769,7 @@ class GeminiNarrator:
             weapon_leverage=bool(args.get("weapon_leverage")),
             dragon_nature=bool(args.get("dragon_nature")),
             hurl=bool(args.get("hurl")),
+            weapon=str(args.get("weapon", "") or ""),
             appetite=bool(args.get("appetite")),
             movement=bool(args.get("movement")),
             mortal_magic=bool(args.get("mortal_magic")),

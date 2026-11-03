@@ -1223,3 +1223,52 @@ def test_enough_xp_says_ready_to_level_up(director, dice):
     dice.queue(1, 1)
     assert ("**Kethra** marks XP — 8/8 XP, ready to level up. When there's downtime, `/sheet` has "
             "the Level up button.") in [e.text for e in sends_in(roll(director))]
+
+
+# -- the weapon they say they use ----------------------------------------------------------
+
+def test_a_named_weapon_is_the_one_used(director, registry, dice, scene):
+    from gary.gear import DAGGER, LONG_SWORD
+
+    scene["Goblin 1"] = goblin(hp=20)
+    _geared(director, "Dorn", [LONG_SWORD, DAGGER])  # the sword is better, but they're grappling
+    make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB, weapon="dagger")
+    dice.queue(6, 6)
+    roll(director, user_id=BOB)
+    ask = sends_in(choose(director, only_check(registry).check_id, [0], user_id=BOB))[-1]
+    assert ask.text == "**Dorn**, roll your damage (d10, Dagger) against Goblin 1."
+
+
+def test_a_weapon_they_dont_carry_or_that_doesnt_fit_is_refused(director):
+    from gary.gear import HUNTERS_BOW, LONG_SWORD
+
+    _geared(director, "Dorn", [LONG_SWORD, HUNTERS_BOW])
+    (note,) = prompts_in(make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB, weapon="axe"))
+    assert "no 'axe'" in note.payload["error"] and "Long sword" in note.payload["error"]
+    (note,) = prompts_in(make_move(director, "hack_and_slash", actor="Dorn", user_id=BOB, weapon="bow"))
+    assert "no 'bow'" in note.payload["error"]
+
+
+def test_a_thrown_spear_is_gone_when_its_ammo_is_marked_off(director, registry, dice):
+    from gary.fsm import SpendAmmo, UpdateSheet
+    from gary.gear import ARROWS, DRUID_SPEAR, HUNTERS_BOW
+
+    _geared(director, "Kethra", [HUNTERS_BOW, ARROWS, DRUID_SPEAR])
+    make_move(director, "volley", weapon="spear")
+    dice.queue(3, 2)
+    roll(director)
+    check_id = only_check(registry).check_id
+    choose(director, check_id, [2])  # take several shots: "mark off ammo"
+    dice.queue(4)
+    effects = roll_damage(director, check_id)
+    assert not [e for e in effects if isinstance(e, SpendAmmo)]  # the arrows are untouched
+    (update,) = [e for e in effects if isinstance(e, UpdateSheet)]
+    assert [g["name"] for g in update.changes["gear"]] == ["Hunter's bow", "Bundle of arrows"]
+    assert any("spear is gone" in e.text for e in sends_in(effects))
+
+
+def test_their_best_never_throws_a_weapon_away_unasked():
+    from gary import gear
+
+    kit = [gear.HUNTERS_BOW.to_dict(), gear.ARROWS.to_dict(), gear.DRUID_SPEAR.to_dict()]
+    assert gear.weapon_for(kit, ranged=True, ammo=3).name == "Hunter's bow"

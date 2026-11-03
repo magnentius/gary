@@ -301,6 +301,16 @@ def armor_of(gear: Sequence[Dict[str, Any]], grip: str = "") -> int:
     return max((i.armor for i in items), default=0) + shield
 
 
+def weapon_named(gear: Sequence[Dict[str, Any]], name: str, ranged: bool, ammo: int) -> Optional[Item]:
+    """The weapon they said they use, if they carry it and it suits the move: "a player would
+    have a hard time justifying" a Hand weapon at ten yards, and the GM judges the distance."""
+    reach = RANGED if ranged else MELEE
+    wanted = " ".join(str(name or "").split()).lower()
+    fits = [i for i in items_of(gear) if any(r in reach for r in i.ranges) and (not i.needs_ammo or ammo > 0)]
+    return next((i for i in fits if i.name.lower() == wanted), None) or next(
+        (i for i in fits if wanted and wanted in i.name.lower()), None)
+
+
 def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int, grip: str = "") -> Optional[Item]:
     """The weapon a character attacks with at that range, or None if they have none.
 
@@ -314,7 +324,8 @@ def weapon_for(gear: Sequence[Dict[str, Any]], ranged: bool, ammo: int, grip: st
     ]
     if grip != "both hands" and has_grip(gear):  # shield up: a two-handed weapon only if nothing else
         usable = [i for i in usable if "two-handed" not in i.tags] or usable
-    return max(usable, key=lambda i: (i.damage, i.piercing), default=None)
+    # On a tie a bow beats the spear: their best never throws away a weapon unasked.
+    return max(usable, key=lambda i: (i.damage, i.piercing, "thrown" not in i.tags), default=None)
 
 
 def rations_of(gear: Sequence[Dict[str, Any]]) -> int:

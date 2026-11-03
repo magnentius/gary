@@ -31,7 +31,7 @@ from . import (
     advanced, bonds, choices, companion as companions, damage, hirelings, magic, multiclass, quests, reactions,
     slimes, spells, steadings, trade,
 )
-from .gear import armor_of as gear_armor, items_of, rations_of, weapon_for
+from .gear import MELEE, RANGED, armor_of as gear_armor, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
@@ -413,6 +413,7 @@ class Director:
         appetite: bool = False,
         movement: bool = False,
         mortal_magic: bool = False,
+        weapon: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -629,11 +630,24 @@ class Director:
                     return [self._refuse(channel_id, str(exc), "Choose a move the slime can make.")]
                 notes.append(f"{pet['name']} acts")
             # A precise weapon hacks and slashes with Dex, not Str -- where Dex is better.
+            if weapon and rules.attacks and not rules.damage_die and "gear" in sheet:
+                from .gear import weapon_named
+
+                chosen = weapon_named(sheet["gear"], weapon, rules.ranged, int(sheet.get("ammo", 0)))
+                if chosen is None:
+                    fits = [i.name for i in items_of(sheet["gear"]) if any(
+                        r in (RANGED if rules.ranged else MELEE) for r in i.ranges)]
+                    return [self._refuse(
+                        channel_id, f"{actor} has no {weapon!r} to {rules.name} with"
+                        + (f"; what fits: {', '.join(fits)}." if fits else "."),
+                        "Re-issue make_move with one of those as weapon, or without weapon.")]
+                weapon = chosen.name
+                notes.append(f"with the {weapon.lower()}")
             if rules.key == "hack_and_slash" and "gear" in sheet:
-                weapon = self._weapon(sheet, rules.key)
+                weapon_item = self._weapon(sheet, rules.key, weapon)
                 dex = stat_modifier(sheet, "dex")
-                precise = weapon is not None and ("precise" in weapon.tags
-                                                  or choices.precise_for(sheet, weapon.name))
+                precise = weapon_item is not None and ("precise" in weapon_item.tags
+                                                       or choices.precise_for(sheet, weapon_item.name))
                 if precise and dex > mod:
                     stat, mod = "dex", dex
             if debility_on(sheet, stat):
@@ -743,6 +757,8 @@ class Director:
             return [self._refuse(channel_id, situation, "Re-issue make_move without it.")]
         if hurl:
             flags.append("hurl")
+        if weapon:
+            flags.append(f"weapon:{weapon}")
         barbarian_why = self._barbarian_situation(rules.key, actor, appetite, movement, mortal_magic)
         if barbarian_why:
             return [self._refuse(channel_id, barbarian_why, "Re-issue make_move without it.")]
@@ -2039,7 +2055,7 @@ class Director:
             if might:
                 total, shown = total + might, f"{shown}, +{might} {warrior['name']} = {total + might}"
             sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
-            weapon = self._weapon(sheet, check.move) if sheet and "gear" in sheet else None
+            weapon = self._weapon(sheet, check.move, check) if sheet and "gear" in sheet else None
             for dice_spec, why in advanced.damage_dice(sheet or {}, check.move, weapon.tags if weapon else ()):
                 extra = int(dice_spec) if dice_spec.isdigit() else self.dice.roll(dice_spec).total
                 total, shown = total + extra, f"{shown}, +{dice_spec} {why}: {extra} = {total + extra}"
@@ -2312,7 +2328,16 @@ class Director:
                 f"HP {target['hp']} → {max(after, 0)}" + (" — **defeated**." if after <= 0 else "."))
         return [ChangeHp(channel_id, "monster", name, after)], facts, said
 
-    def _weapon(self, sheet: Dict[str, Any], move: str):
+    def _weapon(self, sheet: Dict[str, Any], move: str, wanted: str = ""):
+        """The weapon this attack uses: the one they named, else the best that fits."""
+        if isinstance(wanted, PendingCheck):
+            wanted = next((f[len("weapon:"):] for f in wanted.flags if f.startswith("weapon:")), "")
+        if wanted:
+            from .gear import weapon_named
+
+            named = weapon_named(sheet.get("gear") or [], wanted, MOVES[move].ranged, int(sheet.get("ammo", 0)))
+            if named is not None:
+                return named
         return weapon_for(sheet.get("gear") or [], ranged=MOVES[move].ranged,
                           ammo=int(sheet.get("ammo", 0)), grip=str(sheet.get("grip") or ""))
 
@@ -2340,7 +2365,7 @@ class Director:
         # Halfling Thief: "When you attack with a ranged weapon, deal +2 damage."
         knack = 2 if (MOVES[check.move].ranged and sheet.get("class") == "Thief"
                       and sheet.get("race") == "Halfling") else 0
-        weapon = self._weapon(sheet, check.move) if "gear" in sheet else None
+        weapon = self._weapon(sheet, check.move, check) if "gear" in sheet else None
         spec = damage.parse(die)
         bonus = knack + (weapon.damage if weapon is not None else 0)
         boosted = str(damage.DamageSpec(spec.sides, spec.mode, spec.modifier + bonus)) if bonus else die
@@ -2363,6 +2388,20 @@ class Director:
         sheet = self._sheet_for(check.actor) if self._sheet_for is not None else None
         if not sheet or "gear" not in sheet:
             return []
+        used = self._weapon(sheet, check.move, check)
+        if used is not None and "thrown" in used.tags and not used.needs_ammo:
+            # Thrown: "your options to 'mark off ammo' instead mean you have no more of this
+            # weapon left, it's gone" -- until someone picks it up.
+            gear = [dict(g) for g in sheet["gear"]]
+            at = next((i for i, g in enumerate(gear) if g.get("name") == used.name), None)
+            if at is not None:
+                del gear[at]
+                return [
+                    SendMessage(channel_id, f"**{check.actor}**'s {used.name.lower()} is gone — thrown; "
+                                            "it can be picked up later."),
+                    UpdateSheet(channel_id, check.actor, {"gear": gear, "armor": gear_armor(
+                        gear, str(sheet.get("grip") or ""))}),
+                ]
         left = max(0, int(sheet.get("ammo", 0)) - 1)
         return [
             SendMessage(channel_id, f"**{check.actor}** has {left} ammo left."),
