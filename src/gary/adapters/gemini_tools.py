@@ -66,6 +66,7 @@ STUN = "stun"
 SWEAR_ENEMY = "swear_enemy"
 RESOLVE_APPETITE = "resolve_appetite"
 GIVE_MAGIC_ITEM = "give_magic_item"
+RUMMAGE = "rummage"
 MARK_XP = "mark_xp"
 END_QUEST = "end_quest"
 TREASURE = "roll_treasure"
@@ -942,6 +943,22 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "reason": _s(type=_STRING, description="Short reason, e.g. 'short rest'."),
             },
             required=["minutes", "reason"],
+        ),
+    ),
+    types.FunctionDeclaration(
+        name=RUMMAGE,
+        description=(
+            "A character pulls a useful mundane item from their adventuring gear -- a torch, rope, chalk, "
+            "spikes, a pole: they find what they need and Gary marks off a use (5 to a pack; the last use "
+            "empties it). Refused when they have none left -- then they don't have it. Not for weapons, armor "
+            "or anything the book lists on its own."
+        ),
+        parameters=_s(
+            type=_OBJECT,
+            properties={"actor": _s(type=_STRING),
+                        "what": _s(type=_STRING, description="What they pull out: 'a torch', '50 feet of rope'."),
+                        "reason": _s(type=_STRING)},
+            required=["actor", "what"],
         ),
     ),
     types.FunctionDeclaration(

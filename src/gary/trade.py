@@ -65,6 +65,29 @@ def _rations_for(sheet: Dict[str, Any], item) -> int:
     return item.rations
 
 
+def rummage(sheet: Dict[str, Any], what: str) -> Tuple[Dict[str, Any], int]:
+    """Adventuring gear: "When you rummage through your adventuring gear for some useful mundane
+    item, you find what you need and mark off a use." (new sheet, uses left). The last use takes
+    the gear itself, and its weight with it."""
+    what = " ".join(str(what or "").split())
+    if not what:
+        raise TradeError("Say what they pull out (a torch, a rope, chalk, spikes...).")
+    gear = list(sheet.get("gear") or [])
+    index = next((i for i, g in enumerate(gear) if str(g.get("name", "")).lower() == "adventuring gear"), None)
+    if index is None:
+        raise TradeError(f"{sheet['name']} has no adventuring gear left: they don't have one to hand.")
+    item = dict(gear[index])
+    uses = int(item["uses"]) if "uses" in item else next(
+        (int(m[1]) for t in item.get("tags") or () if (m := re.fullmatch(r"(\d+) uses?", str(t)))), 5)
+    left = uses - 1
+    if left <= 0:
+        gear.pop(index)
+    else:
+        gear[index] = {**item, "uses": left}
+    ammo, rations, coins = _counts(sheet)
+    return _recount(sheet, gear, ammo, rations, coins), max(0, left)
+
+
 def add_magic_item(sheet: Dict[str, Any], name: str, text: str = "", tags: Sequence[str] = ()) -> Tuple[Dict[str, Any], str]:
     """Give a magic item: carried as gear, with its text (magic.py)."""
     from .magic import entry

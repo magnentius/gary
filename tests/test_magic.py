@@ -55,3 +55,17 @@ def test_a_carried_magic_item_can_be_pictured():
     state = {"players": {"1": "Anna"}, "sheets": {"Anna": sheet}}
     assert ("item", "Vorpal Sword") in pictures.subjects(state)
     assert "Snicker-snack" in pictures.prompt(state, "item", "Vorpal Sword")
+
+
+def test_rummaging_marks_off_a_use_and_the_last_empties_the_pack():
+    sheet, _ = trade.add_items(SHEET, ["adventuring gear"])
+    assert carried(sheet) == 1
+    for left in (4, 3, 2, 1):
+        sheet, got = trade.rummage(sheet, "a torch")
+        assert got == left
+    sheet, got = trade.rummage(sheet, "chalk")
+    assert got == 0 and carried(sheet) == 0  # its weight goes with it
+    with pytest.raises(trade.TradeError, match="no adventuring gear left"):
+        trade.rummage(sheet, "a torch")
+    with pytest.raises(trade.TradeError, match="Say what they pull out"):
+        trade.rummage(SHEET, "")

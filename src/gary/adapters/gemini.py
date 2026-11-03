@@ -361,7 +361,7 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
-            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL, T.GIVE_MAGIC_ITEM):
+            if name in (T.GIVE_ITEMS, T.TAKE_ITEMS, T.GIVE_COINS, T.BUY, T.SELL, T.GIVE_MAGIC_ITEM, T.RUMMAGE):
                 trade_effects, result = self._trade(channel_id, name, args)
                 effects.extend(trade_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
@@ -866,7 +866,13 @@ class GeminiNarrator:
 
         sheet = sheets[actor]
         try:
-            if name == T.GIVE_MAGIC_ITEM:
+            if name == T.RUMMAGE:
+                new, left = trade.rummage(sheet, str(args.get("what", "")))
+                found = " ".join(str(args.get("what", "")).split())
+                line = (f"🎒 **{actor}** rummages through their adventuring gear: {found}"
+                        + (f" ({left} use{'s' if left != 1 else ''} left)." if left else " — the last of it."))
+                result = {"ok": True, "found": found, "uses_left": left}
+            elif name == T.GIVE_MAGIC_ITEM:
                 new, got_name = trade.add_magic_item(sheet, str(args.get("name", "")), str(args.get("text", "") or ""),
                                                      [str(t) for t in args.get("tags") or []])
                 line = f"✨ **{actor}** gets **{got_name}**" + (f" — {reason}" if reason else "") + "."
