@@ -1043,3 +1043,27 @@ async def test_a_new_location_starts_the_count_again(rig):
                  text_response("Again."))
     await player(n, "onward")
     assert list(store.state()["monsters"]) == ["Goblin 1"]
+
+
+async def test_a_call_that_ignores_its_cancel_cannot_hang_the_turn():
+    """Seen live: a request stalled on a dead socket swallowed wait_for's cancel for 17 minutes."""
+    import asyncio
+    import time
+
+    from gary.adapters.gemini import _bounded
+
+    released = asyncio.Event()
+
+    async def stubborn():
+        while not released.is_set():
+            try:
+                await asyncio.sleep(0.01)
+            except asyncio.CancelledError:
+                continue  # ignores it, as the stalled request did
+
+    started = time.monotonic()
+    with pytest.raises(asyncio.TimeoutError):
+        await _bounded(stubborn(), 0.05)
+    assert time.monotonic() - started < 1
+    released.set()  # let the abandoned call die, so the test's loop can close
+    assert await _bounded(asyncio.sleep(0, result="ok"), 1) == "ok"

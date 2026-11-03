@@ -176,8 +176,11 @@ def _homebrew(entry: Dict[str, Any]) -> Dict[str, Any]:
         record = {"kind": name, "hp": built["hp"], "armor": built["armor"],
                   "damage": str(damage.parse(built["damage"])), "piercing": built["piercing"],
                   "ignores_armor": built["ignores_armor"], "tags": built["tags"], "srd": False, "recipe": True}
-        instinct = " ".join(str(entry.get("instinct") or "").split())[:MAX_NATURE_TEXT]
-        moves = [" ".join(str(m).split())[:MAX_NATURE_TEXT] for m in entry.get("moves") or () if str(m).strip()]
+        recipe = entry["recipe"] if isinstance(entry["recipe"], dict) else {}
+        # The model often tucks these inside the recipe: they count wherever they are.
+        instinct = " ".join(str(entry.get("instinct") or recipe.get("instinct") or "").split())[:MAX_NATURE_TEXT]
+        moves = [" ".join(str(m).split())[:MAX_NATURE_TEXT] for m in entry.get("moves") or recipe.get("moves") or ()
+                 if str(m).strip()]
         if not instinct or not moves:
             raise MonsterError(f"{name}: a monster made by the book has an instinct (what it wants that causes "
                                "problems for others) and at least one move (what it is known to do)"

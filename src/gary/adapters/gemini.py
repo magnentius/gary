@@ -90,6 +90,20 @@ def _recent_text(payload: Dict[str, Any], contents: Sequence[Any], turns: int = 
     return "\n".join(parts)
 
 
+async def _bounded(coro, seconds: float) -> Any:
+    """``coro``'s result within ``seconds``, or asyncio.TimeoutError -- whether or not the call
+    honours its cancellation. asyncio.wait_for waits for the cancelled call to finish, and a
+    Gemini request stalled on a dead socket was seen to ignore the cancel and hang a turn for
+    seventeen minutes; this abandons it instead (cancelled, left to die on its own)."""
+    task = asyncio.ensure_future(coro)
+    done, _ = await asyncio.wait({task}, timeout=seconds)
+    if task in done:
+        return task.result()
+    task.cancel()
+    task.add_done_callback(lambda t: t.cancelled() or t.exception())  # no "never retrieved" noise
+    raise asyncio.TimeoutError(f"no answer in {seconds:.0f}s")
+
+
 class GeminiNarrator:
     def __init__(
         self,
@@ -1457,7 +1471,7 @@ class GeminiNarrator:
         last: Optional[Exception] = None
         for attempt in range(self._max_retries + 1):
             try:
-                return await asyncio.wait_for(make_call(model), timeout=self._timeout)
+                return await _bounded(make_call(model), self._timeout)
             except Exception as exc:  # noqa: BLE001
                 last = exc
                 if not _is_transient(exc) or attempt == self._max_retries:

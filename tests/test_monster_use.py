@@ -62,3 +62,14 @@ async def test_a_goblin_that_earned_the_spotlight_gets_a_name(clock):
     assert any(note["subject"] == "Grizzlegut" and note["kind"] == "threat" for note in store.state()["notes"])
     store.undo_last(); store.undo_last(); store.undo_last()
     assert "Goblin 2" in store.state()["monsters"] and "Grizzlegut" not in store.state()["monsters"]
+
+
+def test_a_recipe_with_its_instinct_and_moves_tucked_inside_is_accepted():
+    """Live, the model put them in the recipe twice and was refused twice."""
+    from gary.monsters import _homebrew
+
+    record = _homebrew({"name": "Goblin Overseer", "recipe": {
+        "moves": ["Lash with the barbed whip", "Drive the ogre into a frenzy", "Slip away through narrow crevices"],
+        "organization": "group", "traits": ["devious", "cautious"], "known_for": ["deft"], "defense": "leather",
+        "size": "small", "instinct": "To enslave the weak"}})
+    assert record["hp"] > 0 and record["recipe"]

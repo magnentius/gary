@@ -203,6 +203,22 @@ SCENARIOS: Dict[str, Scenario] = {
         goals={"Gorm": "Challenge the raiders, kill their chieftain and take his golden torc for yourself.",
                "Thorin": "Keep Gorm alive and help finish the raiders."},
     ),
+    "rivals": Scenario(
+        "rivals",
+        "Low fantasy borderlands. Goblins of the Burnt Hand tribe hold an ogre in chains to work their mine.",
+        ("The goblin mine's cavern", "Four goblins with spears prod a chained ogre toward a cart of ore. Their boss, "
+                                     "a scarred goblin with a whip, shouts orders. The ogre's chain is pinned to the "
+                                     "rock by one iron stake. The goblins have not seen the party."),
+        [
+            ("Dorn", "I creep to the stake and smash the ogre's chain free."),
+            ("Thorin", "I shout to the ogre in its own tongue: your tormentors are there — take your revenge!"),
+            ("Dorn", "While the ogre tears into them, I go for the boss with the whip."),
+            ("Dorn", "If the boss runs, I let him go and turn on whatever goblins are left."),
+            ("Thorin", "I stay out of the ogre's reach and watch where the boss flees."),
+        ],
+        goals={"Dorn": "Free the ogre so it turns on the goblins, then deal with their boss.",
+               "Thorin": "Turn the ogre against its captors and keep clear of it; mark where the boss flees."},
+    ),
     "camp": Scenario(
         "camp",
         "Low fantasy borderlands. Goblin raiders harry the old road.",
@@ -327,7 +343,8 @@ class Table:
         if client is None:
             from google import genai
 
-            client = genai.Client(api_key=os.environ["GEMINI_API_KEY"])
+            client = genai.Client(api_key=os.environ["GEMINI_API_KEY"],
+                                  http_options=genai.types.HttpOptions(timeout=90_000))
         self.rng = random.Random(seed)
         self.store = CampaignStore(backend=InMemoryStateBackend(), clock=time.time)
         self.registry = PendingCheckRegistry(clock=time.time, ttl_seconds=3600)

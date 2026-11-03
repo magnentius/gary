@@ -2030,7 +2030,9 @@ def build_narrator(settings: Settings, director, store, history_backend) -> Narr
 
     log.info("narrating with %s", settings.gemini_model)
     return GeminiNarrator(
-        client=genai.Client(api_key=settings.gemini_api_key),
+        # The SDK's own HTTP timeout too (ms), so a stalled socket read gives up underneath us.
+        client=genai.Client(api_key=settings.gemini_api_key, http_options=genai.types.HttpOptions(
+            timeout=int(settings.gemini_timeout_seconds * 1000))),
         director=director,
         store=store,
         history_backend=history_backend,
