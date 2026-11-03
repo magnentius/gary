@@ -485,6 +485,12 @@ and only they see the answer. Once a front is over (every danger stopped, or its
 Gary shows the table what it held: what each danger wanted, which portents came to pass, which
 never did, and what its doom was or would have been. Every change undoes with `/undo`.
 
+**Pictures.** Anyone can ask for a `/picture` of a character, someone the party has met or heard
+of, a creature in the scene, or a place they know — never anything still hidden. Gary draws it
+from what's recorded (a character's look, a person's description, a creature's tags), always in
+the same painted style, and keeps the first picture of each, so a face stays the same; `redraw`
+makes a new one. New pictures are capped per day.
+
 **People you know.** Every named person is recorded, and `/npcs` lists the ones the party has
 met or heard of: each with how they feel about you (hostile, wary, neutral, friendly or
 devoted) and a line on who they are. The GM's notes on them stay hidden, and so do people

@@ -28,7 +28,7 @@ where = ["src"]
 # non-editable install (which is what a container is) ships no data/*.json, and the
 # first `?dm new` fails instead of the build.
 [tool.setuptools.package-data]
-gary = ["data/*.json"]
+gary = ["data/*.json", "data/*.jpg"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

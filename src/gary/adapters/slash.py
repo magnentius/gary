@@ -39,6 +39,7 @@ __Starting__
 __At the table__
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
 `/npcs` · `/npcs name:` — the people you've met or heard of
+`/picture subject:` — a picture of a character, someone you've met, a creature here, or a place (`redraw:True` for a new one)
 `/dice` · `/dice character:` — the dice so far, against fair 2d6
 `/checks` — what Gary is waiting on, with a button to cancel your own
 `/undo` — reverse the last change to the world
@@ -206,6 +207,39 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     @app_commands.autocomplete(name=known_people)
     async def npcs(interaction: "discord.Interaction", name: Optional[str] = None) -> None:
         await run(interaction, f"npcs {name or ''}")
+
+    async def picturable(interaction: "discord.Interaction", current: str) -> List[app_commands.Choice[str]]:
+        from .. import pictures
+
+        found = pictures.subjects(client.store.state())
+        return [app_commands.Choice(name=f"{name} ({kind})"[:100], value=name[:100]) for kind, name in found
+                if current.lower() in name.lower()][:25]
+
+    @tree.command(name="picture", description="A picture of a character, someone you've met, a creature here, or a place")
+    @app_commands.describe(subject="Who or what", redraw="Draw a new one instead of the kept picture")
+    @app_commands.autocomplete(subject=picturable)
+    async def picture(interaction: "discord.Interaction", subject: str, redraw: bool = False) -> None:
+        if not playing_here(interaction):
+            await not_here(interaction)
+            return
+        from .. import pictures
+        from .pictures import PictureError
+
+        found = pictures.find(client.store.state(), subject)
+        if found is None:
+            await interaction.response.send_message(
+                f"I can't picture {subject!r}: only the characters, people you've met or heard of, creatures here "
+                "and places you know.", ephemeral=True)
+            return
+        await interaction.response.defer(thinking=True)
+        kind, name = found
+        try:
+            path, new = await client.painter.picture(client.store.state(), kind, name, redraw)
+        except PictureError as exc:
+            await interaction.followup.send(str(exc))
+            return
+        caption = f"🎨 **{name}**" + ("" if new else " (kept from before; `redraw:True` draws a new one)")
+        await interaction.followup.send(caption, file=discord.File(str(path), filename=path.name))
 
     @tree.command(name="notes", description="What has been filed, by subject")
     async def notes(interaction: "discord.Interaction") -> None:

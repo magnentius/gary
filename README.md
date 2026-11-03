@@ -56,7 +56,7 @@ in `~/.local/share/gary/campaign`. Run **one** Gary per campaign.
 **On Google Cloud:** an always-on free-tier VM running the same image —
 [`deploy/gcp/README.md`](deploy/gcp/README.md).
 
-When Gary connects, its log says `registered 15 slash command(s) in <your server>`. In the
+When Gary connects, its log says `registered 16 slash command(s) in <your server>`. In the
 game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
 ## Your first session
@@ -102,6 +102,7 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/checks` | What Gary is waiting on, with a button to cancel your own move. |
 | `/dice` | How the table's dice have fallen, against fair 2d6; `character:` for one character. |
 | `/npcs` | The people you've met or heard of, how they feel about you; `name:` for one. |
+| `/picture subject:` | A picture of a character, someone you've met, a creature in the scene, or a place you know, all in one painted style. The first one is kept; `redraw:True` makes a new one. |
 | `/undo` | Reverse the last change to the world. |
 | `/questions` | Show the end-of-session questions; `first:` `second:` `third:` set this adventure's own, `default:True` restores the book's. |
 | `/notes` | What's been filed, by subject. |
@@ -169,6 +170,8 @@ Everything is an environment variable. Only the first two are required.
 | `GARY_GEMINI_MODEL` | `gemini-3.8-flash` | The narrator. |
 | `GARY_GEMINI_FALLBACK_MODEL` | `gemini-3.7-flash` | Tried when the narrator is overloaded; empty disables it. |
 | `GARY_GEMINI_SUMMARY_MODEL` | `gemini-3.5-flash-lite` | Folds old conversation into a summary. |
+| `GARY_GEMINI_IMAGE_MODEL` | `gemini-3.1-flash-image` | Draws `/picture`s (about $0.07 each at the size Gary asks for). |
+| `GARY_IMAGES_PER_DAY` | `30` | New pictures a day; a kept one shown again is free. `0` turns pictures off. |
 | `GARY_GEMINI_TIMEOUT` | `90` | Seconds before a model call gives up. |
 | `GARY_HISTORY_WINDOW` | `30` | Turns kept word for word before summarising. |
 | `GARY_CHECK_TTL` | `180` | Seconds a move waits for its roll. |

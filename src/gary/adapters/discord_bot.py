@@ -514,6 +514,11 @@ class GaryClient(discord.Client):
         self.store = store
         self.clock = clock
         self.lock = lock
+        from .pictures import Painter
+
+        self.painter = Painter(getattr(settings, "gemini_api_key", ""), getattr(settings, "gemini_image_model", ""),
+                               Path(getattr(settings, "campaign_root", ".")) / "pictures",
+                               int(getattr(settings, "images_per_day", 0)))
         self.history_backend = history_backend
         self._reset_token: Optional[str] = None
         self.sender = ChannelSender(
@@ -1653,6 +1658,9 @@ class GaryClient(discord.Client):
 
             self._reset_token = None
             kept = self._keep_a_copy()
+            import shutil
+
+            shutil.rmtree(self.painter.folder, ignore_errors=True)  # the new campaign draws its own
             if (self.store.state().get("sheets") or self.store.state().get("setting")) and \
                     (self._opening().get("stage") != "finished"):  # a finished one has posted its chronicle
                 from .. import opening

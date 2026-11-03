@@ -108,6 +108,10 @@ class Settings:
     # The previous release, tried once when the narrator is overloaded (a new flash model
     # answered 503 "high demand" for days after release). Empty disables the fallback.
     gemini_fallback_model: str = "gemini-3.7-flash"
+    # /picture: the image model, and how many new pictures a day (a kept one shown again is free).
+    # About $0.067 an image at 1K with gemini-3.1-flash-image (checked 2026-11-03). 0 turns it off.
+    gemini_image_model: str = "gemini-3.1-flash-image"
+    images_per_day: int = 30
     history_window: int = 30
 
     check_ttl_seconds: float = 180.0
@@ -167,6 +171,8 @@ class Settings:
             gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
             gemini_timeout_seconds=float(e.get("GARY_GEMINI_TIMEOUT", 90.0)),
             gemini_fallback_model=e.get("GARY_GEMINI_FALLBACK_MODEL", "gemini-3.7-flash"),
+            gemini_image_model=e.get("GARY_GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image"),
+            images_per_day=int(e.get("GARY_IMAGES_PER_DAY", 30)),
             history_window=int(e.get("GARY_HISTORY_WINDOW", 30)),
             check_ttl_seconds=float(e.get("GARY_CHECK_TTL", 180.0)),
             sweep_interval_seconds=float(e.get("GARY_SWEEP_INTERVAL", 15.0)),
