@@ -366,7 +366,8 @@ class PremiseView(discord.ui.View):
 
 class OpeningButton(
     discord.ui.DynamicItem[discord.ui.Button],
-    template=r"gary:begin:(?P<step>introductions|questions|bonds|playing|mybonds|carryon|finale)",
+    template=r"gary:begin:(?P<step>introductions|questions|bonds|playing|mybonds|carryon|finale|campaign|oneshot"
+             r"|scene|break|epilogue|continue)",
 ):
     """The next step of /begin, for whoever ran it -- or, "mybonds", anyone's own Bonds form.
     Durable: the stage is in state, so a click after a restart still finds it."""
@@ -375,8 +376,8 @@ class OpeningButton(
         from ..opening import NEXT_LABEL
 
         mine = step == "mybonds"
-        label = "Write my bonds" if mine else NEXT_LABEL[step] if step in ("carryon", "finale") else \
-            f"Next: {NEXT_LABEL[step]}"
+        label = "Write my bonds" if mine else NEXT_LABEL[step] if step in (
+            "carryon", "finale", "campaign", "oneshot", "continue") else f"Next: {NEXT_LABEL[step]}"
         super().__init__(discord.ui.Button(
             label=label, emoji="🤝" if mine else "📖" if step == "finale" else "▶️",
             style=discord.ButtonStyle.secondary if mine else discord.ButtonStyle.primary,
@@ -744,17 +745,30 @@ class GaryClient(discord.Client):
         """`/begin`: start the adventure -- or show where the opening has got to."""
         from .. import opening
 
-        stage = self._opening().get("stage")
+        current = self._opening()
+        stage = current.get("stage")
         if stage in (None, "", "premise"):
             if not self._has_model:
                 await self.sender.send(channel_id, "/begin needs the model: set GEMINI_API_KEY.")
                 return
-            self._set_opening(message.author.display_name, stage="premise", starter=message.author.id, session=1)
+            if stage != "premise":
+                self._set_opening(message.author.display_name, stage="premise", starter=message.author.id, session=1)
+            if not current.get("mode"):
+                await self.sender.send(
+                    channel_id, "**Let's begin.** A campaign, played over many sessions, or a one-shot: one session of "
+                                "about four hours, three scenes and an ending?",
+                    prompt=OpeningPrompt(("campaign", "oneshot")))
+                return
             await self.offer_premise(channel_id)
             return
         if stage in ("playing", "session", "epilogue"):
             number = int(self._opening().get("session") or 1)
             await self.sender.send(channel_id, f"Session {number} is under way. `/end` finishes it.")
+            return
+        if stage == "finished" and current.get("mode") == "oneshot":
+            await self.sender.send(channel_id, "This one-shot is finished. Keep going with these characters as a "
+                                               "campaign, or `/reset` to start something new.",
+                                   prompt=OpeningPrompt(("continue",)))
             return
         if stage == "finished":
             await self.sender.send(channel_id, "This campaign is finished. `/reset` starts a new one; Gary keeps a "
@@ -771,6 +785,8 @@ class GaryClient(discord.Client):
             await self._next_session(message.author.display_name, channel_id)
             return
         nxt = opening.STAGES[opening.STAGES.index(stage) + 1]
+        if stage == "characters" and current.get("mode") == "oneshot":
+            nxt = "questions"  # a one-shot's characters already travel together
         await self.sender.send(channel_id, f"The opening is at **{stage}**. When the table is ready:",
                                prompt=OpeningPrompt(("mybonds", nxt) if stage == "bonds" else (nxt,)))
 
@@ -787,6 +803,66 @@ class GaryClient(discord.Client):
                                + (f" {', '.join(ready)}: you can level up from `/sheet` before we start."
                                   if ready else ""))
         await self.runner.run([PromptModel(channel_id, "rules_event", opening.session_event(number, party))])
+
+    async def _oneshot_step(self, interaction: "discord.Interaction", step: str) -> None:
+        """The mode at the start, and a one-shot's pacing: the next scene, the level-up break before
+        the finale, the epilogue -- and, when it is over, carrying on as a campaign."""
+        from .. import opening
+
+        channel_id, who = interaction.channel_id, interaction.user.display_name
+        current = self._opening()
+        stage, scene = current.get("stage"), int(current.get("scene") or 0)
+        allowed = {
+            "campaign": stage == "premise" and not current.get("mode"),
+            "oneshot": stage == "premise" and not current.get("mode"),
+            "scene": stage == "playing" and current.get("mode") == "oneshot"
+                     and (scene == 1 or (scene == 2 and current.get("break_done"))),
+            "break": stage == "playing" and scene == 2 and not current.get("break_done"),
+            "epilogue": stage == "playing" and scene == opening.ONESHOT_SCENES,
+            "continue": stage == "finished" and current.get("mode") == "oneshot",
+        }[step]
+        if not allowed:
+            await interaction.response.send_message("That step isn't open now: `/begin` shows where things are.",
+                                                    ephemeral=True)
+            return
+        try:
+            await interaction.response.edit_message(view=None)
+        except discord.HTTPException:
+            await interaction.response.defer()
+        if step in ("campaign", "oneshot"):
+            self._set_opening(who, mode=step)
+            await self.offer_premise(channel_id)
+        elif step == "scene":
+            self._set_opening(who, scene=scene + 1)
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.scene_event(scene + 1))])
+            if scene + 1 == 2:
+                await self.sender.send(channel_id, "When this scene is done, take a break and level up:",
+                                       prompt=OpeningPrompt(("break",)))
+            else:
+                await self.sender.send(channel_id, "When the dust settles:", prompt=OpeningPrompt(("epilogue",)))
+        elif step == "break":
+            # "XP is irrelevant": everyone gains a level at the break, whatever they have.
+            changes = []
+            for s in self._party_sheets():
+                if int(s.get("level", 1)) < 10 and int(s.get("xp", 0)) < xp_needed(s):
+                    changes.append(Mutation(MutationKind.SHEET, s["name"], {"sheet": {**s, "xp": xp_needed(s)}}))
+            if changes:
+                self.store.apply(changes, reason="one-shot level-up break")
+            self._set_opening(who, break_done=True)
+            await self.sender.send(channel_id, "☕ **Break.** Everyone gains a level: press **Level up** on `/sheet` "
+                                               "now. When you're back:", prompt=OpeningPrompt(("scene",)))
+        elif step == "epilogue":
+            self._set_opening(who, stage="epilogue")
+            await self.sender.send(channel_id, "📖 **The epilogue.** When everyone has told their ending, `/end` "
+                                               "closes the game.")
+            await self.runner.run([PromptModel(channel_id, "rules_event",
+                                               opening.epilogue_event(self._party_sheets(), oneshot=True))])
+        else:  # continue as a campaign: the next session is the campaign's first; fronts come after it
+            number = int(current.get("session") or 1) + 1
+            self._set_opening(who, mode="campaign", stage="playing", session=number)
+            await self.sender.send(channel_id, f"🎲 **Session {number}: the story goes on as a campaign.**")
+            await self.runner.run([PromptModel(channel_id, "rules_event",
+                                               opening.session_event(number, self._party_sheets()))])
 
     async def _campaign_choice(self, interaction: "discord.Interaction", step: str) -> None:
         """The campaign front is over: carry on in this world, or close with an epilogue."""
@@ -827,15 +903,18 @@ class GaryClient(discord.Client):
         self._set_opening("offered premises", offered=(offered + places + activities)[-16:])
         await self.sender.send(
             channel_id,
-            ("Some others. " if again else "**Let's begin.** Every adventure starts from a premise: a fantastic "
-             "place, and something grabby to do there. ")
+            ("Some others. " if again else
+             "A one-shot starts from a premise: a grabby thing to do, and the fantastic place where it ends -- the "
+             "final destination. " if self._opening().get("mode") == "oneshot" else
+             "Every adventure starts from a premise: a fantastic place, and something grabby to do there. ")
             + "Choose one of each, write your own, or ask for other options.",
             prompt=PremisePrompt(tuple(places), tuple(activities)))
 
     async def on_premise(self, interaction: "discord.Interaction", place: str, activity: str) -> None:
         from .. import opening
 
-        text = opening.premise(place, activity)[:self.MAX_SETTING_CHARS]
+        oneshot = self._opening().get("mode") == "oneshot"
+        text = opening.premise(place, activity, oneshot)[:self.MAX_SETTING_CHARS]
         who = interaction.user.display_name
         self.store.apply([Mutation(MutationKind.SETTING, "", {"text": text})], reason=f"premise by {who}")
         self._set_opening(who, stage="characters", premise=text)
@@ -847,8 +926,10 @@ class GaryClient(discord.Client):
             interaction.channel_id,
             f"🗺️ **{activity.strip()}** — at **{place.strip()}**.\n"
             "Everyone, make your character with `/new` (or `/playing` for one already made). When the whole "
-            "table is in, " + interaction.user.mention + " moves on to introductions.",
-            prompt=OpeningPrompt(("introductions",)))
+            "table is in, " + interaction.user.mention
+            + (" moves on to questions: your characters already know each other and travel together."
+               if oneshot else " moves on to introductions."),
+            prompt=OpeningPrompt(("questions",) if oneshot else ("introductions",)))
 
     async def on_opening_step(self, interaction: "discord.Interaction", step: str) -> None:
         from .. import opening
@@ -873,9 +954,13 @@ class GaryClient(discord.Client):
             return
         if not await self.may_run_opening(interaction):
             return
+        if step in ("campaign", "oneshot", "scene", "break", "epilogue", "continue"):
+            await self._oneshot_step(interaction, step)
+            return
         stage = self._opening().get("stage")
-        expected = {"introductions": "characters", "questions": "introductions", "bonds": "questions",
-                    "playing": "bonds"}[step]
+        oneshot = self._opening().get("mode") == "oneshot"
+        expected = {"introductions": "characters", "questions": "characters" if oneshot else "introductions",
+                    "bonds": "questions", "playing": "bonds"}[step]
         if stage != expected:
             await interaction.response.send_message(f"The opening is at {stage or 'nothing yet'}, not that step.",
                                                     ephemeral=True)
@@ -895,11 +980,17 @@ class GaryClient(discord.Client):
         if step == "introductions":
             await self.sender.send(channel_id, opening.introductions(party), prompt=OpeningPrompt(("questions",)))
         elif step == "questions":
-            await self.runner.run([PromptModel(channel_id, "rules_event", opening.questions_event(premise, party))])
+            await self.runner.run([PromptModel(channel_id, "rules_event",
+                                               opening.questions_event(premise, party, oneshot))])
             await self.sender.send(channel_id, "Answer by talking to Gary (@-mention him). When the premise is clear:",
                                    prompt=OpeningPrompt(("bonds",)))
         elif step == "bonds":
             await self.sender.send(channel_id, opening.bonds_text(), prompt=OpeningPrompt(("mybonds", "playing")))
+        elif oneshot:
+            self._set_opening(who, scene=1)
+            await self.runner.run([PromptModel(channel_id, "rules_event",
+                                               opening.opening_event(premise, party, oneshot=True))])
+            await self.sender.send(channel_id, "When this scene is done:", prompt=OpeningPrompt(("scene",)))
         else:
             await self.runner.run([PromptModel(channel_id, "rules_event", opening.opening_event(premise, party))])
 
@@ -1143,12 +1234,15 @@ class GaryClient(discord.Client):
                    if n.get("kind") == "threat"][-20:]
         current = self._opening()
         stage = current.get("stage")
+        if stage == "playing" and current.get("mode") == "oneshot":
+            stage = "epilogue"  # ended early: no epilogue round, but still closed with its chronicle
         if stage == "epilogue":
             # The last session: no more front work, just the record of what was.
             self._set_opening("campaign closed", stage="finished")
-            asyncio.create_task(self.sender.send(channel_id, opening.chronicle(self.store.state())
-                                                 + "\n\nThe campaign is closed. `/reset` starts a new one; Gary keeps "
-                                                   "a copy of this one first."))
+            closing = ("The one-shot is over. `/begin` can carry these characters on as a campaign; `/reset` "
+                       "starts something new, keeping a copy of this one first." if current.get("mode") == "oneshot"
+                       else "The campaign is closed. `/reset` starts a new one; Gary keeps a copy of this one first.")
+            asyncio.create_task(self.sender.send(channel_id, opening.chronicle(self.store.state()) + "\n\n" + closing))
             return line
         if stage == "playing":
             self._set_opening("first session over", stage="done")

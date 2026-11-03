@@ -31,6 +31,18 @@ bonds, with a question to one of you right away and "What do you do?". Whoever r
 presses **Next** at each step; `/begin` again shows where it has got to, and `/undo` steps
 back.
 
+**One-shots.** `/begin` first asks whether this is a campaign or a one-shot. A one-shot follows
+John Aegard's "Dragonslaying on a Timetable": the premise's place is the **final destination**;
+the characters already travel together, so there are no introductions; the questions build the
+setting, each character's stake and the enemy waiting at the end. Then three scenes, moved on
+with **Next scene**: an arrival, at first sight of a strange mob a place or two short of the
+destination; a branch, with three routes and something to outwit; and the finale at the
+destination against the enemy the answers named. Before the finale comes a **level-up break**,
+where everyone gains a level whatever their XP. **Epilogue** goes round the table for each
+character's ending, and `/end` closes the game with its chronicle — no fronts, which a single
+session has no room for. If the table wants more, `/begin` carries the same characters on as a
+campaign.
+
 After the first session, `/end` finishes each session and `/begin` starts the next: Gary
 recaps where things stand, names anyone who can level up, asks any Barbarian the Outsider's
 question about their homeland (answering marks XP, once a session), and reframes the scene

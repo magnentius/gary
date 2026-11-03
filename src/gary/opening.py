@@ -29,7 +29,16 @@ STAGES = ("premise", "characters", "introductions", "questions", "bonds", "playi
 #: What each step's button says, by the stage it leads to.
 NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "bonds": "Bonds",
               "playing": "Begin the adventure", "carryon": "Carry on in this world",
-              "finale": "Close the campaign with an epilogue"}
+              "finale": "Close the campaign with an epilogue",
+              "campaign": "A campaign", "oneshot": "A one-shot (about 4 hours)", "scene": "Next scene",
+              "break": "Level-up break", "epilogue": "Epilogue", "continue": "Continue as a campaign"}
+
+#: One-shot mode follows "Dragonslaying on a Timetable" (John Aegard, 2014): the characters
+#: already travel together toward one Final Destination; questions build the setting, the
+#: premises and the opposition; three scenes -- arrival, a branch, the finale -- with a level-up
+#: break before the last; then an epilogue. No fronts: the book notes that in a one-shot "the
+#: longer cycles of levels and bonds don't really kick in".
+ONESHOT_SCENES = 3
 
 OFFERED = 4  # of each: places and activities
 MAX_PART = 100  # a select option's label is 100 characters
@@ -73,8 +82,11 @@ def parse_offer(text: str) -> Tuple[List[str], List[str]]:
     return places[:OFFERED], activities[:OFFERED]
 
 
-def premise(place: str, activity: str) -> str:
+def premise(place: str, activity: str, oneshot: bool = False) -> str:
     """The standing premise, as the model will read it every turn."""
+    if oneshot:
+        return (f"A one-shot: {activity.strip().rstrip('.')} -- and it ends at {place.strip().rstrip('.')}, "
+                "the final destination.")
     return f"The adventure: {activity.strip().rstrip('.')} -- at {place.strip().rstrip('.')}."
 
 
@@ -90,8 +102,28 @@ def introductions(party: Sequence[Dict]) -> str:
     return "\n".join(lines)
 
 
-def questions_event(premise_text: str, party: Sequence[Dict]) -> Dict:
+def questions_event(premise_text: str, party: Sequence[Dict], oneshot: bool = False) -> Dict:
     who = ", ".join(f"{s['name']} ({s.get('race', '')} {s.get('class', '')})" for s in party)
+    if oneshot:
+        return {
+            "event": "One-shot: questions",
+            "premise": premise_text,
+            "characters": who,
+            "instruction": (
+                "A one-shot starts now; there is no world yet, and the table builds it. The characters already know "
+                "each other and are travelling to the same place: the final destination in the premise. Ask "
+                "questions, each to one CHARACTER by name, that build three things: the SETTING (ask the characters "
+                "tied to places first -- a Druid's land, a Ranger's wilds, a Barbarian's homeland, a Thief's city "
+                "-- then the others), the PREMISES (what each of them is doing and why; several premises are fine, "
+                "even at odds with one another, but every one must lead to the final destination, and every "
+                "character must have a stake in at least one), and the OPPOSITION (who or what guards the "
+                "destination; ask one question that names the final enemy). Draw on their class choices -- appetites, "
+                "lore, deities, poisons. Assert as much as you ask; ask several questions about one thing to give it "
+                "edges. Do not narrate a scene yet. As answers come in, record each as fact (upsert_npc, record_note) "
+                "and follow up until the premises are clear. Do not create fronts."
+                + _outsider_instruction(outsiders(party))
+            ),
+        }
     return {
         "event": "Opening: hook questions",
         "premise": premise_text,
@@ -150,10 +182,27 @@ def bonds_text() -> str:
             "**Bonds** on `/sheet`. Each names another character; at least one is enough to start.")
 
 
-def opening_event(premise_text: str, party: Sequence[Dict] = ()) -> Dict:
+def opening_event(premise_text: str, party: Sequence[Dict] = (), oneshot: bool = False) -> Dict:
     from .bonds import written
 
     bonds = {s["name"]: [written(b) for b in s.get("bonds") or ()] for s in party if s.get("bonds")}
+    if oneshot:
+        return {
+            "event": "One-shot: scene 1 of 3, getting underway",
+            "premise": premise_text,
+            "bonds": bonds,
+            "instruction": (
+                "This one-shot has three scenes: this arrival, a branch in the road, and a finale at the final "
+                "destination; Gary moves on when the table is ready. Remind the players once, briefly, that this is a "
+                "conversation and they can name a move when they see one. Start the party one or two places short of "
+                "the destination, at the moment they first see their enemy -- not already fighting. Make the enemy a "
+                "mob of six to ten weak creatures drawn from the answers (add_monsters with hp 4, armor 0, damage d6), "
+                "strange rather than goblins or orcs, with a move that entangles and a way of moving -- flying, "
+                "leaping or burrowing. Fold in a bond or two. Call set_scene. Reward Spout Lore, Discern Realities and "
+                "the like with answers that can win the fight, even on a 7-9; let a well-leveraged Parley work. Then "
+                "ask 'What do you do?' to a specific character."
+            ),
+        }
     return {
         "event": "Opening: the first scene",
         "premise": premise_text,
@@ -215,9 +264,47 @@ def fronts_event(threats: Sequence[str] = ()) -> Dict:
 
 # -- the end of a campaign -------------------------------------------------------------------
 
-def epilogue_event(party: Sequence[Dict]) -> Dict:
-    """The campaign front is over and the table chose to close the campaign."""
+def scene_event(scene: int) -> Dict:
+    """One-shot scenes 2 and 3."""
+    if scene == 2:
+        return {
+            "event": "One-shot: scene 2 of 3, the branch",
+            "instruction": (
+                "Wrap up the arrival in a sentence. Now offer three ways to the final destination, each a place "
+                "inspired by the answers (a drowned road, a smugglers' tunnel, a hermit's tower) and say what each "
+                "promises and risks; call set_scene and let the party choose. On the way, put them against something "
+                "that must be outwitted rather than fought -- a creature whose gaze petrifies, a sphinx's terms, a "
+                "puzzle-lock with teeth -- and let the route offer an ally, a secret or an item that will matter at "
+                "the end. End on 'What do you do?'."
+            ),
+        }
+    return {
+        "event": "One-shot: scene 3 of 3, the finale",
+        "instruction": (
+            "The party reaches the final destination. Bring on the big enemy the answers named -- a solitary "
+            "creature that is more than a bag of hit points: several parts or heads, a weak spot, terrain to use "
+            "(height, water, fire, onlookers). Play it hard: characters may die and meet Death. Keep the premises "
+            "alive in the fight -- tempt each character with their own goal at the worst moment. When the fight is "
+            "over, let the premises that pulled against each other come to a head before anyone leaves. End on "
+            "'What do you do?'."
+        ),
+    }
+
+
+def epilogue_event(party: Sequence[Dict], oneshot: bool = False) -> Dict:
+    """The campaign front is over and the table chose to close the campaign -- or a one-shot ends."""
     names = ", ".join(s["name"] for s in party)
+    if oneshot:
+        return {
+            "event": "One-shot: the epilogue",
+            "characters": names,
+            "instruction": (
+                "The one-shot is over. Go round the table: ask each character, by name, what becomes of them now, "
+                "saving for last the one whose story changed the most; let each player tell their own ending and add "
+                "a detail that honours it. Then give a line or two of epilogue for the people and places the table "
+                "cared about most, and close the story. No rolls."
+            ),
+        }
     return {
         "event": "The campaign's last session: an epilogue",
         "characters": names,

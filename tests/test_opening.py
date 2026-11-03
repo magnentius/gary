@@ -111,7 +111,7 @@ def table(clock):
 
     for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
                  "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work", "_next_session",
-                 "_campaign_choice"):
+                 "_campaign_choice", "_oneshot_step"):
         setattr(_Client, name, getattr(GaryClient, name))
     client = _Client()
     client.store = store
@@ -126,8 +126,10 @@ class _Msg:
 def test_the_whole_opening_in_order(table):
     client, store, sent, ran = table
     asyncio.run(client._begin(_Msg(), 7))
-    assert isinstance(sent[-1][1], PremisePrompt) and len(sent[-1][1].places) == 4
+    assert sent[-1][1] == OpeningPrompt(("campaign", "oneshot"))
     assert store.state()["opening"]["starter"] == 11
+    asyncio.run(client.on_opening_step(_Interaction(), "campaign"))
+    assert isinstance(sent[-1][1], PremisePrompt) and len(sent[-1][1].places) == 4
 
     # Someone else cannot choose for the table.
     other = _Interaction(uid=99)
@@ -302,3 +304,57 @@ def test_a_copy_is_kept_before_a_reset(tmp_path):
     assert not (again / "kept").exists()  # earlier copies are not copied into later ones
     _Settings.backend = "firestore"
     assert GaryClient._keep_a_copy(client) is None
+
+
+def test_a_one_shot_runs_three_scenes_a_break_and_an_epilogue(table):
+    client, store, sent, ran = table
+    end = _ender(client)
+    asyncio.run(client._begin(_Msg(), 7))
+    asyncio.run(client.on_opening_step(_Interaction(), "oneshot"))
+    assert store.state()["opening"]["mode"] == "oneshot" and "final destination" in sent[-1][0]
+    asyncio.run(client.on_premise(_Interaction(), "the Glass Spire", "steal the Choir's Bell"))
+    assert "it ends at the Glass Spire, the final destination" in store.state()["setting"]
+    assert sent[-1][1] == OpeningPrompt(("questions",))  # no introductions: they travel together
+
+    asyncio.run(client.on_opening_step(_Interaction(), "questions"))
+    assert ran[-1].payload["event"] == "One-shot: questions" and "OPPOSITION" in ran[-1].payload["instruction"]
+    asyncio.run(client.on_opening_step(_Interaction(), "bonds"))
+    asyncio.run(client.on_opening_step(_Interaction(), "playing"))
+    assert ran[-1].payload["event"].startswith("One-shot: scene 1 of 3")
+    assert sent[-1][1] == OpeningPrompt(("scene",))
+
+    early = _Interaction()
+    asyncio.run(client.on_opening_step(early, "break"))  # not before scene 2
+    assert "isn't open now" in early.response.private[0]
+
+    asyncio.run(client.on_opening_step(_Interaction(), "scene"))
+    assert ran[-1].payload["event"] == "One-shot: scene 2 of 3, the branch" and sent[-1][1] == OpeningPrompt(("break",))
+    asyncio.run(client.on_opening_step(_Interaction(), "break"))
+    gorm = store.state()["sheets"]["Gorm"]
+    from gary.sheets import xp_needed
+
+    assert int(gorm["xp"]) >= xp_needed(gorm)  # everyone gains a level at the break
+    asyncio.run(client.on_opening_step(_Interaction(), "scene"))
+    assert ran[-1].payload["event"] == "One-shot: scene 3 of 3, the finale" and sent[-1][1] == OpeningPrompt(("epilogue",))
+    asyncio.run(client.on_opening_step(_Interaction(), "epilogue"))
+    assert ran[-1].payload["event"] == "One-shot: the epilogue" and store.state()["opening"]["stage"] == "epilogue"
+
+    asyncio.run(end())
+    assert store.state()["opening"]["stage"] == "finished" and "The one-shot is over" in sent[-1][0]
+    assert not store.state().get("fronts")
+
+    # And it can carry on as a campaign: that session is the campaign's first, so fronts follow it.
+    asyncio.run(client._begin(_Msg(), 7))
+    assert sent[-1][1] == OpeningPrompt(("continue",))
+    asyncio.run(client.on_opening_step(_Interaction(), "continue"))
+    assert store.state()["opening"]["mode"] == "campaign" and store.state()["opening"]["stage"] == "playing"
+    asyncio.run(end())
+    assert ran[-1].payload["event"] == "Opening: fronts after the first session"
+
+
+def test_a_one_shot_ended_early_still_closes_with_its_chronicle(table):
+    client, store, sent, ran = table
+    store.apply([Mutation(MutationKind.OPENING, "", {"stage": "playing", "mode": "oneshot", "scene": 2,
+                                                      "starter": 11})], reason="t")
+    asyncio.run(_ender(client)())
+    assert store.state()["opening"]["stage"] == "finished" and sent[-1][0].startswith("📖")

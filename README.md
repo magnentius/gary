@@ -61,7 +61,9 @@ game channel, type `/` to see them, or @-mention Gary to check he's listening.
 
 ## Your first session
 
-One person runs **`/begin`**, and Gary walks the table through Dungeon World's first session.
+One person runs **`/begin`** and chooses **a campaign** or **a one-shot** (one session of about
+four hours: three scenes, a level-up break before the finale, and an epilogue; see
+[`RULES.md`](RULES.md)). For a campaign, Gary walks the table through Dungeon World's first session.
 Little is prepared: the world is built at the table, from the players' answers. Whoever ran
 `/begin` presses **Next** to move on at each step.
 
