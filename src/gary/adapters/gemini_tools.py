@@ -76,6 +76,7 @@ PROMOTE_MONSTER = "promote_monster"
 SET_GRIP = "set_grip"
 POISON_CHARACTER = "poison_character"
 SHARE_PIPELEAF = "share_pipeleaf"
+WEAR_ARMOR = "wear_armor"
 CREATURE_ATTACKS = "creature_attacks"
 GRAFT = "graft"
 MARK_XP = "mark_xp"
@@ -973,6 +974,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=WEAR_ARMOR,
+        description=("A character takes off their armor and shield -- to swim, sleep, sneak, or pass as unarmed -- "
+                     "or puts them back on (on=true). It takes time; off, they have only what stacks (a warded "
+                     "cloak), no clumsy, and moves for wearing no armor apply."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "on": _s(type=types.Type.BOOLEAN)},
+                      required=["character", "on"]),
     ),
     types.FunctionDeclaration(
         name=SHARE_PIPELEAF,

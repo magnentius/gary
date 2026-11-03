@@ -148,7 +148,9 @@ def unencumbered(sheet: Dict[str, Any]) -> bool:
 
     if (sheet.get("choices") or {}).get("start") != "Unencumbered, Unharmed" or "gear" not in sheet:
         return False
-    bare = not any(int(g.get("armor", 0)) or int(g.get("shield", 0)) for g in sheet.get("gear") or ())
+    from .gear import worn
+
+    bare = not worn(sheet.get("gear") or [], str(sheet.get("grip") or ""), bool(sheet.get("armor_off")))
     return bare and carried(sheet) < load(sheet)
 
 
@@ -172,7 +174,13 @@ def armor_bonus(sheet: Dict[str, Any], outnumbered: bool) -> Tuple[int, List[str
         bonus.append((2, "Divine Protection"))  # the Paladin's: "+2 armor while on a quest"
     elif questing and has(sheet, "Holy Protection"):
         bonus.append((1, "Holy Protection"))
-    worn = int(sheet.get("armor", 0))
+    from .gear import worn as worn_items
+
+    # "When you wear no armor or shield": what is worn, not what rides in the pack.
+    worn = 0 if "gear" not in sheet else len(worn_items(sheet["gear"], str(sheet.get("grip") or ""),
+                                                          bool(sheet.get("armor_off"))))
+    if "gear" not in sheet:
+        worn = int(sheet.get("armor", 0))
     if unencumbered(sheet):
         bonus.append((1, "Unencumbered, Unharmed"))
     if worn == 0 and has(sheet, "Divine Armor"):

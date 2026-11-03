@@ -72,7 +72,7 @@ def _i(name, *tags, armor=0, shield=0, damage=0, piercing=0, ammo=0, needs_ammo=
 RATIONS = _i("Dungeon rations", "5 uses", weight=1, rations=5)
 LEATHER = _i("Leather armor", "1 armor", armor=1, weight=1)
 CHAINMAIL = _i("Chainmail", "1 armor", armor=1, weight=1)
-SCALE = _i("Scale armor", "2 armor", armor=2, weight=3)
+SCALE = _i("Scale armor", "2 armor", "clumsy", armor=2, weight=3)  # the book's armor list: clumsy
 HIDE = _i("Hide armor", "1 armor", armor=1, weight=1)
 SHIELD = _i("Shield", "+1 armor", shield=1, weight=2)
 WOODEN_SHIELD = _i("Wooden shield", "+1 armor", shield=1, weight=1)
@@ -284,21 +284,43 @@ def items_of(gear: Sequence[Dict[str, Any]]) -> List[Item]:
 GRIPS = ("shield", "both hands")
 
 
+def is_shield(item: "Item") -> bool:
+    """A shield -- held, one at a time -- as against other +n armor (a warded cloak) that stacks."""
+    return item.shield > 0 and "shield" in item.name.lower()
+
+
 def has_grip(gear: Sequence[Dict[str, Any]]) -> bool:
     """A shield and a two-handed weapon: one or the other is in hand -- "It takes two hands to use
     it effectively." Only then does a grip matter."""
     items = items_of(gear)
-    return any(i.shield for i in items) and any("two-handed" in i.tags for i in items)
+    return any(is_shield(i) for i in items) and any("two-handed" in i.tags for i in items)
 
 
-def armor_of(gear: Sequence[Dict[str, Any]], grip: str = "") -> int:
-    """The best worn armor plus a shield. Two coats of mail are not twice the armor, and one arm
-    holds one shield. With both hands on a two-handed weapon, the shield isn't up."""
+def worn(gear: Sequence[Dict[str, Any]], grip: str = "", armor_off: bool = False) -> List["Item"]:
+    """What they have on: the best armor (you wear your best; spare armor rides in the pack) and a
+    shield in hand -- neither with armor_off (swimming, sleeping, sneaking); no shield with both
+    hands on a two-handed weapon."""
+    if armor_off:
+        return []
     items = items_of(gear)
-    shield = max((i.shield for i in items), default=0)
-    if grip == "both hands" and has_grip(gear):
-        shield = 0
-    return max((i.armor for i in items), default=0) + shield
+    out = [max((i for i in items if i.armor), key=lambda i: i.armor, default=None)]
+    if not (grip == "both hands" and has_grip(gear)):
+        out.append(max((i for i in items if is_shield(i)), key=lambda i: i.shield, default=None))
+    return [i for i in out if i is not None]
+
+
+def armor_of(gear: Sequence[Dict[str, Any]], grip: str = "", armor_off: bool = False) -> int:
+    """"n Armor... If you have more than one item with n Armor, only the highest value counts";
+    "+n Armor... stacks with other armor". The worn armor, a shield in hand, and every other +n."""
+    on = worn(gear, grip, armor_off)
+    stacking = sum(i.shield for i in items_of(gear) if i.shield and not is_shield(i))
+    return sum(i.armor + i.shield for i in on) + stacking
+
+
+def armor_for(sheet: Dict[str, Any], gear: Optional[Sequence[Dict[str, Any]]] = None) -> int:
+    """A sheet's armor, as worn now (its grip, armor on or off)."""
+    return armor_of(sheet.get("gear") or [] if gear is None else gear, str(sheet.get("grip") or ""),
+                    bool(sheet.get("armor_off")))
 
 
 def weapon_named(gear: Sequence[Dict[str, Any]], name: str, ranged: bool, ammo: int) -> Optional[Item]:

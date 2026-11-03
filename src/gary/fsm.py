@@ -32,14 +32,15 @@ from . import (
     advanced, bonds, choices, companion as companions, damage, hirelings, magic, multiclass, quests, reactions,
     slimes, spells, steadings, trade,
 )
-from .gear import MELEE, RANGED, Item, armor_of as gear_armor, items_of, rations_of, weapon_for
+from .gear import MELEE, RANGED, Item, armor_for, items_of, rations_of, weapon_for
 from .models import CancelReason, MoveOutcome, PendingCheck, Roll
 from .moves import ANY, BOND, CASTER, LOYALTY, MOVES, NOTHING, OFFERS
 from .ports import Dice, RandomDice
 from .registry import PendingCheckRegistry, normalize_actor
 from .resolver import band, outcome_for_model, resolve
 from .sheets import (
-    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, SheetError, clumsy, debility_on, encumbrance, stat_modifier,
+    DEBILITIES, LEVEL_UP_HINT, STAT_NAMES, STATS, SheetError, clumsy, clumsy_items, debility_on, encumbrance,
+    stat_modifier,
     xp_line, xp_needed,
 )
 
@@ -667,8 +668,8 @@ class Director:
             if debility_on(sheet, stat):
                 notes.append(f"-1 {debility_on(sheet, stat).title()}")
             if clumsy(sheet):
-                mod -= 1
-                notes.append(f"-1 clumsy {clumsy(sheet)}")
+                mod -= len(clumsy_items(sheet))
+                notes.append(f"-{len(clumsy_items(sheet))} clumsy {clumsy(sheet)}")
             form, why = self._form_mod(sheet, stat)
             mod += form
             notes.extend(why)
@@ -1013,8 +1014,8 @@ class Director:
         if debility_on(sheet, stat):
             notes.append(f"-1 {debility_on(sheet, stat).title()}")
         if clumsy(sheet):
-            mod -= 1
-            notes.append(f"-1 clumsy {clumsy(sheet)}")
+            mod -= len(clumsy_items(sheet))
+            notes.append(f"-{len(clumsy_items(sheet))} clumsy {clumsy(sheet)}")
         mod += penalty
         if self._blessed(actor):
             mod += 1
@@ -1553,8 +1554,7 @@ class Director:
         thrown.append({"name": used.name, "item": gear.pop(at)})
         return [SendMessage(channel_id, f"**{check.actor}**'s {used.name.lower()} is thrown — gone until "
                                         "it's recovered."),
-                UpdateSheet(channel_id, check.actor, {"gear": gear, "thrown": thrown, "armor": gear_armor(
-                    gear, str(sheet.get("grip") or ""))})]
+                UpdateSheet(channel_id, check.actor, {"gear": gear, "thrown": thrown, "armor": armor_for(sheet, gear)})]
 
     def _banners(self, check: PendingCheck, dice: Roll, said: str) -> Tuple[Roll, str]:
         """Call the Banners: "When you recruit from your stronghold or the lands it protects you
@@ -2019,7 +2019,7 @@ class Director:
         if rules.stat not in (NOTHING, BOND) and self._sheet_for is not None:
             sheet = self._sheet_for(actor)
             if sheet is not None:
-                mod = stat_modifier(sheet, rules.stat) - (1 if clumsy(sheet) else 0)
+                mod = stat_modifier(sheet, rules.stat) - len(clumsy_items(sheet))
         others = [s for a, s in self._party() if normalize_actor(a) != normalize_actor(actor)]
         if move == "take_watch" and any(advanced.has(s, "A Safe Place") or advanced.has(s, "A Safer Place")
                                         for _, s in self._party()):
@@ -3393,7 +3393,7 @@ class Director:
                 gear[index] = worn
             else:
                 del gear[index]
-            before, after = gear_armor(mine["gear"]), gear_armor(gear)
+            before, after = armor_for(mine), armor_for(mine, gear)
             mine_changes.update(gear=gear, armor=max(0, int(mine.get("armor", 0)) - (before - after)))
             what = (f"lets their {item['name']} take the blow" + (" — it is **destroyed**" if not worn else
                     f" — armor now {mine_changes['armor']}"))

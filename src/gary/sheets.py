@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from .playbooks import LOAD as _PLAYBOOK_LOAD
 from .gear import (
     CLASS_GEAR, ENHANCEMENTS, SIGNATURE_BASES, SIGNATURE_RANGES, ClassGear, Item, ammo_of,
-    armor_of, item_for, rations_of, signature_weapon,
+    armor_for, item_for, rations_of, signature_weapon,
 )
 
 STATS = ("str", "dex", "con", "int", "wis", "cha")
@@ -107,13 +107,23 @@ def stat_modifier(sheet: Dict[str, Any], stat: str) -> int:
 _ARMORED = ("Fighter", "Paladin")
 
 
+def clumsy_items(sheet: Dict[str, Any]) -> List[str]:
+    """Clumsy: "-1 ongoing while using it. This penalty is cumulative." The armor they wear (spare
+    armor in the pack isn't in use) and any other clumsy thing they carry."""
+    from .gear import items_of, worn
+
+    ignores = sheet.get("class") in _ARMORED or (sheet.get("choices") or {}).get("start") == \
+        "Full Plate and Packing Steel"  # Armored; the Barbarian's "You ignore the clumsy tag on armor you wear"
+    items = items_of(sheet.get("gear") or [])
+    on = worn(sheet.get("gear") or [], str(sheet.get("grip") or ""), bool(sheet.get("armor_off")))
+    out = [] if ignores else [i.name for i in on if "clumsy" in i.tags]
+    out += [i.name for i in items if "clumsy" in i.tags and not i.armor and not i.shield]
+    return out
+
+
 def clumsy(sheet: Dict[str, Any]) -> str:
-    """The clumsy item weighing on every roll ("-1 ongoing while using it"), or ""."""
-    if sheet.get("class") in _ARMORED:
-        return ""
-    if (sheet.get("choices") or {}).get("start") == "Full Plate and Packing Steel":
-        return ""  # the Barbarian's: "You ignore the clumsy tag on armor you wear"
-    return next((g["name"] for g in sheet.get("gear") or () if "clumsy" in (g.get("tags") or ())), "")
+    """The clumsy things weighing on every roll, named, or "" -- -1 each (clumsy_items)."""
+    return ", ".join(clumsy_items(sheet))
 
 
 def mount_load(sheet: Dict[str, Any]) -> int:
@@ -403,7 +413,7 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
             gear.extend(item_for(m[2])[0].to_dict() for _ in range(int(m[1])))
         else:
             gear.append(i.to_dict())
-    return {**sheet, "gear": gear, "armor": armor_of(gear, str(sheet.get("grip") or "")), "ammo": ammo_of(gear),
+    return {**sheet, "gear": gear, "armor": armor_for(sheet, gear), "ammo": ammo_of(gear),
             "rations": rations_of(gear), "coins": int(sheet.get("coins", 0)) + coins}
 
 
@@ -471,6 +481,8 @@ def xp_line(sheet: Dict[str, Any]) -> str:
 def _grip_note(sheet: Dict[str, Any]) -> str:
     from .gear import has_grip
 
+    if sheet.get("armor_off") and "gear" in sheet:
+        return " (armor off)"
     if not has_grip(sheet.get("gear") or []):
         return ""
     return " (two-handed weapon in both hands, shield slung)" if sheet.get("grip") == "both hands" else " (shield up)"

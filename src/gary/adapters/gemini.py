@@ -1338,6 +1338,23 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.WEAR_ARMOR:
+            from ..gear import armor_for
+
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            if who is None:
+                return {"ok": False, "error": f"No character {args.get('character')!r}."}
+            sheet = sheets[who]
+            new = {**sheet, "armor_off": not bool(args.get("on"))}
+            new["armor"] = armor_for(new)
+            result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})],
+                                              reason=f"{who}: armor {'on' if args.get('on') else 'off'}"))
+            if result.get("ok"):
+                result["post"] = (f"🛡️ **{who}** armors up — armor {new['armor']}." if args.get("on") else
+                                  f"🧥 **{who}** takes off their armor — armor {new['armor']}.")
+            return result
+
         if name == T.POISON_CHARACTER:
             from ..fsm import POISONS
 
@@ -1372,7 +1389,7 @@ class GeminiNarrator:
             return result
 
         if name == T.SET_GRIP:
-            from ..gear import GRIPS, armor_of, has_grip
+            from ..gear import GRIPS, armor_for, has_grip
 
             sheets = store.state().get("sheets") or {}
             who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
@@ -1382,7 +1399,8 @@ class GeminiNarrator:
             sheet = sheets[who]
             if not has_grip(sheet.get("gear") or []):
                 return {"ok": False, "error": f"{who} doesn't carry both a shield and a two-handed weapon."}
-            new = {**sheet, "grip": grip, "armor": armor_of(sheet["gear"], grip)}
+            new = {**sheet, "grip": grip}
+            new["armor"] = armor_for(new)
             result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})],
                                               reason=f"{who}: {grip}"))
             if result.get("ok"):

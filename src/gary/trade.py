@@ -15,7 +15,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from .gear import armor_of, item_for, items_of, price_of
+from .gear import armor_for, item_for, items_of, price_of
 
 #: The most coin one call can grant or a sale of an unlisted item can fetch. Treasure
 #: past this is a DM's call, not a model's: the store's bounds exist for the same reason.
@@ -44,7 +44,7 @@ def _quantity(name: str) -> Tuple[int, str]:
 
 def _recount(sheet: Dict[str, Any], gear: List[Dict[str, Any]], ammo: int, rations: int,
              coins: int) -> Dict[str, Any]:
-    return {**sheet, "gear": gear, "armor": armor_of(gear, str(sheet.get("grip") or "")), "ammo": max(0, ammo),
+    return {**sheet, "gear": gear, "armor": armor_for(sheet, gear), "ammo": max(0, ammo),
             "rations": max(0, rations), "coins": max(0, coins)}
 
 

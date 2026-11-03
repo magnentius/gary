@@ -542,6 +542,14 @@ and when you pick it up you get back the very weapon — its magic and all — o
 threw. Move on without it and it's left behind for good. And Volley's "take several shots" isn't an
 option with one — you can't mark off ammo with a weapon that's already in the air.
 
+**Armor.** You wear your best armor; only the highest "n Armor" counts ("If you have more than one
+item with n Armor, only the highest value counts"), and spare armor rides in your pack as weight.
+"+n Armor" stacks: a shield in hand (one at a time) and anything else +n, like a warded cloak.
+Clumsy is -1 for each clumsy thing in use — the armor you wear, not a suit you're carrying — and
+Fighters and Paladins ignore it on armor. Take your armor off to swim, sleep or sneak (the GM
+records it; `/sheet` says "armor off"), and moves for wearing no armor, like the Cleric's Divine
+Protection, apply.
+
 **Shields and two-handed weapons.** A shield is +1 armor on top of what you wear; you hold one,
 so a second doesn't add. If you carry both a shield and a two-handed weapon (a halberd, a staff),
 you have one or the other in hand: shield up (its armor, and you fight with a one-handed weapon)
