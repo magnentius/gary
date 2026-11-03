@@ -711,7 +711,7 @@ class GaryClient(discord.Client):
             if name and not wants_world:
                 listed = ", ".join(d["name"] for d in known.values())
                 return f"No map of {name!r}." + (f" Maps: World, {listed}." if listed else "")
-            world = worldmap.render(state.get("world"))
+            world = worldmap.render(state.get("world"), for_players=True)
             if not world:
                 return "No campaign map yet: it's drawn as you travel and hear of places."
             text = "🗺️ **The campaign map**\n" + world + (
@@ -1315,7 +1315,7 @@ class GaryClient(discord.Client):
             return line
         if stage == "playing":
             self._set_opening("first session over", stage="done")
-            event = opening.fronts_event(threats)
+            event = opening.fronts_event(threats, self.store.state().get("world"))
         else:
             if stage == "session":
                 self._set_opening("session over", stage="done")
@@ -1323,7 +1323,7 @@ class GaryClient(discord.Client):
             if new_front:
                 self._set_opening("asking for a new campaign front", new_campaign_front=False)
             changed, checked = self._update_steadings()
-            event = opening.review_event(threats, new_front, changed, checked)
+            event = opening.review_event(threats, new_front, changed, checked, self.store.state().get("world"))
         asyncio.create_task(self._front_work(channel_id, event))
         return line
 

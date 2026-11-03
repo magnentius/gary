@@ -43,8 +43,10 @@ def _copy(world: Optional[Dict[str, Any]]) -> Dict[str, Any]:
             "routes": [dict(r) for r in w["routes"]], "signs": [dict(s) for s in w["signs"]]}
 
 
-def place(world: Optional[Dict[str, Any]], name: str, kind: str = "landmark", note: str = "") -> Dict[str, Any]:
-    """Add a place, or update what's known of it."""
+def place(world: Optional[Dict[str, Any]], name: str, kind: str = "landmark", note: str = "",
+          setting: str = "") -> Dict[str, Any]:
+    """Add a place, or update what's known of it. ``setting``: the bestiary's monster setting for
+    what lives there (Woods, Swamp...) -- "a type of location and the monsters you might find there"."""
     out = _copy(world)
     key = slug(name)
     if not key:
@@ -57,7 +59,25 @@ def place(world: Optional[Dict[str, Any]], name: str, kind: str = "landmark", no
         out["order"].append(key)
     if note:
         out["places"][key]["note"] = _text(note)
+    from .dungeons import SETTINGS
+
+    chosen = next((s for s in SETTINGS if s.lower() == str(setting or "").strip().lower()), "")
+    if chosen:
+        out["places"][key]["setting"] = chosen
     return out
+
+
+def here(world: Optional[Dict[str, Any]], scene: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """The place on the map the scene is at, if any: its steading, or a place named in its location."""
+    if not world:
+        return None
+    places = world["places"]
+    for name in (scene.get("steading"), scene.get("location")):
+        key = slug(name or "")
+        if key in places:
+            return places[key]
+    where = slug(scene.get("location") or "")
+    return next((places[k] for k in sorted(places, key=len, reverse=True) if k and k in where), None)
 
 
 def route(world: Optional[Dict[str, Any]], a: str, b: str, days: int = 0, terrain: str = "") -> Dict[str, Any]:
@@ -109,7 +129,7 @@ def distance(world: Optional[Dict[str, Any]], a: str, b: str) -> int:
     return int(found["days"]) if found else 0
 
 
-def render(world: Optional[Dict[str, Any]]) -> str:
+def render(world: Optional[Dict[str, Any]], for_players: bool = False) -> str:
     if not world or not world["places"]:
         return ""
     places = world["places"]
@@ -124,7 +144,8 @@ def render(world: Optional[Dict[str, Any]]) -> str:
             far = f"{r['days']} day{'s' if r['days'] != 1 else ''}" if r["days"] else "distance unknown"
             ground = f", {r['terrain']}" if r["terrain"] else ""
             out.append(f"{places[other]['name']} ({far}{ground})" if other else f"{r['label']} (unexplored)")
-        lines.append(f"• {p['name']} [{p['kind']}]" + (f": {p['note']}" if p["note"] else "")
+        kind = p["kind"] + (f", {p['setting']}" if p.get("setting") and not for_players else "")
+        lines.append(f"• {p['name']} [{kind}]" + (f": {p['note']}" if p["note"] else "")
                      + (f" — to {'; '.join(out)}" if out else ""))
     for s in world["signs"]:
         near = f" (near {places[s['near']]['name']})" if s["near"] in places else ""

@@ -988,7 +988,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=WORLD_MAP,
         description=(
             "The campaign map: draw maps, leave blanks. action=place adds a place (kind steading, dungeon, "
-            "landmark or terrain, with a note) -- steadings and dungeons go on by themselves; action=route joins two "
+            "landmark or terrain, with a note, and the monster setting of what lives there -- Woods, Swamp, Hordes...) -- steadings and dungeons go on by themselves; action=route joins two "
             "places, days apart (a day is a ration), across terrain ('the moor', 'a rocky pass'), or with to= a road "
             "leading off unexplored ('the north road') -- a blank; action=sign marks a front's presence as the "
             "characters would see it ('smoke over Pigton', 'the dead orchard'), near a place -- never the front "
@@ -1001,6 +1001,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "name": _s(type=_STRING, description="place: its name. sign/unsign: the sign."),
                 "kind": _s(type=_STRING, enum=["steading", "dungeon", "landmark", "terrain"]),
                 "note": _s(type=_STRING),
+                "setting": _s(type=_STRING, enum=["Caverns", "Depths", "Experiments", "Folk", "Hordes", "Planes",
+                                                  "Swamp", "Undead", "Woods"],
+                              description="place: the monster setting of what lives there (a marsh: Swamp)."),
                 "from_place": _s(type=_STRING), "to": _s(type=_STRING),
                 "days": _s(type=_INTEGER), "terrain": _s(type=_STRING),
                 "near": _s(type=_STRING, description="sign: the place it's near."),

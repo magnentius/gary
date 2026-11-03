@@ -20,7 +20,7 @@ each step, and reading back its offer of places and activities.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Sequence, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
 STAGES = ("premise", "characters", "introductions", "questions", "bonds", "playing", "done")
 #: After the first session the opening is "done" between sessions and "session" during one:
@@ -223,10 +223,31 @@ def opening_event(premise_text: str, party: Sequence[Dict] = (), oneshot: bool =
     }
 
 
+def _settings(world: Optional[Dict]) -> Tuple[str, List[str]]:
+    """The bestiary's monster settings, and the map's places that have one: "Consult a monster setting to
+    populate a front or when you want a threat that is only tangentially related to one of your fronts"."""
+    from . import dungeons
+
+    places = [f"{p['name']}: {p['setting']}" for p in ((world or {}).get("places") or {}).values() if p.get("setting")]
+    return dungeons.catalog(), places
+
+
+_SETTINGS_ADVICE = (
+    "Populate dangers from the monster settings (monster_settings; places_by_setting says what lives where on "
+    "the map): a danger's creatures come from the setting of where it lurks, and a setting also gives threats "
+    "only tangentially related to a front -- the undead in the ruins a cult has taken -- blocks in the heroes' "
+    "path. "
+)
+
+
 def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False,
-                 steadings_changed: Sequence[str] = (), steadings_to_check: Sequence[str] = ()) -> Dict:
+                 steadings_changed: Sequence[str] = (), steadings_to_check: Sequence[str] = (),
+                 world: Optional[Dict] = None) -> Dict:
     """Between sessions: the book's front work, and its steading updates, after every /end but the first."""
+    catalog, places = _settings(world)
     return {
+        "monster_settings": catalog,
+        "places_by_setting": places,
         "new_campaign_front": new_campaign_front,
         "steadings_changed_by_gary": list(steadings_changed),
         "steadings_to_check": list(steadings_to_check),
@@ -244,6 +265,7 @@ def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False,
             "Then the steadings, as the book updates the campaign map between sessions: Gary has applied what "
             "their tags decide (steadings_changed_by_gary); go through steadings_to_check and, where the fiction "
             "says a condition holds, apply it with adjust_steading. "
+            + _SETTINGS_ADVICE +
             "Keep to two or three fronts in play. Update the campaign map's signs of the fronts as they change "
             "(world_map sign/unsign: a burning village, refugees on the road -- as the characters would see it, "
             "never the front's name). Do nothing if nothing calls for it. "
@@ -254,8 +276,11 @@ def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False,
     }
 
 
-def fronts_event(threats: Sequence[str] = ()) -> Dict:
+def fronts_event(threats: Sequence[str] = (), world: Optional[Dict] = None) -> Dict:
+    catalog, places = _settings(world)
     return {
+        "monster_settings": catalog,
+        "places_by_setting": places,
         "event": "Opening: fronts after the first session",
         "threats_noted": list(threats),
         "instruction": (
@@ -264,7 +289,7 @@ def fronts_event(threats: Sequence[str] = ()) -> Dict:
             "questions the table cared about. Call create_front with scope=campaign once -- the threat that "
             "runs session to session; it may be incomplete, leave blanks -- and with scope=adventure for one "
             "or two more, about what matters here and now. Each has its dangers, impending doom and grim "
-            "portents. Put a sign of each on the campaign map (world_map action=sign), as the characters would see "
+            "portents. " + _SETTINGS_ADVICE + "Put a sign of each on the campaign map (world_map action=sign), as the characters would see "
             "it -- the burning village, the dead orchard -- never the front itself. Fronts are the GM's secret: "
             "reply to the table with one line, without spoilers, saying "
             "the world is stirring -- nothing about what the fronts contain."

@@ -86,3 +86,21 @@ async def test_a_journey_on_a_known_route_takes_the_maps_days(clock, known=True)
 
 async def test_a_journey_on_no_known_route_draws_it(clock):
     await test_a_journey_on_a_known_route_takes_the_maps_days(clock, known=False)
+
+
+def test_a_place_has_a_monster_setting_and_the_gm_sees_its_creatures_there():
+    w = worldmap.place(None, "The Greyfen", "terrain", "black water and reeds", setting="swamp")
+    assert w["places"]["the_greyfen"]["setting"] == "Swamp"
+    assert "[terrain, Swamp]" in worldmap.render(w) and "Swamp" not in worldmap.render(w, for_players=True)
+    assert worldmap.place(w, "The Greyfen", setting="Moonbase")["places"]["the_greyfen"]["setting"] == "Swamp"
+    shown = render_live_state({"world": w, "scene": {"location": "Deep in the Greyfen, a drowned causeway"}})
+    assert "Creatures of The Greyfen (Swamp), first:" in shown
+
+
+def test_the_front_work_is_given_the_monster_settings():
+    from gary import opening
+
+    w = worldmap.place(None, "Fenwick Woods", "terrain", setting="Woods")
+    for event in (opening.fronts_event((), w), opening.review_event(world=w)):
+        assert "Undead:" in event["monster_settings"] and event["places_by_setting"] == ["Fenwick Woods: Woods"]
+        assert "monster settings" in event["instruction"]

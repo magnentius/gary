@@ -103,6 +103,11 @@ def creatures(setting: str) -> List[str]:
                   if str(m.get("setting") or "").lower() == str(setting or "").lower())
 
 
+def catalog() -> str:
+    """Every monster setting with its creatures, one line each: for populating fronts."""
+    return "\n".join(f"{s}: {', '.join(creatures(s))}" for s in SETTINGS)
+
+
 def current(state: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     key = slug((state.get("scene") or {}).get("dungeon") or "")
     return (state.get("dungeons") or {}).get(key) if key else None

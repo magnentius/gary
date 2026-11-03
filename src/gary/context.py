@@ -65,7 +65,7 @@ RUNNING THE GAME:
   shopping, a quiet night -- and cut to the next thing worth playing. Only hostile
   ground is a perilous_journey; a safe road is just narrated arrival.
 - Draw the campaign map as they travel and hear of places (world_map): the moment a place
-  is named or reached, put it on; when they travel between two, add the route with its days
+  is named or reached, put it on, with the monster setting of what lives there; when they travel between two, add the route with its days
   and ground. Leave blanks: roads mentioned but not taken.
 - In a dungeon, build it as they explore with the Dungeon Moves, above all when they enter
   a new area or miss: change the environment, point to a looming threat, introduce a new
@@ -354,6 +354,13 @@ def render_live_state(state: Dict[str, Any]) -> str:
     from .dungeons import creatures as setting_creatures, current as current_dungeon, render as render_map
 
     dungeon = current_dungeon(state)
+    if dungeon is None:
+        from .worldmap import here as place_here
+
+        spot = place_here(state.get("world"), state.get("scene") or {})
+        if spot and spot.get("setting"):
+            lines.append(f"- Creatures of {spot['name']} ({spot['setting']}), first: "
+                         f"{', '.join(setting_creatures(spot['setting']))}.")
     if dungeon is not None:
         lines.append("- Dungeon map (draw maps, leave blanks -- every new area goes on it with its exits):")
         lines += [f"    {line}" for line in render_map(dungeon).splitlines()]

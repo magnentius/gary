@@ -515,6 +515,12 @@ story — **Growth**, **Want**, blocked **Trade**, **Capture**, **Aid**, **Embat
 and the GM gets them as a checklist for its steadings to decide. `/map` shows it when you're not in a
 dungeon (or `/map dungeon:World`).
 
+Places on the map can carry one of the book's **monster settings** — "a type of location and the
+monsters you might find there": Woods, Swamp, Hordes, Folk, Caverns, Depths, Undead, Experiments,
+Planes. In the Greyfen (Swamp), the GM reaches for the Swamp's creatures first, as it does in a
+dungeon with a setting. When the GM writes and reviews fronts it gets every setting's creatures and
+what lives where, to populate dangers and the threats that are only tangentially related to them.
+
 **Dungeons.** Dungeon World doesn't draw dungeons in advance; the GM builds them as you
 explore, with the book's Dungeon Moves (change the environment, point to a looming threat,
 introduce a new faction or creature, use a threat from one, make you backtrack, present riches

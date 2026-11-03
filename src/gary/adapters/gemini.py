@@ -1343,7 +1343,7 @@ class GeminiNarrator:
             try:
                 if action == "place":
                     world = worldmap.place(world, str(args.get("name") or ""), str(args.get("kind") or "landmark"),
-                                           str(args.get("note") or ""))
+                                           str(args.get("note") or ""), str(args.get("setting") or ""))
                 elif action == "route":
                     world = worldmap.route(world, str(args.get("from_place") or ""), str(args.get("to") or ""),
                                            int(args.get("days") or 0), str(args.get("terrain") or ""))
