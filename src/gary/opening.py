@@ -196,9 +196,9 @@ def opening_event(premise_text: str, party: Sequence[Dict] = (), oneshot: bool =
                 "destination; Gary moves on when the table is ready. Remind the players once, briefly, that this is a "
                 "conversation and they can name a move when they see one. Start the party one or two places short of "
                 "the destination, at the moment they first see their enemy -- not already fighting. Make the enemy a "
-                "mob of six to ten weak creatures drawn from the answers (add_monsters with hp 4, armor 0, damage d6), "
-                "strange rather than goblins or orcs, with a move that entangles and a way of moving -- flying, "
-                "leaping or burrowing. Fold in a bond or two. Call set_scene. Reward Spout Lore, Discern Realities and "
+                "mob of six to ten weak creatures drawn from the answers, strange rather than goblins or orcs, with a "
+                "move that entangles and a way of moving -- flying, leaping or burrowing: add_monsters with a recipe "
+                "(organization horde, defense flesh, and an adaptation for the way it moves). Fold in a bond or two. Call set_scene. Reward Spout Lore, Discern Realities and "
                 "the like with answers that can win the fight, even on a 7-9; let a well-leveraged Parley work. Then "
                 "ask 'What do you do?' to a specific character."
             ),

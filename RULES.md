@@ -293,7 +293,12 @@ fiction fits.
 **Fights have numbers.** When creatures appear, Gary puts them in the scene from the Dungeon
 World bestiary — "Goblin 1, Goblin 2", each with its own HP — and the GM is shown what each
 kind wants and does: its instinct, its moves, its qualities (goblins: *to multiply*; *call
-more goblins*). A creature the GM makes up gets an instinct and moves too. Hack and Slash and Volley are
+more goblins*). A creature the GM makes up is built by the book's Making Monsters questions —
+how it hunts (horde, group or alone), how big it is, its defence, what it's known for, what
+its attack is like, what else describes it — and Gary works out its HP, armor, damage and tags
+from the answers, so it's as tough as the book says such a thing should be; it gets an
+instinct and moves too. Fights aren't balanced, by design: the book says your first duty is
+to the fiction and to a real threat, "not to make a balanced fight". Hack and Slash and Volley are
 aimed at one of them. A hit gives you a **Roll damage** button; your class's damage die
 (plus or minus a d6 if your choice said so) goes through its armor, and a weak-hit Hack and
 Slash means it hits you back in the same breath:

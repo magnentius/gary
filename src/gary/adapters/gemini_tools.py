@@ -22,6 +22,8 @@ from google.genai import types
 from ..moves import MOVES
 from ..compendium import CLASSES as COMPENDIUM_CLASSES, describe_requirements
 from ..fronts import DOOMS, type_names as front_types
+from ..monsters import (ATTACK_TRAITS as M_ATTACK, DEFENSES as M_DEF, KNOWN_FOR as M_KNOWN,
+                        ORGANIZATION as M_ORG, SIZES as M_SIZES, TRAITS as M_TRAITS)
 from ..sheets import STATS
 
 MAKE_MOVE = "make_move"
@@ -244,9 +246,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             "Put creatures into the scene the moment they appear, before anyone fights "
             "them. Each becomes a numbered instance with its own HP ('Goblin 1', "
             "'Goblin 2') that attacks can target and you can see in the state. Dungeon "
-            "World creatures are looked up -- name them and give nothing else. Give hp, "
-            "armor and damage only for a creature of your own; it is checked against the "
-            "rules for making monsters."
+            "World creatures are looked up -- name them and give nothing else. For a creature "
+            "of your own, answer the book's Making Monsters questions in recipe, with an "
+            "instinct and at least one move, and Gary works out its numbers; hp, armor and "
+            "damage by hand are the fallback, checked against the same rules."
         ),
         parameters=_s(
             type=_OBJECT,
@@ -258,6 +261,26 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         properties={
                             "name": _s(type=_STRING, description="e.g. 'Goblin', 'Dwarven Warrior', or your own."),
                             "count": _s(type=_INTEGER, description="How many. Default 1."),
+                            "recipe": _s(type=_OBJECT, description=(
+                                "Your own creature, made by the book's Making Monsters questions: give the answers "
+                                "and Gary works out HP, armor, damage and tags (then leave hp, armor and damage "
+                                "out). Prefer this to inventing numbers."), properties={
+                                "organization": _s(type=_STRING, enum=list(M_ORG)),
+                                "size": _s(type=_STRING, enum=list(M_SIZES)),
+                                "defense": _s(type=_STRING, enum=list(M_DEF), description=(
+                                    "flesh 0, leather 1, mail 2, plate or bone 3, permanent magic 4.")),
+                                "known_for": _s(type=_ARRAY, items=_s(type=_STRING, enum=list(M_KNOWN)), description=(
+                                    "strength, offense (skill), defense (skill), deft strikes, endurance, deceit, "
+                                    "adaptation (wings, amphibious), divine favor, magic.")),
+                                "divine_favor": _s(type=_STRING, enum=["damage", "hp", "both"]),
+                                "attack_traits": _s(type=_ARRAY, items=_s(type=_STRING, enum=list(M_ATTACK)), description=(
+                                    "vicious and obvious, keeps others at bay (reach), small and weak, slices metal, "
+                                    "tears metal apart, armor doesn't help, attacks at range.")),
+                                "traits": _s(type=_ARRAY, items=_s(type=_STRING, enum=list(M_TRAITS)), description=(
+                                    "devious, organized, intelligent, cautious (shield), hoarder, planar, unnatural "
+                                    "(kept alive by more than biology), construct, terrifying, amorphous, ancient, "
+                                    "abhors violence.")),
+                            }, required=["organization", "size", "defense"]),
                             "hp": _s(type=_INTEGER, description="Your own creature only. Horde 3, group 6, solitary 12."),
                             "armor": _s(type=_INTEGER, description="Your own creature only. 0-4."),
                             "damage": _s(type=_STRING, description="Your own creature only, e.g. 'd6', 'd8+2', 'b[2d10]'."),

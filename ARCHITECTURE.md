@@ -464,7 +464,11 @@ per roll, on the moves that read a stat.
 
 `add_monsters` puts creatures in the scene as numbered instances ("Goblin 2") with their own
 HP, never reusing a name already used at this location (`monster_names_used`, reset when
-the scene's location changes), so a second wave is "Goblin 4", not another "Goblin 1"; SRD creatures are looked up, homebrew is checked against the monster-making rules. Each
+the scene's location changes), so a second wave is "Goblin 4", not another "Goblin 1"; SRD creatures are looked up; homebrew comes from `monsters.build`, the book's Making Monsters
+questions as a table -- organization, size, defense, known for, attack, traits, each answer
+adding its HP, damage, die steps, armor, piercing and tags, floored at 1 -- with an instinct and
+a move required (hand-given hp/armor/damage remain a checked fallback). Nothing balances an
+encounter: the book says not to. Each
 living kind's nature -- instinct, moves, qualities, tags, attack -- reaches the model once
 per kind in the live state and in `add_monsters`' result (`monsters.natures`); a homebrew
 creature keeps the instinct and moves the model gave it on its record. An
