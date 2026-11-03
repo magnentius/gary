@@ -355,3 +355,103 @@ def downtime(record: Dict[str, Any], ready: Sequence[str] = ()) -> str:
         lines.append(f"• **Level up** — {', '.join(ready)}: the button is on `/sheet`.")
     lines.append("Tell the GM what you're doing, or press on.")
     return "\n".join(lines)
+
+
+# -- Updating the Campaign Map: the book's between-session conditions -------------------------
+
+SIZES = ("village", "town", "keep", "city")
+_SHRINK = {"city": ("town", ["=population:steady", "+prosperity"]),
+           "keep": ("town", ["+defenses", "=population:steady"]),
+           "town": ("village", ["=population:steady", "+prosperity"]),
+           "village": ("ghost town", [])}
+
+
+def _set(record: Dict[str, Any], change: str) -> Dict[str, Any]:
+    out = {**record, "tags": [dict(t) for t in record["tags"]]}
+    if change.startswith("="):
+        category, value = change[1:].split(":")
+        out[category] = value
+    else:
+        _step(out, change)
+    return out
+
+
+def _enmity(a: Dict[str, Any], b: Dict[str, Any]) -> bool:
+    return any(d and d.lower() == b["name"].lower() for d in details(a, "enmity")) or any(
+        d and d.lower() == a["name"].lower() for d in details(b, "enmity"))
+
+
+def between_sessions(steadings: Dict[str, Dict[str, Any]], distance=lambda a, b: 0
+                     ) -> Tuple[Dict[str, Dict[str, Any]], List[str], List[str]]:
+    """The book's conditions, checked for every steading: (changed records by key, what Gary changed,
+    what the GM must decide). Gary applies what the tags alone decide -- Collapse, Profit, Surplus --
+    and works out Opportunity's arithmetic; Growth (a "may"), Want, Trade, Capture, Aid, Embattled
+    and Clash turn on the fiction, so they go to the GM as a checklist naming the steadings."""
+    records = {k: {**v, "tags": [dict(t) for t in v["tags"]]} for k, v in steadings.items()}
+    changed: Dict[str, Dict[str, Any]] = {}
+    done: List[str] = []
+    ask: List[str] = []
+
+    def keep(key: str, record: Dict[str, Any], why: str) -> None:
+        records[key] = changed[key] = record
+        done.append(why)
+
+    for key, s in list(records.items()):  # Collapse
+        if s["kind"] in _SHRINK and s.get("population") == "exodus" and rank(s, "prosperity") <= 2:  # poor or less
+            smaller, steps = _SHRINK[s["kind"]]
+            out = {**s, "kind": smaller}
+            for step in steps:
+                out = _set(out, step)
+            keep(key, out, f"Collapse: {s['name']}, emptying and poor, shrinks to a {smaller}.")
+    for key, s in list(records.items()):  # Profit
+        trades = len(details(s, "trade"))
+        if s["kind"] != "ghost town" and trades > rank(s, "prosperity") and rank(s, "prosperity") < len(PROSPERITY):
+            keep(key, _set(s, "+prosperity"), f"Profit: {s['name']} has {trades} trade partners, more than its "
+                                              f"prosperity; +prosperity.")
+    for key, s in list(records.items()):  # Surplus
+        for other_key, other in list(records.items()):
+            if other_key == key or _enmity(s, other):
+                continue
+            for good in details(s, "resource"):
+                needed = next((n for n in details(other, "need") if good and n and
+                               (good.lower() in n.lower() or n.lower() in good.lower())), None)
+                if needed is None:
+                    continue
+                supplier = _set(records[key], "+prosperity")
+                buyer = {**records[other_key], "tags": [t for t in records[other_key]["tags"]
+                                                        if not (t["tag"] == "need" and t["detail"] == needed)]}
+                if not any(d.lower() == s["name"].lower() for d in details(buyer, "trade")):
+                    _add(buyer, "trade", s["name"])
+                keep(key, supplier, f"Surplus: {s['name']} has {good}, which {other['name']} needs: they trade. "
+                                    f"{s['name']} +prosperity, and its choice of an oath, +population or +defenses "
+                                    "(yours to give with adjust_steading); "
+                                    f"{other['name']} no longer needs {needed} and trades with {s['name']}.")
+                records[other_key] = changed[other_key] = buyer
+    for key, s in records.items():  # Opportunity
+        for target_name in details(s, "enmity"):
+            target = next((t for t in records.values() if t["name"].lower() == target_name.lower()), None)
+            if target is None or s["kind"] not in SIZES or target["kind"] not in SIZES:
+                continue
+            reach = rank(s, "defenses") - distance(s["name"], target["name"])
+            guard = rank(target, "defenses") + max(0, SIZES.index(target["kind"]) - SIZES.index(s["kind"]))
+            if reach > guard:
+                ask.append(f"Opportunity: {s['name']} definitely attacks {target['name']} (its enmity): {target['name']} "
+                           f"is embattled, and {s['name']} has -defenses while the attack lasts.")
+            elif rank(s, "defenses") >= rank(target, "defenses"):
+                ask.append(f"Opportunity: {s['name']} could attack {target['name']}: your call -- has anything "
+                           "stoked their anger lately?")
+    for s in records.values():
+        if s["kind"] in ("village", "town") and s.get("population") == "booming" and rank(s, "prosperity") > 3:
+            ask.append(f"Growth: {s['name']} is booming and {s['prosperity']}: it may give up prosperity and defenses "
+                       f"to become a {SIZES[SIZES.index(s['kind']) + 1]} (a new town gains Market, a new city a Guild).")
+        for need in details(s, "need"):
+            ask.append(f"Want: {s['name']} needs {need}. Is it met? If not: -prosperity, -population, or it loses a "
+                       "tag that depends on it.")
+        for partner in details(s, "trade"):
+            gone = next((t for t in records.values() if t["name"].lower() == partner.lower()
+                         and t["kind"] == "ghost town"), None)
+            ask.append(f"Trade: {s['name']} trades with {partner}" + (" -- a ghost town now" if gone else "")
+                       + ". If the route is blocked or the source gone: a need for that good, or -prosperity.")
+    ask.append("Capture, Aid, Embattled, Clash: if a resource changed hands, a steading is under attack or two "
+               "fight, apply the book's rule. Then add any tags that reflect what the players and the fronts did.")
+    return changed, done, ask

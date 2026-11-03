@@ -111,7 +111,7 @@ def table(clock):
 
     for name in ("_opening", "_set_opening", "_party_sheets", "may_run_opening", "_begin", "offer_premise",
                  "on_premise", "on_opening_step", "_end_session_then_fronts", "_front_work", "_next_session",
-                 "_campaign_choice", "_oneshot_step"):
+                 "_campaign_choice", "_oneshot_step", "_update_steadings"):
         setattr(_Client, name, getattr(GaryClient, name))
     client = _Client()
     client.store = store

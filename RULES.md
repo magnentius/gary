@@ -499,7 +499,15 @@ they exist, the GM adds landmarks and terrain, and routes between places are mea
 (a day is a ration) across the ground they cross — "two days across the moor" — so a journey
 along a known route always takes as long. A road mentioned but never travelled stays a blank.
 Fronts never appear on it by name; their signs do, as you'd see them — smoke over a village,
-refugees on the road — and change as the threats do. `/map` shows it when you're not in a
+refugees on the road — and change as the threats do.
+
+Between sessions the steadings change too, by the book's conditions. Gary applies the ones the
+tags decide: **Collapse** (an emptying, poor steading shrinks a size), **Profit** (more trade
+partners than prosperity: +prosperity) and **Surplus** (a resource one steading has and another
+needs becomes trade between them, unless there's enmity). It works out **Opportunity** too —
+whether a steading with an enmity is strong and close enough to attack. The rest turn on the
+story — **Growth**, **Want**, blocked **Trade**, **Capture**, **Aid**, **Embattled**, **Clash** —
+and the GM gets them as a checklist for its steadings to decide. `/map` shows it when you're not in a
 dungeon (or `/map dungeon:World`).
 
 **Dungeons.** Dungeon World doesn't draw dungeons in advance; the GM builds them as you

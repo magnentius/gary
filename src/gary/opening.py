@@ -223,10 +223,13 @@ def opening_event(premise_text: str, party: Sequence[Dict] = (), oneshot: bool =
     }
 
 
-def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False) -> Dict:
-    """Between sessions: the book's front work, done after every /end but the first."""
+def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False,
+                 steadings_changed: Sequence[str] = (), steadings_to_check: Sequence[str] = ()) -> Dict:
+    """Between sessions: the book's front work, and its steading updates, after every /end but the first."""
     return {
         "new_campaign_front": new_campaign_front,
+        "steadings_changed_by_gary": list(steadings_changed),
+        "steadings_to_check": list(steadings_to_check),
         "event": "Between sessions: front work",
         "threats_noted": list(threats),
         "instruction": (
@@ -238,6 +241,9 @@ def review_event(threats: Sequence[str] = (), new_campaign_front: bool = False) 
             "danger that has come to bear into an adventure front (move_danger). If an adventure front has "
             "been resolved -- or the party has set off after something new -- write a new adventure front "
             "(create_front scope=adventure), inspired by the campaign front and the threats noted above. "
+            "Then the steadings, as the book updates the campaign map between sessions: Gary has applied what "
+            "their tags decide (steadings_changed_by_gary); go through steadings_to_check and, where the fiction "
+            "says a condition holds, apply it with adjust_steading. "
             "Keep to two or three fronts in play. Update the campaign map's signs of the fronts as they change "
             "(world_map sign/unsign: a burning village, refugees on the road -- as the characters would see it, "
             "never the front's name). Do nothing if nothing calls for it. "

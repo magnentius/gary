@@ -1322,9 +1322,26 @@ class GaryClient(discord.Client):
             new_front = bool(current.get("new_campaign_front"))
             if new_front:
                 self._set_opening("asking for a new campaign front", new_campaign_front=False)
-            event = opening.review_event(threats, new_front)
+            changed, checked = self._update_steadings()
+            event = opening.review_event(threats, new_front, changed, checked)
         asyncio.create_task(self._front_work(channel_id, event))
         return line
+
+    def _update_steadings(self) -> Tuple[List[str], List[str]]:
+        """The book's between-session steading conditions (steadings.between_sessions): apply what the
+        tags decide, journalled, and return (what changed, what the GM must check)."""
+        from .. import steadings, worldmap
+
+        state = self.store.state()
+        known = state.get("steadings") or {}
+        if not known:
+            return [], []
+        world = state.get("world")
+        changed, done, ask = steadings.between_sessions(known, lambda a, b: worldmap.distance(world, a, b))
+        if changed:
+            self.store.apply([Mutation(MutationKind.STEADING, k, {"steading": v}) for k, v in changed.items()],
+                             reason="steadings between sessions")
+        return done, ask
 
     async def _front_work(self, channel_id: int, event: dict) -> None:
         """Between sessions: "Fronts are built outside of active play." create_front is open only

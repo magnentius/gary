@@ -221,3 +221,52 @@ async def test_a_steading_made_on_arrival_shows_its_downtime_too(table):
                  text_response("A muddy village."))
     result = await player(n, "we reach the village")
     assert any(getattr(e, "text", "").startswith("🏘️ **Pigton**") for e in result.effects)
+
+
+# -- between sessions ---------------------------------------------------------------------
+
+def _town(name, **ranks):
+    record = S.make(name, "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"])
+    return {**record, **ranks}
+
+
+def test_collapse_shrinks_an_emptying_poor_steading():
+    t = _town("Ennet Bend", population="exodus", prosperity="poor")
+    changed, done, _ = S.between_sessions({"ennet_bend": t})
+    assert changed["ennet_bend"]["kind"] == "village" and changed["ennet_bend"]["population"] == "steady"
+    assert changed["ennet_bend"]["prosperity"] == "moderate" and done[0].startswith("Collapse: Ennet Bend")
+
+
+def test_profit_from_more_trade_than_prosperity():
+    t = _town("Ennet Bend", prosperity="poor")  # 3 trade partners against poor (2, as the book counts)
+    changed, done, _ = S.between_sessions({"ennet_bend": t})
+    assert changed["ennet_bend"]["prosperity"] == "moderate" and "Profit" in done[0]
+    unchanged, _, _ = S.between_sessions({"ennet_bend": _town("Ennet Bend", prosperity="moderate")})
+    assert unchanged == {}  # 3 against moderate's 3: not more
+
+
+def test_surplus_trades_a_resource_to_a_need_unless_enmity():
+    town = _town("Ennet Bend")
+    village = S.make("Pigton", "village", 0, 0, ["grain", "Ennet Bend"])
+    changed, done, _ = S.between_sessions({"ennet_bend": town, "pigton": village})
+    assert "grain" not in S.details(changed["ennet_bend"], "need") and changed["pigton"]["prosperity"] == "moderate"
+    assert S.details(changed["ennet_bend"], "trade").count("Pigton") == 1  # already traded: not twice
+    hostile = S.adjust(village, add=[("enmity", "Ennet Bend")])
+    changed, done, _ = S.between_sessions({"ennet_bend": town, "pigton": hostile})
+    assert not any(d.startswith("Surplus") for d in done)
+
+
+def test_the_gm_gets_a_checklist_for_what_turns_on_the_fiction():
+    booming = _town("Ennet Bend", population="booming", prosperity="wealthy")
+    _, _, ask = S.between_sessions({"ennet_bend": booming})
+    assert any(a.startswith("Growth: Ennet Bend is booming") for a in ask)
+    assert any(a.startswith("Want: Ennet Bend needs grain") for a in ask)
+    assert ask[-1].startswith("Capture, Aid, Embattled, Clash")
+
+
+def test_opportunity_uses_defenses_distance_and_size():
+    keep = {**S.make("Grimhold", "keep", 0, 0, ["Ennet Bend", "Ennet Bend", "Ennet Bend"]), "defenses": "battalion"}
+    keep = S.adjust(keep, add=[("enmity", "Pigton")])
+    village = S.make("Pigton", "village", 0, 0, ["grain", "Grimhold"])
+    _, _, ask = S.between_sessions({"grimhold": keep, "pigton": village}, lambda a, b: 1)
+    assert any(a.startswith("Opportunity: Grimhold definitely attacks Pigton") for a in ask)
