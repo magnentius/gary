@@ -744,6 +744,9 @@ class GeminiNarrator:
                         channel_id=channel_id, character=str(args.get("character", "")),
                         spell=str(args.get("spell", "")),
                     )
+                    # Ended now, not after the turn: "I drop the Invisibility and cast Sleep" comes in one
+                    # response, and the cast is checked before the runner would get to this.
+                    spell_effects = self._apply_now(spell_effects)
                 effects.extend(spell_effects)
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
@@ -1565,6 +1568,30 @@ class GeminiNarrator:
             return result
 
         return {"ok": False, "error": f"unknown tool {name!r}"}
+
+    def _apply_now(self, effects: List[Any]) -> List[Any]:
+        """Write a tool's state changes to the store at once, so later calls in the same response see
+        them; what is left (messages to post) goes on as usual."""
+        from ..fsm import ConditionMonster, Dismiss, UpdateSheet
+
+        rest = []
+        for effect in effects:
+            if isinstance(effect, UpdateSheet):
+                sheet = (self._store.state().get("sheets") or {}).get(effect.name)
+                if sheet is not None:
+                    self._store.apply([Mutation(MutationKind.SHEET, effect.name,
+                                                {"sheet": {**sheet, **dict(effect.changes)}})],
+                                      reason=f"{effect.name}: {sorted(effect.changes)}")
+            elif isinstance(effect, ConditionMonster):
+                self._store.apply([Mutation(MutationKind.MONSTER_CONDITIONS, effect.name,
+                                            {"conditions": [dict(c) for c in effect.conditions]})],
+                                  reason=f"{effect.name}'s conditions")
+            elif isinstance(effect, Dismiss):
+                self._store.apply([Mutation(MutationKind.SHEET, effect.name, {"sheet": None})],
+                                  reason=f"{effect.name} is gone")
+            else:
+                rest.append(effect)
+        return rest
 
     # -- model I/O ---------------------------------------------------------------------
 

@@ -270,3 +270,43 @@ def test_preparing_spells_needs_the_spellbook(director, sheets, scene):
                                  "carrying": [{"name": "Spellbook", "tags": [], "weight": 1}]}]
     _, ok = director.prepare_spells(channel_id=CHANNEL, character="Mae", reason="a quiet hour")
     assert ok["ok"]  # the servant holds it: still to hand
+
+
+def test_sleep_must_name_who_it_could_take(director, sheets, scene):
+    (note,) = [e for e in director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Mae", move="cast_a_spell",
+                                             spell="Sleep") if hasattr(e, "payload")]
+    assert "Sleep needs the creatures it's cast on" in note.payload["error"]
+
+
+async def test_ending_a_spell_and_casting_in_one_response(clock):
+    """Live: "I drop the Invisibility and cast Sleep" -- one response; the cast was refused because the
+    ending wasn't written until after the turn."""
+    from gary.adapters import gemini_tools as T
+    from gary.models import Mutation, MutationKind
+    from gary.registry import PendingCheckRegistry
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.history import InMemoryHistoryBackend
+    from gary.state.store import CampaignStore
+    from tests.test_gemini import CHANNEL as ROOM, ALICE as USER, narrator, player, text_response
+    from google.genai import types
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Mae", {"sheet": {
+        "name": "Mae", "class": "Wizard", "race": "Human", "level": 5, "xp": 0, "hp": 15, "max_hp": 15, "armor": 0,
+        "damage": "d4", "stats": STATS, "spellbook": ["Sleep", "Invisibility"], "spells": ["Sleep", "Invisibility"],
+        "ongoing": [{"spell": "Invisibility", "target": "Dorn"}], "lost": [], "cast_penalty": 0}}),
+        Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {"Bandit 1": {
+            "kind": "Bandit", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"}}})], reason="setup")
+    director = Director(registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={ROOM},
+                        players={USER: "Mae"}, sheet_for=lambda a: (store.state().get("sheets") or {}).get(a),
+                        monsters=lambda: store.state().get("monsters") or {})
+    both = types.GenerateContentResponse(candidates=[types.Candidate(content=types.Content(role="model", parts=[
+        types.Part(function_call=types.FunctionCall(name=T.END_SPELL, args={"character": "Mae", "spell": "Invisibility"})),
+        types.Part(function_call=types.FunctionCall(name=T.MAKE_MOVE, args={
+            "actor": "Mae", "move": "cast_a_spell", "spell": "Sleep", "target": "Bandit 1"})),
+    ]))])
+    n = narrator((director, store, InMemoryHistoryBackend()), both, text_response("."))
+    result = await player(n, "I drop the invisibility and cast Sleep")
+    assert store.state()["sheets"]["Mae"]["ongoing"] == []
+    assert not any("cannot cast a spell" in str(getattr(e, "payload", "")) for e in result.effects)
+    assert director.registry.open_checks(ROOM)[0].spell == "Sleep"

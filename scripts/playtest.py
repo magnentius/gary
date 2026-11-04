@@ -116,7 +116,10 @@ def party() -> List[Tuple[int, dict]]:
         "Gorm", "barbarian", "Human", ("str", "con", "dex", "wis", "cha"), {0: (0,), 1: (0,)},
         "Chaotic", choices=("Unencumbered, Unharmed", "Riches and property", "Conquest"),
     )
-    return [(1001, thorin), (1002, dorn), (1003, gorm)]
+    mae = _character(
+        "Mae", "wizard", "Human", ("int", "dex", "con", "wis", "cha"), {0: (1,), 1: (0,), 2: (0,)}, "Neutral",
+    )
+    return [(1001, thorin), (1002, dorn), (1003, gorm), (1004, mae)]
 
 
 # -- scenarios ---------------------------------------------------------------------------
@@ -233,6 +236,27 @@ SCENARIOS: Dict[str, Scenario] = {
         setup={"Dorn": {"add_gear": ["Spear"]}},
         goals={"Dorn": "Throw your spear at the goblins across the ravine -- your sword can't reach -- then recover it.",
                "Thorin": "Keep Dorn alive while he fights the goblins across the ravine."},
+    ),
+    "wizard": Scenario(
+        "wizard",
+        "Low fantasy borderlands. Bandits have taken a merchant on the old road and hold him for ransom.",
+        ("The bandits' camp in a ruined chapel", "Five bandits dice and drink by a fire in the roofless nave; their "
+                                                 "captain, a scarred woman with a crossbow, watches the road. A "
+                                                 "bound merchant sits against the altar. They haven't seen the party."),
+        [
+            ("Mae", "I whisper Sleep over the bandits around the fire."),
+            ("Mae", "I touch Dorn and make him invisible so he can reach the merchant."),
+            ("Dorn", "Unseen, I cut the merchant's ropes, then attack the nearest bandit who's still awake."),
+            ("Mae", "I hit the bandit captain with Magic Missile."),
+            ("Mae", "I conjure my unseen servant and hand it my bag of books so I can move fast."),
+            ("Mae", "I touch the last bandit standing and charm him."),
+        ],
+        setup={"Mae": {"level": 5, "spellbook": ["Sleep", "Magic Missile", "Charm Person", "Invisibility",
+                                                 "Mirror Image", "Fireball"],
+                       "spells": ["Sleep", "Magic Missile", "Charm Person", "Invisibility"]}},
+        goals={"Mae": "Free the merchant with magic: put the bandits to sleep, make Dorn invisible, blast the captain, "
+                      "and charm whoever's left. Use your unseen servant to carry your books.",
+               "Dorn": "Free the merchant while Mae's spells hide you, then fight the bandits who are awake."},
     ),
     "camp": Scenario(
         "camp",

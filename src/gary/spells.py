@@ -104,6 +104,8 @@ class Spell:
         """What the spell needs named: a creature in the scene, a character, or nothing."""
         if self.damage or self.name == "Consume Unlife":  # "the mindless undead creature you touch"
             return "creature"
+        if self.name in ("Sleep", "Hold Person", "Cage", "Cause Fear"):
+            return "creatures"  # whoever it takes, from the scene, so Gary can mark them
         if self.heals or self.name == BLESS:
             return "character"
         return None

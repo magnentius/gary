@@ -1071,7 +1071,22 @@ class Director:
                 "that they cannot.",
             )]
 
-        if spell.target == "creature":
+        if spell.target == "creatures":
+            standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
+            wanted = [t.strip() for t in str(target or "").split(",") if t.strip()]
+            missing = [t for t in wanted if t.lower() not in standing]
+            if not wanted or missing:
+                return [self._refuse(
+                    channel_id,
+                    f"{spell.name} needs the creatures it's cast on, from the scene"
+                    + (" -- every one it could take; Gary rolls how many it does" if spell.name == "Sleep" else "")
+                    + f". {'No creature named ' + repr(missing[0]) + '. ' if missing else ''}"
+                    f"Standing: {', '.join(sorted(standing.values())) or 'none'}.",
+                    "Add them with add_monsters first if they're new, then re-issue make_move with target set to "
+                    "their exact names, comma-separated.",
+                )]
+            target = ", ".join(dict.fromkeys(standing[t.lower()] for t in wanted))
+        elif spell.target == "creature":
             standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
             if spell.area:  # "your target and everyone nearby": the party too, if they're close
                 standing.update({a.lower(): a for a, _ in self._party()})
