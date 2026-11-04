@@ -75,3 +75,10 @@ def test_the_gm_is_told_how_to_play():
     assert "Spread the spotlight" in text
     assert "Never speak the name of your move" in text
     assert "quest status" not in text
+
+
+def test_a_mislabelled_free_strike_says_how_to_retry(director, sheets):
+    """Live, twice: a sword thrust sent as ranged was refused and Gemini gave up on it."""
+    _, result = director.deal_damage(channel_id=CHANNEL, character="Dorn", target="Gnoll 1",
+                                     ranged=True, reason="pinned and helpless")
+    assert "near, far or thrown" in result["error"] and "re-issue with ranged=false" in result["error"]

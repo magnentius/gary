@@ -1929,7 +1929,9 @@ class Director:
                         "have Death offer a specific bargain: a real, lasting price for "
                         "stabilizing. End on the offer. Do NOT decide whether they take it -- "
                         "the player chooses next."
-                    ),
+                    ) + (" If the bargain is taken, record its price the moment it's struck, so it lasts: a disease "
+                         "(disease_character), a weakness (debility), or a debt or task owed to Death "
+                         "(record_note kind=promise)."),
                 }),
                 SendMessage(
                     channel_id,
@@ -3088,7 +3090,10 @@ class Director:
         move = "volley" if ranged else "hack_and_slash"
         if "gear" in sheet and self._weapon(sheet, move) is None:
             needs = "a near, far or thrown weapon" if ranged else "a hand, close or reach weapon"
-            return [], {"ok": False, "error": f"{actor} has nothing to strike with: it needs {needs}."}
+            other = "hack_and_slash" if ranged else "volley"
+            retry = (f" If the blow is really {'in melee -- a stab, a skewer, a swing -- re-issue with ranged=false' if ranged else 'at range -- a shot or a throw -- re-issue with ranged=true'}."
+                     if self._weapon(sheet, other) is not None else "")
+            return [], {"ok": False, "error": f"{actor} has nothing to strike with: it needs {needs}.{retry}"}
         blow = PendingCheck(check_id="", channel_id=channel_id, user_id=0, actor=actor, move=move,
                             stat="", modifier=0, stakes="", dice="", created_at=0, expires_at=0, target=name)
         die, piercing, weapon = self._damage_die(blow)
