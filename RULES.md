@@ -111,7 +111,9 @@ narrates from the spell's text.
 
 Spells that take hold of a creature mark it, and Gary keeps to it: Sleep (1d4 of those you
 name), Charm Person, Hold Person, Cage, Cause Fear, Polymorph and Dominate. An asleep, held or
-caged creature can't attack. Pain wakes a sleeper and breaks Charm and Hold; each blow costs
+caged creature can't attack. Pain wakes a sleeper and breaks Charm and Hold, and the GM can free
+a creature when the story does — a sleeper woken by the din of a fight or a shake, a charm seen
+through; each blow costs
 Dominate a hold (1d4 to start, one spent per command, the spell ends at none). Ending a spell
 frees the creature. An **Unseen Servant** carries what you hand it, up to weight 3, off your
 own load; dispelled (a blow, out of your presence, or dismissed), it drops it all where it was,

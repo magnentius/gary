@@ -79,6 +79,7 @@ SHARE_PIPELEAF = "share_pipeleaf"
 WEAR_ARMOR = "wear_armor"
 DOMINATE = "dominate"
 UNSEEN_SERVANT = "unseen_servant"
+FREE_CREATURE = "free_creature"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -978,6 +979,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=FREE_CREATURE,
+        description=("A spell's hold on a creature is broken by the fiction: a sleeper woken by loud noise or a "
+                     "shake (Sleep: 'They awake as normal: loud noises, jolts, pain'), a charm seen through, a hold "
+                     "shrugged off. Pain does this by itself; this is for everything else. The caster's spell on it "
+                     "ends too."),
+        parameters=_s(type=_OBJECT, properties={"creature": _s(type=_STRING), "reason": _s(type=_STRING)},
+                      required=["creature", "reason"]),
     ),
     types.FunctionDeclaration(
         name=UNSEEN_SERVANT,

@@ -493,6 +493,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.FREE_CREATURE:
+                freed_effects, result = self._director.free_creature(
+                    channel_id=channel_id, creature=str(args.get("creature", "")),
+                    reason=str(args.get("reason", "") or ""))
+                effects.extend(self._apply_now(freed_effects))  # it may attack in the same response
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.UNSEEN_SERVANT:
                 servant_effects, result = self._director.unseen_servant(
                     channel_id=channel_id, character=str(args.get("character", "")),

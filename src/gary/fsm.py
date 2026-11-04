@@ -2688,8 +2688,9 @@ class Director:
                 names.append(found)
             stuck = helpless(scene[found])
             if stuck:
-                return [], {"ok": False, "error": f"{found} is {stuck} and can't attack. End the spell first, or "
-                                                  "narrate it waking or breaking free, if the fiction does."}
+                return [], {"ok": False, "error": f"{found} is {stuck} and can't attack. If the fiction frees it -- "
+                                                  "a sleeper woken by noise or a shake, a cage dismissed -- call "
+                                                  "free_creature first; otherwise it does nothing."}
         # "If multiple creatures attack at once roll the highest damage among them and add +1
         # damage for each monster beyond the first." The one with the highest damage leads: its
         # die, piercing and armor-breaking count.
@@ -3476,6 +3477,31 @@ class Director:
                 out += [SendMessage(channel_id, f"✨ **{actor}** attacks — and is visible again."),
                         UpdateSheet(channel_id, caster, {"ongoing": kept})]
         return out
+
+    def free_creature(self, *, channel_id: int, creature: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """A spell's hold on a creature broken by the fiction: Sleep's "They awake as normal: loud noises,
+        jolts, pain"; a charm seen through; a hold shrugged off. Its caster's spell on it ends too."""
+        scene = self._monsters()
+        name = next((n for n in scene if normalize_actor(n) == normalize_actor(creature)), None)
+        if name is None:
+            return [], {"ok": False, "error": f"No creature {creature!r} here."}
+        held = list(scene[name].get("conditions") or [])
+        if not held:
+            return [], {"ok": False, "error": f"{name} is held by no spell."}
+        reason = " ".join(str(reason or "").split())[:160]
+        if not reason:
+            return [], {"ok": False, "error": "Say what frees it (reason): the din of the fight, a kick, a blow."}
+        out: List[Effect] = [ConditionMonster(channel_id, name, ()),
+                             SendMessage(channel_id, f"✨ **{name}** is no longer {_and([c['kind'] for c in held])} — "
+                                                     f"{reason}.")]
+        for c in held:
+            caster = self._sheet_or_empty(c.get("caster", ""))
+            ongoing = list(caster.get("ongoing") or [])
+            kept = [e for e in ongoing if not (e.get("spell") == c.get("spell")
+                                               and name.lower() in str(e.get("target", "")).lower())]
+            if len(kept) != len(ongoing):
+                out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": kept}))
+        return out, {"ok": True, "freed": name}
 
     def dominate(self, *, channel_id: int, character: str, command: str, reason: str = ""
                  ) -> Tuple[List[Effect], Dict[str, Any]]:

@@ -310,3 +310,23 @@ async def test_ending_a_spell_and_casting_in_one_response(clock):
     assert store.state()["sheets"]["Mae"]["ongoing"] == []
     assert not any("cannot cast a spell" in str(getattr(e, "payload", "")) for e in result.effects)
     assert director.registry.open_checks(ROOM)[0].spell == "Sleep"
+
+
+def test_a_sleeper_woken_by_the_din_can_fight_again(director, dice, sheets, scene):
+    """Live: the fight got loud, the bandits should have woken, and nothing could wake them."""
+    cast(director, dice, sheets, scene, "Sleep", "Goblin 1", then=(1,))
+    _, refused = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Dorn")
+    assert "free_creature" in refused["error"]
+    effects, freed = director.free_creature(channel_id=CHANNEL, creature="goblin 1", reason="the clash of steel")
+    apply(effects, sheets, scene)
+    assert freed["ok"] and scene["Goblin 1"]["conditions"] == []
+    dice.queue(3)
+    _, hit = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Dorn")
+    assert hit["dealt"] == 3
+
+
+def test_freeing_a_charmed_creature_ends_the_charm(director, dice, sheets, scene):
+    cast(director, dice, sheets, scene, "Charm Person", "Goblin 2")
+    effects, _ = director.free_creature(channel_id=CHANNEL, creature="Goblin 2", reason="Mae's lie is exposed")
+    apply(effects, sheets, scene)
+    assert sheets["Mae"]["ongoing"] == [] and scene["Goblin 2"]["conditions"] == []
