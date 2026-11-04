@@ -550,7 +550,12 @@ partners than prosperity: +prosperity) and **Surplus** (a resource one steading 
 needs becomes trade between them, unless there's enmity). It works out **Opportunity** too —
 whether a steading with an enmity is strong and close enough to attack. The rest turn on the
 story — **Growth**, **Want**, blocked **Trade**, **Capture**, **Aid**, **Embattled**, **Clash** —
-and the GM gets them as a checklist for its steadings to decide. `/map` shows it when you're not in a
+and the GM gets them as a checklist for its steadings to decide.
+
+Gary remembers each steading as you left it, and when. Come back and the GM is told how long
+it's been and exactly what changed — its size, prosperity, population, defenses, tags gained and
+lost, signs of trouble nearby — to show you. A Bard with **A Port in the Storm** gets the whole
+of it, as the move promises. `/map` shows it when you're not in a
 dungeon (or `/map dungeon:World`).
 
 Places on the map can carry one of the book's **monster settings** — "a type of location and the

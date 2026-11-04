@@ -104,6 +104,11 @@ async def _bounded(coro, seconds: float) -> Any:
     raise asyncio.TimeoutError(f"no answer in {seconds:.0f}s")
 
 
+def _and_names(names: Sequence[str]) -> str:
+    names = list(names)
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 class GeminiNarrator:
     def __init__(
         self,
@@ -1589,13 +1594,52 @@ class GeminiNarrator:
                 result["note"] = ("What's left behind stays there: thrown weapons are off the sheet for good, and a "
                                   "Cloudkill out of sight has ended.")
             arrived = slug(payload.get("steading") or "")
+            if result.get("ok") and "steading" in payload and arrived != before:
+                self._visits(before, arrived, result)
             menu = self._downtime(arrived) if result.get("ok") and arrived and arrived != before else ""
             if menu:  # settling into a steading, with no fight on
                 result["post"] = menu
-                result["note"] = "Gary has shown the table what downtime here offers; play whatever they choose."
+                result["note"] = (result.get("note", "") + " Gary has shown the table what downtime here offers; "
+                                  "play whatever they choose.").strip()
             return result
 
         return {"ok": False, "error": f"unknown tool {name!r}"}
+
+    def _visits(self, left: str, arrived: str, result: Dict[str, Any]) -> None:
+        """Leaving a steading, remember it as it was and when; coming back to one, say what changed.
+        A Port in the Storm: "When you return to a civilized settlement you've visited before... The GM
+        will tell you how it's changed since then." Every return shows the world moving; for a Bard
+        with the move, the answer is theirs in full."""
+        from .. import steadings as places
+        from ..fsm import starting_move
+        from ..state.schema import format_world_time
+
+        state = self._store.state()
+        known = state.get("steadings") or {}
+        now = int(state.get("world_minutes", 0))
+        if left and left in known:
+            record = known[left]
+            self._store.apply([Mutation(MutationKind.STEADING, left, {"steading": {
+                **record, "last_visit": {"left_at": now, "date": format_world_time(state),
+                                         "as_it_was": places.snapshot(record)}}})],
+                              reason=f"leaving {record['name']}")
+        if not arrived or arrived not in known or not known[arrived].get("last_visit"):
+            return
+        record, visit = known[arrived], known[arrived]["last_visit"]
+        days = max(0, now - int(visit["left_at"])) // 1440
+        changed = places.changes_since(visit["as_it_was"], record)
+        signs = [s["text"] for s in ((state.get("world") or {}).get("signs") or ())
+                 if s.get("near") == places.slug(record["name"])]
+        bards = [n for n, sh in (state.get("sheets") or {}).items() if starting_move(sh, "A Port in the Storm")]
+        result["returning"] = {
+            "last_here": f"{visit['date']} ({days} day{'s' if days != 1 else ''} ago)",
+            "changed": changed or ["nothing in its tags -- the change, if any, is in its people"],
+            **({"signs_near": signs} if signs else {}),
+        }
+        result["note"] = (result.get("note", "") + " The party has been here before: show how it's changed since -- "
+                          "what's in 'returning', and what the fronts and the party's deeds did to its people."
+                          + (f" {_and_names(bards)} has A Port in the Storm: tell them in full, as the move's answer."
+                             if bards else "")).strip()
 
     def _apply_now(self, effects: List[Any]) -> List[Any]:
         """Write a tool's state changes to the store at once, so later calls in the same response see

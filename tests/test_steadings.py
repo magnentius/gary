@@ -270,3 +270,44 @@ def test_opportunity_uses_defenses_distance_and_size():
     village = S.make("Pigton", "village", 0, 0, ["grain", "Grimhold"])
     _, _, ask = S.between_sessions({"grimhold": keep, "pigton": village}, lambda a, b: 1)
     assert any(a.startswith("Opportunity: Grimhold definitely attacks Pigton") for a in ask)
+
+
+async def test_coming_back_shows_what_changed_since(clock):
+    """A Port in the Storm: "tell the GM when you were last here. The GM will tell you how it's changed."
+    Gary knows both: the visit is remembered as it was left."""
+    from gary.adapters import gemini_tools as T
+    from gary.models import Mutation, MutationKind
+    from tests.test_gemini import call_response, narrator, player, text_response
+    from gary.fsm import Director
+    from gary.registry import PendingCheckRegistry
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.history import InMemoryHistoryBackend
+    from gary.state.store import CampaignStore
+    from tests.test_gemini import CHANNEL
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    town = S.make("Fenwick", "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"])
+    store.apply([Mutation(MutationKind.STEADING, "fenwick", {"steading": town}),
+                 Mutation(MutationKind.SHEET, "Anna", {"sheet": {
+                     "name": "Anna", "class": "Bard", "race": "Human", "level": 1, "xp": 0, "hp": 10, "max_hp": 10,
+                     "armor": 0, "damage": "d6",
+                     "stats": {"str": 8, "dex": 13, "con": 12, "int": 10, "wis": 9, "cha": 16}}}),
+                 Mutation(MutationKind.SCENE, "", {"location": "Fenwick market", "steading": "Fenwick"})],
+                reason="setup")
+    table = (Director(registry=PendingCheckRegistry(clock=clock), clock=clock, game_channels={CHANNEL}),
+             store, InMemoryHistoryBackend())
+    n = narrator(table, call_response(T.SET_SCENE, {"location": "The north road", "steading": ""}), text_response("."))
+    await player(n, "we leave town")
+    assert store.state()["steadings"]["fenwick"]["last_visit"]["as_it_was"]["prosperity"] == "wealthy"
+    poorer = S.adjust(store.state()["steadings"]["fenwick"], steps=["-prosperity"], add=[("blight", "plague")])
+    store.apply([Mutation(MutationKind.STEADING, "fenwick", {"steading": poorer})], reason="a hard winter")
+    for _ in range(40):  # the clock moves a day at most at a time
+        store.advance_time(1440, reason="a day away")
+    n = narrator(table, call_response(T.SET_SCENE, {"location": "Fenwick gate", "steading": "Fenwick"}),
+                 text_response("."))
+    await player(n, "we come back to Fenwick")
+    answer = n.client.calls[1]["contents"][-1].parts[0].function_response.response
+    back = answer["returning"]
+    assert "(40 days ago)" in back["last_here"]
+    assert "prosperity wealthy → moderate" in back["changed"] and "new: Blight (plague)" in back["changed"]
+    assert "Anna has A Port in the Storm" in answer["note"]

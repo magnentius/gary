@@ -455,3 +455,30 @@ def between_sessions(steadings: Dict[str, Dict[str, Any]], distance=lambda a, b:
     ask.append("Capture, Aid, Embattled, Clash: if a resource changed hands, a steading is under attack or two "
                "fight, apply the book's rule. Then add any tags that reflect what the players and the fronts did.")
     return changed, done, ask
+
+
+# -- coming back: what changed since the party was last here -------------------------------
+
+def snapshot(record: Dict[str, Any]) -> Dict[str, Any]:
+    """The steading as the party leaves it, to compare when they return."""
+    return {"kind": record.get("kind"), **{c: record.get(c) for c in RANKED},
+            "tags": [dict(t) for t in record.get("tags") or []]}
+
+
+def _tag(t: Dict[str, Any]) -> str:
+    return t["tag"].title() + (f" ({t['detail']})" if t.get("detail") else "")
+
+
+def changes_since(before: Dict[str, Any], now: Dict[str, Any]) -> List[str]:
+    """What is different from how they left it: its size, its ranks, tags gained and lost."""
+    out: List[str] = []
+    if before.get("kind") != now.get("kind"):
+        out.append(f"it was a {before.get('kind')}; now it is a {now.get('kind')}")
+    for category in RANKED:
+        if before.get(category) != now.get(category):
+            out.append(f"{category} {before.get(category)} → {now.get(category)}")
+    was = {_tag(t) for t in before.get("tags") or ()}
+    is_ = {_tag(t) for t in now.get("tags") or ()}
+    out += [f"new: {t}" for t in sorted(is_ - was)]
+    out += [f"gone: {t}" for t in sorted(was - is_)]
+    return out
