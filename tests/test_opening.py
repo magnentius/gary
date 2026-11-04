@@ -35,7 +35,7 @@ def test_the_offer_is_read_however_the_model_dresses_it():
 
 def test_the_prompt_asks_for_a_place_and_an_activity_and_names_the_rejects():
     text = opening.premise_prompt(["a glass forest"])
-    assert "fantastic location and a grabby activity" in text and "Call no tools" in text
+    assert "a location and a grabby activity" in text and "Call no tools" in text
     assert "- a glass forest" in text
     assert "passed over" not in opening.premise_prompt()
 

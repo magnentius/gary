@@ -51,13 +51,20 @@ def premise_prompt(already: Sequence[str] = ()) -> str:
                  + "\n".join(f"- {a}" for a in already[-8:]) + "\n")
     return (
         "OPENING: the table is starting a new Dungeon World adventure and choosing its premise: a "
-        "fantastic location and a grabby activity -- what the characters are there to do. Not a "
-        "campaign concept or a world: a place with a strong image, and a job with a clear goal and a "
-        "reason it is hard. Examples: places -- 'a lighthouse on the back of a sleeping sea "
-        "turtle', 'the drowned bell-towers of Old Marrow'; activities -- 'smuggle a cargo through "
-        "the duke's blockade', 'steal back a book from a noble's estate during a masked ball'.\n"
+        "location and a grabby activity -- what the characters are there to do. Not a campaign concept "
+        "or a world: a place with a strong image, and a job with a clear goal and a reason it is hard.\n"
+        "PLACES are grounded: a real kind of place -- a town, a mine, an abbey, a ford, a manor, a fair, a "
+        "ship, a ruin -- with one memorable twist. Not titanic creatures' remains, not anything floating, "
+        "hanging or suspended, not lakes of molten anything. Examples: 'the drowned bell-towers of Old "
+        "Marrow', 'a toll bridge whose keeper hasn't been seen in a year', 'a silver mine the miners "
+        "won't go down after dark'.\n"
+        "ACTIVITIES have a clear goal and a complication. At least one must be winnable without "
+        "bloodshed -- a negotiation, a delivery, a mystery, a rescue by wits or stealth, an escort, "
+        "keeping a peace. Examples: 'smuggle a cargo through the duke's blockade', 'broker a truce between "
+        "two feuding mill-towns before the wedding', 'find out who is poisoning the abbey's well'.\n"
         f"Offer {OFFERED} places and {OFFERED} activities, each able to pair with any of the others, "
-        "varied in tone.\n" + again
+        "varied in tone -- some light, some grim. No two may share an image or a central verb: at most "
+        "one theft, one rescue, one escort, and no repeated motif.\n" + again
         + f"Reply with exactly {OFFERED * 2} lines and nothing else, in this form:\n"
         + "\n".join(["PLACE: <a fantastic location>"] * OFFERED + ["ACTIVITY: <a grabby activity>"] * OFFERED)
         + f"\nEach under {MAX_PART} characters. No preamble, no numbering. Call no tools."
