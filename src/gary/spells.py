@@ -492,9 +492,11 @@ CONDITION_OF: Dict[str, str] = {
 }
 #: Harm breaks these: Sleep ("They awake as normal: loud noises, jolts, pain"), Charm Person
 #: ("until they take damage"), Hold Person ("ends immediately if the target takes damage").
-BROKEN_BY_HARM = ("asleep", "charmed", "held")
+BROKEN_BY_HARM = ("asleep", "charmed", "held", "turned", "dazed", "fleeing")  # Turn Undead: "Aggression breaks the effects"
 #: A creature in one of these can't attack anyone.
-HELPLESS = ("asleep", "held", "caged")
+HELPLESS = ("asleep", "held", "caged", "dazed", "fleeing")
+#: Turn Undead's ward: these can't come within reach of the Cleric who turned them.
+WARDED = ("turned", "dazed", "fleeing")
 #: Spells laid on a place: they stay where they were cast (and Cloudkill, "so long as you can see
 #: the affected area", ends when the party leaves it).
 AREA_SPELLS = ("Cloudkill", "Darkness", "Sanctuary", "Alarm")

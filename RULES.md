@@ -115,7 +115,10 @@ caged creature can't attack. Pain wakes a sleeper and breaks Charm and Hold, and
 a creature when the story does — a sleeper woken by the din of a fight or a shake, a charm seen
 through; each blow costs
 Dominate a hold (1d4 to start, one spent per command, the spell ends at none). Ending a spell
-frees the creature. An **Unseen Servant** carries what you hand it, up to weight 3, off your
+frees the creature. A Cleric's **Turn Undead** works the same way: on a 7+ every undead creature
+here is held off — it can't attack the Cleric (others, yes) — and on a 10+ mindless undead flee
+and intelligent ones are dazed, unable to attack at all. It lasts while the Cleric prays: any
+other move they make ends it, and hurting the undead breaks it. An **Unseen Servant** carries what you hand it, up to weight 3, off your
 own load; dispelled (a blow, out of your presence, or dismissed), it drops it all where it was,
 to pick up again or leave behind. Spells also end themselves: Invisibility when its target attacks, Alarm
 when you next prepare, anything "until you cast" when you cast again. **Mirror Image** takes a

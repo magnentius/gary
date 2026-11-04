@@ -312,6 +312,25 @@ class _Rolled:
         return self.shown
 
 
+_UNDEAD_WORDS = ("undead", "zombie", "skeleton", "ghost", "wraith", "wight", "lich", "ghoul", "vampire",
+                 "revenant", "mummy", "spectre", "specter", "draugr", "banshee", "shade", "phantom")
+
+
+def undead(creature: Dict[str, Any]) -> Tuple[bool, bool]:
+    """(undead?, intelligent?): the bestiary's Undead setting and Intelligent tag, else what the
+    creature is called or tagged (a creature of the GM's own)."""
+    from .monsters import lookup
+
+    kind = str(creature.get("kind") or "")
+    book = lookup(kind)
+    tags = [str(t).lower() for t in (book or {}).get("tags") or creature.get("tags") or ()]
+    if book is not None:
+        is_undead = str(book.get("setting") or "").lower() == "undead"
+    else:
+        is_undead = "undead" in tags or any(w in kind.lower() for w in _UNDEAD_WORDS)
+    return is_undead, "intelligent" in tags
+
+
 def helpless(creature: Dict[str, Any]) -> str:
     """What stops this creature attacking (asleep, held, caged), or ""."""
     return next((c["kind"] for c in creature.get("conditions") or () if c.get("kind") in spells.HELPLESS), "")
@@ -940,7 +959,18 @@ class Director:
         notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
         aide: str = "", ally: str = "", flags: Sequence[str] = (),
     ) -> List[Effect]:
-        """Commit the move -- stat, modifier, target, spell -- and ask for the roll."""
+        """Commit the move -- stat, modifier, target, spell -- and ask for the roll. A Cleric who makes any
+        other move has stopped praying: their Turn Undead ends first."""
+        praying = [] if move == "turn_undead" else self._stop_praying(channel_id, actor)
+        return [*praying, *self._commit(channel_id, user_id, actor, move, stat, mod, stakes, target, ttl_seconds,
+                                        what, notes, spell, companion, overloaded, aide, ally, flags)]
+
+    def _commit(
+        self, channel_id: int, user_id: int, actor: str, move: str, stat: str, mod: int,
+        stakes: str, target: str, ttl_seconds: Optional[float], what: str,
+        notes: Sequence[str] = (), spell: str = "", companion: str = "", overloaded: bool = False,
+        aide: str = "", ally: str = "", flags: Sequence[str] = (),
+    ) -> List[Effect]:
         check, displaced = self.registry.open(
             channel_id=channel_id,
             user_id=user_id,
@@ -1647,7 +1677,44 @@ class Director:
         if thrown is not None and not thrown.needs_ammo:
             # Held with the check, so the damage still comes from the spear once it has left the sheet.
             check = replace(check, flags=(*check.flags, f"thrown:{json.dumps(asdict(thrown))}"))
-        return [rolled, *self._thrown(channel_id, check), *self._next(channel_id, check, dice)]
+        return [rolled, *self._thrown(channel_id, check), *self._turned(channel_id, check, dice),
+                *self._next(channel_id, check, dice)]
+
+    def _turned(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Turn Undead: on a 7+ "no undead may come within reach of you"; on a 10+ "you momentarily daze
+        intelligent undead and cause mindless undead to flee." Kept on each undead in the scene."""
+        if check.move != "turn_undead" or band(dice) == "miss":
+            return []
+        out: List[Effect] = []
+        named: List[str] = []
+        for name, record in self._monsters().items():
+            if int(record.get("hp", 0)) <= 0:
+                continue
+            is_undead, clever = undead(record)
+            if not is_undead:
+                continue
+            kind = "turned" if band(dice) != "strong" else ("dazed" if clever else "fleeing")
+            others = [c for c in record.get("conditions") or [] if c.get("spell") != "Turn Undead"]
+            out.append(ConditionMonster(channel_id, name, tuple(
+                [*others, {"kind": kind, "spell": "Turn Undead", "caster": check.actor}])))
+            named.append(f"{name} ({kind})")
+        if named:
+            out.insert(0, SendMessage(channel_id, f"✨ {check.actor}'s ward holds them off: {', '.join(named)}. "
+                                                  "It lasts while they pray and brandish the symbol."))
+        return out
+
+    def _stop_praying(self, channel_id: int, actor: str) -> List[Effect]:
+        """Turn Undead lasts "so long as you continue to pray": any other move ends it."""
+        out: List[Effect] = []
+        for name, record in self._monsters().items():
+            conditions = list(record.get("conditions") or [])
+            kept = [c for c in conditions if not (c.get("spell") == "Turn Undead"
+                                                  and normalize_actor(c.get("caster", "")) == normalize_actor(actor))]
+            if len(kept) != len(conditions):
+                out.append(ConditionMonster(channel_id, name, tuple(kept)))
+        if out:
+            out.insert(0, SendMessage(channel_id, f"✨ {actor} stops praying: the undead are free to come on."))
+        return out
 
     def _thrown_weapon(self, check: PendingCheck):
         """The thrown weapon this Volley uses, if it is one."""
@@ -2725,6 +2792,13 @@ class Director:
                                                   f"Standing: {listing}."}
             if found not in names:
                 names.append(found)
+            warded = next((c for c in scene[found].get("conditions") or () if c.get("kind") in spells.WARDED
+                           and normalize_actor(c.get("caster", "")) == normalize_actor(character)), None)
+            if warded and not helpless(scene[found]):
+                return [], {"ok": False, "error": (
+                    f"{found} is held off by {character}'s Turn Undead: no undead may come within reach of them while "
+                    "they pray. It can go for someone else -- or, if it is intelligent and harries them from afar (a "
+                    "thrown stone, a curse), that is hazard_damage.")}
             stuck = helpless(scene[found])
             if stuck:
                 return [], {"ok": False, "error": f"{found} is {stuck} and can't attack. If the fiction frees it -- "
@@ -2850,7 +2924,7 @@ class Director:
         with_what = f" with {weapon}" if weapon else ""
         effects.insert(0, SendMessage(channel_id, f"🗡️ **{actor}** strikes{with_what} — {reason}. "
                                                   f"No roll needed: {shown}{said}"))
-        effects = [*self._unveil(channel_id, actor), *effects]
+        effects = [*self._unveil(channel_id, actor), *self._stop_praying(channel_id, actor), *effects]
         return effects, {"ok": True, **facts, "note": (
             "No move was rolled: the fiction gave them the blow. Narrate it landing, as bad as its "
             "severity; a creature not defeated is still in the fight.")}

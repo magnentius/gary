@@ -410,3 +410,61 @@ def test_an_alarm_circle_wakes_its_caster_when_something_comes(director, sheets,
     _here(director, "the old road")
     _, elsewhere = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn", reason="a ditch")
     assert "alarm" not in elsewhere
+
+
+# -- Turn Undead -----------------------------------------------------------------------------
+
+@pytest.fixture
+def crypt(registry, clock, dice):
+    sheets = {"Thorin": {"name": "Thorin", "class": "Cleric", "race": "Dwarf", "level": 3, "xp": 0, "hp": 18,
+                         "max_hp": 18, "armor": 1, "damage": "d6", "stats": STATS},
+              "Dorn": {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 3, "xp": 0, "hp": 20,
+                       "max_hp": 20, "armor": 0, "damage": "d10", "stats": STATS}}
+    scene = {"Zombie 1": {"kind": "Zombie", "hp": 11, "max_hp": 11, "armor": 1, "damage": "d6"},
+             "Wight-Wolf 1": {"kind": "Wight-Wolf", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"},
+             "Goblin 1": {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6"}}
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL}, dice=dice,
+                        players={ALICE: "Thorin", 222: "Dorn"}, sheet_for=sheets.get, monsters=lambda: scene)
+    return director, sheets, scene
+
+
+def _turn(director, dice, sheets, scene, faces):
+    director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="turn_undead")
+    dice.queue(*faces)
+    effects = director.roll(channel_id=CHANNEL, user_id=ALICE)
+    apply(effects, sheets, scene)
+    return effects
+
+
+def kinds(scene):
+    return {n: [c["kind"] for c in r.get("conditions") or ()] for n, r in scene.items()}
+
+
+def test_turn_undead_on_a_7_holds_the_undead_off_the_cleric(crypt, dice):
+    director, sheets, scene = crypt
+    _turn(director, dice, sheets, scene, (3, 4))
+    assert kinds(scene) == {"Zombie 1": ["turned"], "Wight-Wolf 1": ["turned"], "Goblin 1": []}
+    _, refused = director.monster_attacks(channel_id=CHANNEL, monster="Zombie 1", character="Thorin")
+    assert "held off by Thorin's Turn Undead" in refused["error"]
+    dice.queue(2)
+    _, hit = director.monster_attacks(channel_id=CHANNEL, monster="Zombie 1", character="Dorn")
+    assert hit["dealt"] == 2  # it can still go for someone else
+
+
+def test_on_a_10_mindless_undead_flee_and_intelligent_ones_are_dazed(crypt, dice):
+    director, sheets, scene = crypt
+    _turn(director, dice, sheets, scene, (5, 6))
+    assert kinds(scene) == {"Zombie 1": ["fleeing"], "Wight-Wolf 1": ["dazed"], "Goblin 1": []}
+    _, refused = director.monster_attacks(channel_id=CHANNEL, monster="Wight-Wolf 1", character="Dorn")
+    assert "dazed and can't attack" in refused["error"]
+
+
+def test_the_ward_ends_when_the_cleric_stops_praying_or_on_aggression(crypt, dice):
+    director, sheets, scene = crypt
+    _turn(director, dice, sheets, scene, (3, 4))
+    apply(creature_harmed({"sheets": sheets, "monsters": scene}, "Wight-Wolf 1", CHANNEL), sheets, scene)
+    assert kinds(scene)["Wight-Wolf 1"] == []  # aggression breaks it
+    effects = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="hack_and_slash",
+                                 target="Goblin 1")
+    apply(effects, sheets, scene)
+    assert kinds(scene)["Zombie 1"] == [] and any("stops praying" in getattr(e, "text", "") for e in effects)
