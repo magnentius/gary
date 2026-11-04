@@ -21,7 +21,7 @@ One always-on `e2-micro` VM (free tier) in `us-east1-b`, running the published i
 | Get a shell | `gcloud compute ssh gary --zone us-east1-b --tunnel-through-iap` |
 | Restore the campaign | Create a disk from a `gary-nightly` snapshot and swap it in as the boot disk |
 
-Add `--project YOUR_PROJECT` to each, or set it once with
+Add `--project YOUR_PROJECT` to each (your Google Cloud project id), or set it once with
 `gcloud config set project YOUR_PROJECT`.
 
 **Run only one Gary.** Don't start a local one against the same bot token while the VM is up:

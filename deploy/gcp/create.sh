@@ -3,7 +3,7 @@
 # before it (the two secrets and the service account) and how to update and back up.
 set -euo pipefail
 
-PROJECT=${PROJECT:-YOUR_PROJECT}
+PROJECT=${PROJECT:?set PROJECT to your Google Cloud project id, e.g. PROJECT=my-project ./create.sh}
 ZONE=${ZONE:-us-east1-b}             # e2-micro is free tier in us-east1, us-central1, us-west1
 SA=gary-vm@$PROJECT.iam.gserviceaccount.com
 HERE=$(cd "$(dirname "$0")" && pwd)
