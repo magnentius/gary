@@ -396,6 +396,9 @@ def battle_over(state: Dict[str, Any], channel_id: int) -> List["Effect"]:
         if len(kept) != len(ongoing):
             out += [SendMessage(channel_id, f"✨ The battle is over, and {name}'s Bless with it."),
                     UpdateSheet(channel_id, name, {"ongoing": kept})]
+        if sheet.get("challenged"):
+            # What Are You Waiting For?: the challenge was to these enemies, in this fight.
+            out.append(UpdateSheet(channel_id, name, {"challenged": []}))
     return out
 
 

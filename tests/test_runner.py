@@ -433,3 +433,18 @@ async def test_a_creatures_armor_can_be_lowered_and_undone(clock):
     assert store.state()["monsters"]["Orc 1"]["armor"] == 1
     store.undo_last()
     assert store.state()["monsters"]["Orc 1"]["armor"] == 2
+
+
+async def test_a_barbarians_challenge_ends_with_the_battle(clock):
+    from gary.fsm import ChangeHp
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {
+        "Goblin 1": {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6"}}}),
+        Mutation(MutationKind.SHEET, "Gorm", {"sheet": {"name": "Gorm", "hp": 20, "challenged": ["Goblin 1"]}})],
+        reason="setup")
+    await EffectRunner(FakeSender(), EchoNarrator(), store=store).run([ChangeHp(CHANNEL, "monster", "Goblin 1", 0)])
+    assert store.state()["sheets"]["Gorm"]["challenged"] == []

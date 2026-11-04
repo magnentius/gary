@@ -1644,6 +1644,8 @@ class GeminiNarrator:
                         left += [f"{who}'s {e['spell']} ({'out of sight, it fades' if e['spell'] == 'Cloudkill' else 'left behind'})"
                                  for e in fog]
                         fresh["ongoing"] = [e for e in sheet["ongoing"] if e not in fog]
+                    if sheet.get("challenged"):
+                        fresh["challenged"] = []  # a challenge cried here; creature names start over elsewhere
                     trap = sheet.get("trap_hold") or {}
                     if trap.get("where") and not same_place(trap["where"], payload["location"]):
                         fresh["trap_hold"] = None  # "as you walk through the area": that area only
