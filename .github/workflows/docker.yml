@@ -57,8 +57,8 @@ jobs:
           tags: |
             type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=long
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            # A release tag v2026.11.4 (or v2026.11.4.1, the same day again) -> image 2026.11.4.
+            type=match,pattern=v(.*),group=1
             type=ref,event=pr
 
       # Loaded locally first so the smoke test runs against the exact image that will be

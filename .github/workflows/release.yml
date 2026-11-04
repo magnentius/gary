@@ -1,22 +1,25 @@
-# Cut a release: bump the version, tag it, publish the GitHub Release and the versioned image.
-# See RELEASING.md for the scheme (semantic versioning, vMAJOR.MINOR.PATCH).
+# Cut a release: a date version, tagged, with a GitHub Release and a versioned image.
+# See RELEASING.md for the scheme: YYYY.M.D, plus .N for a second release the same day.
 name: release
 
 on:
-  # The usual way: Actions -> release -> Run workflow, and choose the bump.
+  # The usual way: Actions -> release -> Run workflow.
   workflow_dispatch:
     inputs:
-      bump:
-        description: "patch = fixes · minor = new features or rules · major = breaks a running campaign"
-        type: choice
-        options: [patch, minor, major]
-        default: minor
-  # Or tag by hand (git tag v1.2.3 && git push origin v1.2.3): the tag must match pyproject.toml.
+      breaking:
+        description: "Does this break a running campaign? (saved state, a slash command, a VM setting)"
+        type: boolean
+        default: false
+      breaking_notes:
+        description: "If so: what changes, and what to do before deploying"
+        type: string
+        default: ""
+  # Or tag by hand (git tag v2026.11.4 && git push origin v2026.11.4): the tag must match pyproject.toml.
   push:
     tags: ["v*"]
 
 permissions:
-  contents: write   # commit the bump, push the tag, create the release
+  contents: write   # commit the version, push the tag, create the release
   actions: write    # start the image build for the new tag
 
 concurrency:
@@ -29,7 +32,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0   # every tag, for the release notes and the bump
+          fetch-depth: 0   # every tag, for the notes and the same-day count
 
       - uses: actions/setup-python@v7
         with:
@@ -45,12 +48,14 @@ jobs:
         run: |
           current=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            IFS=. read -r major minor patch <<< "$current"
-            case "${{ inputs.bump }}" in
-              major) next="$((major + 1)).0.0" ;;
-              minor) next="${major}.$((minor + 1)).0" ;;
-              patch) next="${major}.${minor}.$((patch + 1))" ;;
-            esac
+            # Today in UTC, unpadded: Python's packaging rewrites 2026.11.04 as 2026.11.4, and the tag
+            # must match what Gary reports.
+            next=$(TZ=UTC date +%Y.%-m.%-d)
+            if git rev-parse "v${next}" >/dev/null 2>&1; then
+              n=1
+              while git rev-parse "v${next}.${n}" >/dev/null 2>&1; do n=$((n + 1)); done
+              next="${next}.${n}"
+            fi
           else
             next="${GITHUB_REF_NAME#v}"
             if [ "$next" != "$current" ]; then
@@ -58,14 +63,10 @@ jobs:
               exit 1
             fi
           fi
-          if git rev-parse "v${next}" >/dev/null 2>&1 && [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "::error::v${next} already exists."
-            exit 1
-          fi
           echo "version=${next}" >> "$GITHUB_OUTPUT"
           echo "tag=v${next}" >> "$GITHUB_OUTPUT"
 
-      - name: Bump, commit and tag
+      - name: Set the version, commit and tag
         if: github.event_name == 'workflow_dispatch'
         run: |
           python - <<'EOF'
@@ -79,13 +80,20 @@ jobs:
           git tag -a "${{ steps.version.outputs.tag }}" -m "Gary ${{ steps.version.outputs.tag }}"
           git push origin HEAD:main "${{ steps.version.outputs.tag }}"
 
+      # Notes generated from the commits since the last release; a breaking change gets a warning on top.
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          BREAKING: ${{ inputs.breaking }}
+          BREAKING_NOTES: ${{ inputs.breaking_notes }}
         run: |
+          notes=""
+          if [ "$BREAKING" = "true" ]; then
+            notes=$(printf '## ⚠ Breaking\n\n%s\n' "${BREAKING_NOTES:-This release changes something a running campaign depends on. Read the changes before deploying.}")
+          fi
           gh release create "${{ steps.version.outputs.tag }}" \
             --title "Gary ${{ steps.version.outputs.tag }}" \
-            --generate-notes --verify-tag
+            --notes "$notes" --generate-notes --verify-tag
 
       # A tag pushed by this workflow's token starts no other workflow, so the image build for it is
       # started here. (A tag pushed by hand already started it.)
