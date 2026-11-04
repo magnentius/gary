@@ -325,6 +325,10 @@ _UNDEAD_WORDS = ("undead", "zombie", "skeleton", "ghost", "wraith", "wight", "li
                  "revenant", "mummy", "spectre", "specter", "draugr", "banshee", "shade", "phantom")
 
 
+_THINKING_DEAD = ("wight", "lich", "vampire", "wraith", "banshee", "spectre", "specter", "revenant", "ghost",
+                  "death knight")
+
+
 def undead(creature: Dict[str, Any]) -> Tuple[bool, bool]:
     """(undead?, intelligent?): the bestiary's Undead setting and Intelligent tag, else what the
     creature is called or tagged (a creature of the GM's own)."""
@@ -335,9 +339,11 @@ def undead(creature: Dict[str, Any]) -> Tuple[bool, bool]:
     tags = [str(t).lower() for t in (book or {}).get("tags") or creature.get("tags") or ()]
     if book is not None:
         is_undead = str(book.get("setting") or "").lower() == "undead"
-    else:
-        is_undead = "undead" in tags or any(w in kind.lower() for w in _UNDEAD_WORDS)
-    return is_undead, "intelligent" in tags
+        return is_undead, "intelligent" in tags
+    is_undead = "undead" in tags or any(w in kind.lower() for w in _UNDEAD_WORDS)
+    # A creature of the GM's own: its recipe rarely says "intelligent", but a wight or a lich is.
+    clever = "intelligent" in tags or any(w in kind.lower() for w in _THINKING_DEAD)
+    return is_undead, clever
 
 
 def helpless(creature: Dict[str, Any]) -> str:

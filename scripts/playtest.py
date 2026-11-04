@@ -119,7 +119,19 @@ def party() -> List[Tuple[int, dict]]:
     mae = _character(
         "Mae", "wizard", "Human", ("int", "dex", "con", "wis", "cha"), {0: (1,), 1: (0,), 2: (0,)}, "Neutral",
     )
-    return [(1001, thorin), (1002, dorn), (1003, gorm), (1004, mae)]
+    aldric = _character("Aldric", "paladin", "Human", ("cha", "str", "con", "wis", "dex"), {0: (0,), 1: (0,)}, "Good")
+    nim = _character("Nim", "thief", "Halfling", ("dex", "cha", "int", "con", "wis"), {0: (0,), 1: (0,), 2: (0,)},
+                     "Chaotic", choices=("Bloodweed",))
+    ren = _character("Ren", "ranger", "Elf", ("dex", "wis", "con", "str", "int"), {0: (0,), 1: (0,)}, "Good")
+    ren["companion"] = {"name": "Fang", "species": "Wolf", "ferocity": 2, "cunning": 1, "armor": 1, "instinct": 1,
+                        "strengths": ["Keen senses", "Fast"], "trainings": ["Fight humanoids", "Hunt"],
+                        "weaknesses": ["Savage"]}
+    lark = _character("Lark", "bard", "Elf", ("cha", "dex", "int", "con", "wis"),
+                      {0: (0,), 1: (0,), 2: (0,), 3: (0,)}, "Good")
+    moss = _character("Moss", "druid", "Human", ("wis", "con", "dex", "str", "int"), {0: (0,), 1: (0,), 2: (0,)},
+                      "Neutral", choices=("The Great Forests", "antlers of birch-bark"))
+    return [(1001, thorin), (1002, dorn), (1003, gorm), (1004, mae), (1005, aldric), (1006, nim), (1007, ren),
+            (1008, lark), (1009, moss)]
 
 
 # -- scenarios ---------------------------------------------------------------------------
@@ -257,6 +269,51 @@ SCENARIOS: Dict[str, Scenario] = {
         goals={"Mae": "Free the merchant with magic: put the bandits to sleep, make Dorn invisible, blast the captain, "
                       "and charm whoever's left. Use your unseen servant to carry your books.",
                "Dorn": "Free the merchant while Mae's spells hide you, then fight the bandits who are awake."},
+    ),
+    # -- one per pair of classes: their signature moves, pushed by the players' goals -----------
+    "undead": Scenario(
+        "undead",
+        "Low fantasy borderlands. The barrow of a long-dead king has opened, and its dead walk the moor at night.",
+        ("The mouth of the King's Barrow", "A stone doorway in a grassy mound. A terrified grave-robber, Wat, "
+                                           "cowers by the entrance clutching a sack of grave-goods. Inside, "
+                                           "skeletons are dragging themselves up from their niches, and a "
+                                           "barrow-wight waits in the dark beyond."),
+        [],
+        setup={"Thorin": {"level": 2, "spells": ["Bless", "Sanctuary", "Cure Light Wounds"], "lost": [],
+                          "diseases": [{"name": "grave rot", "effect": "grey weeping sores, -1 Con"}]}},
+        goals={"Thorin": "Hold your holy symbol aloft and turn the undead back; bless Aldric before he fights; heal "
+                         "whoever is hurt, Wat included; and when it's over, walk a Sanctuary to rest in.",
+               "Aldric": "Swear a quest to lay the barrow-king to rest; order the cowering grave-robber Wat to "
+                         "drop the grave-goods by your divine authority; cure Thorin's grave rot with Lay on Hands; "
+                         "then fight the dead."},
+    ),
+    "ambush": Scenario(
+        "ambush",
+        "Low fantasy borderlands. Smugglers run stolen silver through the Fenwick woods.",
+        ("A smugglers' camp in the woods", "Fresh tracks lead off north where one smuggler fled. The path in looks "
+                                            "too clean -- it could be trapped. A sentry dozes on a rickety "
+                                            "watchtower; three smugglers drink round a fire beside a locked strongbox; "
+                                            "their leader, a hard woman in mail, counts coin apart from the rest."),
+        [],
+        goals={"Nim": "Survey the path for traps before you walk it, slip past, poison the smugglers' wine, pick "
+                      "the strongbox's lock, and backstab the leader while she's unaware.",
+               "Ren": "Put a called shot into the sentry on the watchtower before he raises the alarm, send your "
+                      "wolf Fang in with you when you fight, and then track the smuggler who fled north."},
+    ),
+    "grove": Scenario(
+        "grove",
+        "Low fantasy borderlands. Loggers from Fenwick have come to fell the old grove, and the grove fights back.",
+        ("The heart of the old grove", "Ancient oaks ring a clearing. Six loggers with axes face a great white "
+                                       "stag that stamps and snorts, guarding the oldest tree; ravens watch from "
+                                       "the branches. The logger captain, Brann, is red-faced and one shout from "
+                                       "ordering the charge."),
+        [],
+        setup={"Moss": {"level": 2, "advanced_moves": ["Studied Essence"]}},
+        goals={"Lark": "Speak frankly with Brann and learn what he really wants; use your Arcane Art to steady and "
+                       "help Moss; and help Moss when they try something hard.",
+               "Moss": "Listen to what the ravens and the stag are saying; take the shape of a forest beast to stand "
+                       "between the loggers and the stag; and spend time with the stag's spirit to study its "
+                       "essence, so its shape is yours."},
     ),
     "camp": Scenario(
         "camp",
@@ -540,7 +597,7 @@ class Players:
         )
         parts = response.candidates[0].content.parts if response.candidates else []
         text = " ".join(p.text for p in parts if getattr(p, "text", None)).strip()
-        return " ".join(text.split())[:400]
+        return " ".join(text.split())[:1200]  # 400 cut players off mid-sentence, and the GM stopped to ask
 
 
 def _addressed(heard: Sequence[str], names: Sequence[str], last: Optional[str]) -> str:

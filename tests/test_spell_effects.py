@@ -605,3 +605,11 @@ def test_resurrection_is_refused_the_dead_stay_dead(crypt):
                                                    move="cast_a_spell", spell="Resurrection", target="Dorn")
              if hasattr(e, "payload")]
     assert notes and "the dead stay dead" in notes[0]["error"]
+
+
+def test_the_gms_own_wight_is_intelligent_and_its_zombie_isnt():
+    from gary.fsm import undead
+
+    assert undead({"kind": "Barrow-wight", "tags": []}) == (True, True)  # dazed on a 10+, not fleeing
+    assert undead({"kind": "Bog Zombie", "tags": []}) == (True, False)
+    assert undead({"kind": "Skeleton"}) == (True, False)  # the bestiary's own say so
