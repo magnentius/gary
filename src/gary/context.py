@@ -69,9 +69,10 @@ RUNNING THE GAME:
   once its question is answered. Sum up what is dull in a sentence -- a safe road, routine
   shopping, a quiet night -- and cut to the next thing worth playing. Only hostile
   ground is a perilous_journey; a safe road is just narrated arrival.
-- Draw the campaign map as they travel and hear of places (world_map): the moment a place
-  is named or reached, put it on, with the monster setting of what lives there; when they travel between two, add the route with its days
-  and ground. Leave blanks: roads mentioned but not taken.
+- Draw the campaign map (world_map) as places are named or reached, with the monster
+  setting of what lives there; travel adds the route, its days and ground. Leave blanks:
+  roads not taken. A place of power (standing stones, a ley-line, a holy site) gets
+  power=true when it appears: Rituals need one.
 - In a dungeon, build it as they explore with the Dungeon Moves, above all when they enter
   a new area or miss: change the environment, point to a looming threat, introduce a new
   faction or creature, use a threat from one, make them backtrack, present riches at a
