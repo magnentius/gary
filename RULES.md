@@ -400,8 +400,14 @@ Gates and names Death's price; then you choose — **Take** the bargain and stab
 HP, or **Refuse** and pass on. On a miss you are marked as Death's own, and the GM will
 tell you when. Healing doesn't lift the mark — you may get back on your feet, but your fate is
 sealed — and it comes due by the next scene or session, at a moment that matters; only
-something extraordinary, a bargain with Death or a resurrection, spares you. Anyone down or
-dead can't make moves. Healing spells and Lay on Hands also work on an NPC ally; their
+something extraordinary, a bargain with Death himself, spares you. Anyone down or dead can't
+make moves.
+
+**The dead stay dead** at this table: no resurrection (the Cleric's Resurrection spell is
+refused). In a campaign, the player makes their next character with `/new`, at level 1, as the
+book says — a hireling stepping up, someone the party meets, someone with a reason to finish
+what the fallen started — and the GM brings them in. In a one-shot there are no new characters
+once play has begun: the cast is made before the first scene. Healing spells and Lay on Hands also work on an NPC ally; their
 healing is narrated.
 
 **Clumsy armor** (scale mail, plate) gives -1 to every roll while worn, shown on the roll

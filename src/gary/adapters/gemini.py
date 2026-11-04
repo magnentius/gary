@@ -1437,7 +1437,11 @@ class GeminiNarrator:
                 new, line = {**sheets[who], "dead": True, "hp": 0}, f"⚰️ **{who}** crosses the threshold — {reason}."
             result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})], reason=line))
             if result.get("ok"):
-                result["post"] = line
+                from .. import opening
+
+                result["post"] = line if args.get("spared") else line + "\n" + opening.death_notice(store.state(), who)
+                if not args.get("spared"):
+                    result["note"] = "The dead stay dead at this table: no resurrection, no bargain afterwards."
             return result
 
         if name == T.WEAPON_GLOWS:

@@ -991,8 +991,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=DEATH_COMES,
         description=("A character marked as Death's own (a Last Breath miss) crosses the threshold: they die, at the "
-                     "moment you chose. spared=true only for something extraordinary -- a bargain struck with Death, "
-                     "a resurrection -- and say what it cost (reason)."),
+                     "moment you chose. spared=true only for something extraordinary -- a bargain struck with Death "
+                     "himself -- and say what it cost (reason). The dead stay dead: there is no resurrection."),
         parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "reason": _s(type=_STRING),
                                                 "spared": _s(type=types.Type.BOOLEAN)},
                       required=["character", "reason"]),

@@ -358,3 +358,22 @@ def test_a_one_shot_ended_early_still_closes_with_its_chronicle(table):
                                                       "starter": 11})], reason="t")
     asyncio.run(_ender(client)())
     assert store.state()["opening"]["stage"] == "finished" and sent[-1][0].startswith("📖")
+
+
+def test_a_death_tells_the_table_whats_next_campaign_or_one_shot():
+    assert "make your next character with `/new` (level 1)" in opening.death_notice({"opening": {"mode": "campaign"}}, "Dorn")
+    one = opening.death_notice({"opening": {"mode": "oneshot"}}, "Dorn")
+    assert "there's no new character" in one and "/new" not in one
+    assert "The dead stay dead" in opening.newcomer_event("Kael", ["Dorn"])["instruction"]
+
+
+def test_no_new_characters_once_a_one_shot_is_under_way(table):
+    client, store, sent, ran = table
+    client._finish_character = GaryClient._finish_character.__get__(client)
+    store.apply([Mutation(MutationKind.OPENING, "", {"mode": "oneshot", "stage": "playing"})], reason="mid-game")
+
+    class _I:
+        user = _User(12)
+
+    refused = asyncio.run(client._finish_character(_I(), {"name": "Kael", "class": "Fighter"}, 7))
+    assert "no new characters once play has begun" in refused

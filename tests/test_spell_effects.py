@@ -596,3 +596,12 @@ async def test_death_comes_for_the_marked(rig):
                  text_response("."))
     await player(n, "Dorn turns to face them")
     assert store.state()["sheets"]["Dorn"]["dead"] is True
+
+
+def test_resurrection_is_refused_the_dead_stay_dead(crypt):
+    director, sheets, scene = crypt
+    sheets["Thorin"].update(level=5, spells=["Resurrection"], ongoing=[], lost=[], cast_penalty=0)
+    notes = [e.payload for e in director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin",
+                                                   move="cast_a_spell", spell="Resurrection", target="Dorn")
+             if hasattr(e, "payload")]
+    assert notes and "the dead stay dead" in notes[0]["error"]

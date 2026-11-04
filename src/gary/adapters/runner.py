@@ -137,7 +137,13 @@ class EffectRunner:
             return
 
         if isinstance(effect, UpdateSheet):
+            was_dead = bool(((self._store.state().get("sheets") or {}).get(effect.name) or {}).get("dead")) \
+                if self._store is not None else True
             self._update_sheet(effect.name, dict(effect.changes), f"{effect.name}: {sorted(effect.changes)}")
+            if effect.changes.get("dead") and not was_dead:
+                from .. import opening
+
+                await self._send(SendMessage(effect.channel_id, opening.death_notice(self._store.state(), effect.name)))
             return
 
         if isinstance(effect, SpendAmmo):

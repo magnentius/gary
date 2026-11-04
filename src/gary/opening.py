@@ -177,6 +177,27 @@ def session_event(number: int, party: Sequence[Dict]) -> Dict:
     }
 
 
+def death_notice(state: Dict, name: str) -> str:
+    """What the table is told when a character dies: the dead stay dead here. In a campaign their
+    player makes the next character at level 1, as the book says; in a one-shot their part is over."""
+    current = state.get("opening") or {}
+    if current.get("mode") == "oneshot":
+        return (f"⚰️ **{name}** is dead, and stays dead. This is a one-shot: there's no new character -- "
+                f"{name}'s player can still help tell the story, and their ending is part of the epilogue.")
+    return (f"⚰️ **{name}** is dead, and stays dead. {name}'s player: make your next character with `/new` "
+            "(level 1). They can be a hireling stepping up, someone the party meets, or someone with a reason "
+            f"to finish what {name} started.")
+
+
+def newcomer_event(name: str, fallen: Sequence[str]) -> Dict:
+    """A campaign character made after a death: the GM brings them in."""
+    return {"event": "A new character joins", "character": name, "replacing": list(fallen), "instruction": (
+        f"{name} is a new character, made after {' and '.join(fallen)} died. Bring them into the story at the next "
+        "natural moment, as the book suggests: a hireling who steps up, someone the party meets where they are, or "
+        "someone with a reason to finish what the fallen started. Ask their player a question or two to tie them "
+        "in. The dead stay dead.")}
+
+
 def doomed(party: Sequence[Dict]) -> List[str]:
     """Characters marked as Death's own and not yet dead (a Last Breath miss)."""
     return [s["name"] for s in party if s.get("deaths_mark") and not s.get("dead")]
@@ -192,7 +213,8 @@ def with_doom(event: Dict, party: Sequence[Dict]) -> Dict:
     return {**event, "deaths_own": names, "instruction": event.get("instruction", "") + (
         f" {who} {'is' if len(names) == 1 else 'are'} marked as Death's own: the time has come. Let it happen in "
         "this scene, at a moment that matters -- a last stand, a sacrifice, a quiet passing -- and call death_comes. "
-        "Only something extraordinary (a bargain with Death, a resurrection) spares them, and that has a price.")}
+        "Only something extraordinary -- a bargain with Death himself -- spares them, and that has a price. Once "
+        "dead, they stay dead.")}
 
 
 def bonds_text() -> str:

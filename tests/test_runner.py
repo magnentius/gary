@@ -448,3 +448,17 @@ async def test_a_barbarians_challenge_ends_with_the_battle(clock):
         reason="setup")
     await EffectRunner(FakeSender(), EchoNarrator(), store=store).run([ChangeHp(CHANNEL, "monster", "Goblin 1", 0)])
     assert store.state()["sheets"]["Gorm"]["challenged"] == []
+
+
+async def test_a_death_posts_what_happens_next(clock):
+    from gary.fsm import UpdateSheet
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {"name": "Dorn", "hp": 0}}),
+                 Mutation(MutationKind.OPENING, "", {"mode": "campaign", "stage": "playing"})], reason="setup")
+    sender = FakeSender()
+    await EffectRunner(sender, EchoNarrator(), store=store).run([UpdateSheet(CHANNEL, "Dorn", {"dead": True})])
+    assert any("Dorn** is dead, and stays dead" in text and "/new" in text for _, text in sender.sent)

@@ -1147,6 +1147,13 @@ class GaryClient(discord.Client):
         """
         user_id = interaction.user.id
         name = sheet["name"]
+        current = self.store.state().get("opening") or {}
+        if current.get("mode") == "oneshot" and current.get("stage") in ("playing", "epilogue", "finished"):
+            # A one-shot's cast is made before the first scene; a character who falls stays fallen.
+            return "This is a one-shot, already under way: there are no new characters once play has begun."
+        sheets_now = self.store.state().get("sheets") or {}
+        fallen = [a for uid, a in self.director.players.items()
+                  if uid == user_id and (sheets_now.get(a) or {}).get("dead")]
         owner = next(
             (uid for uid, actor in self.director.players.items() if actor == name), None
         )
@@ -1164,6 +1171,10 @@ class GaryClient(discord.Client):
             return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
         self.director.set_player_character(user_id, name)
         await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet, with_name=False)}")
+        if fallen and current.get("stage") in ("playing", "session", "done"):
+            from .. import opening
+
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.newcomer_event(name, fallen))])
         if spells.needs_setup(sheet):
             await self._offer_spells(channel_id, user_id, name)
         if sheet.get("class") == "Ranger":

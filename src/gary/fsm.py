@@ -1134,6 +1134,12 @@ class Director:
                 "cannot.",
             )]
         blocked = spells.blocking(sheet)
+        if spell.name == "Resurrection":
+            # This table's rule: the dead stay dead.
+            return [self._refuse(
+                channel_id, "At this table the dead stay dead: Resurrection can't be cast.",
+                "Narrate the prayer going unanswered, or let them grieve; their friend's player makes a new "
+                "character.")]
         if blocked is not None:
             return [self._refuse(
                 channel_id, f"While {blocked.name} lasts, {actor} cannot cast a spell.",
@@ -2249,7 +2255,7 @@ class Director:
         if outcome.band == "weak":
             return [
                 SendMessage(channel_id, f"**{name}** refuses Death, and passes beyond the Black Gates."),
-                UpdateSheet(channel_id, name, {"dead": True}),
+                UpdateSheet(channel_id, name, {"dead": True}),  # the runner tells the table what's next
             ]
         return [
             SendMessage(channel_id, f"**{name}** is marked as Death's own."),

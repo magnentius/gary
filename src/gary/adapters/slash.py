@@ -109,6 +109,11 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
             return
         from .creator import CharacterCreator
 
+        current = client.store.state().get("opening") or {}
+        if current.get("mode") == "oneshot" and current.get("stage") in ("playing", "epilogue", "finished"):
+            await interaction.response.send_message(
+                "This is a one-shot, already under way: no new characters once play has begun.", ephemeral=True)
+            return
         channel_id = interaction.channel_id
         form = CharacterCreator(lambda i, sheet: client._finish_character(i, sheet, channel_id))
         await interaction.response.send_message(form.prompt(), view=form, ephemeral=True)
