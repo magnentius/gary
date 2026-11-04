@@ -346,6 +346,24 @@ def undead(creature: Dict[str, Any]) -> Tuple[bool, bool]:
     return is_undead, clever
 
 
+_CONSTRUCT_WORDS = ("golem", "automaton", "construct", "animated", "colossus", "clockwork", "homunculus")
+
+
+def construct(creature: Dict[str, Any]) -> bool:
+    """A made thing -- the bestiary's Construct tag, the recipe's construct trait, or a golem by name."""
+    from .monsters import lookup
+
+    kind = str(creature.get("kind") or "")
+    tags = [str(t).lower() for t in ((lookup(kind) or {}).get("tags") or creature.get("tags") or ())]
+    return "construct" in tags or any(w in kind.lower() for w in _CONSTRUCT_WORDS)
+
+
+def past_poison(creature: Dict[str, Any]) -> str:
+    """Why poison can't touch it -- "the dead" or "a made thing" -- or "" if it can."""
+    return "the dead are past poison" if undead(creature)[0] else \
+        "a made thing has no blood to carry it" if construct(creature) else ""
+
+
 def helpless(creature: Dict[str, Any]) -> str:
     """What stops this creature attacking (asleep, held, caged), or ""."""
     return next((c["kind"] for c in creature.get("conditions") or () if c.get("kind") in spells.HELPLESS), "")
@@ -5063,8 +5081,8 @@ class Director:
 
     def _poison_note(self, target: str, delivery: str) -> str:
         creature = next((r for n, r in self._monsters().items() if normalize_actor(n) == normalize_actor(target or "")), None)
-        if creature is not None and undead(creature)[0]:
-            return "It has no effect: the target is undead, and the dead are past poison. Narrate the dose wasted."
+        if creature is not None and past_poison(creature):
+            return f"It has no effect: {past_poison(creature)}. Narrate the dose wasted."
         return delivery + " Narrate the effect as written."
 
     def _afflict(self, channel_id: int, target: str, poison: str, actor: str = "") -> List[Effect]:
@@ -5077,9 +5095,10 @@ class Director:
         poison = _poison_name(poison)
         if creature is None:
             return []
-        if undead(creature)[0]:
-            # The dead have no blood to carry it, no breath to draw it in: the dose is spent for nothing.
-            return [SendMessage(channel_id, f"🧪 The {poison} does nothing to **{name}**: the dead are past poison.")]
+        immune = past_poison(creature)
+        if immune:
+            # No blood to carry it, no breath to draw it in: the dose is spent for nothing.
+            return [SendMessage(channel_id, f"🧪 The {poison} does nothing to **{name}**: {immune}.")]
         if poison in ("Oil of Tagit", "Goldenroot"):
             kind = "asleep" if poison == "Oil of Tagit" else "trusting"
             others = [c for c in creature.get("conditions") or [] if c.get("spell") != poison]

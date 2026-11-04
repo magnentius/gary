@@ -286,3 +286,13 @@ def test_poison_does_nothing_to_the_undead(director, sheets, scene):
     assert result["uses_left"] == 0  # the dose is spent
     assert not [e for e in effects if isinstance(e, (AfflictMonster, ConditionMonster))]
     assert "the dead are past poison" in result["note"]
+
+
+def test_poison_does_nothing_to_a_construct(director, sheets, scene):
+    from gary.fsm import AfflictMonster, construct
+
+    scene["Iron Golem 1"] = {"kind": "Iron Golem", "hp": 20, "max_hp": 20, "armor": 3, "damage": "d10+3"}
+    effects, result = director.use_poison(channel_id=CHANNEL, character="Nim", target="Iron Golem 1")
+    assert not [e for e in effects if isinstance(e, AfflictMonster)]
+    assert "a made thing has no blood" in result["note"]
+    assert construct({"kind": "Clockwork Sentinel"}) and not construct({"kind": "Goblin"})
