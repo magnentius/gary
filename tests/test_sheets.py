@@ -283,3 +283,11 @@ def test_a_glowing_weapon_says_what_it_glows_near():
     assert "[glows near: not yet chosen -- ask]" in weapons_line({"gear": [weapon]})
     weapon["glows_at"] = "the undead"
     assert "[glows near the undead]" in weapons_line({"gear": [weapon]})
+
+
+def test_a_barbarians_weapon_is_messy_and_forceful():
+    from gary.gear import AXE
+    from gary.sheets import weapons_line
+
+    assert "[messy, forceful — Musclebound]" in weapons_line({"class": "Barbarian", "gear": [AXE.to_dict()]})
+    assert "Musclebound" not in weapons_line({"class": "Fighter", "gear": [AXE.to_dict()]})

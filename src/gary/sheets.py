@@ -437,6 +437,8 @@ def weapons_line(sheet: Dict[str, Any]) -> str:
         if not w.ranges:
             continue
         label = w.label()
+        if sheet.get("class") == "Barbarian" and not {"messy", "forceful"} <= set(w.tags):
+            label += " [messy, forceful — Musclebound]"  # "While you wield a weapon it gains the forceful and messy tags."
         if "glows" in w.tags:
             # "Glows in the presence of one type of creature, your choice."
             label += f" [glows near {g['glows_at']}]" if g.get("glows_at") else " [glows near: not yet chosen -- ask]"
