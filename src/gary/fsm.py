@@ -2022,6 +2022,11 @@ class Director:
         if check.move == "what_are_you_waiting_for" and dice.total >= 10:
             notes.append("Gary adds their +2 damage against the creatures standing now; they ignore the "
                          "companions and come at the challenger.")
+        cured = next((f[len("cure:"):] for f in check.flags if f.startswith("cure:")), "")
+        if cured and band(dice) != "miss":
+            notes.append(f"Gary has already removed the {cured} from the sheet"
+                         + (" and passed it to the healer" if band(dice) == "weak" else "")
+                         + ": don't call disease_character for it.")
         if check.move == "trap_expert":
             if advanced.has(sheet, "Extremely Cautious"):
                 notes.append("Extremely Cautious: +1 hold, even on a 6-. On a 12+ they get 3 hold, and the next "
@@ -3839,7 +3844,7 @@ class Director:
         if not advanced.has(sheet, "Studied Essence"):
             return [], {"ok": False, "error": f"{actor} doesn't have Studied Essence."}
         species = " ".join(str(species or "").split()).lower()[:40]
-        reason = " ".join(str(reason or "").split())[:160]
+        reason = " ".join(str(reason or "").split())[:160].rstrip(" .")
         if not species or not reason:
             return [], {"ok": False, "error": "Name the species, and say how they contemplated its spirit (reason)."}
         have = list(sheet.get("studied_species") or [])
