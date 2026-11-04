@@ -121,7 +121,9 @@ to pick up again or leave behind. Spells also end themselves: Invisibility when 
 when you next prepare, anything "until you cast" when you cast again. **Mirror Image** takes a
 blow on a d6 of 4–6 and is gone. **Summon Monster** and **Animate Dead** roll their traits; the
 creature joins you as your character with the basic moves, and is destroyed at 0 HP or
-dismissed when the spell ends. **Contingency** holds a spell and its trigger (no more words than
+dismissed when the spell ends. **Shadow Walk** takes its destination in no more words than your level, and on a hit the scene
+is simply there — no journey, no rations — and the place goes on the campaign map. **Contingency**
+holds a spell and its trigger (no more words than
 your level) and releases it without a roll. Spells laid on a place — Cloudkill, Darkness,
 Sanctuary, Alarm — stay where they were cast: Cloudkill's extra 1d6 lands on anything hurt
 there (creatures and characters, by any blow), and it ends once the party leaves, as it lasts

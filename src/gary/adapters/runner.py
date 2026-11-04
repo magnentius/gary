@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from ..fsm import (
-    AfflictMonster, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
+    AfflictMonster, Arrive, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
     UpdateSheet, creature_harmed, summon_fell,
 )
 from ..models import Mutation, MutationKind
@@ -97,6 +97,23 @@ class EffectRunner:
                                          reason=f"{effect.name}: {[c.get('kind') for c in effect.conditions] or 'free'}")
                 if not diff.ok:
                     log.warning("conditions on %s refused: %s", effect.name, diff.rejected)
+            return
+
+        if isinstance(effect, Arrive):
+            if self._store is not None:
+                from .. import worldmap
+
+                state = self._store.state()
+                changes = [Mutation(MutationKind.SCENE, "", {"location": effect.location, "steading": "",
+                                                             "dungeon": "", "summary": ""})]
+                world = state.get("world")
+                if worldmap.slug(effect.location) not in ((world or {}).get("places") or {}):
+                    try:
+                        changes.append(Mutation(MutationKind.WORLD, "", {
+                            "world": worldmap.place(world, effect.location, "landmark", "reached by Shadow Walk")}))
+                    except ValueError:
+                        pass  # a full map: the scene still moves
+                self._store.apply(changes, reason=f"arrive at {effect.location}")
             return
 
         if isinstance(effect, Dismiss):

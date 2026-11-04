@@ -256,6 +256,14 @@ class ConditionMonster(Effect):
 
 
 @dataclass(frozen=True)
+class Arrive(Effect):
+    """The party is somewhere else at once (Shadow Walk): the scene moves there, no road travelled."""
+
+    channel_id: int
+    location: str
+
+
+@dataclass(frozen=True)
 class Dismiss(Effect):
     """A summoned creature's sheet goes: dismissed, destroyed, or its spell ended."""
 
@@ -1121,6 +1129,14 @@ class Director:
             scene_names = {n.lower(): n for n in self._monsters()}
             named = [t.strip() for t in str(target or "").split(",") if t.strip()]
             target = ", ".join(scene_names.get(t.lower()) or self._character(t) or t for t in named)[:120]
+            if spell.name == "Shadow Walk":
+                # "Name a location, describing it with a number of words up to your level."
+                words, level = len(str(target).split()), int(sheet.get("level", 1))
+                if not words or words > level:
+                    return [self._refuse(
+                        channel_id, f"Shadow Walk needs the destination as target, in {level} words at most "
+                                    f"(their level)" + (f": {target!r} is {words}." if words else "."),
+                        "Ask the player where, in that many words, then re-issue make_move with it as target.")]
 
         stat = "wis" if spells.caster_class(sheet) == "cleric" else "int"
         mod = stat_modifier(sheet, stat)
@@ -2010,11 +2026,19 @@ class Director:
                                f"{'; '.join(f'{k}: {v}' for k, v in recipe['traits'].items())}. Then call "
                                "summon_ally with its name, what it is, and the traits.")
             lines.append(f"{spell.name}: {traits} trait{'s' if traits != 1 else ''} to choose.")
+        if spell.name == "Shadow Walk" and check.target:
+            lines.append(f"The shadows open onto {check.target}.")
+            facts["arrived"] = (f"The portal deposits {check.actor} and the allies present at {check.target}: the scene "
+                                "is there now (each may use it once). No road was travelled: no journey, no rations.")
+            changes["_arrive"] = check.target
         if spell.name == "Contingency":
             changes["contingency_ready"] = True
             facts["contingency"] = ("Ask which 5th-level-or-lower spell they hold and its trigger (no more words "
                                     "than their level), then call contingency action=hold.")
         effects: List[Effect] = [*lifted, *held]
+        arrive = changes.pop("_arrive", None)
+        if arrive:
+            effects.append(Arrive(channel_id, arrive))
         if lines:
             effects.append(SendMessage(channel_id, "✨ " + " ".join(lines)))
         if changes:

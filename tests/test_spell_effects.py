@@ -330,3 +330,38 @@ def test_freeing_a_charmed_creature_ends_the_charm(director, dice, sheets, scene
     effects, _ = director.free_creature(channel_id=CHANNEL, creature="Goblin 2", reason="Mae's lie is exposed")
     apply(effects, sheets, scene)
     assert sheets["Mae"]["ongoing"] == [] and scene["Goblin 2"]["conditions"] == []
+
+
+def test_shadow_walk_names_its_destination_in_level_words_and_arrives(director, dice, sheets, scene):
+    from gary.fsm import Arrive
+
+    sheets["Mae"]["spells"].append("Shadow Walk")
+    sheets["Mae"]["spellbook"].append("Shadow Walk")
+    (note,) = [e for e in director.open_move(
+        channel_id=CHANNEL, user_id=ALICE, actor="Mae", move="cast_a_spell", spell="Shadow Walk",
+        target="the treasure vault deep inside the Lich-King's sealed citadel beyond the Ashen Wastes")
+        if hasattr(e, "payload")]
+    assert "9 words at most" in note.payload["error"] and "is 13" in note.payload["error"]
+    effects = cast(director, dice, sheets, scene, "Shadow Walk", "the Lich-King's vault")
+    assert Arrive(CHANNEL, "the Lich-King's vault") in effects
+
+
+async def test_arriving_moves_the_scene_and_puts_it_on_the_map(clock):
+    from gary.ports import EchoNarrator
+    from gary.adapters.runner import EffectRunner
+    from gary.fsm import Arrive
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.SCENE, "", {"location": "Fenwick", "steading": "Fenwick"})], reason="setup")
+
+    class Quiet:
+        async def send(self, *a, **k):
+            pass
+
+    await EffectRunner(Quiet(), EchoNarrator(), store=store).run([Arrive(CHANNEL, "the Lich-King's vault")])
+    state = store.state()
+    assert state["scene"]["location"] == "the Lich-King's vault" and state["scene"]["steading"] == ""
+    assert state["world"]["places"]["the_lich_king_s_vault"]["note"] == "reached by Shadow Walk"

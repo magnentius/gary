@@ -152,6 +152,7 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "target": _s(
                     type=_STRING,
                     description=(
+                        "For Shadow Walk: the destination, in no more words than the caster's level. "
                         "For an attack (hack_and_slash, volley, backstab, called_shot): the "
                         "creature, exactly as the scene lists it ('Goblin 2') -- add it with "
                         "add_monsters first. For lay_on_hands or arcane_art: the character "
