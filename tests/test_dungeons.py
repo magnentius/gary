@@ -123,3 +123,41 @@ async def test_set_scene_refuses_a_new_name_for_a_known_room_and_says_which(rig)
 def test_the_scene_summary_describes_the_place_not_the_moment():
     (decl,) = [d for d in T.DECLARATIONS if d.name == T.SET_SCENE]
     assert "Not who is doing what this moment" in decl.parameters.properties["summary"].description
+
+
+def test_the_maps_own_arrow_copied_into_a_label_is_not_doubled():
+    """Live: 'iron service ladder up → The Assayer's Strongroom' rendered '→ X → X'."""
+    d = dungeons.new("Hollowdeep Mine")
+    d = dungeons.enter(d, "The Assayer's Strongroom", exits=["a circular iron hatch"])
+    d = dungeons.enter(d, "The Lower Sump", came_from="The Assayer's Strongroom", via="a circular iron hatch",
+                       exits=["iron service ladder up → The Assayer's Strongroom", "flooded tunnel south"])
+    assert [(e["label"], e["to"]) for e in d["areas"]["the_lower_sump"]["exits"]] == [
+        ("iron service ladder up", "the_assayer_s_strongroom"), ("flooded tunnel south", "")]
+    assert "→ The Assayer's Strongroom → " not in dungeons.render(d)
+
+
+def test_the_way_back_loosely_put_is_the_way_back():
+    """Live: 'up the incline back to the adit entrance' stayed a blank beside 'back to Adit Entry'."""
+    d = dungeons.new("Hollowdeep Mine")
+    d = dungeons.enter(d, "Adit Entry", exits=["down the adit following the cart-tracks"])
+    d = dungeons.enter(d, "The First Winch Chamber", came_from="Adit Entry", via="down the adit following the cart-tracks",
+                       exits=["up the incline back to the adit entrance", "a low side tunnel"])
+    assert [(e["label"], e["to"]) for e in d["areas"]["the_first_winch_chamber"]["exits"]] == [
+        ("up the incline back to the adit entrance", "adit_entry"), ("a low side tunnel", "")]
+
+
+def test_the_exit_taken_in_other_words_is_the_one_listed():
+    """Live: through 'the circular iron hatch', while the room listed 'a circular iron trapdoor'."""
+    d = dungeons.new("Hollowdeep Mine")
+    d = dungeons.enter(d, "Strongroom", exits=["back through the oak door", "a circular iron trapdoor in the corner"])
+    d = dungeons.enter(d, "Lower Sump", came_from="Strongroom", via="the circular iron hatch")
+    assert {e["label"]: e["to"] for e in d["areas"]["strongroom"]["exits"]} == {
+        "back through the oak door": "", "a circular iron trapdoor in the corner": "lower_sump"}
+
+
+def test_a_tie_or_a_single_shared_word_is_not_a_match():
+    d = dungeons.new("Mine")
+    d = dungeons.enter(d, "Hall", exits=["an iron door north", "an iron door south"])
+    d = dungeons.enter(d, "Crypt", came_from="Hall", via="the iron door")
+    exits = {e["label"]: e["to"] for e in d["areas"]["hall"]["exits"]}
+    assert exits["an iron door north"] == exits["an iron door south"] == "" and exits["the iron door"] == "crypt"

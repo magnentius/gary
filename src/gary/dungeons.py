@@ -14,7 +14,7 @@ inhabitants hang together.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 MAX_AREAS = 60
 MAX_TEXT = 160
@@ -45,6 +45,27 @@ def _named(label: str, areas: Dict[str, Any], not_key: str) -> str:
     return max(found, key=lambda k: len(areas[k]["name"]), default="")
 
 
+#: Not what tells one passage from another: 'the circular iron hatch' and 'a circular iron trapdoor'
+#: share "circular" and "iron", not "the".
+_COMMON = frozenset("the a an and of to in into on onto at by from with through toward towards up down back out "
+                    "over under its their this that way leading leads heading".split())
+
+
+def _words(text: str) -> set:
+    return {w for w in re.split(r"[^a-z0-9]+", str(text or "").lower()) if len(w) > 2 and w not in _COMMON}
+
+
+def _arrow(label: str, areas: Dict[str, Any]) -> Tuple[str, str]:
+    """'iron ladder up → The Strongroom', the map's own notation copied into a label: the label
+    without it, and the area it names (or "")."""
+    for mark in ("→", "->"):
+        if mark in label:
+            left, right = label.split(mark, 1)
+            to = slug(right.strip())
+            return left.strip(), to if to in areas else ""
+    return label, ""
+
+
 def _same_way(a: str, b: str) -> bool:
     a, b = a.lower(), b.lower()
     return bool(a and b) and (a == b or a in b or b in a)
@@ -65,7 +86,7 @@ def enter(dungeon: Dict[str, Any], area: str, summary: str = "", came_from: str 
     if not key:
         raise ValueError("Name the area.")
     before = slug(came_from)
-    taken = _text(via)
+    taken, _ = _arrow(_text(via), out["areas"])
     fresh = key not in out["areas"]
     if fresh and before and before != key and before in out["areas"] and taken:
         known = next((e for e in out["areas"][before]["exits"]
@@ -87,7 +108,10 @@ def enter(dungeon: Dict[str, Any], area: str, summary: str = "", came_from: str 
     if labels:
         here["exits"] = [e for e in here["exits"] if e["to"]]  # blanks are replaced by the new list
     for label in labels:
-        link = _named(label, out["areas"], key)
+        label, pointed = _arrow(label, out["areas"])
+        if not label:
+            continue
+        link = (pointed if pointed != key else "") or _named(label, out["areas"], key)
         same = next((e for e in here["exits"] if e["label"].lower() == label.lower()), None)
         if same is not None:
             same["to"] = same["to"] or link
@@ -100,15 +124,31 @@ def enter(dungeon: Dict[str, Any], area: str, summary: str = "", came_from: str 
         taken = taken or f"to {here['name']}"
         exit_ = next((e for e in back["exits"] if e["label"].lower() == taken.lower()), None) or next(
             (e for e in back["exits"] if e["to"] == key), None) or next(
-            (e for e in back["exits"] if taken.lower() in e["label"].lower() and not e["to"]), None)
+            (e for e in back["exits"] if taken.lower() in e["label"].lower() and not e["to"]), None) or _likeliest(
+            back["exits"], _words(taken), 2)
         if exit_ is None:
             back["exits"].append({"label": taken, "to": key})
         else:
             exit_["to"] = key
         if not any(e["to"] == before for e in here["exits"]):
-            here["exits"].append({"label": f"back to {back['name']}", "to": before})
+            # 'up the incline back to the adit entrance', said of the Adit Entry: the way back, loosely put.
+            way_back = _likeliest([e for e in here["exits"] if "back" in e["label"].lower().split()],
+                                  _words(back["name"]) | _words(taken), 1)
+            if way_back is not None:
+                way_back["to"] = before
+            else:
+                here["exits"].append({"label": f"back to {back['name']}", "to": before})
     out["here"] = key
     return out
+
+
+def _likeliest(exits: Sequence[Dict[str, Any]], words: set, least: int) -> Optional[Dict[str, Any]]:
+    """The unexplored exit sharing the most telling words with ``words`` -- at least ``least`` of
+    them, and no tie -- or None."""
+    scored = sorted(((len(_words(e["label"]) & words), i) for i, e in enumerate(exits) if not e["to"]), reverse=True)
+    if not scored or scored[0][0] < least or (len(scored) > 1 and scored[1][0] == scored[0][0]):
+        return None
+    return exits[scored[0][1]]
 
 
 def render(dungeon: Dict[str, Any], for_players: bool = False) -> str:
