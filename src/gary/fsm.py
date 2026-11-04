@@ -2261,6 +2261,9 @@ class Director:
         for spec_more, why in advanced.healing_dice(healer, check.move, check.spell, other):
             more = int(spec_more) if spec_more.isdigit() else self.dice.roll(spec_more).total
             amount, render = amount + more, f"{render}, +{spec_more} {why}: {more}"
+        if self.sanctuary():
+            more = self.dice.roll("1d4").total
+            amount, render = amount + more, f"{render}, +1d4 Sanctuary: {more}"
         healed = max(0, min(amount, int(patient["max_hp"]) - int(patient["hp"])))
         facts: Dict[str, Any] = {
             "target": patient["name"], "rolled": amount, "rolled_render": render,
@@ -2683,6 +2686,15 @@ class Director:
         here = str((self._scene() or {}).get("location") or "")
         return [a for a, sheet in self._party() for e in sheet.get("ongoing") or ()
                 if e.get("spell") == "Alarm" and (not e.get("where") or not here or same_place(e["where"], here))]
+
+    def sanctuary(self) -> str:
+        """Whose Sanctuary the party is in, or "": "Anyone who receives healing within a sanctuary heals
+        +1d4 HP."""
+        from .worldmap import same_place
+
+        here = str((self._scene() or {}).get("location") or "")
+        return next((a for a, sheet in self._party() for e in sheet.get("ongoing") or ()
+                     if e.get("spell") == "Sanctuary" and e.get("where") and here and same_place(e["where"], here)), "")
 
     def _fog(self) -> Tuple[int, str]:
         """Cloudkill's separate 1d6, ignoring armor, for any creature hurt in the area -- or nothing."""
@@ -3321,6 +3333,9 @@ class Director:
 
         effects: List[Effect] = []
         lines = [f"🏕️ The party makes camp — {reason}"]
+        sanctuary_here = self.sanctuary()
+        if sanctuary_here and not approaches:
+            lines.append(f"{sanctuary_here}'s Sanctuary holds the camp: +1d4 to everyone's healing.")
         report: Dict[str, Any] = {}
         # Halfling Druid: "When you make camp, you and your allies heal +1d6."
         songs = None
@@ -3361,8 +3376,9 @@ class Director:
             if "rations" in changes:
                 entry["rations_left"] = changes["rations"]
             if not approaches:
+                blessed_ground = self.dice.roll("1d4").total if sanctuary_here else 0
                 healed = min(int(sheet["max_hp"]) - int(sheet["hp"]),
-                             int(sheet["max_hp"]) // 2 + (songs.total if songs else 0) + ministry)
+                             int(sheet["max_hp"]) // 2 + (songs.total if songs else 0) + ministry + blessed_ground)
                 changes["hp"] = int(sheet["hp"]) + healed
                 entry.update(healed=healed, hp=changes["hp"], max_hp=sheet["max_hp"])
                 ate = ("eats at their host's table" if fed_by_host else "eats" if fed else "goes hungry, with no rations,")

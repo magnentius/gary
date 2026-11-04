@@ -97,7 +97,8 @@ class Spell:
     def lasts(self) -> bool:
         """Still running after it is cast, so it goes on the sheet's ongoing list. Mirror Image
         lasts until a blow takes the image; Alarm until they prepare spells again."""
-        return self.ongoing or self.ends_when_casting or self.until_prepared or self.name == "Mirror Image"
+        return (self.ongoing or self.ends_when_casting or self.until_prepared
+                or self.name in ("Mirror Image", "Sanctuary"))  # Sanctuary: "As long as you stay within that area"
 
     @property
     def target(self) -> Optional[str]:

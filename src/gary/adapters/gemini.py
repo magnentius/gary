@@ -908,11 +908,20 @@ class GeminiNarrator:
         except healing.HealingError as exc:
             return [], {"ok": False, "error": str(exc)}
 
+        cured = str(args.get("cure", "") or "").strip().lower()
+        holy = self._director.sanctuary() if not cured else ""
+        if holy and int(patient["hp"]) < int(patient["max_hp"]):
+            # "Anyone who receives healing within a sanctuary heals +1d4 HP."
+            more = min(self._director.dice.roll("1d4").total, int(patient["max_hp"]) - int(patient["hp"]))
+            patient = {**patient, "hp": int(patient["hp"]) + more}
+            if patient["name"] == actor:
+                user = {**user, "hp": patient["hp"]}
+            healed += more
+            remedy = f"{remedy} (+{more} Sanctuary)"
         mutations = [Mutation(MutationKind.SHEET, actor, {"sheet": user})]
         if patient["name"] != actor:
             mutations.append(Mutation(MutationKind.SHEET, patient["name"], {"sheet": patient}))
         who = "themselves" if patient["name"] == actor else f"**{patient['name']}**"
-        cured = str(args.get("cure", "") or "").strip().lower()
         line = (f"🩹 **{actor}** uses {remedy.lower()} on {who} — no longer {cured.title()}." if cured else
                 f"🩹 **{actor}** uses {remedy.lower()} on {who} — heals {healed}, "
                 f"HP {patient['hp']}/{patient['max_hp']}.")
@@ -1565,10 +1574,12 @@ class GeminiNarrator:
                     if sheet.get("thrown"):
                         left += [f"{who}'s {t['name'].lower()}" for t in sheet["thrown"]]
                         fresh["thrown"] = []
-                    fog = [e for e in sheet.get("ongoing") or [] if e.get("spell") == "Cloudkill"
+                    # Sanctuary: "As long as you stay within that area" -- leaving it ends it too.
+                    fog = [e for e in sheet.get("ongoing") or [] if e.get("spell") in ("Cloudkill", "Sanctuary")
                            and e.get("where") and not same_place(e["where"], payload["location"])]
                     if fog:
-                        left.append(f"{who}'s Cloudkill (out of sight, it fades)")
+                        left += [f"{who}'s {e['spell']} ({'out of sight, it fades' if e['spell'] == 'Cloudkill' else 'left behind'})"
+                                 for e in fog]
                         fresh["ongoing"] = [e for e in sheet["ongoing"] if e not in fog]
                     if fresh != sheet:
                         changes.append(Mutation(MutationKind.SHEET, who, {"sheet": fresh}))

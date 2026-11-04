@@ -481,3 +481,22 @@ def test_cause_fear_takes_one_living_mind(crypt, dice):
     dice.queue(6, 6)
     apply(director.roll(channel_id=CHANNEL, user_id=ALICE), sheets, scene)
     assert kinds(scene) == {"Zombie 1": [], "Wight-Wolf 1": [], "Goblin 1": ["afraid"]}  # one target
+
+
+def test_sanctuary_lasts_where_it_was_walked_and_heals_more_there(crypt, dice):
+    director, sheets, scene = crypt
+    scene.clear()
+    _here(director, "the ruined chapel")
+    sheets["Thorin"].update(spells=["Sanctuary", "Cure Light Wounds"], ongoing=[], lost=[], cast_penalty=0)
+    director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="cast_a_spell", spell="Sanctuary")
+    dice.queue(6, 6)
+    apply(director.roll(channel_id=CHANNEL, user_id=ALICE), sheets, scene)
+    assert sheets["Thorin"]["ongoing"] == [{"spell": "Sanctuary", "target": "", "where": "the ruined chapel"}]
+    assert director.sanctuary() == "Thorin"
+    sheets["Dorn"]["hp"] = 5
+    dice.queue(3, 2)  # the Sanctuary's 1d4, for each of them
+    effects, _ = director.make_camp(channel_id=CHANNEL, reason="behind the barred door")
+    apply(effects, sheets, scene)
+    assert sheets["Dorn"]["hp"] == 5 + 10 + 3  # half of 20, +1d4
+    _here(director, "the old road")
+    assert director.sanctuary() == ""

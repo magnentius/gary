@@ -128,7 +128,9 @@ dismissed when the spell ends. **Shadow Walk** takes its destination in no more 
 is simply there — no journey, no rations — and the place goes on the campaign map. **Contingency**
 holds a spell and its trigger (no more words than
 your level) and releases it without a roll. Spells laid on a place — Cloudkill, Darkness,
-Sanctuary, Alarm — stay where they were cast: Cloudkill's extra 1d6 lands on anything hurt
+Sanctuary, Alarm — stay where they were cast. Healing of any kind inside a **Sanctuary** —
+potions, bandages, spells, a night's camp — heals +1d4 more, and it lasts while its Cleric stays
+(leaving ends it). Cloudkill's extra 1d6 lands on anything hurt
 there (creatures and characters, by any blow), and it ends once the party leaves, as it lasts
 "so long as you can see the affected area".
 
