@@ -153,7 +153,8 @@ know (your land, Studied Essence) is the GM's to judge; your land is one of your
 offers your class's bond lines ("___ has insulted my deity; I do not trust them"), you pick
 the companion who fills each blank, and save. Write at least one; remove one to rewrite it.
 Aid or Interfere names who you help or hinder and rolls +Bond — the number of bonds you
-have with them. `/sheet` shows your bonds, and the GM sees them.
+have with them. On a hit they take +1 forward (help) or -2 forward (hinder) on their next roll —
+the one you're helping with; a Bard's Arcane Art can make the next aid they get +2. `/sheet` shows your bonds, and the GM sees them.
 
 **XP.** Every miss marks 1 XP — Gary says so under the roll, with your total ("5/8 XP").
 When you wrap up, run `/end`: anyone can flip the three questions (learned

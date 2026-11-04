@@ -1384,3 +1384,39 @@ def test_sharing_pipeleaf_spends_two_uses_for_plus_one_forward(director):
     director._sheet_for("Kethra")["gear"][0]["uses"] = 1
     _, refused = director.share_pipeleaf(channel_id=CHANNEL, character="Kethra", with_whom="the reeve")
     assert "only 1 use left" in refused["error"]
+
+
+# -- Aid or Interfere lands; Arcane Art's +2 -------------------------------------------------
+
+def test_aid_gives_the_helped_plus_one_forward_and_interfere_minus_two(director, registry, dice):
+    make_move(director, "aid_or_interfere", target="Dorn")
+    dice.queue(5, 5)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [0])  # help
+    assert any("**Dorn** takes +1 forward — from Kethra's aid" in getattr(e, "text", "") for e in effects)
+    make_move(director, "aid_or_interfere", target="Dorn")
+    dice.queue(5, 5)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [1])  # hinder
+    assert any("**Dorn** takes -2 forward — Kethra interferes" in getattr(e, "text", "") for e in effects)
+
+
+def test_arcane_art_makes_the_next_aid_plus_two(director, registry, dice):
+    director._sheet_for("Dorn")["aid_boost"] = True
+    make_move(director, "aid_or_interfere", target="Dorn")
+    dice.queue(5, 5)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [0])
+    assert any("+2 forward — from Kethra's aid (Arcane Art: +2)" in getattr(e, "text", "") for e in effects)
+    assert any(getattr(e, "changes", {}).get("aid_boost") is False for e in effects)
+
+
+def test_arcane_art_can_mark_the_next_aid(director, registry, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Kethra"].update({"class": "Bard"})
+    make_move(director, "arcane_art", target="Dorn")
+    dice.queue(5, 5)
+    roll(director)
+    effects = choose(director, only_check(registry).check_id, [3])  # the aid option
+    assert UpdateSheet(CHANNEL, "Dorn", {"aid_boost": True}) in effects

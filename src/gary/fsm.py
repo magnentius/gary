@@ -1381,8 +1381,34 @@ class Director:
     def _forwards_from(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """What a resolved move leaves behind for later: the book's forwards, and what
         a Hack and Slash sets up (armor forward, a marked foe, an ally's strike)."""
-        return [*self._book_forwards(channel_id, check, dice), *self._after_hack(channel_id, check),
-                *self._invigorate(channel_id, check, dice), *self._challenged(channel_id, check, dice)]
+        return [*self._aided(channel_id, check, dice), *self._book_forwards(channel_id, check, dice),
+                *self._after_hack(channel_id, check), *self._invigorate(channel_id, check, dice),
+                *self._challenged(channel_id, check, dice)]
+
+    def _aided(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Aid or Interfere: "They take +1 or -2, your choice" -- on the roll being helped, which is the
+        helped character's next. Arcane Art can make the next aid +2. And Arcane Art's own pick marks it."""
+        b = band(dice)
+        if b == "miss" or not check.target:
+            return []
+        rules = MOVES[check.move].band(b)
+        picked = [rules.choice.options[p].text for p in check.picks] if rules.choice else []
+        who = self._character(check.target)
+        if who is None:
+            return []
+        if check.move == "arcane_art" and any(t.startswith("Next time someone aids them") for t in picked):
+            return [SendMessage(channel_id, f"🎶 The next aid **{who}** gets is +2, not +1 — {check.actor}'s Arcane Art."),
+                    UpdateSheet(channel_id, who, {"aid_boost": True})]
+        if check.move != "aid_or_interfere":
+            return []
+        if any(t.startswith("Help them") for t in picked):
+            boosted = bool(self._sheet_or_empty(who).get("aid_boost"))
+            out = self._grant(channel_id, who, f"from {check.actor}'s aid" + (" (Arcane Art: +2)" if boosted else ""),
+                              amount=2 if boosted else 1)
+            return [*out, UpdateSheet(channel_id, who, {"aid_boost": False})] if boosted else out
+        if any(t.startswith("Hinder them") for t in picked):
+            return self._grant(channel_id, who, f"{check.actor} interferes", amount=-2)
+        return []
 
     def _challenged(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """What Are You Waiting For?, 10+: the creatures standing now take +2 from them."""
