@@ -76,7 +76,7 @@ def client_and_tree():
 def test_every_command_is_in_help(client_and_tree):
     _, tree = client_and_tree
     names = {c.name for c in tree.get_commands()}
-    assert len(names) == 18
+    assert len(names) == 19
     assert not {"setting", "import", "scene", "time"} & names  # /begin replaced them
     assert {n for n in names if f"`/{n}" not in HELP} == set()
 
@@ -187,3 +187,38 @@ def test_a_typed_dm_command_is_pointed_at_the_slash_commands():
     message = type("M", (), {"author": author, "channel": type("C", (), {"id": ROOM})(), "content": "?dm sheet"})()
     asyncio.run(GaryClient.on_message(_Stub(), message))
     assert sent == [SLASH_ONLY] and ran == []
+
+
+def test_do_posts_the_action_and_plays_it_as_a_message_to_gary():
+    import asyncio
+
+    from gary.adapters.discord_bot import GaryClient
+
+    seen, ran, said = [], [], []
+
+    class _Director:
+        players = {7: "Dorn"}
+
+        def on_player_message(self, **kw):
+            seen.append(kw)
+            return ["narrate"]
+
+    class _Runner:
+        async def run(self, effects):
+            ran.extend(effects)
+
+    class _Response:
+        async def send_message(self, text):
+            said.append(text)
+
+    class _User:
+        id, display_name = 7, "alice"
+
+    class _Interaction:
+        user, channel_id, response = _User(), 42, _Response()
+
+    client = type("C", (), {"director": _Director(), "runner": _Runner(), "on_do": GaryClient.on_do})()
+    asyncio.run(client.on_do(_Interaction(), "  I hurl my   spear at the archer "))
+    assert said == ["**Dorn:** I hurl my spear at the archer"]
+    assert seen[0]["mentions_bot"] is True and seen[0]["content"] == "I hurl my spear at the archer"
+    assert ran == ["narrate"]

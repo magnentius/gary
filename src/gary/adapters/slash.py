@@ -37,6 +37,7 @@ __Starting__
 `/new` — make a character (a private form) · `/playing character:` — claim one someone else made
 
 __At the table__
+`/do` — what your character does or says: `/do I hurl my spear at the archer` (or just write `@Gary …`, or reply to him)
 `/sheet` — your sheet, privately, with buttons for spells, bonds, companion, alignment and level-up
 `/moves` · `/moves move:` — your character's moves and everyone's, privately
 `/npcs` · `/npcs name:` — the people you've met or heard of
@@ -274,6 +275,14 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
             client._remember_portrait(kind, name, await client.painter.describe(path))
         caption = f"🎨 **{name}**" + ("" if new else " (kept from before; `redraw:True` draws a new one)")
         await interaction.followup.send(caption, file=discord.File(str(path), filename=path.name))
+
+    @tree.command(name="do", description="What your character does or says — Gary answers as GM")
+    @app_commands.describe(action="e.g. I hurl my spear at the archer across the ravine")
+    async def do(interaction: "discord.Interaction", action: str) -> None:
+        if not playing_here(interaction):
+            await not_here(interaction)
+            return
+        await client.on_do(interaction, action)
 
     @tree.command(name="notes", description="What has been filed, by subject")
     async def notes(interaction: "discord.Interaction") -> None:

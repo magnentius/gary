@@ -209,3 +209,11 @@ def test_an_empty_directory_at_the_old_path_is_not_a_stranded_campaign(tmp_path,
     monkeypatch.setenv("GARY_GAME_CHANNELS", "1")
     monkeypatch.setenv("GARY_CAMPAIGN_ROOT", str(tmp_path / "elsewhere"))
     assert Settings.from_env().stranded_campaign() is None
+
+
+def test_the_message_content_intent_is_off_unless_asked_for():
+    from gary.config import Settings
+
+    assert Settings.from_env({"DISCORD_TOKEN": "x", "GARY_GAME_CHANNELS": "1"}).message_content is False
+    assert Settings.from_env({"DISCORD_TOKEN": "x", "GARY_GAME_CHANNELS": "1",
+                              "GARY_MESSAGE_CONTENT": "1"}).message_content is True

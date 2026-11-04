@@ -13,10 +13,11 @@ creatures, the clock, the journal — in a local campaign store.
 
 ## What you need
 
-- **A Discord bot** with the **Message Content** privileged intent enabled in the Developer
-  Portal, invited to your server with the **`bot`** and **`applications.commands`** scopes
-  (the second makes the slash commands appear). Without Message Content, Gary hears nothing
-  and says nothing — the most common reason a correct setup stays silent.
+- **A Discord bot**, invited to your server with the **`bot`** and **`applications.commands`**
+  scopes (the second makes the slash commands appear). No privileged intents are needed: players
+  speak to Gary with `@Gary …`, a reply to one of his messages, or `/do …` — the text Discord
+  sends any bot. Only for freeform channels (see below) do you need the **Message Content**
+  privileged intent, enabled in the Developer Portal and with `GARY_MESSAGE_CONTENT=1`.
 - **A game channel's id** — right-click the channel → Copy Channel ID (turn on Developer
   Mode in Discord's settings first).
 - **Python 3.11+**, or Docker.
@@ -122,8 +123,9 @@ the old way (`?dm …`) gets a pointer to the slash commands.
 
 ## How play works
 
-- **Gary answers when** you @-mention him, when you have a move waiting on you, or every
-  message in a channel listed in `GARY_FREEFORM_CHANNELS`.
+- **Gary answers when** you @-mention him, reply to him, or use `/do` (`/do I search the
+  altar`), and — with the Message Content intent on — when you have a move waiting on you, or
+  to every message in a channel listed in `GARY_FREEFORM_CHANNELS`.
 - **Gemini names the move; Gary decides what it means.** The stat, modifier and target are
   fixed before you roll, and the result is the book's 10+ / 7–9 / miss. Choices (a weak-hit
   Volley, Discern Realities' questions) come as buttons only you can press.
@@ -149,7 +151,7 @@ the code it gives you: `/reset code:`. Then start again from
 
 | Symptom | Try |
 |---|---|
-| Gary says nothing | Is the channel in `GARY_GAME_CHANNELS`? Is Message Content enabled? Did you @-mention him? |
+| Gary says nothing | Is the channel in `GARY_GAME_CHANNELS`? Did you @-mention him, reply to him, or use `/do`? (Plain messages need the Message Content intent and `GARY_MESSAGE_CONTENT=1`.) |
 | No slash commands | Re-invite Gary with the `applications.commands` scope, then restart him. |
 | Narration but no Roll button | `/checks` — the move may have expired (after 3 minutes, by default). |
 | Your click did nothing | It may be someone else's move; `/checks` shows whose. |
@@ -165,7 +167,8 @@ Everything is an environment variable. Only the first two are required.
 | `DISCORD_TOKEN` | — | The bot token. |
 | `GARY_GAME_CHANNELS` | — | Channel ids Gary plays in, separated by commas or spaces. |
 | `GEMINI_API_KEY` | *(none)* | Without it, the free echo narrator. |
-| `GARY_FREEFORM_CHANNELS` | *(none)* | Channels where Gary answers every message; must also be game channels. |
+| `GARY_FREEFORM_CHANNELS` | *(none)* | Channels where Gary answers every message; must also be game channels. Needs `GARY_MESSAGE_CONTENT=1`. |
+| `GARY_MESSAGE_CONTENT` | *(off)* | `1` to request Discord's privileged Message Content intent (also enable it in the Developer Portal): needed only for freeform channels and answering a waiting move without mentioning Gary. |
 | `GARY_PLAYERS` | *(none)* | Pre-assign characters: `<discord id>=<name>;…`. Usually `/new` does this. |
 | `GARY_CAMPAIGN_ROOT` | `~/.local/share/gary/campaign` | Where the campaign lives. |
 | `GARY_BACKEND` | `file` | `file`, or `firestore` (with `GARY_FIRESTORE_CAMPAIGN_ID`). |

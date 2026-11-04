@@ -505,7 +505,9 @@ class GaryClient(discord.Client):
         history_backend=None,
     ) -> None:
         intents = discord.Intents.default()
-        intents.message_content = True  # PRIVILEGED — also enable in the Developer Portal
+        # PRIVILEGED, so off unless asked for: without it Discord still sends the text of messages
+        # that mention Gary or reply to him, and /do needs no intent at all.
+        intents.message_content = settings.message_content
         intents.guilds = True
         super().__init__(intents=intents)
 
@@ -577,10 +579,13 @@ class GaryClient(discord.Client):
             )
 
         if not self.intents.message_content:
-            log.error(
-                "MESSAGE CONTENT INTENT IS OFF. Player messages will arrive empty and "
-                "Gary will answer nobody. Enable it in the Discord Developer Portal."
-            )
+            log.info("Message Content intent off (not privileged): players use @Gary, a reply to Gary, or /do.")
+            if self.settings.freeform_channels:
+                log.warning(
+                    "GARY_FREEFORM_CHANNELS is set, but without the Message Content intent Discord sends "
+                    "unaddressed messages with no text: only @Gary, replies and /do reach Gary there. Set "
+                    "GARY_MESSAGE_CONTENT=1 and enable the intent in the Developer Portal for freeform play."
+                )
 
     async def close(self) -> None:
         # Reachable twice now -- once from the signal handler, once as `async with`
@@ -1681,7 +1686,24 @@ class GaryClient(discord.Client):
                 return True
         return False
 
+    async def on_do(self, interaction: "discord.Interaction", text: str) -> None:
+        """/do: what your character does or says, as if typed to Gary -- no privileged intent needed.
+        It's posted to the table under the character's name, then played like any message to Gary."""
+        text = " ".join(str(text or "").split())[:1500]
+        who = self.director.players.get(interaction.user.id) or interaction.user.display_name
+        await interaction.response.send_message(f"**{who}:** {text}")
+        effects = self.director.on_player_message(
+            channel_id=interaction.channel_id, user_id=interaction.user.id,
+            display_name=interaction.user.display_name, content=text, mentions_bot=True,
+        )
+        await self.runner.run(effects)
+
     async def _on_player(self, message: "discord.Message") -> None:
+        if not (message.content or "").strip():
+            # Without the Message Content intent an unaddressed message comes with no text; there is
+            # nothing to hear, and saying so to the model would be noise.
+            log.info("player message %s arrived without text (no Message Content intent); ignored", message.id)
+            return
         mentions_bot = self._addressed_directly(message)
         effects = self.director.on_player_message(
             channel_id=message.channel.id,

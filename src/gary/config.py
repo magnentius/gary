@@ -89,6 +89,10 @@ class Settings:
     discord_token: str
     game_channels: FrozenSet[int]
     freeform_channels: FrozenSet[int] = field(default_factory=frozenset)
+    # Discord's privileged Message Content intent. Off: players speak to Gary with @Gary, a reply
+    # to him, or /do -- the only text Discord sends a bot without it. On (GARY_MESSAGE_CONTENT=1,
+    # and enabled in the Developer Portal): anything typed in a freeform channel reaches him.
+    message_content: bool = False
     command_prefix: str = DEFAULT_COMMAND_PREFIX
     # discord user id -> character name. Empty is allowed: actor
     # validation is then skipped rather than rejecting everything.
@@ -161,6 +165,7 @@ class Settings:
             discord_token=e.get("DISCORD_TOKEN", ""),
             game_channels=_ids(e.get("GARY_GAME_CHANNELS")),
             freeform_channels=_ids(e.get("GARY_FREEFORM_CHANNELS")),
+            message_content=str(e.get("GARY_MESSAGE_CONTENT", "")).strip().lower() in ("1", "true", "yes", "on"),
             players=_players(e.get("GARY_PLAYERS")),
             campaign_root=Path(e["GARY_CAMPAIGN_ROOT"]) if e.get("GARY_CAMPAIGN_ROOT")
             else default_campaign_root(),

@@ -27,11 +27,12 @@ built and why.
 
 **Discord**
 
-- **Message Content is a privileged intent.** Gary reads player prose. Enable
-  `MESSAGE CONTENT INTENT` in the Developer Portal *and* set `intents.message_content =
-  True` in code; with only one of the two, `message.content` arrives empty and Gary looks
-  alive while answering nobody. `GaryClient.on_ready` checks and complains. Free below 100
-  guilds; Gary is a single-table tool, so the ceiling is acceptable.
+- **No privileged intent by default.** Without Message Content, Discord still sends a bot the
+  text of messages that mention it or reply to it, and slash commands carry their own text --
+  so players use `@Gary`, a reply, or `/do`. A message that arrives without text is ignored.
+  `GARY_MESSAGE_CONTENT=1` (with the intent enabled in the Developer Portal) turns it back on
+  for freeform channels, where Gary hears everything; `GaryClient.on_ready` warns when freeform
+  channels are set without it.
 - **Components are how players act.** Rolls, choices, damage, spell picks and character
   creation are buttons, selects and modals. A click carries the clicking user exactly,
   which is the attribution the whole design rests on (§5). A typed command cannot be
@@ -61,7 +62,7 @@ built and why.
                         └──────────┬─────────────┘
                                    │
                         Gateway WebSocket (persistent)
-                        + Message Content intent
+                        (Message Content intent optional)
                                    │
                                    ▼
               ┌──────────────────────────────────────┐
