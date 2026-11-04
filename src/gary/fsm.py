@@ -4995,7 +4995,7 @@ class Director:
         return [
             SendMessage(channel_id, f"🧪 **{actor}** uses {name}{on} — {left - 1} uses left."),
             UpdateSheet(channel_id, actor, {"poison_uses": left - 1, "poisons_used": self._used(sheet, name)}),
-            *self._afflict(channel_id, target, name),
+            *self._afflict(channel_id, target, name, actor),
         ], {"ok": True, "poison": name, "effect": choices.poison_text(name), "uses_left": left - 1,
             "note": self._delivery(sheet, on_weapon, dangerous=False) + " Narrate the effect as written."}
 
@@ -5033,18 +5033,29 @@ class Director:
         return [
             SendMessage(channel_id, f"🧪 **{actor}** uses {dose['name']}{on} — the dose is spent."),
             UpdateSheet(channel_id, actor, {"gear": gear, "poisons_used": self._used(sheet, name)}),
-            *self._afflict(channel_id, target, name),
+            *self._afflict(channel_id, target, name, actor),
         ], {"ok": True, "poison": name, "effect": custom or POISONS.get(name, ""), "note": (
             f"{risk} {self._delivery(sheet, on_weapon, dangerous=not mastered)} Narrate the effect as written.")}
 
-    def _afflict(self, channel_id: int, target: str, poison: str) -> List[Effect]:
-        """Bloodweed and Serpent's Tears on a creature in the scene, kept on its record."""
-        creature = self._monsters().get(target or "")
+    def _afflict(self, channel_id: int, target: str, poison: str, actor: str = "") -> List[Effect]:
+        """A poison on a creature in the scene. Bloodweed and Serpent's Tears are kept on its record and
+        change damage rolls; Oil of Tagit ("falls into a light sleep") and Goldenroot ("treats the next
+        creature they see as a trusted ally, until proved otherwise") mark it, like the spells they
+        resemble: asleep (pain wakes it), trusting (attack or deceit breaks it)."""
+        name = next((n for n in self._monsters() if normalize_actor(n) == normalize_actor(target or "")), None)
+        creature = self._monsters().get(name) if name else None
         poison = _poison_name(poison)
-        if creature is None or poison not in ("Bloodweed", "Serpent\u2019s Tears"):
+        if creature is None:
+            return []
+        if poison in ("Oil of Tagit", "Goldenroot"):
+            kind = "asleep" if poison == "Oil of Tagit" else "trusting"
+            others = [c for c in creature.get("conditions") or [] if c.get("spell") != poison]
+            return [ConditionMonster(channel_id, name, tuple(
+                [*others, {"kind": kind, "spell": poison, "caster": actor or "?"}]))]
+        if poison not in ("Bloodweed", "Serpent\u2019s Tears"):
             return []
         have = list(creature.get("afflictions") or [])
-        return [AfflictMonster(channel_id, target, tuple(have + [poison] if poison not in have else have))]
+        return [AfflictMonster(channel_id, name, tuple(have + [poison] if poison not in have else have))]
 
     def brew_poison(self, *, channel_id: int, character: str, reason: str = "", poison: str = "",
                     effect: str = "", caveats: Sequence[str] = ()) -> Tuple[List[Effect], Dict[str, Any]]:

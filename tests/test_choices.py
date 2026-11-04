@@ -259,3 +259,20 @@ def test_alchemist_designs_a_poison_with_caveats(director, sheets):
     sheets["Nim"].update(effects[1].changes)
     _, used = director.use_poison(channel_id=CHANNEL, character="Nim", poison="Widow's Kiss")
     assert used["ok"] and "paralyses" in used["effect"]
+
+
+def test_poisons_on_a_creature_mark_it_and_show(director, sheets, scene):
+    from gary.fsm import AfflictMonster, ConditionMonster
+    from gary.monsters import describe as describe_monster
+
+    scene["Guard 1"] = {"kind": "Guard", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"}
+    for name in ("Oil of Tagit", "Goldenroot"):
+        sheets["Nim"] = {**THIEF, "choices": {}, "gear": [_dose(name)]}
+        effects, _ = director.use_poison(channel_id=CHANNEL, character="Nim", target="guard 1", poison=name)
+        (mark,) = [e for e in effects if isinstance(e, ConditionMonster)]
+        assert mark.conditions[-1]["kind"] == ("asleep" if name == "Oil of Tagit" else "trusting")
+    sheets["Nim"] = dict(THIEF)  # back to her mastered Bloodweed
+    effects, _ = director.use_poison(channel_id=CHANNEL, character="Nim", target="Guard 1")
+    (weed,) = [e for e in effects if isinstance(e, AfflictMonster)]
+    scene["Guard 1"]["afflictions"] = list(weed.afflictions)
+    assert "poisoned: Bloodweed" in describe_monster("Guard 1", scene["Guard 1"])

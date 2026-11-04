@@ -311,8 +311,9 @@ def describe(name: str, record: Dict[str, Any]) -> str:
         ", ignores armor" if record.get("ignores_armor")
         else f", {record['piercing']} piercing" if record.get("piercing") else ""
     )
-    held = "; ".join(f"{c['kind']} — {c.get('caster', '?')}'s {c.get('spell', '?')}"
-                     for c in record.get("conditions") or ())
+    held = "; ".join([f"{c['kind']} — {c.get('caster', '?')}'s {c.get('spell', '?')}"
+                      for c in record.get("conditions") or ()]
+                     + ([f"poisoned: {', '.join(record['afflictions'])}"] if record.get("afflictions") else []))
     return (
         f"{name} (HP {record['hp']}/{record['max_hp']}, armor {record['armor']}, "
         f"damage {record['damage']}{pierce}" + (f"; {held}" if held else "") + ")"
