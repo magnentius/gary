@@ -418,3 +418,18 @@ async def test_bless_ends_with_the_battle(clock):
     await r.run([ChangeHp(CHANNEL, "monster", "Goblin 2", -1)])
     assert store.state()["sheets"]["Thorin"]["ongoing"] == []
     assert any("The battle is over, and Thorin's Bless with it." in text for _, text in sender.sent)
+
+
+async def test_a_creatures_armor_can_be_lowered_and_undone(clock):
+    from gary.fsm import ArmorMonster
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {
+        "Orc 1": {"kind": "Orc", "hp": 6, "max_hp": 6, "armor": 2, "damage": "d8"}}})], reason="setup")
+    await EffectRunner(FakeSender(), EchoNarrator(), store=store).run([ArmorMonster(CHANNEL, "Orc 1", 1)])
+    assert store.state()["monsters"]["Orc 1"]["armor"] == 1
+    store.undo_last()
+    assert store.state()["monsters"]["Orc 1"]["armor"] == 2

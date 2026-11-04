@@ -658,6 +658,17 @@ def _h_monster_looted(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     )
 
 
+def _h_monster_armor(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """``m.target`` is the instance name; payload {"armor": int}. Undone by putting the old value back."""
+    record = store._state.setdefault("monsters", {}).get(m.target)
+    if record is None:
+        raise StateError(f"no creature named {m.target!r} in this scene")
+    before = int(record.get("armor", 0))
+    record["armor"] = max(0, int(m.payload.get("armor", 0)))
+    return AppliedMutation(mutation=m, inverse=Mutation(MutationKind.MONSTER_ARMOR, m.target, {"armor": before}),
+                           before=before, after=record["armor"])
+
+
 def _h_monster_conditions(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """``m.target`` is the instance name; payload {"conditions": [{"kind", "spell", "caster"}]}: what
     spells hold it (asleep, charmed, caged...). Undone by putting the old list back."""
@@ -841,6 +852,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.DUNGEON: _h_dungeon,
     MutationKind.WORLD: _h_world,
     MutationKind.MONSTER_CONDITIONS: _h_monster_conditions,
+    MutationKind.MONSTER_ARMOR: _h_monster_armor,
     MutationKind.CALENDAR: _h_calendar,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,

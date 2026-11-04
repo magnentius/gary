@@ -256,6 +256,15 @@ class ConditionMonster(Effect):
 
 
 @dataclass(frozen=True)
+class ArmorMonster(Effect):
+    """Set a creature's armor (Backstab: "Reduce their armor by 1 until they repair it")."""
+
+    channel_id: int
+    name: str
+    armor: int
+
+
+@dataclass(frozen=True)
 class Arrive(Effect):
     """The party is somewhere else at once (Shadow Walk): the scene moves there, no road travelled."""
 
@@ -2466,6 +2475,15 @@ class Director:
         drool for a few moments" (stunned: no attacks; free_creature when the moments pass; the shot's
         own damage doesn't end it). Arms -- "they drop anything they're holding" (disarmed). Legs --
         "they're hobbled and slow moving"."""
+        if check.move == "backstab" and check.target:
+            creature = self._monsters().get(check.target)
+            texts = [rules.choice.options[p].text for p in check.picks]
+            if creature is not None and any(t.startswith("Reduce their armor") for t in texts):
+                after = max(0, int(creature.get("armor", 0)) - 1)
+                return [SendMessage(channel_id, f"🗡️ **{check.actor}** finds the gap: **{check.target}**'s armor "
+                                                f"{creature.get('armor', 0)} → {after}, until it's repaired."),
+                        ArmorMonster(channel_id, check.target, after)]
+            return []
         if check.move != "called_shot" or not check.target:
             return []
         creature = self._monsters().get(check.target)

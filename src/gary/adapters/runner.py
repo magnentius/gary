@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import Optional, Sequence
 
 from ..fsm import (
-    AfflictMonster, Arrive, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
+    AfflictMonster, ArmorMonster, Arrive, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
     UpdateSheet, battle_over, creature_harmed, summon_fell,
 )
 from ..models import Mutation, MutationKind
@@ -99,6 +99,12 @@ class EffectRunner:
                                          reason=f"{effect.name}: {[c.get('kind') for c in effect.conditions] or 'free'}")
                 if not diff.ok:
                     log.warning("conditions on %s refused: %s", effect.name, diff.rejected)
+            return
+
+        if isinstance(effect, ArmorMonster):
+            if self._store is not None:
+                self._store.apply([Mutation(MutationKind.MONSTER_ARMOR, effect.name, {"armor": effect.armor})],
+                                  reason=f"{effect.name}'s armor to {effect.armor}")
             return
 
         if isinstance(effect, Arrive):

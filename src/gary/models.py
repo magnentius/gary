@@ -269,6 +269,7 @@ class MutationKind(str, Enum):
     DUNGEON = "dungeon"  # a dungeon's map: its areas, how they connect, the blanks
     WORLD = "world"  # the campaign map: places, routes in days, the blanks, signs of the fronts
     MONSTER_CONDITIONS = "monster_conditions"  # what spells hold a creature: asleep, charmed, caged...
+    MONSTER_ARMOR = "monster_armor"  # a creature's armor changed: Backstab's "reduce their armor by 1"
     CALENDAR = "calendar"
 
 

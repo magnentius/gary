@@ -1705,7 +1705,7 @@ class GeminiNarrator:
     def _apply_now(self, effects: List[Any]) -> List[Any]:
         """Write a tool's state changes to the store at once, so later calls in the same response see
         them; what is left (messages to post) goes on as usual."""
-        from ..fsm import ConditionMonster, Dismiss, UpdateSheet
+        from ..fsm import ArmorMonster, ConditionMonster, Dismiss, UpdateSheet
 
         rest = []
         for effect in effects:
@@ -1722,6 +1722,9 @@ class GeminiNarrator:
             elif isinstance(effect, Dismiss):
                 self._store.apply([Mutation(MutationKind.SHEET, effect.name, {"sheet": None})],
                                   reason=f"{effect.name} is gone")
+            elif isinstance(effect, ArmorMonster):
+                self._store.apply([Mutation(MutationKind.MONSTER_ARMOR, effect.name, {"armor": effect.armor})],
+                                  reason=f"{effect.name}'s armor")
             else:
                 rest.append(effect)
         return rest

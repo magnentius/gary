@@ -543,3 +543,18 @@ def test_trap_expert_hold_is_counted_and_stays_in_its_area(director, dice, sheet
     _here(director, "the outer stair")
     _, gone = director.trap_question(channel_id=CHANNEL, character="Nim", question="Is there a trap here?")
     assert "gone now they've left" in gone["error"]
+
+
+def test_backstab_can_take_a_point_of_armor_off(director, dice, sheets, scene):
+    from gary.fsm import ArmorMonster
+
+    sheets["Nim"] = {"name": "Nim", "class": "Thief", "race": "Halfling", "level": 1, "xp": 0, "hp": 12, "max_hp": 12,
+                     "armor": 1, "damage": "d8", "stats": STATS,
+                     "gear": [{"name": "Dagger", "tags": ["hand"], "weight": 1}]}
+    director.set_player_character(444, "Nim")
+    director.open_move(channel_id=CHANNEL, user_id=444, actor="Nim", move="backstab", target="Goblin 2")
+    dice.queue(5, 5)
+    director.roll(channel_id=CHANNEL, user_id=444)
+    check = director.registry.open_checks(CHANNEL)[0]
+    effects = director.choose(channel_id=CHANNEL, user_id=444, check_id=check.check_id, picks=[0, 3])
+    assert ArmorMonster(CHANNEL, "Goblin 2", 0) in effects
