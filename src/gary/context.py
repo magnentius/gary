@@ -327,6 +327,9 @@ def render_live_state(state: Dict[str, Any]) -> str:
                             + ", ".join(lying))
             # The sheet line carries the name itself, so it replaces the bare name.
             who = describe(sheets[actor]) if actor in sheets else actor
+            if (sheets.get(actor) or {}).get("deaths_mark") and not sheets[actor].get("dead"):
+                who += (" — MARKED AS DEATH'S OWN: their fate is sealed, healing doesn't change it; they cross the "
+                        "threshold soon, at a moment you choose (death_comes)")
             if (sheets.get(actor) or {}).get("summoned_by"):
                 ally = sheets[actor]
                 who += (f" — summoned by {ally['summoned_by']} ({ally.get('summoned_spell')}): their character, basic "

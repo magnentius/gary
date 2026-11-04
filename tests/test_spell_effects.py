@@ -558,3 +558,41 @@ def test_backstab_can_take_a_point_of_armor_off(director, dice, sheets, scene):
     check = director.registry.open_checks(CHANNEL)[0]
     effects = director.choose(channel_id=CHANNEL, user_id=444, check_id=check.check_id, picks=[0, 3])
     assert ArmorMonster(CHANNEL, "Goblin 2", 0) in effects
+
+
+def test_a_healing_spell_on_an_npc_ally_is_rolled_and_narrated(crypt, dice):
+    director, sheets, scene = crypt
+    sheets["Thorin"].update(spells=["Cure Light Wounds"], ongoing=[], lost=[], cast_penalty=0)
+    director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="cast_a_spell",
+                       spell="Cure Light Wounds", target="Sibel")
+    dice.queue(6, 6, 5)  # a hit, then the 1d8: 5
+    effects = director.roll(channel_id=CHANNEL, user_id=ALICE)
+    assert any("heals **Sibel** — 1d8: 5 → 5 healed (an NPC" in getattr(e, "text", "") for e in effects)
+    assert "Sibel" not in sheets  # no sheet made, no HP written
+
+
+def test_deaths_mark_survives_healing_and_comes_due():
+    from gary import opening
+    from gary.sheets import describe
+
+    dorn = {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 2, "xp": 0, "hp": 6, "max_hp": 20,
+            "armor": 1, "damage": "d10", "stats": STATS, "deaths_mark": True}
+    assert "marked as Death's own" in describe(dorn)  # healed above 0, the mark still shows
+    event = opening.with_doom(opening.scene_event(3), [dorn])
+    assert event["deaths_own"] == ["Dorn"] and "the time has come" in event["instruction"]
+    assert opening.with_doom(opening.scene_event(3), [{**dorn, "deaths_mark": False}]) == opening.scene_event(3)
+
+
+async def test_death_comes_for_the_marked(rig):
+    from gary.adapters import gemini_tools as T
+    from gary.models import Mutation, MutationKind
+    from tests.test_gemini import call_response, narrator, player, text_response
+
+    director, store, history = rig
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {
+        "name": "Dorn", "class": "Fighter", "race": "Human", "level": 2, "xp": 0, "hp": 6, "max_hp": 20,
+        "armor": 1, "damage": "d10", "stats": STATS, "deaths_mark": True}})], reason="setup")
+    n = narrator(rig, call_response(T.DEATH_COMES, {"character": "Dorn", "reason": "holding the bridge alone"}),
+                 text_response("."))
+    await player(n, "Dorn turns to face them")
+    assert store.state()["sheets"]["Dorn"]["dead"] is True

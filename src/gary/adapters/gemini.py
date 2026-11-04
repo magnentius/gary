@@ -1423,6 +1423,23 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.DEATH_COMES:
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            reason = " ".join(str(args.get("reason", "")).split())[:200]
+            if who is None or not sheets[who].get("deaths_mark") or sheets[who].get("dead"):
+                return {"ok": False, "error": f"{args.get('character')!r} isn't marked as Death's own."}
+            if not reason:
+                return {"ok": False, "error": "Say how it happens (reason): the moment, or what sparing them cost."}
+            if args.get("spared"):
+                new, line = {**sheets[who], "deaths_mark": False}, f"🕯️ **{who}** is spared Death's mark — {reason}."
+            else:
+                new, line = {**sheets[who], "dead": True, "hp": 0}, f"⚰️ **{who}** crosses the threshold — {reason}."
+            result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": new})], reason=line))
+            if result.get("ok"):
+                result["post"] = line
+            return result
+
         if name == T.WEAPON_GLOWS:
             sheets = store.state().get("sheets") or {}
             who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)

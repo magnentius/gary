@@ -597,4 +597,6 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         line += " · DEAD"
     elif int(sheet.get("hp", 1)) <= 0:
         line += " · DOWN" + (", marked as Death's own" if sheet.get("deaths_mark") else "")
+    elif sheet.get("deaths_mark"):
+        line += " · marked as Death's own"  # healed or not: "your fate is sealed"
     return line

@@ -684,18 +684,12 @@ class Director:
         if rules.stat == LOYALTY:
             return self._open_order(channel_id, user_id, actor, target, stakes, ttl_seconds)
 
-        # A healing move lands on a character with a sheet: the one named, or the mover.
+        # A healing move lands on a character -- the one named, or the mover -- or on an NPC ally,
+        # whose healing is the model's to narrate (an NPC has no HP here).
         if rules.heals_target:
             wanted = str(target or "").strip() or actor
             if self._sheet_for is not None:
-                found = self._character(wanted)
-                if found is None:
-                    return [self._refuse(
-                        channel_id,
-                        f"{rules.name} heals a character; {wanted!r} has no character sheet.",
-                        "Re-issue make_move with target set to the character being healed.",
-                    )]
-                wanted = found
+                wanted = self._character(wanted) or " ".join(wanted.split())[:60]
             target = wanted
 
         # An attack lands on a creature someone can see the HP of, or not at all: the
@@ -1199,13 +1193,9 @@ class Director:
                 )]
             target = ", ".join(dict.fromkeys(standing[t.lower()] for t in wanted))
         elif spell.target == "character":
-            found = self._character(str(target or "").strip() or actor)
-            if found is None:
-                return [self._refuse(
-                    channel_id, f"{spell.name} needs a character; {target!r} has no character sheet.",
-                    "Re-issue make_move with target set to the character.",
-                )]
-            target = found
+            # A character, or an NPC ally ("Heal an ally you touch") -- the NPC's healing is narrated.
+            named = str(target or "").strip()
+            target = self._character(named or actor) or " ".join(named.split())[:60]
         else:
             # Whoever or whatever it's cast on, kept as named: Sleep's goblins, Charm Person's reeve, the
             # ally made invisible. Creatures go by their scene names, so their conditions can be set.
@@ -2270,6 +2260,10 @@ class Director:
         """Apply a healing move's roll: to the target, and -- Lay on Hands on a 7-9 -- the
         same damage onto the healer, who may fall for it."""
         facts = outcome.healing
+        if facts.get("npc"):
+            return [SendMessage(channel_id, f"✨ **{outcome.actor}** heals **{facts['target']}** — "
+                                            f"{facts['rolled_render']} → {facts['rolled']} healed (an NPC: "
+                                            "as the story tells it).")]
         effects: List[Effect] = [
             SendMessage(channel_id, f"✨ **{outcome.actor}** heals **{facts['target']}** — "
                                     f"{facts['rolled_render']} → {facts['healed']} healed, HP "
@@ -2364,6 +2358,11 @@ class Director:
         if not spec or self._sheet_for is None:
             return None
         patient = self._sheet_for(check.target or check.actor)
+        if patient is None and check.target:
+            roll = self.dice.roll(spec) if spec != "max_hp" else None
+            amount = roll.total if roll else int(self._sheet_or_empty(check.actor).get("max_hp", 0))
+            return {"target": check.target, "npc": True, "rolled": amount,
+                    "rolled_render": f"{spec}: {roll.render()}" if roll else f"up to {amount}"}
         if patient is None or patient.get("dead"):
             return None
         if spec == "max_hp":

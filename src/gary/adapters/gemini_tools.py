@@ -84,6 +84,7 @@ FREE_CREATURE = "free_creature"
 STUDY_ESSENCE = "study_essence"
 WEAPON_GLOWS = "weapon_glows"
 TRAP_QUESTION = "trap_question"
+DEATH_COMES = "death_comes"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -986,6 +987,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=DEATH_COMES,
+        description=("A character marked as Death's own (a Last Breath miss) crosses the threshold: they die, at the "
+                     "moment you chose. spared=true only for something extraordinary -- a bargain struck with Death, "
+                     "a resurrection -- and say what it cost (reason)."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "reason": _s(type=_STRING),
+                                                "spared": _s(type=types.Type.BOOLEAN)},
+                      required=["character", "reason"]),
     ),
     types.FunctionDeclaration(
         name=TRAP_QUESTION,

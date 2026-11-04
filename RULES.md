@@ -398,7 +398,11 @@ for you if you don't click. +nothing: Death doesn't care how tough you are. On a
 cheat death and wake at 1 HP. On a 7–9 the GM describes what you glimpse beyond the Black
 Gates and names Death's price; then you choose — **Take** the bargain and stabilize at 1
 HP, or **Refuse** and pass on. On a miss you are marked as Death's own, and the GM will
-tell you when. Anyone down or dead can't make moves.
+tell you when. Healing doesn't lift the mark — you may get back on your feet, but your fate is
+sealed — and it comes due by the next scene or session, at a moment that matters; only
+something extraordinary, a bargain with Death or a resurrection, spares you. Anyone down or
+dead can't make moves. Healing spells and Lay on Hands also work on an NPC ally; their
+healing is narrated.
 
 **Clumsy armor** (scale mail, plate) gives -1 to every roll while worn, shown on the roll
 line — except for Fighters and Paladins, whose Armored move ignores it.

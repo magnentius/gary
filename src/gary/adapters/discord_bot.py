@@ -876,7 +876,8 @@ class GaryClient(discord.Client):
         await self.sender.send(channel_id, f"🎲 **Session {number}.**"
                                + (f" {', '.join(ready)}: you can level up from `/sheet` before we start."
                                   if ready else ""))
-        await self.runner.run([PromptModel(channel_id, "rules_event", opening.session_event(number, party))])
+        await self.runner.run([PromptModel(channel_id, "rules_event",
+                                           opening.with_doom(opening.session_event(number, party), party))])
 
     async def _oneshot_step(self, interaction: "discord.Interaction", step: str) -> None:
         """The mode at the start, and a one-shot's pacing: the next scene, the level-up break before
@@ -908,7 +909,8 @@ class GaryClient(discord.Client):
             await self.offer_premise(channel_id)
         elif step == "scene":
             self._set_opening(who, scene=scene + 1)
-            await self.runner.run([PromptModel(channel_id, "rules_event", opening.scene_event(scene + 1))])
+            await self.runner.run([PromptModel(channel_id, "rules_event",
+                                               opening.with_doom(opening.scene_event(scene + 1), self._party_sheets()))])
             if scene + 1 == 2:
                 await self.sender.send(channel_id, "When this scene is done, take a break and level up:",
                                        prompt=OpeningPrompt(("break",)))
@@ -929,8 +931,8 @@ class GaryClient(discord.Client):
             self._set_opening(who, stage="epilogue")
             await self.sender.send(channel_id, "📖 **The epilogue.** When everyone has told their ending, `/end` "
                                                "closes the game.")
-            await self.runner.run([PromptModel(channel_id, "rules_event",
-                                               opening.epilogue_event(self._party_sheets(), oneshot=True))])
+            await self.runner.run([PromptModel(channel_id, "rules_event", opening.with_doom(
+                opening.epilogue_event(self._party_sheets(), oneshot=True), self._party_sheets()))])
         else:  # continue as a campaign: the next session is the campaign's first; fronts come after it
             number = int(current.get("session") or 1) + 1
             self._set_opening(who, mode="campaign", stage="playing", session=number)

@@ -177,6 +177,24 @@ def session_event(number: int, party: Sequence[Dict]) -> Dict:
     }
 
 
+def doomed(party: Sequence[Dict]) -> List[str]:
+    """Characters marked as Death's own and not yet dead (a Last Breath miss)."""
+    return [s["name"] for s in party if s.get("deaths_mark") and not s.get("dead")]
+
+
+def with_doom(event: Dict, party: Sequence[Dict]) -> Dict:
+    """A scene, the epilogue or a new session, with anyone marked as Death's own still alive: "you'll
+    cross the threshold soon. The GM will tell you when." -- now is when."""
+    names = doomed(party)
+    if not names:
+        return event
+    who = " and ".join(names)
+    return {**event, "deaths_own": names, "instruction": event.get("instruction", "") + (
+        f" {who} {'is' if len(names) == 1 else 'are'} marked as Death's own: the time has come. Let it happen in "
+        "this scene, at a moment that matters -- a last stand, a sacrifice, a quiet passing -- and call death_comes. "
+        "Only something extraordinary (a bargain with Death, a resurrection) spares them, and that has a price.")}
+
+
 def bonds_text() -> str:
     return ("**Bonds.** Now that you know each other, fill in your bonds: press **Write my bonds**, or "
             "**Bonds** on `/sheet`. Each names another character; at least one is enough to start.")
