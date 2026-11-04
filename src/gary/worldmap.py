@@ -74,7 +74,7 @@ def here(world: Optional[Dict[str, Any]], scene: Dict[str, Any]) -> Optional[Dic
     if not world:
         return None
     places = world["places"]
-    for name in (scene.get("steading"), scene.get("location")):
+    for name in (scene.get("steading"), scene.get("dungeon"), scene.get("location")):  # in a dungeon: the dungeon
         key = slug(name or "")
         if key in places:
             return places[key]

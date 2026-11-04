@@ -132,3 +132,9 @@ async def test_leaving_a_place_leaves_thrown_weapons_behind(rig):
     assert store.state()["sheets"]["Dorn"]["thrown"] == []
     assert any(getattr(e, "text", "") == "🗡️ Left behind at Weeping Ravine, the far ledge: Dorn's spear."
                for e in result.effects)
+
+
+def test_inside_a_dungeon_here_is_the_dungeon():
+    w = worldmap.place(None, "The Sunken Temple", "dungeon", power=True)
+    found = worldmap.here(w, {"location": "the flooded altar room", "dungeon": "The Sunken Temple"})
+    assert found and found["power"]
