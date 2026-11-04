@@ -2409,6 +2409,7 @@ class Director:
             return [SendMessage(channel_id, f"**{check.actor}**, a thrown weapon can't take several shots — "
                                             "it's gone once it's thrown. Choose another.")]
         chosen = replace(check, picks=tuple(sorted(picks)))
+        shot = self._called(channel_id, chosen, rules)
         said = SendMessage(
             channel_id,
             f"**{check.actor}** chooses: "
@@ -2417,7 +2418,23 @@ class Director:
         if check.move in _DEFENCE:
             self.registry.consume(check.check_id)
             return [said, *self._spend_defence(channel_id, chosen)]
-        return [said, *self._next(channel_id, chosen, dice)]
+        return [said, *shot, *self._next(channel_id, chosen, dice)]
+
+    def _called(self, channel_id: int, check: PendingCheck, rules) -> List[Effect]:
+        """Called Shot: where it landed, kept on the creature. Head -- "they do nothing but stand and
+        drool for a few moments" (stunned: no attacks; free_creature when the moments pass; the shot's
+        own damage doesn't end it). Arms -- "they drop anything they're holding" (disarmed). Legs --
+        "they're hobbled and slow moving"."""
+        if check.move != "called_shot" or not check.target:
+            return []
+        creature = self._monsters().get(check.target)
+        if creature is None:
+            return []
+        text = rules.choice.options[check.picks[0]].text
+        kind = "stunned" if text.startswith("Head") else "disarmed" if text.startswith("Arms") else "hobbled"
+        others = [c for c in creature.get("conditions") or [] if c.get("kind") != kind]
+        return [ConditionMonster(channel_id, check.target, tuple(
+            [*others, {"kind": kind, "spell": "Called Shot", "caster": check.actor}]))]
 
     # -- inbound: the player rolls damage ----------------------------------------------
 

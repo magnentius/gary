@@ -500,3 +500,26 @@ def test_sanctuary_lasts_where_it_was_walked_and_heals_more_there(crypt, dice):
     assert sheets["Dorn"]["hp"] == 5 + 10 + 3  # half of 20, +1d4
     _here(director, "the old road")
     assert director.sanctuary() == ""
+
+
+def test_a_called_shot_to_the_head_stuns_and_its_damage_doesnt_end_it(director, dice, sheets, scene):
+    sheets["Ren"] = {"name": "Ren", "class": "Ranger", "race": "Elf", "level": 1, "xp": 0, "hp": 18, "max_hp": 18,
+                     "armor": 0, "damage": "d8", "stats": STATS,
+                     "gear": [{"name": "Hunter's bow", "tags": ["near", "far"], "needs_ammo": True, "weight": 1}],
+                     "ammo": 3}
+    director.set_player_character(333, "Ren")
+    director.open_move(channel_id=CHANNEL, user_id=333, actor="Ren", move="called_shot", target="Goblin 1")
+    dice.queue(5, 5)
+    director.roll(channel_id=CHANNEL, user_id=333)
+    check = director.registry.open_checks(CHANNEL)[0]
+    effects = director.choose(channel_id=CHANNEL, user_id=333, check_id=check.check_id, picks=[0])  # head
+    apply(effects, sheets, scene)
+    assert kinds_of(scene, "Goblin 1") == ["stunned"]
+    apply(creature_harmed({"sheets": sheets, "monsters": scene}, "Goblin 1", CHANNEL), sheets, scene)
+    assert kinds_of(scene, "Goblin 1") == ["stunned"]  # the shot's own damage leaves it drooling
+    _, refused = director.monster_attacks(channel_id=CHANNEL, monster="Goblin 1", character="Mae")
+    assert "stunned and can't attack" in refused["error"]
+
+
+def kinds_of(scene, name):
+    return [c["kind"] for c in scene[name].get("conditions") or ()]
