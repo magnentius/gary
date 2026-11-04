@@ -1,0 +1,34 @@
+Gary
+Copyright (c) 2026 John Karakashian
+
+Gary's code is licensed under the MIT License (see LICENSE). It contains material from
+Dungeon World that is not covered by that license, and remains under its own:
+
+DUNGEON WORLD CONTENT -- Creative Commons Attribution 3.0 Unported (CC BY 3.0)
+
+  Dungeon World is the work of Sage LaTorra and Adam Koebel and is licensed under the
+  Creative Commons Attribution 3.0 Unported License
+  (http://creativecommons.org/licenses/by/3.0/). The Player Compendium is also their work,
+  under the same license. The Barbarian is a Dungeon World playbook by Sage LaTorra and
+  Adam Koebel, used under the same license.
+
+  Extracted from those works, and covered by CC BY 3.0 rather than MIT:
+
+    src/gary/data/classes.json        the classes
+    src/gary/data/class_moves.json    class and race moves
+    src/gary/data/compendium.json     the Player Compendium's classes and moves
+    src/gary/data/playbooks.json      the Barbarian playbook
+    src/gary/data/spells.json         Cleric and Wizard spells
+    src/gary/data/monsters.json       the bestiary
+    src/gary/data/equipment.json      equipment and poisons
+    src/gary/data/magic_items.json    magic items
+    src/gary/data/npcs.json           the Instant NPC tables
+    src/gary/data/services.json       the price lists for services, meals, transport and more
+
+  Rule text quoted elsewhere in Gary's source and documentation (moves, tags, the GM's
+  agenda, principles and moves) is likewise Dungeon World's, under CC BY 3.0.
+
+  Each data file carries this attribution in its "attribution" field. If you redistribute
+  Gary, keep this notice and those fields.
+
+Gary is not affiliated with or endorsed by the authors or publishers of Dungeon World.

@@ -3,6 +3,8 @@ name = "gary"
 version = "0.1.0"
 description = "AI Game Master: Gemini narrative, Gary-rolled dice and persistent campaign state, over Discord."
 requires-python = ">=3.11"
+license = "MIT"
+license-files = ["LICENSE", "NOTICE"]
 dependencies = []
 
 [project.optional-dependencies]
@@ -18,7 +20,7 @@ dev = [
 ]
 
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]  # license = "MIT" (PEP 639)
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
