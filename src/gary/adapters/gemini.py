@@ -498,6 +498,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.TRAP_QUESTION:
+                trap_effects, result = self._director.trap_question(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    question=str(args.get("question", "") or ""))
+                effects.extend(trap_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.STUDY_ESSENCE:
                 study_effects, result = self._director.study_essence(
                     channel_id=channel_id, character=str(args.get("character", "")),
@@ -1636,6 +1644,9 @@ class GeminiNarrator:
                         left += [f"{who}'s {e['spell']} ({'out of sight, it fades' if e['spell'] == 'Cloudkill' else 'left behind'})"
                                  for e in fog]
                         fresh["ongoing"] = [e for e in sheet["ongoing"] if e not in fog]
+                    trap = sheet.get("trap_hold") or {}
+                    if trap.get("where") and not same_place(trap["where"], payload["location"]):
+                        fresh["trap_hold"] = None  # "as you walk through the area": that area only
                     if fresh != sheet:
                         changes.append(Mutation(MutationKind.SHEET, who, {"sheet": fresh}))
             result = _diff_result(store.apply(changes, reason="scene change"))

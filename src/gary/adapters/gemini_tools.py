@@ -83,6 +83,7 @@ UNSEEN_SERVANT = "unseen_servant"
 FREE_CREATURE = "free_creature"
 STUDY_ESSENCE = "study_essence"
 WEAPON_GLOWS = "weapon_glows"
+TRAP_QUESTION = "trap_question"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -985,6 +986,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=TRAP_QUESTION,
+        description=("A Thief with Trap Expert hold asks one of its questions as they walk the area -- is there a "
+                     "trap here and what activates it; what does it do; what else is hidden here -- spending 1 "
+                     "hold. Answer truthfully. Refused with no hold, or once they've left the area."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "question": _s(type=_STRING)},
+                      required=["character", "question"]),
     ),
     types.FunctionDeclaration(
         name=WEAPON_GLOWS,

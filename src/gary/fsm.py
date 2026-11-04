@@ -1978,7 +1978,8 @@ class Director:
         shift, shape = self._shift(channel_id, check, dice)
         guard = self._guard(channel_id, check, dice)
         ahead = self._forwards_from(channel_id, check, dice)
-        staked = [*self._counterspell(channel_id, check, dice), *self._cure(channel_id, check, dice)]
+        staked = [*self._counterspell(channel_id, check, dice), *self._cure(channel_id, check, dice),
+                  *self._trap_hold(channel_id, check, dice)]
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
                           healing=self._healing(check, dice), spell=spell, shape=shape,
                           notes=self._advanced_notes(check, dice))
@@ -2275,6 +2276,46 @@ class Director:
                 if after <= 0:
                     effects.extend(self._trigger(channel_id, outcome.actor, "last_breath"))
         return effects
+
+    def _trap_hold(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Trap Expert: "On a 10+, hold 3. On a 7-9, hold 1. Spend your hold as you walk through the area"
+        -- counted on the sheet, with the area. Cautious: "+1 hold, even on a 6-"."""
+        if check.move != "trap_expert":
+            return []
+        sheet = self._sheet_or_empty(check.actor)
+        hold = {"strong": 3, "weak": 1, "miss": 0}[band(dice)]
+        if advanced.has(sheet, "Cautious") or advanced.has(sheet, "Extremely Cautious"):
+            hold += 1
+        if not hold:
+            return []
+        where = str((self._scene() or {}).get("location") or "")
+        return [SendMessage(channel_id, f"🔍 **{check.actor}** holds {hold} for this area — ask as you go: is there "
+                                        "a trap here and what sets it off; what does it do; what else is hidden here."),
+                UpdateSheet(channel_id, check.actor, {"trap_hold": {"hold": hold, "where": where}})]
+
+    def trap_question(self, *, channel_id: int, character: str, question: str) -> Tuple[List[Effect], Dict[str, Any]]:
+        """A Trap Expert question asked as they walk the area: 1 hold."""
+        from .worldmap import same_place
+
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        held = sheet.get("trap_hold") or {}
+        here = str((self._scene() or {}).get("location") or "")
+        if held and held.get("where") and here and not same_place(held["where"], here):
+            return [UpdateSheet(channel_id, actor, {"trap_hold": None})], {
+                "ok": False, "error": f"{actor}'s Trap Expert hold was for {held['where']}: it's gone now they've left."}
+        if int(held.get("hold", 0)) <= 0:
+            return [], {"ok": False, "error": f"{actor} has no Trap Expert hold: survey the area first (trap_expert)."}
+        asked = " ".join(str(question or "").split())[:160]
+        if not asked:
+            return [], {"ok": False, "error": "Which question: is there a trap here and what activates it; what does "
+                                              "it do when activated; what else is hidden here?"}
+        left = int(held["hold"]) - 1
+        return [SendMessage(channel_id, f"🔍 **{actor}** asks: {asked} ({left} hold left)"),
+                UpdateSheet(channel_id, actor, {"trap_hold": {**held, "hold": left} if left else None})], {
+            "ok": True, "hold": left, "note": "Answer it truthfully: Trap Expert's questions get the truth."}
 
     def _cure(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
         """Lay on Hands against a disease: on a 10+ it's gone; on a 7-9 "the damage or disease is

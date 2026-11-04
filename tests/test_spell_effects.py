@@ -523,3 +523,23 @@ def test_a_called_shot_to_the_head_stuns_and_its_damage_doesnt_end_it(director, 
 
 def kinds_of(scene, name):
     return [c["kind"] for c in scene[name].get("conditions") or ()]
+
+
+def test_trap_expert_hold_is_counted_and_stays_in_its_area(director, dice, sheets, scene):
+    sheets["Nim"] = {"name": "Nim", "class": "Thief", "race": "Halfling", "level": 1, "xp": 0, "hp": 12, "max_hp": 12,
+                     "armor": 1, "damage": "d8", "stats": STATS, "advanced_moves": ["Cautious"]}
+    director.set_player_character(444, "Nim")
+    _here(director, "the flooded gallery")
+    director.open_move(channel_id=CHANNEL, user_id=444, actor="Nim", move="trap_expert")
+    dice.queue(1, 1)  # a miss -- Cautious still gives 1
+    apply(director.roll(channel_id=CHANNEL, user_id=444), sheets, scene)
+    assert sheets["Nim"]["trap_hold"] == {"hold": 1, "where": "the flooded gallery"}
+    effects, asked = director.trap_question(channel_id=CHANNEL, character="Nim", question="Is there a trap here?")
+    apply(effects, sheets, scene)
+    assert asked["hold"] == 0 and sheets["Nim"]["trap_hold"] is None
+    _, none = director.trap_question(channel_id=CHANNEL, character="Nim", question="What else is hidden here?")
+    assert "no Trap Expert hold" in none["error"]
+    sheets["Nim"]["trap_hold"] = {"hold": 2, "where": "the flooded gallery"}
+    _here(director, "the outer stair")
+    _, gone = director.trap_question(channel_id=CHANNEL, character="Nim", question="Is there a trap here?")
+    assert "gone now they've left" in gone["error"]

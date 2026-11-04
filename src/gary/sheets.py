@@ -525,6 +525,9 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}{_grip_note(sheet)}, "
         f"damage {sheet['damage']} · {stats}"
     )
+    if (sheet.get("trap_hold") or {}).get("hold"):
+        held = sheet["trap_hold"]
+        line += f" · Trap Expert: {held['hold']} hold" + (f" ({held['where']})" if held.get("where") else "")
     if sheet.get("diseases"):
         line += " · diseased: " + ", ".join(f"{d['name']} ({d['effect']})" for d in sheet["diseases"])
     if sheet.get("afflictions"):
