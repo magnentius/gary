@@ -849,6 +849,7 @@ class GeminiNarrator:
             weapon=str(args.get("weapon", "") or ""),
             keg=bool(args.get("keg")),
             book=bool(args.get("book")),
+            cure=str(args.get("cure", "") or ""),
             appetite=bool(args.get("appetite")),
             movement=bool(args.get("movement")),
             mortal_magic=bool(args.get("mortal_magic")),
@@ -1443,6 +1444,33 @@ class GeminiNarrator:
             if result.get("ok"):
                 result["post"] = (f"🛡️ **{who}** armors up — armor {new['armor']}." if args.get("on") else
                                   f"🧥 **{who}** takes off their armor — armor {new['armor']}.")
+            return result
+
+        if name == T.DISEASE_CHARACTER:
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            disease = " ".join(str(args.get("disease", "")).split())[:60]
+            if who is None or not disease:
+                return {"ok": False, "error": "Name the character and the disease."}
+            sick = [dict(d) for d in sheets[who].get("diseases") or []]
+            if args.get("cured"):
+                kept = [d for d in sick if d["name"].lower() != disease.lower()]
+                if len(kept) == len(sick):
+                    return {"ok": False, "error": f"{who} doesn't have {disease}."}
+                sick, line = kept, f"💧 **{who}** is free of {disease}."
+            else:
+                effect = " ".join(str(args.get("effect", "")).split())[:200]
+                if not effect:
+                    return {"ok": False, "error": "Say what the disease does (effect): fever and -1 Con, weeping sores..."}
+                sick = [d for d in sick if d["name"].lower() != disease.lower()] + [{"name": disease, "effect": effect}]
+                line = f"🤒 **{who}** has caught {disease} — {effect}."
+            result = _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": {**sheets[who], "diseases": sick}})],
+                                              reason=line))
+            if result.get("ok"):
+                result["post"] = line
+                result["note"] = ("Kept on their sheet until cured: Lay on Hands (make_move cure=), the Cleric's "
+                                  "Repair, or rest and medicine when the fiction says so (cured=true). If it should "
+                                  "weaken them, give a debility too.")
             return result
 
         if name == T.POISON_CHARACTER:

@@ -561,6 +561,7 @@ class Director:
         weapon: str = "",
         keg: bool = False,
         book: bool = False,
+        cure: str = "",
         ttl_seconds: Optional[float] = None,
     ) -> List[Effect]:
         """Handle the model's ``make_move`` tool call.
@@ -906,6 +907,16 @@ class Director:
             flags.append("hurl")
         if weapon:
             flags.append(f"weapon:{weapon}")
+        if cure and rules.key == "lay_on_hands":
+            # "...you heal 1d8 damage or remove one disease": the disease, instead of the healing.
+            patient = self._sheet_or_empty(self._character(target) or target or actor)
+            have = [d["name"] for d in patient.get("diseases") or ()]
+            found = next((d for d in have if d.lower() == " ".join(cure.split()).lower()), None)
+            if found is None:
+                return [self._refuse(channel_id, f"{patient.get('name', target)} has no disease {cure!r}"
+                                                 + (f"; they have: {', '.join(have)}." if have else "."),
+                                     "Re-issue make_move without cure to heal damage instead.")]
+            flags.append(f"cure:{found}")
         barbarian_why = self._barbarian_situation(rules.key, actor, appetite, movement, mortal_magic)
         if barbarian_why:
             return [self._refuse(channel_id, barbarian_why, "Re-issue make_move without it.")]
@@ -1967,7 +1978,7 @@ class Director:
         shift, shape = self._shift(channel_id, check, dice)
         guard = self._guard(channel_id, check, dice)
         ahead = self._forwards_from(channel_id, check, dice)
-        staked = self._counterspell(channel_id, check, dice)
+        staked = [*self._counterspell(channel_id, check, dice), *self._cure(channel_id, check, dice)]
         outcome = replace(resolve(check, dice, picks=check.picks, auto_chosen=auto_chosen),
                           healing=self._healing(check, dice), spell=spell, shape=shape,
                           notes=self._advanced_notes(check, dice))
@@ -2265,8 +2276,32 @@ class Director:
                     effects.extend(self._trigger(channel_id, outcome.actor, "last_breath"))
         return effects
 
+    def _cure(self, channel_id: int, check: PendingCheck, dice: Roll) -> List[Effect]:
+        """Lay on Hands against a disease: on a 10+ it's gone; on a 7-9 "the damage or disease is
+        transferred to you"."""
+        wanted = next((f[len("cure:"):] for f in check.flags if f.startswith("cure:")), "")
+        b = band(dice)
+        if not wanted or b == "miss":
+            return []
+        who = self._character(check.target) or check.actor
+        patient = self._sheet_or_empty(who)
+        sick = [dict(d) for d in patient.get("diseases") or []]
+        disease = next((d for d in sick if d["name"] == wanted), None)
+        if disease is None:
+            return []
+        sick.remove(disease)
+        out: List[Effect] = [SendMessage(channel_id, f"✨ **{check.actor}**'s touch draws the {wanted} out of **{who}**."),
+                             UpdateSheet(channel_id, who, {"diseases": sick})]
+        if b == "weak" and normalize_actor(who) != normalize_actor(check.actor):
+            healer = self._sheet_or_empty(check.actor)
+            out += [SendMessage(channel_id, f"…and it takes root in **{check.actor}** instead."),
+                    UpdateSheet(channel_id, check.actor, {"diseases": [*(healer.get("diseases") or []), disease]})]
+        return out
+
     def _healing(self, check: PendingCheck, dice: Roll) -> Optional[Dict[str, Any]]:
         """Roll a healing move's dice now, if its result or the player's pick heals."""
+        if any(f.startswith("cure:") for f in check.flags):
+            return None  # Lay on Hands takes the disease instead of healing damage
         rules = MOVES[check.move].band(band(dice))
         picked = [rules.choice.options[p] for p in check.picks] if rules.choice else []
         spec = rules.heals or next((o.heals for o in picked if o.heals), None)

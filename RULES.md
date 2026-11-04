@@ -407,7 +407,10 @@ line — except for Fighters and Paladins, whose Armored move ignores it.
 Dangerous unless it's the one a Thief mastered. On a creature, Bloodweed takes 1d4 off its
 every damage roll and Serpent's Tears makes everyone's damage against it roll twice, better
 kept — and the same goes for you if you're poisoned: it stays on your sheet until it wears off
-or antitoxin cures it (one poison a dose, the one you name). A Thief's poison moves work too:
+or antitoxin cures it (one poison a dose, the one you name). **Diseases** are kept the same way —
+a ghoul's rot, the village plague — with what they do, until cured: a Paladin's **Lay on Hands**
+can draw one out instead of healing (on a 7–9 the Paladin takes it on), or rest and medicine
+when the story allows. A Thief's poison moves work too:
 **Poison Master** (a poison you've used before is no longer dangerous to you), **Envenom** (a
 safe poison on your weapon works by touch), **Brewer** (three doses of any poison you've used)
 and **Alchemist** (that, or a poison of your own design, with the GM's caveats). **Stun damage** costs no HP, but until the GM says you've cleared your head, anything

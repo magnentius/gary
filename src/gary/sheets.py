@@ -525,6 +525,8 @@ def describe(sheet: Dict[str, Any], with_name: bool = True) -> str:
         f"HP {sheet['hp']}/{sheet['max_hp']}, armor {sheet['armor']}{_grip_note(sheet)}, "
         f"damage {sheet['damage']} · {stats}"
     )
+    if sheet.get("diseases"):
+        line += " · diseased: " + ", ".join(f"{d['name']} ({d['effect']})" for d in sheet["diseases"])
     if sheet.get("afflictions"):
         notes = sheet.get("affliction_effects") or {}
         line += " · poisoned: " + ", ".join(p + (f" ({notes[p]})" if notes.get(p) else "") for p in sheet["afflictions"])

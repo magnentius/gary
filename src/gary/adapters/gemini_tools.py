@@ -75,6 +75,7 @@ WORLD_MAP = "world_map"
 PROMOTE_MONSTER = "promote_monster"
 SET_GRIP = "set_grip"
 POISON_CHARACTER = "poison_character"
+DISEASE_CHARACTER = "disease_character"
 SHARE_PIPELEAF = "share_pipeleaf"
 WEAR_ARMOR = "wear_armor"
 DOMINATE = "dominate"
@@ -143,6 +144,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                         "own stat; omit it."
                     ),
                 ),
+                "cure": _s(type=_STRING, description=(
+                    "lay_on_hands: the disease to remove instead of healing damage (on a 7-9 the Paladin takes it).")),
                 "keg": _s(type=types.Type.BOOLEAN, description=(
                     "carouse: they open a keg of dwarven stout they carry for everyone (+1, the keg is gone).")),
                 "book": _s(type=types.Type.BOOLEAN, description=(
@@ -1065,6 +1068,15 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                      "with them."),
         parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "with_whom": _s(type=_STRING)},
                       required=["character", "with_whom"]),
+    ),
+    types.FunctionDeclaration(
+        name=DISEASE_CHARACTER,
+        description=("A character catches a disease -- a ghoul's rot, the village plague, Contagion -- with what it "
+                     "does, or is cured of one (cured=true). Kept on their sheet; a Paladin's Lay on Hands can draw "
+                     "it out (make_move cure=its name)."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "disease": _s(type=_STRING),
+                                                "effect": _s(type=_STRING), "cured": _s(type=types.Type.BOOLEAN)},
+                      required=["character", "disease"]),
     ),
     types.FunctionDeclaration(
         name=POISON_CHARACTER,

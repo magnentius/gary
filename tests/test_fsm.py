@@ -1420,3 +1420,27 @@ def test_arcane_art_can_mark_the_next_aid(director, registry, dice):
     roll(director)
     effects = choose(director, only_check(registry).check_id, [3])  # the aid option
     assert UpdateSheet(CHANNEL, "Dorn", {"aid_boost": True}) in effects
+
+
+# -- Lay on Hands and disease -----------------------------------------------------------------
+
+def test_lay_on_hands_draws_out_a_disease_or_takes_it_on(director, registry, dice):
+    from gary.fsm import UpdateSheet
+
+    _sheets(director)["Kethra"].update({"class": "Paladin"})
+    dorn = _sheets(director)["Dorn"]
+    dorn["diseases"] = [{"name": "grave rot", "effect": "sores, -1 Con"}]
+    (note,) = prompts_in(make_move(director, "lay_on_hands", target="Dorn", cure="the shakes"))
+    assert "no disease 'the shakes'" in note.payload["error"] and "grave rot" in note.payload["error"]
+
+    make_move(director, "lay_on_hands", target="Dorn", cure="grave rot")
+    dice.queue(5, 5)  # 10+
+    effects = roll(director)
+    assert UpdateSheet(CHANNEL, "Dorn", {"diseases": []}) in effects
+    assert not any(isinstance(e, UpdateSheet) and "hp" in e.changes for e in effects)  # cured, not healed
+
+    dorn["diseases"] = [{"name": "grave rot", "effect": "sores, -1 Con"}]
+    make_move(director, "lay_on_hands", target="Dorn", cure="grave rot")
+    dice.queue(4, 4)  # 8: 7-9
+    effects = roll(director)
+    assert UpdateSheet(CHANNEL, "Kethra", {"diseases": [{"name": "grave rot", "effect": "sores, -1 Con"}]}) in effects
