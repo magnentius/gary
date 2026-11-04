@@ -5021,7 +5021,7 @@ class Director:
             UpdateSheet(channel_id, actor, {"poison_uses": left - 1, "poisons_used": self._used(sheet, name)}),
             *self._afflict(channel_id, target, name, actor),
         ], {"ok": True, "poison": name, "effect": choices.poison_text(name), "uses_left": left - 1,
-            "note": self._delivery(sheet, on_weapon, dangerous=False) + " Narrate the effect as written."}
+            "note": self._poison_note(target, self._delivery(sheet, on_weapon, dangerous=False))}
 
     @staticmethod
     def _used(sheet: Dict[str, Any], name: str) -> List[str]:
@@ -5059,7 +5059,13 @@ class Director:
             UpdateSheet(channel_id, actor, {"gear": gear, "poisons_used": self._used(sheet, name)}),
             *self._afflict(channel_id, target, name, actor),
         ], {"ok": True, "poison": name, "effect": custom or POISONS.get(name, ""), "note": (
-            f"{risk} {self._delivery(sheet, on_weapon, dangerous=not mastered)} Narrate the effect as written.")}
+            f"{risk} " + self._poison_note(target, self._delivery(sheet, on_weapon, dangerous=not mastered)))}
+
+    def _poison_note(self, target: str, delivery: str) -> str:
+        creature = next((r for n, r in self._monsters().items() if normalize_actor(n) == normalize_actor(target or "")), None)
+        if creature is not None and undead(creature)[0]:
+            return "It has no effect: the target is undead, and the dead are past poison. Narrate the dose wasted."
+        return delivery + " Narrate the effect as written."
 
     def _afflict(self, channel_id: int, target: str, poison: str, actor: str = "") -> List[Effect]:
         """A poison on a creature in the scene. Bloodweed and Serpent's Tears are kept on its record and
@@ -5071,6 +5077,9 @@ class Director:
         poison = _poison_name(poison)
         if creature is None:
             return []
+        if undead(creature)[0]:
+            # The dead have no blood to carry it, no breath to draw it in: the dose is spent for nothing.
+            return [SendMessage(channel_id, f"🧪 The {poison} does nothing to **{name}**: the dead are past poison.")]
         if poison in ("Oil of Tagit", "Goldenroot"):
             kind = "asleep" if poison == "Oil of Tagit" else "trusting"
             others = [c for c in creature.get("conditions") or [] if c.get("spell") != poison]

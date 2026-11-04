@@ -413,7 +413,8 @@ healing is narrated.
 **Clumsy armor** (scale mail, plate) gives -1 to every roll while worn, shown on the roll
 line — except for Fighters and Paladins, whose Armored move ignores it.
 
-**Poisons** from the equipment list can be used by anyone who carries a dose — spent, and
+**Poisons** do nothing to the undead — the dose is spent, and wasted. They
+can be used by anyone who carries a dose — spent, and
 Dangerous unless it's the one a Thief mastered. On a creature, Bloodweed takes 1d4 off its
 every damage roll and Serpent's Tears makes everyone's damage against it roll twice, better
 kept — and the same goes for you if you're poisoned: it stays on your sheet until it wears off

@@ -276,3 +276,13 @@ def test_poisons_on_a_creature_mark_it_and_show(director, sheets, scene):
     (weed,) = [e for e in effects if isinstance(e, AfflictMonster)]
     scene["Guard 1"]["afflictions"] = list(weed.afflictions)
     assert "poisoned: Bloodweed" in describe_monster("Guard 1", scene["Guard 1"])
+
+
+def test_poison_does_nothing_to_the_undead(director, sheets, scene):
+    from gary.fsm import AfflictMonster, ConditionMonster
+
+    scene["Skeleton 1"] = {"kind": "Skeleton", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6"}
+    effects, result = director.use_poison(channel_id=CHANNEL, character="Nim", target="Skeleton 1")
+    assert result["uses_left"] == 0  # the dose is spent
+    assert not [e for e in effects if isinstance(e, (AfflictMonster, ConditionMonster))]
+    assert "the dead are past poison" in result["note"]
