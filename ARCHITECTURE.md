@@ -926,7 +926,7 @@ tier), a `systemd` unit with `Restart=always` or a container with
 `restart: unless-stopped`, secrets from Secret Manager.
 
 Running today: `e2-micro` in `us-east1-b` on Container-Optimized OS, no public IP (Cloud NAT
-out, SSH through IAP), the env file and a read-only GitHub token in Secret Manager, the file
+out, SSH through IAP), the env file in Secret Manager, the public image pulled without a login, the file
 backend on the VM's disk with nightly snapshots. Every boot pulls `:latest`, so a reset is an
 update. [`deploy/gcp/README.md`](deploy/gcp/README.md) has the commands.
 

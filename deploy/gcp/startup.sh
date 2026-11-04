@@ -2,8 +2,8 @@
 # Gary's VM boot script (ARCHITECTURE.md §11), run as root by Container-Optimized OS on
 # every boot. Each boot pulls the newest image, so rebooting the VM is how it updates.
 #
-# Secrets never touch the repo or the VM's metadata: the env file and the GitHub token are
-# read from Secret Manager with the VM's own service account, which may read only those two.
+# Secrets never touch the repo or the VM's metadata: the env file is read from Secret Manager
+# with the VM's own service account. The image is public, so pulling it needs no login.
 set -euo pipefail
 
 IMAGE=ghcr.io/magnentius/gary:latest
@@ -27,7 +27,9 @@ chmod 700 "$HOME_DIR" "$DOCKER_CONFIG"
 
 umask 077
 secret gary-env > "$HOME_DIR/env"
-secret ghcr-token | docker login ghcr.io -u magnentius --password-stdin >/dev/null
+# Forget any old ghcr.io login: a stored token that has expired or been revoked would make
+# the pull fail, where no login at all succeeds.
+docker logout ghcr.io >/dev/null 2>&1 || true
 
 docker pull "$IMAGE"
 docker rm -f gary 2>/dev/null || true
