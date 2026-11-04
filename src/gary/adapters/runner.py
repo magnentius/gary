@@ -103,9 +103,15 @@ class EffectRunner:
             if self._store is not None:
                 from .. import worldmap
 
+                from .. import dungeons, steadings
+
                 state = self._store.state()
-                changes = [Mutation(MutationKind.SCENE, "", {"location": effect.location, "steading": "",
-                                                             "dungeon": "", "summary": ""})]
+                # A known steading or dungeon by name: land in it properly (its shops, its map), not beside it.
+                town = (state.get("steadings") or {}).get(steadings.slug(effect.location))
+                lair = (state.get("dungeons") or {}).get(dungeons.slug(effect.location))
+                changes = [Mutation(MutationKind.SCENE, "", {
+                    "location": effect.location, "steading": town["name"] if town else "",
+                    "dungeon": lair["name"] if lair and not town else "", "summary": ""})]
                 world = state.get("world")
                 if worldmap.slug(effect.location) not in ((world or {}).get("places") or {}):
                     try:

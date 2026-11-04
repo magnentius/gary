@@ -365,3 +365,26 @@ async def test_arriving_moves_the_scene_and_puts_it_on_the_map(clock):
     state = store.state()
     assert state["scene"]["location"] == "the Lich-King's vault" and state["scene"]["steading"] == ""
     assert state["world"]["places"]["the_lich_king_s_vault"]["note"] == "reached by Shadow Walk"
+
+
+
+async def test_shadow_walking_to_a_known_steading_lands_in_it(clock):
+    from gary import steadings
+    from gary.adapters.runner import EffectRunner
+    from gary.fsm import Arrive
+    from gary.models import Mutation, MutationKind
+    from gary.ports import EchoNarrator
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    town = steadings.make("Fenwick", "town", 1, 0, ["Pigton", "Curland", "grain", "Mayhill"])
+    store.apply([Mutation(MutationKind.STEADING, "fenwick", {"steading": town}),
+                 Mutation(MutationKind.SCENE, "", {"location": "the Lich-King's vault"})], reason="setup")
+
+    class Quiet:
+        async def send(self, *a, **k):
+            pass
+
+    await EffectRunner(Quiet(), EchoNarrator(), store=store).run([Arrive(CHANNEL, "fenwick")])
+    assert store.state()["scene"]["steading"] == "Fenwick"
