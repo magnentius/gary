@@ -162,3 +162,22 @@ def test_mans_best_friend_works_with_the_books_curly_apostrophe(director, dice, 
                           companion={"name": "Ash", "ferocity": 2, "cunning": 1, "armor": 1, "instinct": 1})
     hid = hit_id(hit(director, dice, sheets))
     assert [r.key for r in director.reactions(user_id=ALICE, hit_id=hid)[0]] == ["pet"]
+
+
+def test_spell_defense_on_charm_lets_the_creature_go(director, dice, sheets, scene):
+    """Ending Charm Person to turn a blow frees the creature it held, as ending it any other way does."""
+    from gary.fsm import ConditionMonster
+
+    sheets["Eva"] = sheet("Eva", "Wizard", spellbook=["Charm Person"], spells=["Charm Person"],
+                          ongoing=[{"spell": "Not In Any Book", "target": ""},  # skipped by running()
+                                   {"spell": "Charm Person", "target": "Bandit 1"}])
+    scene["Bandit 1"] = {"kind": "Bandit", "hp": 6, "max_hp": 6, "armor": 1, "damage": "d6",
+                         "conditions": [{"kind": "charmed", "spell": "Charm Person", "caster": "Eva"}]}
+    director.players[333] = "Eva"
+    hid = hit_id(hit(director, dice, sheets, who="Eva", roll=5))
+    (only,) = director.reactions(user_id=333, hit_id=hid)[0]
+    assert only.label == "End Charm Person: take 1 less"
+    effects = director.react(channel_id=CHANNEL, user_id=333, hit_id=hid, key="spell:0")
+    apply(effects, sheets)
+    assert sheets["Eva"]["ongoing"] == [{"spell": "Not In Any Book", "target": ""}]  # the right one went
+    assert ConditionMonster(CHANNEL, "Bandit 1", ()) in effects

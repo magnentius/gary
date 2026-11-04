@@ -3815,8 +3815,12 @@ class Director:
         if key.startswith("spell:"):
             spell, _ = spells.running(mine)[int(key.split(":")[1])]
             kept = list(mine.get("ongoing") or [])
-            del kept[int(key.split(":")[1])]
+            # running() skips entries it can't find in the book, so its index is not the list's.
+            known = [i for i, e in enumerate(kept) if spells.find(mine, e.get("spell", "")) is not None]
+            del kept[known[int(key.split(":")[1])]]
             mine_changes["ongoing"] = kept
+            # Whatever the spell held lets go: the charmed goblin, the summoned beast.
+            effects += self._lift(channel_id, presser, [spell.name])
             what = f"ends {spell.name} and turns {chosen.restores} of the damage aside"
         elif key.startswith("armor:"):
             index = int(key.split(":")[1])
