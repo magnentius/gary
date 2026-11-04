@@ -397,3 +397,16 @@ def test_only_one_telepathic_bond_at_a_time(director, dice, sheets, scene):
     effects = cast(director, dice, sheets, scene, "Telepathy", "the reeve")
     assert sheets["Mae"]["ongoing"] == [{"spell": "Telepathy", "target": "the reeve"}]
     assert any("telepathy with Dorn breaks" in getattr(e, "text", "") for e in effects)
+
+
+def test_an_alarm_circle_wakes_its_caster_when_something_comes(director, sheets, scene):
+    scene.clear()
+    _here(director, "the ruined chapel")
+    sheets["Mae"]["ongoing"] = [{"spell": "Alarm", "target": "", "where": "the ruined chapel"}]
+    effects, facts = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn", reason="in the nave")
+    assert "Mae's Alarm circle" in facts["alarm"]
+    from gary.spells import describe
+    assert "Alarm at the ruined chapel" in describe(sheets["Mae"])
+    _here(director, "the old road")
+    _, elsewhere = director.make_camp(channel_id=CHANNEL, approaches=True, watcher="Dorn", reason="a ditch")
+    assert "alarm" not in elsewhere

@@ -343,7 +343,9 @@ def describe(sheet: Dict[str, Any]) -> str:
         parts.append(f"spellbook: {', '.join(sheet.get('spellbook') or ()) or 'empty'}")
     if sheet.get("borrowed_spell"):
         parts.append(f"borrowed: {sheet['borrowed_spell']}")
-    ongoing = [s.name + (f" on {t}" if t else "") for s, t in running(sheet)]
+    wheres = [e.get("where", "") for e in sheet.get("ongoing") or () if find(sheet, e.get("spell", "")) is not None]
+    ongoing = [s.name + (f" on {t}" if t else "") + (f" at {w}" if w else "")
+               for (s, t), w in zip(running(sheet), wheres)]
     servant = next((e for e in sheet.get("ongoing") or () if e.get("spell") == "Unseen Servant"), None)
     if servant is not None and ongoing:
         load = servant.get("carrying") or []

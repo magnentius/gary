@@ -2579,6 +2579,14 @@ class Director:
         return any(e.get("spell") == "Cloudkill" and (not e.get("where") or not here or same_place(e["where"], here))
                    for _, sheet in self._party() for e in sheet.get("ongoing") or ())
 
+    def _alarmed(self) -> List[str]:
+        """Who has an Alarm circle here (cast at this place, not prepared over since)."""
+        from .worldmap import same_place
+
+        here = str((self._scene() or {}).get("location") or "")
+        return [a for a, sheet in self._party() for e in sheet.get("ongoing") or ()
+                if e.get("spell") == "Alarm" and (not e.get("where") or not here or same_place(e["where"], here))]
+
     def _fog(self) -> Tuple[int, str]:
         """Cloudkill's separate 1d6, ignoring armor, for any creature hurt in the area -- or nothing."""
         if not self._cloudkill():
@@ -3277,6 +3285,13 @@ class Director:
                 "Watch; nobody heals, because the sleep is broken. Narrate the approach once "
                 "the roll is in, not before."
             )
+            warded = self._alarmed()
+            if warded:
+                # Alarm: "your magic will alert you if a creature crosses that circle. Even if you are
+                # asleep, the spell will shake you from your slumber."
+                lines.append(f"{_and(warded)}'s Alarm shakes them awake.")
+                facts["alarm"] = (f"{_and(warded)}'s Alarm circle: if what approaches crosses it, they wake at "
+                                  "once and know -- however the watch roll goes, they are not caught asleep.")
         else:
             facts["note"] = ("The night passes. The world clock has moved eight hours for the "
                              "whole party; do not advance it again.")
