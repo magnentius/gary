@@ -81,6 +81,7 @@ DOMINATE = "dominate"
 UNSEEN_SERVANT = "unseen_servant"
 FREE_CREATURE = "free_creature"
 STUDY_ESSENCE = "study_essence"
+WEAPON_GLOWS = "weapon_glows"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -981,6 +982,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=WEAPON_GLOWS,
+        description=("A Fighter's signature weapon with the 'glows' enhancement: record the one type of creature it "
+                     "glows in the presence of, as the player chooses (orcs, the undead, dragons). Then it glows "
+                     "whenever such a creature is near -- narrate it, even before they're seen."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "creature": _s(type=_STRING)},
+                      required=["character", "creature"]),
     ),
     types.FunctionDeclaration(
         name=STUDY_ESSENCE,

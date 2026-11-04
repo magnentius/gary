@@ -274,6 +274,49 @@ def signature_weapon(base: str, ranges: Sequence[str], enhancements: Sequence[in
     )
 
 
+def enhancements_of(enhancements: Sequence[int]) -> List[str]:
+    """The chosen enhancements' texts, kept on the weapon so Improved Weapon knows what it has."""
+    return [ENHANCEMENTS[i].text for i in enhancements]
+
+
+def improvements(weapon: Dict[str, Any]) -> List[str]:
+    """Improved Weapon: "Choose one extra enhancement for your signature weapon" -- those it doesn't
+    have yet, Versatile once per range it still lacks."""
+    tags = set(weapon.get("tags") or ())
+    had = set(weapon.get("enhancements") or ())
+    out: List[str] = []
+    for e in ENHANCEMENTS:
+        if e.text in had:
+            continue
+        if e.versatile:
+            out += [f"Versatile: add {r}." for r in MELEE if r not in tags]
+        elif e.tags and all(t in tags for t in e.tags if "damage" not in t and "piercing" not in t) \
+                and any("damage" not in t and "piercing" not in t for t in e.tags):
+            continue  # precise, messy and forceful, glows: there already
+        elif e.piercing and int(weapon.get("piercing", 0)) >= e.piercing and not had:
+            continue  # an older weapon, made before enhancements were kept: Sharp is there
+        else:
+            out.append(e.text)
+    return out
+
+
+def improve(weapon: Dict[str, Any], choice: str) -> Dict[str, Any]:
+    """The signature weapon with one more enhancement."""
+    if choice.startswith("Versatile: add "):
+        rng = choice[len("Versatile: add "):].rstrip(".")
+        return {**weapon, "tags": [*weapon.get("tags", []), rng],
+                "enhancements": [*(weapon.get("enhancements") or ()), "Versatile. Choose an additional range."]}
+    e = next(x for x in ENHANCEMENTS if x.text == choice)
+    tags = [t for t in weapon.get("tags") or () if not (t.endswith(" damage") or t.endswith(" piercing"))]
+    damage, piercing = int(weapon.get("damage", 0)) + e.damage, int(weapon.get("piercing", 0)) + e.piercing
+    tags += [f"+{damage} damage"] if damage else []
+    tags += [f"{piercing} piercing"] if piercing else []
+    tags += [t for t in e.tags if "damage" not in t and "piercing" not in t]
+    return {**weapon, "tags": tags, "damage": damage, "piercing": piercing,
+            "weight": max(0, int(weapon.get("weight", 2)) + e.weight),
+            "enhancements": [*(weapon.get("enhancements") or ()), e.text]}
+
+
 # -- what gear does --------------------------------------------------------------------------
 
 

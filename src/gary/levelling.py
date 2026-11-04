@@ -99,7 +99,8 @@ class Advance:
             return "move"
         if self.move in SPELL_MOVES and self.move_spell is None and self.move_spell_options():
             return "move_spell"
-        if (self.move in compendium.MOVE_CHOICES or self.move == "Still Hungry") and self.move_choice is None \
+        if (self.move in compendium.MOVE_CHOICES or self.move in ("Still Hungry", "Improved Weapon")) \
+                and self.move_choice is None \
                 and self.move_choice_options():
             return "move_choice"
         if self.move in multiclass.GRANTING:
@@ -140,6 +141,11 @@ class Advance:
     def move_choice_options(self) -> List[str]:
         """Wraithlander: the body part that bears the mark -- one not already marked. Still
         Hungry: "Choose an additional appetite" -- one they do not have."""
+        if self.move == "Improved Weapon":
+            from .gear import improvements
+
+            weapon = next((g for g in self.sheet.get("gear") or () if str(g.get("name", "")).startswith("Signature ")), None)
+            return improvements(weapon) if weapon else []
         if self.move == "Still Hungry":
             from .choices import appetites_of
             from .playbooks import appetites
@@ -218,7 +224,12 @@ class Advance:
             sheet["minions"] = [*(sheet.get("minions") or []), slime(f"{sheet['name']}'s slime")]
         if self.move == "Dovahkiin":
             sheet["blood"] = 1  # "You gain a new stat called Blood, which starts at +1."
-        if self.move_choice and self.move == "Still Hungry":
+        if self.move_choice and self.move == "Improved Weapon":
+            from .gear import improve
+
+            sheet["gear"] = [improve(g, self.move_choice) if str(g.get("name", "")).startswith("Signature ") else g
+                             for g in sheet.get("gear") or []]
+        elif self.move_choice and self.move == "Still Hungry":
             sheet["more_appetites"] = [*(sheet.get("more_appetites") or ()), self.move_choice]
         elif self.move_choice:
             sheet["wraith_marks"] = [*(sheet.get("wraith_marks") or ()), self.move_choice]

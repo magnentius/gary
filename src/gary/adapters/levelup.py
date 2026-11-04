@@ -42,6 +42,8 @@ class LevelUpForm(discord.ui.View):
                                           if SPELL_MOVES[a.move] == "spellbook" else
                                           "choose the spell you will have as if it were one level lower "
                                           "(a first-level one becomes a rote or cantrip)."))
+        elif step == "move_choice" and a.move == "Improved Weapon":
+            lines.append(f"{a.move}: choose one extra enhancement for your signature weapon.")
         elif step == "move_choice" and a.move == "Still Hungry":
             lines.append(f"{a.move}: choose an additional appetite.")
         elif step == "move_choice":

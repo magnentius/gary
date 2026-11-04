@@ -327,6 +327,11 @@ class Draft:
             ))
         return items
 
+    def signature_enhancements_text(self) -> List[str]:
+        from .gear import enhancements_of
+
+        return enhancements_of(self.signature_enhancements)
+
     def alignments(self) -> Dict[str, str]:
         """The class's alignments: name -> what fulfils it."""
         return alignments_of(self.class_key or "")
@@ -392,8 +397,16 @@ class Draft:
             "hp": max_hp,
             "damage": cls["damage"],
             "alignment": self.alignment,
-            **with_gear({}, self.gear_items()),
+            **self._geared(),
         }, self.choices)
+
+    def _geared(self) -> Dict[str, Any]:
+        out = with_gear({}, self.gear_items())
+        if self.signature_enhancements:
+            for g in out["gear"]:
+                if str(g.get("name", "")).startswith("Signature "):
+                    g["enhancements"] = self.signature_enhancements_text()  # for Improved Weapon
+        return out
 
 
 def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
@@ -418,8 +431,17 @@ def with_gear(sheet: Dict[str, Any], items: Sequence[Item]) -> Dict[str, Any]:
 
 
 def weapons_line(sheet: Dict[str, Any]) -> str:
-    weapons = [Item.from_dict(g) for g in sheet.get("gear") or []]
-    return ", ".join(w.label() for w in weapons if w.ranges)
+    out = []
+    for g in sheet.get("gear") or []:
+        w = Item.from_dict(g)
+        if not w.ranges:
+            continue
+        label = w.label()
+        if "glows" in w.tags:
+            # "Glows in the presence of one type of creature, your choice."
+            label += f" [glows near {g['glows_at']}]" if g.get("glows_at") else " [glows near: not yet chosen -- ask]"
+        out.append(label)
+    return ", ".join(out)
 
 
 def carrying_line(sheet: Dict[str, Any]) -> str:

@@ -258,3 +258,28 @@ def test_the_carrying_line_shows_everything_grouped_with_uses_left():
         "Carrying: Chainmail (1 armor), 2 × Dungeon rations (5 uses), Bandages (2 uses left)."
     )
     assert carrying_line({"name": "Old"}) == ""  # a sheet from before gear
+
+
+def test_improved_weapon_adds_an_enhancement_the_weapon_lacks():
+    from gary import gear
+
+    weapon = gear.signature_weapon("Sword", ["close"], [1, 3]).to_dict()  # sharp, serrated
+    weapon["enhancements"] = gear.enhancements_of([1, 3])
+    options = gear.improvements(weapon)
+    assert "Sharp. +2 piercing." not in options and "Serrated edges. +1 damage." not in options
+    assert "Versatile: add reach." in options and "Versatile: add close." not in options
+    better = gear.improve(weapon, "Hooks and spikes. +1 damage, but +1 weight.")
+    assert better["damage"] == 2 and better["weight"] == 3 and "+2 damage" in better["tags"]
+    assert "Hooks and spikes. +1 damage, but +1 weight." not in gear.improvements(better)
+    reach = gear.improve(weapon, "Versatile: add reach.")
+    assert "reach" in reach["tags"]
+
+
+def test_a_glowing_weapon_says_what_it_glows_near():
+    from gary import gear
+    from gary.sheets import weapons_line
+
+    weapon = gear.signature_weapon("Axe", ["close"], [4, 3]).to_dict()  # glows, serrated
+    assert "[glows near: not yet chosen -- ask]" in weapons_line({"gear": [weapon]})
+    weapon["glows_at"] = "the undead"
+    assert "[glows near the undead]" in weapons_line({"gear": [weapon]})

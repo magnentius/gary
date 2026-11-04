@@ -1414,6 +1414,20 @@ class GeminiNarrator:
                 reason="narrative note",
             ))
 
+        if name == T.WEAPON_GLOWS:
+            sheets = store.state().get("sheets") or {}
+            who = next((n for n in sheets if n.lower() == str(args.get("character", "")).strip().lower()), None)
+            creature = " ".join(str(args.get("creature", "")).split())[:60]
+            if who is None or not creature:
+                return {"ok": False, "error": "Name the character and the type of creature."}
+            gear = [dict(g) for g in sheets[who].get("gear") or []]
+            weapon = next((g for g in gear if "glows" in (g.get("tags") or ())), None)
+            if weapon is None:
+                return {"ok": False, "error": f"{who} has no weapon that glows."}
+            weapon["glows_at"] = creature
+            return _diff_result(store.apply([Mutation(MutationKind.SHEET, who, {"sheet": {**sheets[who], "gear": gear}})],
+                                            reason=f"{who}'s {weapon['name']} glows near {creature}"))
+
         if name == T.WEAR_ARMOR:
             from ..gear import armor_for
 

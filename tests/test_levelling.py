@@ -143,3 +143,18 @@ def test_the_level_up_form_splits_a_long_spell_list():
         assert "one level lower" in form.prompt()
 
     asyncio.run(run())
+
+
+def test_improved_weapon_asks_for_an_enhancement_and_puts_it_on_the_weapon():
+    from gary import gear
+
+    weapon = {**gear.signature_weapon("Sword", ["close"], [1, 3]).to_dict(), "enhancements": gear.enhancements_of([1, 3])}
+    dorn = {"name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "xp": 8, "hp": 20, "max_hp": 20,
+            "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13}, "gear": [weapon]}
+    a = Advance(dorn)
+    a.choose_stat("str")
+    a.choose_move("Improved Weapon")
+    assert a.step() == "move_choice" and "Perfectly weighted. Add precise." in a.move_choice_options()
+    a.choose_move_choice("Perfectly weighted. Add precise.")
+    sword = a.result()["gear"][0]
+    assert "precise" in sword["tags"] and sword["piercing"] == 2  # kept its Sharp
