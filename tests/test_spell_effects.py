@@ -259,3 +259,14 @@ def test_unseen_servant_carries_up_to_three_and_drops_it_when_dispelled(director
     from gary import trade
     back, got = trade.add_items(sheets["Mae"], ["bag of books"])  # picked up again: the very one
     assert got == ["Bag of Books (recovered)"]
+
+
+def test_preparing_spells_needs_the_spellbook(director, sheets, scene):
+    scene.clear()
+    sheets["Mae"]["gear"] = [{"name": "Dagger", "tags": ["hand"], "weight": 1}]
+    _, refused = director.prepare_spells(channel_id=CHANNEL, character="Mae", reason="a quiet hour")
+    assert "no spellbook" in refused["error"]
+    sheets["Mae"]["ongoing"] = [{"spell": "Unseen Servant", "target": "",
+                                 "carrying": [{"name": "Spellbook", "tags": [], "weight": 1}]}]
+    _, ok = director.prepare_spells(channel_id=CHANNEL, character="Mae", reason="a quiet hour")
+    assert ok["ok"]  # the servant holds it: still to hand

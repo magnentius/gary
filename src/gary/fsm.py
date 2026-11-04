@@ -3276,6 +3276,16 @@ class Director:
         unable = _unable(actor, sheet)
         if unable:
             return [], {"ok": False, "error": unable}
+        if cls == "wizard" and "gear" in sheet:
+            # "in quiet contemplation of your spellbook": no book, no preparing. One their unseen
+            # servant holds is still to hand.
+            held = [*(sheet.get("gear") or []),
+                    *(g for e in sheet.get("ongoing") or () if e.get("spell") == "Unseen Servant"
+                      for g in e.get("carrying") or ())]
+            if not any(str(g.get("name", "")).lower() == "spellbook" for g in held):
+                return [], {"ok": False, "error": (
+                    f"{actor} has no spellbook to study: Prepare Spells needs it. Until it's found or replaced "
+                    "they keep only their cantrips and whatever they still hold prepared.")}
         doing = "commune" if cls == "cleric" else "prepare spells"
         unsettled = self.unsettled(channel_id, doing)
         if unsettled:

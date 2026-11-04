@@ -97,7 +97,8 @@ class's list, and both choose what they hold — total levels up to level + 1. R
 cantrips come free. A caster made before spells existed gets the same button on `/sheet`,
 which also shows what you hold, what's lost and what's running.
 New spells come only with an undisturbed hour in the story — say your character prays or
-studies, and the GM calls Commune or Prepare Spells (refused mid-fight, like camp), which
+studies, and the GM calls Commune or Prepare Spells (refused mid-fight, like camp, and for a
+Wizard without their spellbook to hand — "contemplation of your spellbook"), which
 clears your spells and posts the button again. Casting is a move: +Wis for a Cleric, +Int
 for a Wizard, only a spell you hold. On a 7–9 you choose attention, −1 ongoing to cast
 until you next prepare, or losing the spell until then. Each running ongoing spell costs −1
