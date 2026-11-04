@@ -396,3 +396,25 @@ async def test_a_blow_wakes_a_sleeper_and_a_summon_at_zero_is_gone(clock):
     assert state["monsters"]["Goblin 1"]["conditions"] == []
     assert "Vex" not in state["sheets"] and state["sheets"]["Mae"]["ongoing"] == []
     assert any("no longer asleep" in text for _, text in sender.sent)
+
+
+async def test_bless_ends_with_the_battle(clock):
+    """"+1 ongoing so long as battle continues": once the last creature falls the Cleric stops paying."""
+    from gary.fsm import ChangeHp
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": {
+        "Goblin 1": {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6"},
+        "Goblin 2": {"kind": "Goblin", "hp": 3, "max_hp": 3, "armor": 1, "damage": "d6"}}}),
+        Mutation(MutationKind.SHEET, "Thorin", {"sheet": {"name": "Thorin", "hp": 10, "ongoing": [
+            {"spell": "Bless", "target": "Dorn"}]}})], reason="setup")
+    sender = FakeSender()
+    r = EffectRunner(sender, EchoNarrator(), store=store)
+    await r.run([ChangeHp(CHANNEL, "monster", "Goblin 1", 0)])
+    assert store.state()["sheets"]["Thorin"]["ongoing"] == [{"spell": "Bless", "target": "Dorn"}]  # one still up
+    await r.run([ChangeHp(CHANNEL, "monster", "Goblin 2", -1)])
+    assert store.state()["sheets"]["Thorin"]["ongoing"] == []
+    assert any("The battle is over, and Thorin's Bless with it." in text for _, text in sender.sent)

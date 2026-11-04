@@ -22,7 +22,7 @@ from typing import Optional, Sequence
 
 from ..fsm import (
     AfflictMonster, Arrive, ChangeHp, ConditionMonster, Dismiss, Effect, PromptModel, RecordOutcome, SendMessage, SpendAmmo,
-    UpdateSheet, creature_harmed, summon_fell,
+    UpdateSheet, battle_over, creature_harmed, summon_fell,
 )
 from ..models import Mutation, MutationKind
 from ..ports import Narrator, NarrationResult
@@ -86,6 +86,8 @@ class EffectRunner:
                 state = self._store.state()
                 follow = (creature_harmed(state, effect.name, effect.channel_id) if effect.kind == "monster" else
                           summon_fell(state, effect.name, effect.channel_id) if effect.hp <= 0 else [])
+                if effect.kind == "monster" and effect.hp <= 0 < before:
+                    follow = [*follow, *battle_over(state, effect.channel_id)]
                 for more in follow:  # what the blow broke: a spell's hold, a summoned creature
                     await self._run_one(more, depth)
             return

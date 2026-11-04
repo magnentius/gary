@@ -375,6 +375,21 @@ def creature_harmed(state: Dict[str, Any], name: str, channel_id: int) -> List["
     return out
 
 
+def battle_over(state: Dict[str, Any], channel_id: int) -> List["Effect"]:
+    """The last creature standing just fell: Bless ("+1 ongoing so long as battle continues") is over,
+    and stops costing its caster -1 to cast."""
+    if any(int(r.get("hp", 0)) > 0 for r in (state.get("monsters") or {}).values()):
+        return []
+    out: List[Effect] = []
+    for name, sheet in (state.get("sheets") or {}).items():
+        ongoing = list(sheet.get("ongoing") or [])
+        kept = [e for e in ongoing if e.get("spell") != spells.BLESS]
+        if len(kept) != len(ongoing):
+            out += [SendMessage(channel_id, f"✨ The battle is over, and {name}'s Bless with it."),
+                    UpdateSheet(channel_id, name, {"ongoing": kept})]
+    return out
+
+
 def summon_fell(state: Dict[str, Any], name: str, channel_id: int) -> List["Effect"]:
     """A summoned creature at 0 HP: "until it dies" -- gone, and its spell with it."""
     sheet = (state.get("sheets") or {}).get(name) or {}
