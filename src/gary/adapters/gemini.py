@@ -1800,6 +1800,14 @@ class GeminiNarrator:
 
     # -- summarisation (§8) ------------------------------------------------------------
 
+    def forget(self) -> None:
+        """For /reset: cancel summaries still being written -- one finishing after the wipe would put
+        the dead campaign's summary into the new one's memory -- and drop per-channel bookkeeping."""
+        for task in list(self._tasks):
+            task.cancel()
+        self._tasks.clear()
+        self._speaker.clear()
+
     def _spawn(self, coro) -> None:
         """Off the player-facing latency path, with a reference held so it is not GC'd."""
         task = asyncio.ensure_future(coro)

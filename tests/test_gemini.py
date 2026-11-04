@@ -1067,3 +1067,22 @@ async def test_a_call_that_ignores_its_cancel_cannot_hang_the_turn():
     assert time.monotonic() - started < 1
     released.set()  # let the abandoned call die, so the test's loop can close
     assert await _bounded(asyncio.sleep(0, result="ok"), 1) == "ok"
+
+
+async def test_forget_cancels_summaries_in_flight(rig):
+    """/reset: a summary still being written must not land in the new campaign's memory."""
+    import asyncio
+
+    n = narrator(rig, text_response("."))
+    started = asyncio.Event()
+
+    async def slow_summary():
+        started.set()
+        await asyncio.sleep(10)
+
+    n._spawn(slow_summary())
+    await started.wait()
+    (task,) = list(n._tasks)
+    n.forget()
+    await asyncio.sleep(0)
+    assert task.cancelled() or task.cancelling() and not n._tasks

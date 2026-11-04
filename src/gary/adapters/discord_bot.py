@@ -1753,6 +1753,9 @@ class GaryClient(discord.Client):
                 await self.sender.send(channel_id, opening.chronicle(self.store.state()))
             for check in list(self.director.registry.open_checks()):
                 self.director.registry.cancel(check.check_id, CancelReason.MANUAL)
+            narrator = getattr(self.runner, "_narrator", None)
+            if hasattr(narrator, "forget"):
+                narrator.forget()  # first: no summary in flight may land after the wipe
             if self.history_backend is not None:
                 self.history_backend.clear_all()
             self.store.reset_campaign()
