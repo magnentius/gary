@@ -2110,10 +2110,21 @@ async def _stop(client: "GaryClient", sig: int) -> None:  # pragma: no cover
     await client.close()
 
 
+def version() -> str:
+    """The installed package's version (pyproject.toml; a release tag is vX.Y.Z of it)."""
+    from importlib.metadata import PackageNotFoundError, version as installed
+
+    try:
+        return installed("gary")
+    except PackageNotFoundError:
+        return "unknown"
+
+
 def main() -> None:  # pragma: no cover - operator entry point
     logging.basicConfig(
         level=logging.INFO, format="%(asctime)s %(levelname)-7s %(name)s: %(message)s"
     )
+    log.info("Gary %s starting", version())  # which release the VM is running
     settings = Settings.from_env()
     client = build_client(settings)
     asyncio.run(serve(client, settings.discord_token))

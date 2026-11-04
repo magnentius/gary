@@ -217,3 +217,9 @@ def test_the_message_content_intent_is_off_unless_asked_for():
     assert Settings.from_env({"DISCORD_TOKEN": "x", "GARY_GAME_CHANNELS": "1"}).message_content is False
     assert Settings.from_env({"DISCORD_TOKEN": "x", "GARY_GAME_CHANNELS": "1",
                               "GARY_MESSAGE_CONTENT": "1"}).message_content is True
+
+
+def test_gary_knows_its_version():
+    from gary.adapters.discord_bot import version
+
+    assert version() != "" and (version() == "unknown" or version()[0].isdigit())
