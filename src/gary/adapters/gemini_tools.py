@@ -80,6 +80,7 @@ WEAR_ARMOR = "wear_armor"
 DOMINATE = "dominate"
 UNSEEN_SERVANT = "unseen_servant"
 FREE_CREATURE = "free_creature"
+STUDY_ESSENCE = "study_essence"
 SUMMON_ALLY = "summon_ally"
 CONTINGENCY = "contingency"
 CREATURE_ATTACKS = "creature_attacks"
@@ -980,6 +981,14 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             },
             required=["minutes", "reason"],
         ),
+    ),
+    types.FunctionDeclaration(
+        name=STUDY_ESSENCE,
+        description=("Studied Essence (Druid): after time contemplating an animal spirit, its species is one they "
+                     "can shapeshift into, wherever its land. Recorded on the sheet and shown at Shapeshifter."),
+        parameters=_s(type=_OBJECT, properties={"character": _s(type=_STRING), "species": _s(type=_STRING),
+                                                "reason": _s(type=_STRING)},
+                      required=["character", "species", "reason"]),
     ),
     types.FunctionDeclaration(
         name=FREE_CREATURE,

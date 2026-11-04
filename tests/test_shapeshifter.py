@@ -89,3 +89,20 @@ def test_only_a_druid_shapeshifts(director, sheets):
     (note,) = director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Wren", move="shapeshifter",
                                  target="bear")
     assert "Shapeshifter is the Druid's move" in note.payload["error"]
+
+
+def test_studied_essence_adds_a_species_and_shapeshifter_is_told_both(director, dice, sheets):
+    _, refused = director.study_essence(channel_id=CHANNEL, character="Wren", species="hawk", reason="a night on the crag")
+    assert "doesn't have Studied Essence" in refused["error"]
+    sheets["Wren"].update(advanced_moves=["Studied Essence"], choices={"land": "The Frozen North", "tell": "frost-white eyes"})
+    effects, ok = director.study_essence(channel_id=CHANNEL, character="Wren", species="Hawk",
+                                         reason="a night on the crag with its spirit")
+    apply(effects, sheets)
+    assert ok["ok"] and sheets["Wren"]["studied_species"] == ["hawk"]
+    from gary.choices import describe as choices_line
+
+    assert "born of The Frozen North, marked by frost-white eyes" in choices_line(sheets["Wren"])
+    assert "essences studied: hawk" in choices_line(sheets["Wren"])
+    payload = [e.payload for e in shift(director, dice, (5, 5), form="hawk") if isinstance(e, PromptModel)][0]
+    told = payload["shape"]["instruction"]
+    assert "Their land is The Frozen North" in told and "studied: hawk" in told and "isn't theirs to take" in told

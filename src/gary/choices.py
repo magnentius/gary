@@ -223,6 +223,8 @@ def describe(sheet: Dict[str, Any]) -> str:
                      + (f" ({c['precept']})" if c.get("precept") else ""))
     if "land" in c:
         parts.append(f"born of {c['land']}" + (f", marked by {c['tell']}" if c.get("tell") else ""))
+    if sheet.get("studied_species"):
+        parts.append(f"essences studied: {', '.join(sheet['studied_species'])}")
     if "lore" in c:
         parts.append(f"bardic lore: {c['lore']}")
     if "poison" in c:

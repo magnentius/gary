@@ -715,8 +715,8 @@ class Director:
             target = self._character(charge) or charge
         elif rules.names_form:
             # Shapeshifter: "any species whose essence you have studied or who lives in your
-            # land". Which those are is the fiction's -- the land is not recorded -- so any
-            # form named is taken, and the model judges whether it is one of them.
+            # land". The land (Born of the Soil) and the species studied (Studied Essence) are on
+            # the sheet and shown to the model with the result; whether a form fits is its call.
             target = " ".join(str(target or "").split())[:40]
             if not target:
                 return [self._refuse(
@@ -2062,6 +2062,9 @@ class Director:
             f"weaknesses are theirs, though they keep their own stats. "
             + (f"Their land is {land}: an animal that might live there is theirs to take. "
                if (land := ((self._sheet_or_empty(check.actor)).get("choices") or {}).get("land")) else "")
+            + (f"Species whose essence they have studied: {', '.join(studied)}. "
+               if (studied := (self._sheet_or_empty(check.actor)).get("studied_species")) else "")
+            + "If the form is neither, it isn't theirs to take: say so. "
             + "Then name one to three "
             "moves this form can make and record them with form_moves. Each use of one costs "
             "1 hold (spend_hold); at 0 they return to their natural form."
@@ -3694,6 +3697,28 @@ class Director:
             if len(kept) != len(ongoing):
                 out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": kept}))
         return out, {"ok": True, "freed": name}
+
+    def study_essence(self, *, channel_id: int, character: str, species: str, reason: str = ""
+                      ) -> Tuple[List[Effect], Dict[str, Any]]:
+        """Studied Essence: "When you spend time in contemplation of an animal spirit, you may add its
+        species to those you can assume using shapeshifting." """
+        actor = self._character(character)
+        sheet = self._sheet_for(actor) if actor else None
+        if sheet is None:
+            return [], {"ok": False, "error": f"{character!r} has no character sheet."}
+        if not advanced.has(sheet, "Studied Essence"):
+            return [], {"ok": False, "error": f"{actor} doesn't have Studied Essence."}
+        species = " ".join(str(species or "").split()).lower()[:40]
+        reason = " ".join(str(reason or "").split())[:160]
+        if not species or not reason:
+            return [], {"ok": False, "error": "Name the species, and say how they contemplated its spirit (reason)."}
+        have = list(sheet.get("studied_species") or [])
+        if species in have:
+            return [], {"ok": False, "error": f"{actor} has already studied the {species}."}
+        return [SendMessage(channel_id, f"🌿 **{actor}** contemplates the spirit of the {species} — {reason}. "
+                                        "Its shape is theirs to take now."),
+                UpdateSheet(channel_id, actor, {"studied_species": [*have, species]})], {
+            "ok": True, "studied": [*have, species]}
 
     def dominate(self, *, channel_id: int, character: str, command: str, reason: str = ""
                  ) -> Tuple[List[Effect], Dict[str, Any]]:

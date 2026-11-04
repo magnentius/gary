@@ -498,6 +498,14 @@ class GeminiNarrator:
                 responses.append(types.Part.from_function_response(name=name, response=result))
                 continue
 
+            if name == T.STUDY_ESSENCE:
+                study_effects, result = self._director.study_essence(
+                    channel_id=channel_id, character=str(args.get("character", "")),
+                    species=str(args.get("species", "") or ""), reason=str(args.get("reason", "") or ""))
+                effects.extend(study_effects)
+                responses.append(types.Part.from_function_response(name=name, response=result))
+                continue
+
             if name == T.FREE_CREATURE:
                 freed_effects, result = self._director.free_creature(
                     channel_id=channel_id, creature=str(args.get("creature", "")),
