@@ -1988,6 +1988,13 @@ class Director:
             facts["ended"] = ended
             lines.append(f"{_and(ended)} ends, as {check.actor} casts again.")
             lifted = self._lift(channel_id, check.actor, ended)
+        if spell.lasts and "only have one" in spell.text.lower():
+            # Telepathy: "You can only have one telepathic bond at a time" -- the new one replaces it.
+            old = [e for e in ongoing if e.get("spell") == spell.name]
+            if old:
+                ongoing = [e for e in ongoing if e.get("spell") != spell.name]
+                was = _and([e.get("target") or "them" for e in old])
+                lines.append(f"The {spell.name.lower()} with {was} breaks, replaced by the new one.")
         if spell.lasts:
             entry: Dict[str, Any] = {"spell": spell.name, "target": check.target}
             if spell.name in spells.AREA_SPELLS and (self._scene() or {}).get("location"):

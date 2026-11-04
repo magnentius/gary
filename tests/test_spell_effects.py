@@ -388,3 +388,12 @@ async def test_shadow_walking_to_a_known_steading_lands_in_it(clock):
 
     await EffectRunner(Quiet(), EchoNarrator(), store=store).run([Arrive(CHANNEL, "fenwick")])
     assert store.state()["scene"]["steading"] == "Fenwick"
+
+
+def test_only_one_telepathic_bond_at_a_time(director, dice, sheets, scene):
+    sheets["Mae"]["spells"].append("Telepathy")
+    sheets["Mae"]["spellbook"].append("Telepathy")
+    cast(director, dice, sheets, scene, "Telepathy", "Dorn")
+    effects = cast(director, dice, sheets, scene, "Telepathy", "the reeve")
+    assert sheets["Mae"]["ongoing"] == [{"spell": "Telepathy", "target": "the reeve"}]
+    assert any("telepathy with Dorn breaks" in getattr(e, "text", "") for e in effects)
