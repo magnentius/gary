@@ -23,6 +23,7 @@ DUNGEON WORLD CONTENT -- Creative Commons Attribution 3.0 Unported (CC BY 3.0)
     src/gary/data/equipment.json      equipment and poisons
     src/gary/data/magic_items.json    magic items
     src/gary/data/npcs.json           the Instant NPC tables
+    src/gary/data/names.json          the classes' name lists
     src/gary/data/services.json       the price lists for services, meals, transport and more
 
   Rule text quoted elsewhere in Gary's source and documentation (moves, tags, the GM's

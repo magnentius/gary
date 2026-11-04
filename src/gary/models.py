@@ -271,6 +271,7 @@ class MutationKind(str, Enum):
     MONSTER_CONDITIONS = "monster_conditions"  # what spells hold a creature: asleep, charmed, caged...
     MONSTER_ARMOR = "monster_armor"  # a creature's armor changed: Backstab's "reduce their armor by 1"
     CALENDAR = "calendar"
+    HOMEBREW = "homebrew"  # creatures made this campaign, by kind: added again by name alone
 
 
 @dataclass(frozen=True)

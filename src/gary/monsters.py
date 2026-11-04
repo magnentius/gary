@@ -219,10 +219,24 @@ def _homebrew(entry: Dict[str, Any]) -> Dict[str, Any]:
     return record
 
 
-def stats_for(entry: Dict[str, Any]) -> Dict[str, Any]:
-    """One creature's stats: from the bestiary if it is there, else checked homebrew."""
+#: A homebrew record's fields that belong to the kind, not to one creature in a fight.
+_KIND_FIELDS = ("kind", "hp", "armor", "damage", "piercing", "ignores_armor", "tags", "srd", "recipe",
+                "instinct", "moves")
+
+
+def kind_record(record: Dict[str, Any]) -> Dict[str, Any]:
+    """What to remember of a homebrew creature, to make another of its kind."""
+    return {k: record[k] for k in _KIND_FIELDS if k in record}
+
+
+def stats_for(entry: Dict[str, Any], made: Optional[Dict[str, Dict[str, Any]]] = None) -> Dict[str, Any]:
+    """One creature's stats: from the bestiary if it is there, else checked homebrew -- given now,
+    or made earlier in the campaign (``made``, by kind) and asked for by name alone."""
     known = lookup(entry["name"])
     if known is None:
+        again = (made or {}).get(" ".join(str(entry["name"]).split()).lower())
+        if again and not entry.get("recipe") and all(entry.get(k) in (None, "") for k in ("hp", "armor", "damage")):
+            return dict(again)
         return _homebrew(entry)
     if known["hp"] is None:
         raise MonsterError(
@@ -235,7 +249,7 @@ def stats_for(entry: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def prepare(
-    entries: Iterable[Dict[str, Any]], existing: Iterable[str]
+    entries: Iterable[Dict[str, Any]], existing: Iterable[str], made: Optional[Dict[str, Dict[str, Any]]] = None
 ) -> Tuple[Dict[str, Dict[str, Any]], List[str]]:
     """Numbered instances for a scene, and the reasons any entry was refused.
 
@@ -255,7 +269,7 @@ def prepare(
             errors.append(f"At most {MAX_PER_CALL} creatures per call.")
             break
         try:
-            stats = stats_for(entry)
+            stats = stats_for(entry, made)
         except MonsterError as exc:
             errors.append(str(exc))
             continue

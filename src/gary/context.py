@@ -358,6 +358,14 @@ def render_live_state(state: Dict[str, Any]) -> str:
             lines.append("- What they are (their moves are yours to make for them; play to their instinct):")
             lines.extend(f"    - {k}" for k in kinds)
 
+    from .npcs import suggest as suggest_names
+
+    if state.get("setting") or state.get("sheets"):  # a game under way: someone may need naming
+        lines.append(f"- Fresh names for anyone new: {', '.join(suggest_names(state, 5))}")
+    made = sorted(r["kind"] for r in (state.get("homebrew") or {}).values())
+    if made:
+        lines.append(f"- Creatures made this campaign (add_monsters by name alone): {', '.join(made)}")
+
     from .steadings import describe as describe_steading, here as steading_here
 
     known = state.get("steadings") or {}

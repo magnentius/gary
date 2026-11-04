@@ -1356,10 +1356,17 @@ class GeminiNarrator:
             state = store.state()
             # Names used here before count as taken, though the creatures are gone.
             taken = [*(state.get("monsters") or {}), *(state.get("monster_names_used") or [])]
-            added, errors = prepare_monsters(list(args.get("monsters") or []), taken)
+            made = dict(state.get("homebrew") or {})
+            added, errors = prepare_monsters(list(args.get("monsters") or []), taken, made)
             if added:
-                store.apply([Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": added})],
-                            reason="creatures enter the scene")
+                from ..monsters import kind_record
+
+                changes = [Mutation(MutationKind.MONSTERS_ADD, "", {"monsters": added})]
+                # A creature made here is remembered: the next of its kind needs only its name.
+                fresh = {r["kind"].lower(): kind_record(r) for r in added.values() if not r.get("srd")}
+                if any(made.get(k) != v for k, v in fresh.items()):
+                    changes.append(Mutation(MutationKind.HOMEBREW, "", {"homebrew": {**made, **fresh}}))
+                store.apply(changes, reason="creatures enter the scene")
             return {
                 "ok": not errors,
                 "added": [describe_monster(n, r) for n, r in added.items()],
@@ -1603,8 +1610,15 @@ class GeminiNarrator:
                     return {"ok": False, "error": "action is place, route, sign or unsign."}
             except ValueError as exc:
                 return {"ok": False, "error": str(exc)}
-            return _diff_result(store.apply([Mutation(MutationKind.WORLD, "", {"world": world})],
-                                            reason=f"campaign map: {action}"))
+            result = _diff_result(store.apply([Mutation(MutationKind.WORLD, "", {"world": world})],
+                                              reason=f"campaign map: {action}"))
+            if action == "place" and str(args.get("kind") or "") == "steading" and result.get("ok"):
+                from ..steadings import slug as steading_slug
+
+                if steading_slug(str(args.get("name") or "")) not in (store.state().get("steadings") or {}):
+                    result["next"] = ("A steading on the map needs its record too: create_steading for it, so "
+                                      "its tags decide prices, Supply and Recruit, and change between sessions.")
+            return result
 
         if name == T.SET_WEATHER:
             from ..sky import today

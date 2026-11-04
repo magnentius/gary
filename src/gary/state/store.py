@@ -707,6 +707,15 @@ def _h_world(store: "CampaignStore", m: Mutation) -> AppliedMutation:
                            before=before, after=store._state["world"])
 
 
+def _h_homebrew(store: "CampaignStore", m: Mutation) -> AppliedMutation:
+    """payload {"homebrew": {kind: record}}: the creatures made this campaign, replaced. Undone by
+    putting back what was known before."""
+    before = store._state.get("homebrew")
+    store._state["homebrew"] = m.payload.get("homebrew")
+    return AppliedMutation(mutation=m, inverse=Mutation(MutationKind.HOMEBREW, "", {"homebrew": before}),
+                           before=before, after=store._state["homebrew"])
+
+
 def _h_dungeon(store: "CampaignStore", m: Mutation) -> AppliedMutation:
     """payload {"dungeon": record}, or {"dungeon": None} to drop it. Undone by putting back the map
     as it was."""
@@ -854,6 +863,7 @@ _HANDLERS: Dict[MutationKind, Callable[["CampaignStore", Mutation], AppliedMutat
     MutationKind.MONSTER_CONDITIONS: _h_monster_conditions,
     MutationKind.MONSTER_ARMOR: _h_monster_armor,
     MutationKind.CALENDAR: _h_calendar,
+    MutationKind.HOMEBREW: _h_homebrew,
     MutationKind.PLAYER_CHARACTER: _h_player_character,
     MutationKind.SHEET: _h_sheet,
     MutationKind.MONSTERS_ADD: _h_monsters_add,
