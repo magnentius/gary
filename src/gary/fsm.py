@@ -1127,7 +1127,22 @@ class Director:
         if spell.target == "creatures":
             standing = {n.lower(): n for n, r in self._monsters().items() if r["hp"] > 0}
             wanted = [t.strip() for t in str(target or "").split(",") if t.strip()]
+            if spell.name != "Sleep":
+                wanted = wanted[:1]  # "a target", "a person": one; only Sleep takes several
             missing = [t for t in wanted if t.lower() not in standing]
+            if spell.name == "Cause Fear" and wanted and not missing:
+                # "You cannot target entities with less than animal intelligence (magical constructs,
+                # undead, automatons, and the like)."
+                record = self._monsters()[standing[wanted[0].lower()]]
+                tags = [str(t).lower() for t in (record.get("tags") or ())]
+                from .monsters import lookup
+
+                tags += [str(t).lower() for t in ((lookup(str(record.get("kind") or "")) or {}).get("tags") or ())]
+                if undead(record)[0] or "construct" in tags:
+                    return [self._refuse(
+                        channel_id, f"Cause Fear can't take {standing[wanted[0].lower()]}: it has less than animal "
+                                    "intelligence (undead, constructs, automatons).",
+                        "Narrate the spell finding no mind to grip, or choose another target.")]
             if not wanted or missing:
                 return [self._refuse(
                     channel_id,

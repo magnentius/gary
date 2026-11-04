@@ -468,3 +468,16 @@ def test_the_ward_ends_when_the_cleric_stops_praying_or_on_aggression(crypt, dic
                                  target="Goblin 1")
     apply(effects, sheets, scene)
     assert kinds(scene)["Zombie 1"] == [] and any("stops praying" in getattr(e, "text", "") for e in effects)
+
+
+def test_cause_fear_takes_one_living_mind(crypt, dice):
+    director, sheets, scene = crypt
+    sheets["Thorin"].update(spells=["Cause Fear"], ongoing=[], lost=[], cast_penalty=0)
+    (note,) = [e for e in director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="cast_a_spell",
+                                             spell="Cause Fear", target="Zombie 1") if hasattr(e, "payload")]
+    assert "less than animal intelligence" in note.payload["error"]
+    director.open_move(channel_id=CHANNEL, user_id=ALICE, actor="Thorin", move="cast_a_spell", spell="Cause Fear",
+                       target="Goblin 1, Zombie 1")
+    dice.queue(6, 6)
+    apply(director.roll(channel_id=CHANNEL, user_id=ALICE), sheets, scene)
+    assert kinds(scene) == {"Zombie 1": [], "Wight-Wolf 1": [], "Goblin 1": ["afraid"]}  # one target
