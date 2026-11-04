@@ -1,6 +1,6 @@
 [project]
 name = "gary"
-version = "0.1.0"
+version = "2026.11.4"
 description = "AI Game Master: Gemini narrative, Gary-rolled dice and persistent campaign state, over Discord."
 requires-python = ">=3.11"
 license = "MIT"
