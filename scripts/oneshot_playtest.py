@@ -17,7 +17,7 @@ import os
 import sys
 import traceback
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any, Optional
 
 sys.path.insert(0, str(Path(__file__).parent))
 
