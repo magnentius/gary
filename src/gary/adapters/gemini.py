@@ -637,11 +637,19 @@ class GeminiNarrator:
 
             if name in (T.RITUAL, T.GRAFT):
                 if name == T.RITUAL:
+                    from .. import worldmap
+                    from ..state.schema import format_world_time
+
+                    state = self._store.state()
+                    scene = state.get("scene") or {}
                     craft_effects, result = self._director.ritual(
                         channel_id=channel_id, character=str(args.get("character", "")),
                         action=str(args.get("action", "")), goal=str(args.get("goal", "") or ""),
                         conditions=[str(c) for c in args.get("conditions") or []],
-                        condition=str(args.get("condition", "") or ""), outcome=str(args.get("outcome", "") or ""))
+                        condition=str(args.get("condition", "") or ""), outcome=str(args.get("outcome", "") or ""),
+                        now=int(state.get("world_minutes", 0)), place=worldmap.here(state.get("world"), scene),
+                        location=str(scene.get("location") or ""),
+                        when=lambda m: format_world_time({**state, "world_minutes": m}))
                 else:
                     craft_effects, result = self._director.graft(
                         channel_id=channel_id, character=str(args.get("character", "")),
@@ -1474,7 +1482,8 @@ class GeminiNarrator:
             try:
                 if action == "place":
                     world = worldmap.place(world, str(args.get("name") or ""), str(args.get("kind") or "landmark"),
-                                           str(args.get("note") or ""), str(args.get("setting") or ""))
+                                           str(args.get("note") or ""), str(args.get("setting") or ""),
+                                           bool(args.get("power")))
                 elif action == "route":
                     world = worldmap.route(world, str(args.get("from_place") or ""), str(args.get("to") or ""),
                                            int(args.get("days") or 0), str(args.get("terrain") or ""))

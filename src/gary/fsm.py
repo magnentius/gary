@@ -4204,6 +4204,8 @@ class Director:
     def ritual(
         self, *, channel_id: int, character: str, action: str, goal: str = "",
         conditions: Sequence[str] = (), condition: str = "", outcome: str = "",
+        now: Optional[int] = None, place: Optional[Dict[str, Any]] = None, location: str = "",
+        when: Optional[Callable[[int], str]] = None,
     ) -> Tuple[List[Effect], Dict[str, Any]]:
         """The Wizard's Ritual, kept: start it with the GM's conditions, meet them one by one, and
         finish (or abandon) it. What it makes, if an item, is give_magic_item."""
@@ -4220,25 +4222,42 @@ class Director:
             if action == "start":
                 if current:
                     return [], {"ok": False, "error": f"{actor} is already working a ritual: {current['goal']}."}
-                made = crafting.start_ritual(goal, conditions)
-                terms = "; ".join(c["text"] for c in made["conditions"])
+                # "When you draw on a place of power": the campaign map says where those are.
+                if not (place or {}).get("power"):
+                    return [], {"ok": False, "error": (
+                        f"{actor} needs a place of power to work a ritual"
+                        + (f", and {place['name']} isn't one on the map" if place else
+                           ", and nothing on the map here is one") + ". If this place is one -- standing stones, "
+                        "a ley-line, a god's altar -- mark it first (world_map action=place name=... power=true); "
+                        "otherwise say they must find one.")}
+                made = crafting.start_ritual(goal, conditions, now or 0, place["name"], when)
+                terms = "; ".join(c["text"] + (f" (until {c['due_label']})" if c.get("due_label") else "")
+                                  for c in made["conditions"])
                 return [SendMessage(channel_id, f"🔮 **{actor}** begins a ritual: {made['goal']}.\nThe conditions: {terms}."),
                         UpdateSheet(channel_id, actor, {"ritual": made})], {
                     "ok": True, "note": "Recorded on their sheet, shown to you every turn. Mark each condition with "
-                                        "action=meet as play fulfils it; action=finish when it's done."}
+                                        "action=meet as play fulfils it -- a span of time meets itself on the "
+                                        "world clock; action=finish when it's done, back at the place of power."}
             if not current:
                 return [], {"ok": False, "error": f"{actor} has no ritual under way."}
             if action == "meet":
-                updated = crafting.meet(current, condition)
+                updated = crafting.meet(current, condition, now)
                 met = next(c["text"] for o, c in zip(current["conditions"], updated["conditions"]) if c["met"] and not o["met"])
                 return [SendMessage(channel_id, f"🔮 **{actor}**'s ritual: {met} — done."
-                                    + (" Every condition is met." if crafting.done(updated) else "")),
-                        UpdateSheet(channel_id, actor, {"ritual": updated})], {"ok": True, "all_met": crafting.done(updated)}
+                                    + (" Every condition is met." if crafting.done(updated, now) else "")),
+                        UpdateSheet(channel_id, actor, {"ritual": updated})], {
+                    "ok": True, "all_met": crafting.done(updated, now)}
             if action in ("finish", "abandon"):
                 outcome = " ".join(str(outcome or "").split())[:200]
-                if action == "finish" and not crafting.done(current):
-                    left = "; ".join(c["text"] for c in current["conditions"] if not c["met"])
-                    return [], {"ok": False, "error": f"Conditions still unmet: {left}. Meet them, or abandon it."}
+                if action == "finish" and not crafting.done(current, now):
+                    unmet = "; ".join(c["text"] + (f" ({crafting.left(c, now)})" if "due" in c and now is not None else "")
+                                      for c in current["conditions"] if not crafting.met(c, now))
+                    return [], {"ok": False, "error": f"Conditions still unmet: {unmet}. Meet them, or abandon it."}
+                from .worldmap import same_place
+
+                if action == "finish" and current.get("where") and location and not same_place(current["where"], location):
+                    return [], {"ok": False, "error": (f"The ritual is worked at {current['where']}: {actor} must be "
+                                                       "back there to finish it.")}
                 said = (f"🔮 **{actor}** completes the ritual: {current['goal']}" if action == "finish"
                         else f"🔮 **{actor}** abandons the ritual: {current['goal']}")
                 return [SendMessage(channel_id, said + (f" — {outcome}." if outcome else ".")),

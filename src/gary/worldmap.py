@@ -44,7 +44,7 @@ def _copy(world: Optional[Dict[str, Any]]) -> Dict[str, Any]:
 
 
 def place(world: Optional[Dict[str, Any]], name: str, kind: str = "landmark", note: str = "",
-          setting: str = "") -> Dict[str, Any]:
+          setting: str = "", power: bool = False) -> Dict[str, Any]:
     """Add a place, or update what's known of it. ``setting``: the bestiary's monster setting for
     what lives there (Woods, Swamp...) -- "a type of location and the monsters you might find there"."""
     out = _copy(world)
@@ -64,6 +64,8 @@ def place(world: Optional[Dict[str, Any]], name: str, kind: str = "landmark", no
     chosen = next((s for s in SETTINGS if s.lower() == str(setting or "").strip().lower()), "")
     if chosen:
         out["places"][key]["setting"] = chosen
+    if power:
+        out["places"][key]["power"] = True  # a place of power: where a Ritual can draw on it
     return out
 
 
@@ -169,7 +171,8 @@ def render(world: Optional[Dict[str, Any]], for_players: bool = False) -> str:
             far = f"{r['days']} day{'s' if r['days'] != 1 else ''}" if r["days"] else "distance unknown"
             ground = f", {r['terrain']}" if r["terrain"] else ""
             out.append(f"{places[other]['name']} ({far}{ground})" if other else f"{r['label']} (unexplored)")
-        kind = p["kind"] + (f", {p['setting']}" if p.get("setting") and not for_players else "")
+        kind = (p["kind"] + (", place of power" if p.get("power") else "")
+                + (f", {p['setting']}" if p.get("setting") and not for_players else ""))
         lines.append(f"• {p['name']} [{kind}]" + (f": {p['note']}" if p["note"] else "")
                      + (f" — to {'; '.join(out)}" if out else ""))
     for s in world["signs"]:

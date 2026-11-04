@@ -1114,6 +1114,9 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "setting": _s(type=_STRING, enum=["Caverns", "Depths", "Experiments", "Folk", "Hordes", "Planes",
                                                   "Swamp", "Undead", "Woods"],
                               description="place: the monster setting of what lives there (a marsh: Swamp)."),
+                "power": _s(type=types.Type.BOOLEAN, description=(
+                    "place: a place of power -- standing stones, a ley-line, a god's altar -- where a Wizard's "
+                    "Ritual can draw on it.")),
                 "from_place": _s(type=_STRING), "to": _s(type=_STRING),
                 "days": _s(type=_INTEGER), "terrain": _s(type=_STRING),
                 "near": _s(type=_STRING, description="sign: the place it's near."),
@@ -1124,7 +1127,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=RITUAL,
         description=(
-            "A Wizard's Ritual: drawing on a place of power to create a magical effect. action=start with the goal "
+            "A Wizard's Ritual: drawing on a place of power (one marked on the campaign map, where they are) to create "
+            "a magical effect. action=start with the goal "
             "and your one to four conditions (it takes days/weeks/months; first you must...; help from...; a lot "
             "of money; only a lesser version; danger from...; disenchanting something). It is kept on their sheet "
             "and shown to you every turn. action=meet marks a condition fulfilled (its number or a word from it); "

@@ -588,7 +588,11 @@ setting from the bestiary (Caverns, Depths, Undead…), so what lives there belo
 on a place of power to create a magical effect: the GM sets one to four conditions (weeks of
 work, help from someone, a lot of money, a lesser version, danger, something to disenchant).
 Gary keeps the ritual on the Wizard's sheet with each condition ticked off as play fulfils it,
-so its terms last between sessions; what it makes is recorded as a magic item. A Fighter with
+so its terms last between sessions; what it makes is recorded as a magic item. It can only be
+begun at a place of power marked on the campaign map (standing stones, a ley-line, a god's
+altar — the GM marks one when it's found), and finished back there. A condition that is a span
+of time ("three weeks") is met by the world clock, with the date it completes shown on the
+sheet: no one can tick it early. A Fighter with
 **Blacksmith** can, at a forge, graft a magic weapon's powers onto their signature weapon, and
 the magic weapon is destroyed. A Thief brews their poison with time and a quiet place. Or pay
 for it: a custom item from a blacksmith is the item's price plus 50 coins, and repairs are a

@@ -15,7 +15,8 @@ reach move onto the signature weapon, and the magic weapon is gone.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence, Tuple
+import re
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 from .sheets import SheetError
 
@@ -27,7 +28,28 @@ def _text(value: Any) -> str:
     return " ".join(str(value or "").split())[:MAX_TEXT]
 
 
-def start_ritual(goal: str, conditions: Sequence[str]) -> Dict[str, Any]:
+_UNIT = {"day": 1440, "week": 7 * 1440, "month": 30 * 1440, "year": 365 * 1440}
+_NUMBER = {"a": 1, "an": 1, "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8,
+           "nine": 9, "ten": 10, "eleven": 11, "twelve": 12, "a few": 3, "several": 4, "a couple of": 2}
+
+
+def duration(text: str) -> int:
+    """Minutes a condition takes, if it is a span of time ("it will take three weeks", "a month"):
+    0 when it isn't one. A bare plural ("weeks") is two of them."""
+    low = " ".join(str(text or "").lower().split())
+    m = re.search(r"\b(\d+|a couple of|a few|several|an|a|one|two|three|four|five|six|seven|eight|nine|ten|eleven|"
+                  r"twelve)\s+(day|week|month|year)s?\b", low)
+    if m:
+        count = int(m[1]) if m[1].isdigit() else _NUMBER[m[1]]
+        return count * _UNIT[m[2]]
+    m = re.search(r"\b(day|week|month|year)s\b", low)
+    return 2 * _UNIT[m[1]] if m else 0
+
+
+def start_ritual(goal: str, conditions: Sequence[str], now: int = 0, where: str = "",
+                 when: Optional[Callable[[int], str]] = None) -> Dict[str, Any]:
+    """The ritual begun now, at ``where``: a condition that is a span of time is met by the clock
+    itself once that much time has passed (``due``, shown as the date ``when`` gives)."""
     goal = _text(goal)
     if not goal:
         raise SheetError("Say what the ritual is to achieve.")
@@ -35,11 +57,33 @@ def start_ritual(goal: str, conditions: Sequence[str]) -> Dict[str, Any]:
     if not 1 <= len(named) <= MAX_CONDITIONS:
         raise SheetError("The GM gives one to four conditions: days, weeks or months; first you must...; help "
                          "from...; a lot of money; a lesser version; danger from...; disenchanting something.")
-    return {"goal": goal, "conditions": [{"text": c, "met": False} for c in named]}
+    out = []
+    for c in named:
+        entry: Dict[str, Any] = {"text": c, "met": False}
+        span = duration(c)
+        if span:
+            entry["due"] = int(now) + span
+            if when is not None:
+                entry["due_label"] = when(entry["due"])
+        out.append(entry)
+    return {"goal": goal, "conditions": out, "started": int(now), **({"where": _text(where)} if where else {})}
 
 
-def meet(ritual: Dict[str, Any], condition: str) -> Dict[str, Any]:
-    """Mark a condition met: by its number (1-4) or a word from it."""
+def met(condition: Dict[str, Any], now: Optional[int] = None) -> bool:
+    """Met by play, or -- a span of time -- by the clock."""
+    return bool(condition.get("met")) or (now is not None and "due" in condition and int(now) >= condition["due"])
+
+
+def left(condition: Dict[str, Any], now: int) -> str:
+    """How long a time condition still has to run, in words."""
+    minutes = max(0, int(condition["due"]) - int(now))
+    days = -(-minutes // 1440)
+    return f"{days} day{'s' if days != 1 else ''} to go" if days else "done"
+
+
+def meet(ritual: Dict[str, Any], condition: str, now: Optional[int] = None) -> Dict[str, Any]:
+    """Mark a condition met: by its number (1-4) or a word from it. A span of time is the clock's to
+    meet, not the GM's: refused until it has passed."""
     conditions = [dict(c) for c in ritual["conditions"]]
     wanted = str(condition or "").strip().lower()
     index = int(wanted) - 1 if wanted.isdigit() else next(
@@ -47,20 +91,27 @@ def meet(ritual: Dict[str, Any], condition: str) -> Dict[str, Any]:
     if not 0 <= index < len(conditions):
         raise SheetError("Name the condition met, by its number or a word from it: "
                          + "; ".join(f"{i + 1}. {c['text']}" for i, c in enumerate(conditions)))
-    conditions[index]["met"] = True
+    chosen = conditions[index]
+    if "due" in chosen and now is not None and not met(chosen, now):
+        raise SheetError(f"{chosen['text']}: that's the clock's to meet — {left(chosen, now)}"
+                         + (f" (until {chosen['due_label']})" if chosen.get("due_label") else "") + ".")
+    chosen["met"] = True
     return {**ritual, "conditions": conditions}
 
 
-def done(ritual: Dict[str, Any]) -> bool:
-    return all(c["met"] for c in ritual["conditions"])
+def done(ritual: Dict[str, Any], now: Optional[int] = None) -> bool:
+    return all(met(c, now) for c in ritual["conditions"])
 
 
 def describe(sheet: Dict[str, Any]) -> str:
     ritual = sheet.get("ritual")
     if not ritual:
         return ""
-    marks = "; ".join(f"{'☒' if c['met'] else '☐'} {c['text']}" for c in ritual["conditions"])
-    return f"Ritual under way: {ritual['goal']} — {marks}"
+    marks = "; ".join(f"{'☒' if c['met'] else '☐'} {c['text']}"
+                      + (f" (time: until {c['due_label']})" if c.get("due_label") and not c["met"] else "")
+                      for c in ritual["conditions"])
+    at = f" at {ritual['where']}" if ritual.get("where") else ""
+    return f"Ritual under way{at}: {ritual['goal']} — {marks}"
 
 
 def graft(sheet: Dict[str, Any], weapon: str) -> Tuple[List[Dict[str, Any]], str, str]:
