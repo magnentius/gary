@@ -495,7 +495,7 @@ CONDITION_OF: Dict[str, str] = {
 #: ("until they take damage"), Hold Person ("ends immediately if the target takes damage").
 BROKEN_BY_HARM = ("asleep", "charmed", "held", "turned", "dazed", "fleeing", "trusting")  # Goldenroot: "until proved otherwise"  # Turn Undead: "Aggression breaks the effects"
 #: A creature in one of these can't attack anyone.
-HELPLESS = ("asleep", "held", "caged", "dazed", "fleeing", "stunned")  # stunned: a Called Shot to the head
+HELPLESS = ("asleep", "held", "caged", "dazed", "fleeing", "stunned", "captive")  # stunned: a Called Shot to the head
 #: Turn Undead's ward: these can't come within reach of the Cleric who turned them.
 WARDED = ("turned", "dazed", "fleeing")
 #: Spells laid on a place: they stay where they were cast (and Cloudkill, "so long as you can see

@@ -81,6 +81,7 @@ WEAR_ARMOR = "wear_armor"
 DOMINATE = "dominate"
 UNSEEN_SERVANT = "unseen_servant"
 FREE_CREATURE = "free_creature"
+TAKE_CAPTIVE = "take_captive"
 STUDY_ESSENCE = "study_essence"
 WEAPON_GLOWS = "weapon_glows"
 TRAP_QUESTION = "trap_question"
@@ -1025,8 +1026,16 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
         name=FREE_CREATURE,
         description=("A spell's hold on a creature is broken by the fiction: a sleeper woken by loud noise or a "
                      "shake (Sleep: 'They awake as normal: loud noises, jolts, pain'), a charm seen through, a hold "
-                     "shrugged off. Pain does this by itself; this is for everything else. The caster's spell on it "
-                     "ends too."),
+                     "shrugged off, a captive slipping its bonds. Pain does this by itself; this is for everything "
+                     "else. The caster's spell on it ends too."),
+        parameters=_s(type=_OBJECT, properties={"creature": _s(type=_STRING), "reason": _s(type=_STRING)},
+                      required=["creature", "reason"]),
+    ),
+    types.FunctionDeclaration(
+        name=TAKE_CAPTIVE,
+        description=("A creature surrenders, or is tied up, chained or pinned for good: it becomes a captive. It "
+                     "stays in the scene to question, guard or bargain with, but can't attack, doesn't keep a battle "
+                     "going, and doesn't stop the party resting or making camp. If it slips free, free_creature."),
         parameters=_s(type=_OBJECT, properties={"creature": _s(type=_STRING), "reason": _s(type=_STRING)},
                       required=["creature", "reason"]),
     ),
@@ -1459,7 +1468,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
             type=_OBJECT,
             properties={
                 "location": _s(type=_STRING),
-                "summary": _s(type=_STRING, description="One line on the current situation."),
+                "summary": _s(type=_STRING, description=(
+                    "One line on the place as it now stands: what is here, what it looks like, what has changed "
+                    "(the collapsed arch, the body on the altar). Not who is doing what this moment. In a dungeon "
+                    "it is this area's entry on the map, read when they come back.")),
                 "steading": _s(type=_STRING, description=(
                     "The steading they are in, as create_steading named it -- or \"\" when they leave "
                     "for the wilds or a dungeon. What is for sale, prices, Supply and Recruit follow it.")),

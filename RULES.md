@@ -610,8 +610,14 @@ introduce a new faction or creature, use a threat from one, make you backtrack, 
 at a price, present a challenge to one of you), made above all when you enter a new area or
 miss a roll. Gary keeps the map, as the GM's principle "draw maps, leave blanks" asks: every
 area you enter goes on it with what was found there, the way you came in and the exits you saw,
-and an exit not yet taken stays a blank, waiting. The GM is shown the map every turn, so the
-layout holds and backtracking works; you see it with `/map`. A dungeon can have a monster
+and an exit not yet taken stays a blank, waiting. An exit that names a room already mapped leads
+there, and the same passage described twice is still one passage. The GM is shown the map every
+turn, so the layout holds and backtracking works: go back the way you came and you arrive where
+you were, not in a new room. You see it with `/map`.
+
+**Captives.** A creature that surrenders, or that you tie up or chain, becomes a captive. It stays
+with you, to question, guard or bargain with, but it can't attack, the fight is over if it was the
+last, and it doesn't stop you resting or making camp. If it slips its bonds, it's free again. A dungeon can have a monster
 setting from the bestiary (Caverns, Depths, Undead…), so what lives there belongs together.
 
 **Making things.** Dungeon World has no crafting system, only moves. A Wizard's **Ritual** draws

@@ -147,6 +147,8 @@ class Scenario:
     setup: Dict[str, dict] = field(default_factory=dict)
     # For --llm-players: what each character is after in this scene.
     goals: Dict[str, str] = field(default_factory=dict)
+    # For --llm-players: player turns before the scene is cut off (0: MAX_LLM_TURNS). A delve needs more.
+    turns: int = 0
 
 
 SCENARIOS: Dict[str, Scenario] = {
@@ -314,6 +316,27 @@ SCENARIOS: Dict[str, Scenario] = {
                "Moss": "Listen to what the ravens and the stag are saying; take the shape of a forest beast to stand "
                        "between the loggers and the stag; and spend time with the stag's spirit to study its "
                        "essence, so its shape is yours."},
+    ),
+    # A dungeon crawl, several areas deep: the map kept as they explore and backtrack, the Dungeon
+    # Moves, doors and traps, light and supplies running down, and a camp made where it isn't safe.
+    "delve": Scenario(
+        "delve",
+        "Low fantasy borderlands. The dwarves abandoned the Hollowdeep mine a generation ago, when its lower "
+        "levels flooded. Now ore-carts of stolen silver go in at night, and the miners of Fenwick who went to "
+        "look have not come back.",
+        ("The adit of the Hollowdeep mine", "A square tunnel mouth in the hillside, its dwarf-carved lintel "
+                                            "cracked. Fresh cart-tracks run inside. Beyond the first few yards "
+                                            "it is pitch dark, and somewhere below water drips."),
+        [],
+        goals={"Dorn": "Lead the way into the Hollowdeep mine and find the missing Fenwick miners, however deep "
+                       "they are. Light the way with torches from your adventuring gear. Fight what stands in "
+                       "the way, and if a passage is blocked, go back and try another.",
+               "Nim": "Scout ahead of Dorn: check doors and passages for traps before anyone walks them, pick "
+                      "any lock, and take any silver you can carry. Keep track of the way back out.",
+               "Thorin": "Keep the others alive in the dark: heal the wounded and turn back anything undead. "
+                         "When everyone is worn out, insist on making camp somewhere defensible in the mine, "
+                         "eat a ration and take a watch."},
+        turns=40,
     ),
     "camp": Scenario(
         "camp",
@@ -619,7 +642,8 @@ async def play_with_players(table: "Table", scenario: Scenario, players: Players
     last: Optional[str] = None
     opening = f"{scenario.scene[0]}. {scenario.scene[1]}"
     table.transport.heard.append(opening)
-    for _ in range(MAX_LLM_TURNS):
+    turns = scenario.turns or MAX_LLM_TURNS
+    for _ in range(turns):
         live = [n for n in names if n not in done]
         if not live:
             return
@@ -648,7 +672,7 @@ async def play_with_players(table: "Table", scenario: Scenario, players: Players
         if finished:
             done.add(actor)
             table.report.say(f"\n*{actor}'s player is done.*")
-    table.report.say(f"\n*Turn limit ({MAX_LLM_TURNS}) reached.*")
+    table.report.say(f"\n*Turn limit ({turns}) reached.*")
 
 
 # -- running -----------------------------------------------------------------------------
@@ -689,6 +713,10 @@ async def run(names: Sequence[str], seed: int, client: Any = None,
 
     for sheet in (table.store.state().get("sheets") or {}).values():
         report.say(f"- {describe(sheet)}")
+    from gary import dungeons
+
+    for dungeon in (table.store.state().get("dungeons") or {}).values():
+        report.say(f"\n## Dungeon map, as the GM sees it\n\n{dungeons.render(dungeon)}")
     return report
 
 

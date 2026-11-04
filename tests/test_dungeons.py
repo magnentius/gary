@@ -56,3 +56,70 @@ async def test_setting_scenes_in_a_dungeon_draws_its_map(rig):
 
 def test_creatures_of_a_setting_come_from_the_bestiary():
     assert "Ghoul" in dungeons.creatures("Undead") and "Goblin" not in dungeons.creatures("Undead")
+
+
+def _delve():
+    """The delve playtest's first three areas, as Gemini set them."""
+    d = dungeons.new("Hollowdeep Mine", "Caverns")
+    d = dungeons.enter(d, "Upper Adit", "dwarf-cut gallery", exits=["steep incline downward into the dark",
+                                                                    "adit mouth out to the hillside"])
+    return dungeons.enter(d, "Ore-Cart Turnout", came_from="Upper Adit", via="steep incline downward into the dark",
+                          exits=["steep incline back up to the Upper Adit", "half-flooded drift"])
+
+
+def test_an_exit_that_names_a_mapped_area_leads_there_and_isnt_doubled():
+    """Live: 'steep incline back up to the Upper Adit' stayed a blank beside Gary's own 'back to Upper Adit'."""
+    turnout = _delve()["areas"]["ore_cart_turnout"]
+    assert [(e["label"], e["to"]) for e in turnout["exits"]] == [
+        ("steep incline back up to the Upper Adit", "upper_adit"), ("half-flooded drift", "")]
+
+
+def test_listing_exits_again_replaces_the_blanks():
+    """Live: each re-description of the vault door added another unexplored exit."""
+    d = _delve()
+    d = dungeons.enter(d, "Ore-Cart Turnout", exits=["the incline up to the Upper Adit", "the flooded drift",
+                                                     "a collapsed tunnel"])
+    exits = {e["label"]: e["to"] for e in d["areas"]["ore_cart_turnout"]["exits"]}
+    assert exits == {"steep incline back up to the Upper Adit": "upper_adit", "the flooded drift": "",
+                     "a collapsed tunnel": ""}
+
+
+def test_the_longest_name_wins():
+    d = _delve()
+    d = dungeons.enter(d, "Upper Adit Archway", came_from="Ore-Cart Turnout", via="half-flooded drift")
+    d = dungeons.enter(d, "Vault", exits=["the slab door back to the Upper Adit Archway"])
+    assert d["areas"]["vault"]["exits"][0]["to"] == "upper_adit_archway"
+
+
+def test_backtracking_into_a_new_name_is_refused_with_the_known_one():
+    """Live: retreating up the incline made 'Upper Adit Archway', a second Upper Adit."""
+    d = _delve()
+    try:
+        dungeons.enter(d, "Upper Adit Archway", came_from="Ore-Cart Turnout", via="steep incline back up")
+    except ValueError as exc:
+        assert "leads to Upper Adit, already on the map" in str(exc) and "set_scene location 'Upper Adit'" in str(exc)
+    else:
+        raise AssertionError("not refused")
+    back = dungeons.enter(d, "Upper Adit", came_from="Ore-Cart Turnout", via="steep incline back up")
+    assert back["order"] == ["upper_adit", "ore_cart_turnout"] and back["here"] == "upper_adit"
+
+
+async def test_set_scene_refuses_a_new_name_for_a_known_room_and_says_which(rig):
+    director, store, history = rig
+    n = narrator(rig,
+                 call_response(T.SET_SCENE, {"location": "Upper Adit", "dungeon": "Hollowdeep Mine",
+                                             "exits": ["steep incline down"]}),
+                 call_response(T.SET_SCENE, {"location": "Ore-Cart Turnout", "dungeon": "Hollowdeep Mine",
+                                             "via": "steep incline down"}),
+                 call_response(T.SET_SCENE, {"location": "Upper Adit Archway", "dungeon": "Hollowdeep Mine",
+                                             "via": "back to Upper Adit"}),
+                 text_response("."))
+    await player(n, "we retreat up the incline")
+    record = store.state()["dungeons"]["hollowdeep_mine"]
+    assert record["order"] == ["upper_adit", "ore_cart_turnout"]
+    assert store.state()["scene"]["location"] == "Ore-Cart Turnout"
+
+
+def test_the_scene_summary_describes_the_place_not_the_moment():
+    (decl,) = [d for d in T.DECLARATIONS if d.name == T.SET_SCENE]
+    assert "Not who is doing what this moment" in decl.parameters.properties["summary"].description

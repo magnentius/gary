@@ -369,6 +369,13 @@ def helpless(creature: Dict[str, Any]) -> str:
     return next((c["kind"] for c in creature.get("conditions") or () if c.get("kind") in spells.HELPLESS), "")
 
 
+def fighting(creature: Dict[str, Any]) -> bool:
+    """Still in the fight: standing, and not a captive (bound, surrendered) -- who can be struck,
+    but doesn't keep a battle going or stop the party resting."""
+    return int(creature.get("hp", 0)) > 0 and not any(c.get("kind") == "captive"
+                                                       for c in creature.get("conditions") or ())
+
+
 def creature_harmed(state: Dict[str, Any], name: str, channel_id: int) -> List["Effect"]:
     """A creature just took damage: what that breaks. Sleep, Charm Person and Hold Person end;
     Dominate loses a hold ("If the target takes damage you lose 1 hold") and ends at none."""
@@ -411,7 +418,7 @@ def creature_harmed(state: Dict[str, Any], name: str, channel_id: int) -> List["
 def battle_over(state: Dict[str, Any], channel_id: int) -> List["Effect"]:
     """The last creature standing just fell: Bless ("+1 ongoing so long as battle continues") is over,
     and stops costing its caster -1 to cast."""
-    if any(int(r.get("hp", 0)) > 0 for r in (state.get("monsters") or {}).values()):
+    if any(fighting(r) for r in (state.get("monsters") or {}).values()):
         return []
     out: List[Effect] = []
     for name, sheet in (state.get("sheets") or {}).items():
@@ -891,7 +898,7 @@ class Director:
             mod += 1  # "As long as you have less than your Con in current HP... take +1 ongoing"
             notes.append("+1 A Good Day to Die")
         if (rules.key == "discern_realities" and advanced.has(mover, "Seeing Red")
-                and any(r["hp"] > 0 for r in self._monsters().values())):
+                and any(fighting(r) for r in self._monsters().values())):
             mod += 1
             notes.append("+1 Seeing Red")
         ready, prepared = self._preparation(channel_id, actor) if preparation else (0, [])
@@ -1716,7 +1723,7 @@ class Director:
 
     def _blessed(self, actor: str) -> bool:
         """Bless: "+1 ongoing so long as battle continues" -- while creatures stand."""
-        if not any(r["hp"] > 0 for r in self._monsters().values()):
+        if not any(fighting(r) for r in self._monsters().values()):
             return False
         return any(
             s.name == spells.BLESS and normalize_actor(t) == normalize_actor(actor)
@@ -3260,7 +3267,7 @@ class Director:
         braced = (sheet or {}).get("armor_forward") or []
         armor += sum(int(b["amount"]) for b in braced)
         if sheet:
-            standing = sum(1 for r in self._monsters().values() if r["hp"] > 0)
+            standing = sum(1 for r in self._monsters().values() if fighting(r))
             more, _ = advanced.armor_bonus(sheet, outnumbered=standing > len(self._party()))
             armor += more
         dealt = damage.through_armor(
@@ -3608,10 +3615,10 @@ class Director:
     def unsettled(self, channel_id: int, doing: str) -> str:
         """Why the party cannot take an hour or a night out, or "" if it can: creatures
         still standing, or anyone mid-move -- above all a Last Breath not yet rolled."""
-        standing = sorted(n for n, r in self._monsters().items() if r["hp"] > 0)
+        standing = sorted(n for n, r in self._monsters().items() if fighting(r))
         if standing:
-            return (f"You can't {doing} with {_and(standing)} still standing. Finish the "
-                    "fight, or remove them with remove_monsters if they have truly gone.")
+            return (f"You can't {doing} with {_and(standing)} still standing. Finish the fight, take_captive "
+                    "any who surrendered or are bound, or remove_monsters any who have truly gone.")
         pending = list(self.registry.open_checks(channel_id))
         if pending:
             what = _and(f"{c.actor}'s {MOVES[c.move].name}" for c in pending)
@@ -3850,6 +3857,26 @@ class Director:
             if len(kept) != len(ongoing):
                 out.append(UpdateSheet(channel_id, c["caster"], {"ongoing": kept}))
         return out, {"ok": True, "freed": name}
+
+    def take_captive(self, *, channel_id: int, creature: str, reason: str = "") -> Tuple[List[Effect], Dict[str, Any]]:
+        """A creature surrenders, or is bound or pinned for good: a captive. It stays in the scene --
+        to question, guard or bargain with -- but can't attack, and doesn't keep a battle going or stop
+        the party resting. free_creature when it slips its bonds; damage doesn't free it."""
+        scene = self._monsters()
+        name = next((n for n in scene if normalize_actor(n) == normalize_actor(creature) and scene[n]["hp"] > 0), None)
+        if name is None:
+            return [], {"ok": False, "error": f"No creature {creature!r} standing here."}
+        reason = " ".join(str(reason or "").split())[:160].rstrip(" .")
+        if not reason:
+            return [], {"ok": False, "error": "Say how they're taken (reason): surrendered, tied up, chained."}
+        held = [dict(c) for c in scene[name].get("conditions") or [] if c.get("kind") != "captive"]
+        out: List[Effect] = [ConditionMonster(channel_id, name, tuple([*held, {"kind": "captive", "spell": "taken",
+                                                                                 "caster": ""}])),
+                             SendMessage(channel_id, f"⛓️ **{name}** is a captive — {reason}.")]
+        after = {"sheets": dict(self._party()), "monsters": {**scene, name: {**scene[name], "conditions": [
+            *held, {"kind": "captive"}]}}}
+        out += battle_over(after, channel_id)
+        return out, {"ok": True, "captive": name}
 
     def study_essence(self, *, channel_id: int, character: str, species: str, reason: str = ""
                       ) -> Tuple[List[Effect], Dict[str, Any]]:

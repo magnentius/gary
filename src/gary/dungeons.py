@@ -34,16 +34,48 @@ def new(name: str, setting: str = "") -> Dict[str, Any]:
     return {"name": _text(name), "setting": setting, "areas": {}, "order": []}
 
 
+def _named(label: str, areas: Dict[str, Any], not_key: str) -> str:
+    """The mapped area an exit's label names ('the incline back up to the Upper Adit'), or "".
+    The longest name wins, so 'Upper Adit Archway' isn't taken for 'Upper Adit'."""
+    def words(value: str) -> str:  # slug() without its 40-character cut: labels run long
+        return "_" + re.sub(r"[^a-z0-9]+", "_", str(value or "").lower()).strip("_") + "_"
+
+    text = words(label)
+    found = [k for k, a in areas.items() if k != not_key and words(a["name"]) in text]
+    return max(found, key=lambda k: len(areas[k]["name"]), default="")
+
+
+def _same_way(a: str, b: str) -> bool:
+    a, b = a.lower(), b.lower()
+    return bool(a and b) and (a == b or a in b or b in a)
+
+
 def enter(dungeon: Dict[str, Any], area: str, summary: str = "", came_from: str = "", via: str = "",
           exits: Sequence[str] = ()) -> Dict[str, Any]:
     """The party enters ``area``: it goes on the map (or is revisited), joined to where they came
-    from by the exit they took, and its exits are added as blanks. Returns the new record."""
+    from by the exit they took, and its exits are added as blanks. Returns the new record.
+
+    An exit whose label names a mapped area leads there. Listing an area's exits again replaces its
+    blanks rather than adding to them: the same passage described in new words is one passage. Taking
+    an exit already known to lead somewhere else, into an area not yet mapped, is refused -- the
+    party is backtracking, and the map says where to."""
     out = {**dungeon, "areas": {k: {**v, "exits": [dict(e) for e in v["exits"]]} for k, v in dungeon["areas"].items()},
            "order": list(dungeon["order"])}
     key = slug(area)
     if not key:
         raise ValueError("Name the area.")
-    if key not in out["areas"]:
+    before = slug(came_from)
+    taken = _text(via)
+    fresh = key not in out["areas"]
+    if fresh and before and before != key and before in out["areas"] and taken:
+        known = next((e for e in out["areas"][before]["exits"]
+                      if e["to"] and e["to"] != key and e["to"] in out["areas"] and _same_way(e["label"], taken)), None)
+        if known is not None:
+            there = out["areas"][known["to"]]["name"]
+            raise ValueError(f"From {out['areas'][before]['name']}, '{known['label']}' leads to {there}, already on "
+                             f"the map. If they went back that way, set_scene location '{there}'. If this is "
+                             "somewhere new, name the exit they took differently (via).")
+    if fresh:
         if len(out["areas"]) >= MAX_AREAS:
             raise ValueError(f"{dungeon['name']} has {MAX_AREAS} areas mapped already.")
         out["areas"][key] = {"name": _text(area), "summary": "", "exits": []}
@@ -51,14 +83,21 @@ def enter(dungeon: Dict[str, Any], area: str, summary: str = "", came_from: str 
     here = out["areas"][key]
     if summary:
         here["summary"] = _text(summary)
-    for label in exits or ():
-        label = _text(label)
-        if label and not any(e["label"].lower() == label.lower() for e in here["exits"]):
-            here["exits"].append({"label": label, "to": ""})
-    before = slug(came_from)
+    labels = [_text(label) for label in exits or () if _text(label)]
+    if labels:
+        here["exits"] = [e for e in here["exits"] if e["to"]]  # blanks are replaced by the new list
+    for label in labels:
+        link = _named(label, out["areas"], key)
+        same = next((e for e in here["exits"] if e["label"].lower() == label.lower()), None)
+        if same is not None:
+            same["to"] = same["to"] or link
+            continue
+        if link and any(e["to"] == link for e in here["exits"]):
+            continue
+        here["exits"].append({"label": label, "to": link})
     if before and before != key and before in out["areas"]:
         back = out["areas"][before]
-        taken = _text(via) or f"to {here['name']}"
+        taken = taken or f"to {here['name']}"
         exit_ = next((e for e in back["exits"] if e["label"].lower() == taken.lower()), None) or next(
             (e for e in back["exits"] if e["to"] == key), None) or next(
             (e for e in back["exits"] if taken.lower() in e["label"].lower() and not e["to"]), None)
