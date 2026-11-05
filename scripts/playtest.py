@@ -600,6 +600,10 @@ dice or name game moves — just say what you try. Pursue your goal, but deal wi
 first. When your goal is done and nothing threatens you, answer exactly: DONE"""
 
 
+#: A model player's call: abandoned after this long, and tried this many times.
+PLAYER_TIMEOUT, PLAYER_ATTEMPTS = 90, 3
+
+
 class Players:
     """The characters, each played by a model with a goal."""
 
@@ -610,14 +614,25 @@ class Players:
     async def line(self, name: str, sheet_line: str, goal: str, heard: Sequence[str]) -> str:
         from google.genai import types
 
+        from gary.adapters.gemini import _bounded
+
         brief = _PLAYER_BRIEF.format(name=name, sheet=sheet_line, goal=goal)
         recent = "\n\n".join(heard[-6:]) or "(The scene opens.)"
-        response = await self.client.aio.models.generate_content(
-            model=self.model,
-            contents=[types.Content(role="user", parts=[types.Part.from_text(
-                text=f"The Game Master:\n{recent}\n\nWhat does {name} do?")])],
-            config=types.GenerateContentConfig(system_instruction=brief),
-        )
+        # Bounded like the narrator's own calls: a request stalled on a dead connection can ignore
+        # the HTTP timeout and never return, and it hung a whole campaign run.
+        for attempt in range(1, PLAYER_ATTEMPTS + 1):
+            try:
+                response = await _bounded(self.client.aio.models.generate_content(
+                    model=self.model,
+                    contents=[types.Content(role="user", parts=[types.Part.from_text(
+                        text=f"The Game Master:\n{recent}\n\nWhat does {name} do?")])],
+                    config=types.GenerateContentConfig(system_instruction=brief),
+                ), PLAYER_TIMEOUT)
+                break
+            except asyncio.TimeoutError:
+                if attempt == PLAYER_ATTEMPTS:
+                    raise
+                print(f"player model call for {name} got no answer in {PLAYER_TIMEOUT}s; retrying", file=sys.stderr)
         parts = response.candidates[0].content.parts if response.candidates else []
         text = " ".join(p.text for p in parts if getattr(p, "text", None)).strip()
         return " ".join(text.split())[:1200]  # 400 cut players off mid-sentence, and the GM stopped to ask
@@ -643,7 +658,8 @@ async def play_with_players(table: "Table", scenario: Scenario, players: Players
     opening = f"{scenario.scene[0]}. {scenario.scene[1]}"
     table.transport.heard.append(opening)
     turns = scenario.turns or MAX_LLM_TURNS
-    for _ in range(turns):
+    for turn in range(1, turns + 1):
+        print(f"{scenario.name}: turn {turn}/{turns}", file=sys.stderr, flush=True)  # progress, for a long run
         live = [n for n in names if n not in done]
         if not live:
             return
