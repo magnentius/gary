@@ -94,3 +94,28 @@ def test_the_name_pool_takes_in_the_class_chapters_lists():
 @pytest.mark.parametrize("state, shown", [({}, False), ({"setting": "Low fantasy"}, True)])
 def test_names_are_offered_once_a_game_is_under_way(state, shown):
     assert ("Fresh names for anyone new:" in render_live_state(state)) is shown
+
+
+# -- steading tags, as Gary shows them --------------------------------------------------------
+
+def _karst():
+    from gary import steadings
+    return steadings.make("Karst Village", "village", 1, 3,
+                          ["salt", "Ironhold", "cured meats", "Barrow-on-the-Hill", "Iron-Eye slavers"])
+
+
+def test_a_tag_is_removed_as_gary_shows_it():
+    """Live: 'Need (adventurers)', copied from Gary's own description, was refused."""
+    from gary import steadings
+    town = steadings.adjust({**_karst(), "tags": [*_karst()["tags"], {"tag": "need", "detail": "adventurers"}]},
+                            remove=["Need (adventurers)"])
+    assert not steadings.has(town, "need")
+
+
+def test_a_detail_picks_out_one_of_two_tags_and_a_bad_one_lists_them():
+    from gary import steadings
+    town = steadings.adjust(_karst(), remove=["Resource (salt)"])
+    assert steadings.details(town, "resource") == ["cured meats"]
+    with pytest.raises(steadings.SheetError, match=r"no Resource \(gold\) tag. Its tags: .*Resource \(salt\)"):
+        steadings.adjust(_karst(), remove=["Resource (gold)"])
+    assert steadings.details(steadings.adjust(_karst(), remove=["resource"]), "resource") == []  # bare: all of them

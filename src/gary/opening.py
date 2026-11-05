@@ -19,6 +19,7 @@ each step, and reading back its offer of places and activities.
 
 from __future__ import annotations
 
+import random
 import re
 from typing import Dict, List, Optional, Sequence, Tuple
 
@@ -41,10 +42,36 @@ NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "
 ONESHOT_SCENES = 3
 
 OFFERED = 4  # of each: places and activities
+
+#: Ingredients for a premise, a few drawn at random each time it is asked for. Fixed examples were
+#: echoed: shown "a silver mine", "drowned bell-towers" and "poisoning the abbey's well", three games
+#: running brought salt mines, phantom church bells, flooding crypts and poisoning saboteurs.
+PLACE_KINDS = (
+    "market town", "fishing village", "river ford", "toll bridge", "manor house", "hill fort", "border keep",
+    "monastery", "pilgrim shrine", "lighthouse", "harbour", "river barge", "merchant ship", "island", "quarry",
+    "mine", "logging camp", "vineyard", "orchard", "watermill", "windmill", "tannery", "brewery", "crossroads inn",
+    "travelling fair", "circus", "theatre", "bathhouse", "prison", "courthouse", "library", "college",
+    "graveyard", "barrow field", "standing stones", "ruined temple", "mountain pass", "glacier hut", "fen village",
+    "salt marsh", "heath", "deep forest", "hunting lodge", "caravan route", "oasis", "duke's palace", "sewers",
+    "beekeepers' hamlet", "horse fair", "shipyard", "smugglers' cove", "goblin market", "dwarf-hold gate",
+    "elven ruin", "wizard's tower", "giant's causeway", "hermitage", "plague village", "garrison town",
+)
+TROUBLES = (
+    "a debt come due", "a wedding", "a feud", "a disappearance", "a curse", "a festival", "an election",
+    "a disputed succession", "a strike", "a pilgrimage", "a trial", "a duel", "an inheritance", "a broken treaty",
+    "a haunting", "a monster's lair", "an escaped prisoner", "a lost heir", "a forbidden romance", "a rival crew",
+    "a forged deed", "a stolen relic", "a bandit toll", "a sick beast", "a hostage", "a bet", "a race",
+    "a tax revolt", "a false prophet", "a witch hunt", "a counterfeit coin", "a runaway apprentice",
+    "a buried secret", "a dragon's demand", "a lost map", "a siege", "an embassy", "a ransom", "a heresy",
+)
+SEASONS = ("the spring thaw", "high summer", "harvest time", "the first frost", "deep winter", "a long drought",
+           "the autumn rains", "midsummer's eve", "the dead of night all season")
 MAX_PART = 100  # a select option's label is 100 characters
 
 
-def premise_prompt(already: Sequence[str] = ()) -> str:
+def premise_prompt(already: Sequence[str] = (), rng: Optional[random.Random] = None) -> str:
+    rng = rng or random.Random()
+    places, troubles = rng.sample(PLACE_KINDS, 6), rng.sample(TROUBLES, 6)
     again = ""
     if already:
         again = ("Already offered and passed over -- offer genuinely different ones:\n"
@@ -53,15 +80,13 @@ def premise_prompt(already: Sequence[str] = ()) -> str:
         "OPENING: the table is starting a new Dungeon World adventure and choosing its premise: a "
         "location and a grabby activity -- what the characters are there to do. Not a campaign concept "
         "or a world: a place with a strong image, and a job with a clear goal and a reason it is hard.\n"
-        "PLACES are grounded: a real kind of place -- a town, a mine, an abbey, a ford, a manor, a fair, a "
-        "ship, a ruin -- with one memorable twist. Not titanic creatures' remains, not anything floating, "
-        "hanging or suspended, not lakes of molten anything. Examples: 'the drowned bell-towers of Old "
-        "Marrow', 'a toll bridge whose keeper hasn't been seen in a year', 'a silver mine the miners "
-        "won't go down after dark'.\n"
+        "PLACES are grounded: a real kind of place with one memorable twist. Not titanic creatures' "
+        "remains, not anything floating, hanging or suspended, not lakes of molten anything.\n"
         "ACTIVITIES have a clear goal and a complication. At least one must be winnable without "
         "bloodshed -- a negotiation, a delivery, a mystery, a rescue by wits or stealth, an escort, "
-        "keeping a peace. Examples: 'smuggle a cargo through the duke's blockade', 'broker a truce between "
-        "two feuding mill-towns before the wedding', 'find out who is poisoning the abbey's well'.\n"
+        "keeping a peace.\n"
+        f"This time, draw on these (most of your offers should use one; reach past the first idea): kinds of "
+        f"place -- {', '.join(places)}; troubles -- {', '.join(troubles)}; the season -- {rng.choice(SEASONS)}.\n"
         f"Offer {OFFERED} places and {OFFERED} activities, each able to pair with any of the others, "
         "varied in tone -- some light, some grim. No two may share an image or a central verb: at most "
         "one theft, one rescue, one escort, and no repeated motif.\n" + again

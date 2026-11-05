@@ -207,11 +207,16 @@ def adjust(record: Dict[str, Any], steps: Sequence[str] = (), add: Sequence[Tupl
         if len(step) < 2 or step[0] not in "+-" or step[1:] not in RANKED:
             raise SheetError(f"A step is +/- prosperity, population or defenses, not {step!r}.")
         _step(out, step)
-    for tag in remove:
-        tag = str(tag).strip().lower()
-        if not any(t["tag"] == tag for t in out["tags"]):
-            raise SheetError(f"{out['name']} has no {tag} tag.")
-        out["tags"] = [t for t in out["tags"] if t["tag"] != tag]
+    for written in remove:
+        # As Gary shows it, "Need (adventurers)", or the bare tag: the detail picks out one of
+        # several (a village with two Resources loses only the one named).
+        m = re.fullmatch(r"\s*([^()]+?)\s*(?:\((.*)\))?\s*", str(written))
+        tag, detail = (m.group(1).lower(), (m.group(2) or "").strip().lower()) if m else (str(written).lower(), "")
+        gone = [t for t in out["tags"] if t["tag"] == tag and (not detail or str(t.get("detail") or "").lower() == detail)]
+        if not gone:
+            raise SheetError(f"{out['name']} has no {written} tag. Its tags: "
+                             f"{', '.join(_shown(t) for t in out['tags']) or 'none'}.")
+        out["tags"] = [t for t in out["tags"] if t not in gone]
     for tag, detail in add:
         _add(out, str(tag).strip().lower(), detail)
     if kind:
@@ -282,8 +287,13 @@ def recruit_bonus(record: Optional[Dict[str, Any]], seeking: str) -> Tuple[int, 
     return 0, ""
 
 
+def _shown(tag: Dict[str, Any]) -> str:
+    """A tag as Gary shows it -- "Need (adventurers)" -- and as adjust() takes it back."""
+    return tag["tag"].title() + (f" ({tag['detail']})" if tag.get("detail") else "")
+
+
 def describe(record: Dict[str, Any]) -> str:
-    tags = ", ".join(t["tag"].title() + (f" ({t['detail']})" if t["detail"] else "") for t in record["tags"])
+    tags = ", ".join(_shown(t) for t in record["tags"])
     return (f"{record['name']} — {record['kind']}: {record['prosperity'].title()}, {record['population'].title()}, "
             f"{record['defenses'].title()}" + (f"; {tags}" if tags else ""))
 

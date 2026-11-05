@@ -377,3 +377,16 @@ def test_no_new_characters_once_a_one_shot_is_under_way(table):
 
     refused = asyncio.run(client._finish_character(_I(), {"name": "Kael", "class": "Fighter"}, 7))
     assert "no new characters once play has begun" in refused
+
+
+def test_the_prompt_draws_fresh_ingredients_and_shows_no_fixed_examples():
+    """Fixed examples were echoed: three games of salt mines, flooding crypts and poisoning saboteurs."""
+    import random
+
+    one, two = (opening.premise_prompt(rng=random.Random(seed)) for seed in (1, 2))
+    assert "This time, draw on these" in one and one != two
+    assert opening.premise_prompt(rng=random.Random(1)) == one  # the draw, not the wording, varies
+    for echoed in ("silver mine", "bell-towers", "abbey's well", "poisoning"):
+        assert echoed not in one
+    drawn = one.split("kinds of place -- ")[1].split(";")[0].split(", ")
+    assert len(drawn) == 6 and set(drawn) <= set(opening.PLACE_KINDS)
