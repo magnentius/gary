@@ -993,14 +993,13 @@ class GaryClient(discord.Client):
             return
         self._set_opening("offered premises",
                           offered=(offered + [f"{p} | {a}" for p, a in zip(places, activities)])[-8:])
-        listed = "\n".join(f"{i}. **{p}** — {a}" for i, (p, a) in enumerate(zip(places, activities), 1))
         await self.sender.send(
             channel_id,
             ("Some others. " if again else
              "A one-shot starts from a premise: a grabby thing to do, and the fantastic place where it ends -- the "
              "final destination. " if self._opening().get("mode") == "oneshot" else
              "Every adventure starts from a premise: a fantastic place, and something grabby to do there. ")
-            + "Choose one, write your own, or ask for other options.\n\n" + listed,
+            + "Choose one, write your own, or ask for other options.",
             prompt=PremisePrompt(tuple(places), tuple(activities)))
 
     async def on_premise(self, interaction: "discord.Interaction", place: str, activity: str) -> None:

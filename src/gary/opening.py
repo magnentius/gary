@@ -41,7 +41,7 @@ NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "
 #: longer cycles of levels and bonds don't really kick in".
 ONESHOT_SCENES = 3
 
-OFFERED = 4  # premises, each a place and an activity written together
+OFFERED = 5  # premises, each a place and an activity written together
 
 #: Ingredients for a premise, a few drawn at random each time it is asked for. Fixed examples were
 #: echoed: shown "a silver mine", "drowned bell-towers" and "poisoning the abbey's well", three games
@@ -67,7 +67,7 @@ TROUBLES = (
 SEASONS = ("the spring thaw", "high summer", "harvest time", "the first frost", "deep winter", "a long drought",
            "the autumn rains", "midsummer's eve", "the dead of night all season")
 MAX_PART = 100  # a select option's label, and its description, are 100 characters
-PLACE_CHARS, ACTIVITY_CHARS = 45, 90  # what Discord shows of an option's label and description
+PLACE_CHARS, ACTIVITY_CHARS = 45, 60  # about what Discord shows of an option's label and description
 
 
 def premise_prompt(already: Sequence[str] = (), rng: Optional[random.Random] = None) -> str:

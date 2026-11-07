@@ -19,6 +19,7 @@ PREMISE: a lighthouse on a tidal rock | relight the lamp before the smugglers' s
 - PREMISE: The drowned bell-towers of Old Marrow | ring the bells that call the drowned to rest
 **PREMISE**: a glass forest where every tree remembers | find which tree saw the duke's murder
 PREMISE: the moving market of the salt flats | win back a stolen stall in the traders' court
+PREMISE: a beekeepers' hamlet | calm the swarm before the wedding
 PREMISE: one too many | it should be dropped
 PREMISE: a place with no activity
 PLACE: an old-format line | ignored"""
@@ -27,7 +28,8 @@ PLACE: an old-format line | ignored"""
 def test_the_offer_is_read_however_the_model_dresses_it_with_each_activity_beside_its_place():
     places, activities = opening.parse_offer(OFFER)
     assert places == ["a lighthouse on a tidal rock", "The drowned bell-towers of Old Marrow",
-                      "a glass forest where every tree remembers", "the moving market of the salt flats"]
+                      "a glass forest where every tree remembers", "the moving market of the salt flats",
+                      "a beekeepers' hamlet"]
     assert activities[0] == "relight the lamp before the smugglers' ship runs aground"
     assert activities[2] == "find which tree saw the duke's murder"
     assert opening.parse_offer("I'd rather not.") == ([], [])
@@ -130,7 +132,7 @@ def test_the_whole_opening_in_order(table):
     assert sent[-1][1] == OpeningPrompt(("campaign", "oneshot"))
     assert store.state()["opening"]["starter"] == 11
     asyncio.run(client.on_opening_step(_Interaction(), "campaign"))
-    assert isinstance(sent[-1][1], PremisePrompt) and len(sent[-1][1].places) == 4
+    assert isinstance(sent[-1][1], PremisePrompt) and len(sent[-1][1].places) == 5
 
     # Someone else cannot choose for the table.
     other = _Interaction(uid=99)
