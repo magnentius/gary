@@ -73,7 +73,7 @@ Little is prepared: the world is built at the table, from the players' answers. 
 2. **Characters.** Everyone runs `/new`: a private form for class, race, stats, gear, look and
    the rest. The character is then yours: only you roll its moves.
 3. **Introductions.** Each player says who their character is and what they look like.
-4. **Hook questions.** Gary asks each character a pointed question or two about the premise
+4. **Hook questions.** Gary asks each character one pointed question about the premise
    ("Why do you trust the smuggler who betrayed your brother?"). Answer by @-mentioning him;
    your answers become facts of the world.
 5. **Bonds.** Everyone writes theirs, now that the characters know each other.
