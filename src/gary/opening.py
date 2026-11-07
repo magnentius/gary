@@ -46,52 +46,60 @@ OFFERED = 5  # premises, each a place and an activity written together
 #: Ingredients for a premise, a few drawn at random each time it is asked for. Fixed examples were
 #: echoed: shown "a silver mine", "drowned bell-towers" and "poisoning the abbey's well", three games
 #: running brought salt mines, phantom church bells, flooding crypts and poisoning saboteurs.
+#: Places to go into and threats to face (2026-11-07): weddings, elections and tax revolts made
+#: comedies of manners -- "settle an inheritance contest", "mediate a truce over grain levies".
 PLACE_KINDS = (
-    "market town", "fishing village", "river ford", "toll bridge", "manor house", "hill fort", "border keep",
-    "monastery", "pilgrim shrine", "lighthouse", "harbour", "river barge", "merchant ship", "island", "quarry",
-    "mine", "logging camp", "vineyard", "orchard", "watermill", "windmill", "tannery", "brewery", "crossroads inn",
-    "travelling fair", "circus", "theatre", "bathhouse", "prison", "courthouse", "library", "college",
-    "graveyard", "barrow field", "standing stones", "ruined temple", "mountain pass", "glacier hut", "fen village",
-    "salt marsh", "heath", "deep forest", "hunting lodge", "caravan route", "oasis", "duke's palace", "sewers",
-    "beekeepers' hamlet", "horse fair", "shipyard", "smugglers' cove", "goblin market", "dwarf-hold gate",
-    "elven ruin", "wizard's tower", "giant's causeway", "hermitage", "plague village", "garrison town",
+    "ruined keep", "border fort under siege", "dwarf-hold", "abandoned mine", "flooded mine", "sunken temple",
+    "barrow mound", "catacombs", "sealed tomb", "cursed monastery", "plague village", "burned village",
+    "haunted manor", "wizard's tower", "drowned city", "sea caves", "smugglers' cove", "shipwreck on the rocks",
+    "lighthouse on a reef", "lonely island", "fen", "salt marsh", "bog", "deep forest", "elven ruin",
+    "standing stones", "mountain pass", "glacier", "volcanic rift", "desert ruin", "oasis", "canyon",
+    "goblin warren", "orc stronghold", "bandit camp", "giant's hall", "dragon's lair", "hag's hut", "sewers",
+    "thieves' den", "prison", "besieged town", "frontier outpost", "logging camp in the deep woods",
+    "underground river", "chasm", "ancient battlefield", "beast-haunted hunting grounds",
 )
-TROUBLES = (
-    "a debt come due", "a wedding", "a feud", "a disappearance", "a curse", "a festival", "an election",
-    "a disputed succession", "a strike", "a pilgrimage", "a trial", "a duel", "an inheritance", "a broken treaty",
-    "a haunting", "a monster's lair", "an escaped prisoner", "a lost heir", "a forbidden romance", "a rival crew",
-    "a forged deed", "a stolen relic", "a bandit toll", "a sick beast", "a hostage", "a bet", "a race",
-    "a tax revolt", "a false prophet", "a witch hunt", "a counterfeit coin", "a runaway apprentice",
-    "a buried secret", "a dragon's demand", "a lost map", "a siege", "an embassy", "a ransom", "a heresy",
+THREATS = (
+    "a monster's lair", "a stolen relic", "a lost expedition", "a spreading curse", "raiders", "a cult",
+    "a sealed evil waking", "a missing patrol", "a hostage", "a plague", "a dragon's demand", "the restless dead",
+    "a besieging warband", "a rival crew of treasure hunters", "a necromancer", "a beast that hunts at night",
+    "a buried treasure", "a broken ward", "a lost map", "a kidnapped child", "a doomed caravan",
+    "an escaped prisoner", "a flood coming", "a gate between worlds", "a tyrant's tax collectors", "a witch",
+    "a poisoned spring", "a fallen hero's weapon", "an invasion from below", "a famine", "a hungry winter",
 )
 SEASONS = ("the spring thaw", "high summer", "harvest time", "the first frost", "deep winter", "a long drought",
-           "the autumn rains", "midsummer's eve", "the dead of night all season")
+           "the autumn rains", "midsummer's eve")
 MAX_PART = 100  # a select option's label, and its description, are 100 characters
 PLACE_CHARS, ACTIVITY_CHARS = 45, 60  # about what Discord shows of an option's label and description
 
 
 def premise_prompt(already: Sequence[str] = (), rng: Optional[random.Random] = None) -> str:
     rng = rng or random.Random()
-    places, troubles = rng.sample(PLACE_KINDS, 6), rng.sample(TROUBLES, 6)
+    places, threats = rng.sample(PLACE_KINDS, 6), rng.sample(THREATS, 6)
     again = ""
     if already:
         again = ("Already offered and passed over -- offer genuinely different ones:\n"
                  + "\n".join(f"- {a}" for a in already[-8:]) + "\n")
     return (
         "OPENING: the table is starting a new Dungeon World adventure and choosing its premise: a "
-        "location and a grabby activity -- what the characters are there to do. Not a campaign concept "
-        "or a world: a place with a strong image, and a job with a clear goal and a reason it is hard.\n"
-        "PLACES are grounded: a real kind of place with one memorable twist. Not titanic creatures' "
-        "remains, not anything floating, hanging or suspended, not lakes of molten anything.\n"
-        "ACTIVITIES have a clear goal and a complication. At least one must be winnable without "
-        "bloodshed -- a negotiation, a delivery, a mystery, a rescue by wits or stealth, an escort, "
-        "keeping a peace.\n"
+        "location and a grabby activity -- what the characters are there to do. This is a dungeon-crawling, "
+        "monster-fighting, treasure-hunting game: every premise is an ADVENTURE -- somewhere dangerous to go, "
+        "something worth the risk, and something there that will fight back. Not a campaign concept, not court "
+        "intrigue, not a comedy of manners.\n"
+        "PLACES are dangerous to go into or through -- a ruin, a lair, a wild place, a place under threat -- "
+        "with one concrete, striking image. Grounded, not whimsical: no paradoxes or jokes (nothing bleeding "
+        "wine, no ghouls turning windmills). Not titanic creatures' remains, not anything floating, hanging or "
+        "suspended, not lakes of molten anything.\n"
+        "ACTIVITIES are one clear goal with a threat in the way: recover, rescue, destroy, escape, stop, "
+        "explore, defend, hunt. One short clause -- one goal and one danger, no stacked side-plots or extra "
+        "named people. At most one of them may be solved mainly by talk or wits.\n"
         f"This time, draw on these (most of your offers should use one; reach past the first idea): kinds of "
-        f"place -- {', '.join(places)}; troubles -- {', '.join(troubles)}; the season -- {rng.choice(SEASONS)}.\n"
+        f"place -- {', '.join(places)}; threats -- {', '.join(threats)}. The season is {rng.choice(SEASONS)}: let it "
+        "colour at most one premise, never all of them.\n"
         f"Offer {OFFERED} premises. Each is ONE place and ONE activity written together: the activity "
-        "happens at that place and could happen nowhere else -- its goal, its people and its danger come from "
-        "the place's twist. The premises are varied in tone -- some light, some grim. No two may share an image "
-        "or a central verb: at most one theft, one rescue, one escort, and no repeated motif.\n" + again
+        "happens at that place, and its goal and its danger come from what makes the place what it is. The "
+        "premises are varied in tone -- some heroic, some grim. No two may share an image or a central verb: at "
+        "most one rescue, one theft, one escort, at most one witch, hag or crone, and no repeated motif. Begin "
+        "each activity with a different verb, and not every one as 'X before Y'.\n" + again
         + f"Reply with exactly {OFFERED} lines and nothing else, in this form:\n"
         + "\n".join(["PREMISE: <a fantastic place> | <a grabby activity there>"] * OFFERED)
         + f"\nEach place under {PLACE_CHARS} characters, each activity under {ACTIVITY_CHARS}. "

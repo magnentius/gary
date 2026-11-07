@@ -39,6 +39,7 @@ def test_the_prompt_asks_for_a_place_and_an_activity_and_names_the_rejects():
     text = opening.premise_prompt(["a glass forest"])
     assert "a location and a grabby activity" in text and "Call no tools" in text
     assert "PREMISE: <a fantastic place> | <a grabby activity there>" in text and "PLACE:" not in text
+    assert "ADVENTURE" in text and "colour at most one premise" in text and "not a comedy of manners" in text
     assert "- a glass forest" in text
     assert "passed over" not in opening.premise_prompt()
 
