@@ -392,7 +392,7 @@ class OpeningButton(
 
         mine = step == "mybonds"
         label = "Write my bonds" if mine else NEXT_LABEL[step] if step in (
-            "carryon", "finale", "campaign", "oneshot", "continue") else f"Next: {NEXT_LABEL[step]}"
+            "carryon", "finale", "campaign", "oneshot", "continue", "scene") else f"Next: {NEXT_LABEL[step]}"
         super().__init__(discord.ui.Button(
             label=label, emoji="🤝" if mine else "📖" if step == "finale" else "▶️",
             style=discord.ButtonStyle.secondary if mine else discord.ButtonStyle.primary,
@@ -505,6 +505,10 @@ class DiscordTransport:
 _SHEET_ACTIONS = ("spells", "companion", "bonds", "moves", "alignment", "choices", "gear", "levelup")
 
 #: What a typed `?dm` command gets now: the commands are slash commands.
+ROLE_MENTION_HINT = (
+    "I couldn't read that one — Discord sent it to me blank. The **@Gary** you picked was probably my *role*: "
+    "the picker shows two. Pick the one marked **APP**, reply to one of my messages, or use `/do`."
+)
 SLASH_ONLY = "Gary uses slash commands now: type `/` and pick one (`/help` lists them)."
 
 
@@ -1732,6 +1736,10 @@ class GaryClient(discord.Client):
             # Without the Message Content intent an unaddressed message comes with no text; there is
             # nothing to hear, and saying so to the model would be noise.
             log.info("player message %s arrived without text (no Message Content intent); ignored", message.id)
+            if self._addressed_directly(message):
+                # Addressed but blank: the "@Gary" picked was his role, not him. Discord sends a
+                # message's text only for a mention of the bot user, and the two look identical.
+                await self.sender.send(message.channel.id, ROLE_MENTION_HINT)
             return
         mentions_bot = self._addressed_directly(message)
         effects = self.director.on_player_message(

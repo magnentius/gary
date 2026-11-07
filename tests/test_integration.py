@@ -385,6 +385,46 @@ def test_bot_role_mention_counts_as_addressing_gary():
     assert addressed(_Msg()) is False
 
 
+def test_a_blank_message_to_gary_s_role_gets_a_hint_instead_of_silence():
+    """Without the Message Content intent, Discord blanks a message that mentions Gary's role
+    rather than Gary: the table saw 'I hide in the wreck' go unanswered (2026-11-07)."""
+    import asyncio
+    from types import SimpleNamespace
+
+    from gary.adapters.discord_bot import ROLE_MENTION_HINT, GaryClient
+
+    sent = []
+
+    class _Sender:
+        async def send(self, channel_id, text, **_):
+            sent.append((channel_id, text))
+
+    client = SimpleNamespace(user=SimpleNamespace(id=42), sender=_Sender())
+    client._addressed_directly = GaryClient._addressed_directly.__get__(client)
+    on_player = GaryClient._on_player.__get__(client)
+
+    def blank(**kw):
+        return SimpleNamespace(id=1, content="", channel=SimpleNamespace(id=7), mentions=[], role_mentions=[], **kw)
+
+    asyncio.run(on_player(blank()))
+    assert sent == []  # unaddressed chatter stays unheard
+    message = blank()
+    message.role_mentions = [_Role(bot_id=42)]
+    asyncio.run(on_player(message))
+    assert sent == [(7, ROLE_MENTION_HINT)]
+
+
+def test_the_next_scene_button_does_not_say_next_twice():
+    import asyncio
+
+    from gary.adapters.discord_bot import OpeningButton
+
+    async def build():
+        return OpeningButton("scene").item.label
+
+    assert asyncio.run(build()) == "Next scene"
+
+
 # -- ?dm import --------------------------------------------------------------------------
 
 
