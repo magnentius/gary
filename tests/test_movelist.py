@@ -41,3 +41,21 @@ def test_the_list_fits_discords_messages():
     pages = movelist.pages(THIEF)
     assert pages[0].startswith("**Nim's moves**") and all(len(p) <= 2000 for p in pages)
     assert any("**Everyone's moves**" in p for p in pages)
+
+
+def test_every_starting_and_race_move_has_a_written_line_saying_what_it_does():
+    from gary.class_moves import TEXTS
+
+    for cls, book in TEXTS.items():
+        for move in book["starting"]:
+            assert f"{cls}|{move['name']}" in movelist.WRITTEN, (cls, move["name"])
+        for race in book["race"]:
+            assert f"{cls}|race:{race}" in movelist.WRITTEN, (cls, race)
+
+
+def test_moves_is_one_message_each_move_in_a_line_with_what_it_does():
+    sheet = {**THIEF, "choices": {**(THIEF.get("choices") or {}), "poison": "Oil of Tagit"}, "poison_uses": 2}
+    (page,) = movelist.pages(sheet)
+    assert "**Backstab** — attack a surprised or defenceless enemy in melee (+Dex) → choose 2" in page
+    assert "Oil of Tagit (applied: the target falls into a light sleep) is safe in your hands → 2 uses left" in page
+    assert "**Everyone's moves** — Hack and Slash, Volley" in page
