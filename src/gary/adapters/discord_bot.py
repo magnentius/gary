@@ -506,8 +506,9 @@ _SHEET_ACTIONS = ("spells", "companion", "bonds", "moves", "alignment", "choices
 
 #: What a typed `?dm` command gets now: the commands are slash commands.
 ROLE_MENTION_HINT = (
-    "I couldn't read that one — Discord sent it to me blank. The **@Gary** you picked was probably my *role*: "
-    "the picker shows two. Pick the one marked **APP**, reply to one of my messages, or use `/do`."
+    "I couldn't read that one — Discord sent it to me blank. The **@Gary** you picked was my *role*: the picker "
+    "shows two. Pick the one with my picture, not the one that says \"Notify users with this role\" — or reply "
+    "to one of my messages, or use `/do`."
 )
 SLASH_ONLY = "Gary uses slash commands now: type `/` and pick one (`/help` lists them)."
 
