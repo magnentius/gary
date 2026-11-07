@@ -68,8 +68,8 @@ four hours: three scenes, a level-up break before the finale, and an epilogue; s
 Little is prepared: the world is built at the table, from the players' answers. Whoever ran
 `/begin` presses **Next** to move on at each step.
 
-1. **A premise.** Gary offers fantastic places and grabby activities: pick one of each, write
-   your own, or ask for others.
+1. **A premise.** Gary offers four premises, each a fantastic place with a grabby activity
+   written for it: pick one, write your own, or ask for others.
 2. **Characters.** Everyone runs `/new`: a private form for class, race, stats, gear, look and
    the rest. The character is then yours: only you roll its moves.
 3. **Introductions.** Each player says who their character is and what they look like.

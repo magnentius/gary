@@ -841,8 +841,9 @@ outside of active play", and not before the first session. The stage lives in st
 **Next** buttons survive a restart and only whoever ran `/begin` can press them.
 
 The premise offer is the one model call that decides nothing: `EffectRunner.ask` returns
-the text and drops any effects, and the places and activities are parsed rather than trusted
-(bullets and labels stripped), shown in two dropdowns beside **Write my own** and **Other
+the text and drops any effects, and the premises -- each a place and the activity written for
+it, as `PREMISE: place | activity` -- are parsed rather than trusted (bullets and labels
+stripped), shown in one dropdown (place as the label, activity beneath) beside **Write my own** and **Other
 options**, which names the ones passed over so the model offers new ground. The hook
 questions and the opening scene are rules events: ordinary turns with tools, where answers
 become NPCs and notes. Earlier versions seeded the world with `/setting`, `/scene`, `/time`

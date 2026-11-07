@@ -4,7 +4,7 @@ Dungeon World's first session prepares little and builds the world at the table.
 the recipe from "My Recipe for Starting Adventures" (Spouting Lore, 2020), which keeps the
 book's low prep and adds structure for players to build on:
 
-    premise        a fantastic place and a grabby activity -- Gemini offers some of each
+    premise        a fantastic place and a grabby activity -- Gemini offers a few, each pair written together
     characters     everyone makes one with /new
     introductions  name, class, look; the table asks each other questions
     questions      hook questions, each to one character, asserting as much as asking
@@ -14,7 +14,7 @@ book's low prep and adds structure for players to build on:
 
 The stage is kept in state (``opening``) by the OPENING mutation, so a restart resumes it
 and /undo can take a step back. This module holds the words: what the model is asked at
-each step, and reading back its offer of places and activities.
+each step, and reading back its offer of premises.
 """
 
 from __future__ import annotations
@@ -41,7 +41,7 @@ NEXT_LABEL = {"introductions": "Introductions", "questions": "Hook questions", "
 #: longer cycles of levels and bonds don't really kick in".
 ONESHOT_SCENES = 3
 
-OFFERED = 4  # of each: places and activities
+OFFERED = 4  # premises, each a place and an activity written together
 
 #: Ingredients for a premise, a few drawn at random each time it is asked for. Fixed examples were
 #: echoed: shown "a silver mine", "drowned bell-towers" and "poisoning the abbey's well", three games
@@ -66,7 +66,8 @@ TROUBLES = (
 )
 SEASONS = ("the spring thaw", "high summer", "harvest time", "the first frost", "deep winter", "a long drought",
            "the autumn rains", "midsummer's eve", "the dead of night all season")
-MAX_PART = 100  # a select option's label is 100 characters
+MAX_PART = 100  # a select option's label, and its description, are 100 characters
+PLACE_CHARS, ACTIVITY_CHARS = 45, 90  # what Discord shows of an option's label and description
 
 
 def premise_prompt(already: Sequence[str] = (), rng: Optional[random.Random] = None) -> str:
@@ -87,30 +88,37 @@ def premise_prompt(already: Sequence[str] = (), rng: Optional[random.Random] = N
         "keeping a peace.\n"
         f"This time, draw on these (most of your offers should use one; reach past the first idea): kinds of "
         f"place -- {', '.join(places)}; troubles -- {', '.join(troubles)}; the season -- {rng.choice(SEASONS)}.\n"
-        f"Offer {OFFERED} places and {OFFERED} activities, each able to pair with any of the others, "
-        "varied in tone -- some light, some grim. No two may share an image or a central verb: at most "
-        "one theft, one rescue, one escort, and no repeated motif.\n" + again
-        + f"Reply with exactly {OFFERED * 2} lines and nothing else, in this form:\n"
-        + "\n".join(["PLACE: <a fantastic location>"] * OFFERED + ["ACTIVITY: <a grabby activity>"] * OFFERED)
-        + f"\nEach under {MAX_PART} characters. No preamble, no numbering. Call no tools."
+        f"Offer {OFFERED} premises. Each is ONE place and ONE activity written together: the activity "
+        "happens at that place and could happen nowhere else -- its goal, its people and its danger come from "
+        "the place's twist. The premises are varied in tone -- some light, some grim. No two may share an image "
+        "or a central verb: at most one theft, one rescue, one escort, and no repeated motif.\n" + again
+        + f"Reply with exactly {OFFERED} lines and nothing else, in this form:\n"
+        + "\n".join(["PREMISE: <a fantastic place> | <a grabby activity there>"] * OFFERED)
+        + f"\nEach place under {PLACE_CHARS} characters, each activity under {ACTIVITY_CHARS}. "
+        "No preamble, no numbering. Call no tools."
     )
 
 
-_LINE = re.compile(r"^\s*(?:[-*>\d.)\s]*)\**(PLACE|ACTIVITY)\**\s*[:\-]\s*(.+?)\s*$", re.IGNORECASE)
+_LINE = re.compile(r"^\s*(?:[-*>\d.)\s]*)\**PREMISE\**\s*[:\-]\s*(.+?)\s*\|\s*(.+?)\s*$", re.IGNORECASE)
+
+
+def _clean(value: str) -> str:
+    return value.strip().strip('"*').strip()[:MAX_PART]
 
 
 def parse_offer(text: str) -> Tuple[List[str], List[str]]:
-    """The places and activities in the model's reply, as many as it gave (at most OFFERED)."""
+    """The premises in the model's reply, as many as it gave (at most OFFERED): their places, and
+    their activities in the same order -- the activity at index i belongs to the place at index i."""
     places: List[str] = []
     activities: List[str] = []
     for line in (text or "").splitlines():
         m = _LINE.match(line)
         if not m:
             continue
-        value = m[2].strip().strip('"').strip()[:MAX_PART]
-        if not value:
-            continue
-        (places if m[1].upper() == "PLACE" else activities).append(value)
+        place, activity = _clean(m[1]), _clean(m[2])
+        if place and activity:
+            places.append(place)
+            activities.append(activity)
     return places[:OFFERED], activities[:OFFERED]
 
 

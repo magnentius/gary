@@ -308,30 +308,33 @@ def wrapped_option(text: str, value: str, width: int = 45) -> "discord.SelectOpt
 
 @dataclass(frozen=True)
 class PremisePrompt:
-    """Gemini's places and activities, to choose a premise from (/begin)."""
+    """Gemini's premises, to choose one from (/begin): activities[i] happens at places[i]."""
 
     places: Tuple[str, ...]
     activities: Tuple[str, ...]
 
 
 class PremiseView(discord.ui.View):
-    """Pick a place and an activity -- or write your own, or ask for others -- then Accept.
-    Only whoever ran /begin may choose. Not durable: after a restart, /begin offers again."""
+    """Pick a premise -- a place and its activity, offered together -- or write your own, or ask
+    for others, then Accept. Only whoever ran /begin may choose. Not durable: after a restart,
+    /begin offers again."""
 
     def __init__(self, prompt: PremisePrompt) -> None:
         super().__init__(timeout=3600)
         self.place = self.activity = ""
-        self._place = discord.ui.Select(placeholder="Choose a fantastic place", row=0, options=[
-            wrapped_option(p, str(i)) for i, p in enumerate(prompt.places)])
-        self._activity = discord.ui.Select(placeholder="Choose a grabby activity", row=1, options=[
-            wrapped_option(a, str(i)) for i, a in enumerate(prompt.activities)])
-        self._place.callback = self._chose(lambda v: setattr(self, "place", prompt.places[int(v)]))
-        self._activity.callback = self._chose(lambda v: setattr(self, "activity", prompt.activities[int(v)]))
-        accept = discord.ui.Button(label="Accept", emoji="✅", style=discord.ButtonStyle.success, row=2)
-        own = discord.ui.Button(label="Write my own", emoji="✍️", style=discord.ButtonStyle.secondary, row=2)
-        more = discord.ui.Button(label="Other options", emoji="🎲", style=discord.ButtonStyle.secondary, row=2)
+        self._premise = discord.ui.Select(placeholder="Choose a premise", row=0, options=[
+            discord.SelectOption(label=p[:100], value=str(i), description=a[:100] or None)
+            for i, (p, a) in enumerate(zip(prompt.places, prompt.activities))])
+
+        def keep(v: str) -> None:
+            self.place, self.activity = prompt.places[int(v)], prompt.activities[int(v)]
+
+        self._premise.callback = self._chose(keep)
+        accept = discord.ui.Button(label="Accept", emoji="✅", style=discord.ButtonStyle.success, row=1)
+        own = discord.ui.Button(label="Write my own", emoji="✍️", style=discord.ButtonStyle.secondary, row=1)
+        more = discord.ui.Button(label="Other options", emoji="🎲", style=discord.ButtonStyle.secondary, row=1)
         accept.callback, own.callback, more.callback = self._accept, self._own, self._more
-        for item in (self._place, self._activity, accept, own, more):
+        for item in (self._premise, accept, own, more):
             self.add_item(item)
 
     def _chose(self, keep):
@@ -347,7 +350,7 @@ class PremiseView(discord.ui.View):
         if not await interaction.client.may_run_opening(interaction):
             return
         if not (self.place and self.activity):
-            await interaction.response.send_message("Choose a place and an activity first.", ephemeral=True)
+            await interaction.response.send_message("Choose a premise first.", ephemeral=True)
             return
         self.stop()
         await interaction.client.on_premise(interaction, self.place, self.activity)
@@ -988,14 +991,16 @@ class GaryClient(discord.Client):
         if not places or not activities:
             await self.sender.send(channel_id, "I couldn't come up with a premise just now. `/begin` to try again.")
             return
-        self._set_opening("offered premises", offered=(offered + places + activities)[-16:])
+        self._set_opening("offered premises",
+                          offered=(offered + [f"{p} | {a}" for p, a in zip(places, activities)])[-8:])
+        listed = "\n".join(f"{i}. **{p}** — {a}" for i, (p, a) in enumerate(zip(places, activities), 1))
         await self.sender.send(
             channel_id,
             ("Some others. " if again else
              "A one-shot starts from a premise: a grabby thing to do, and the fantastic place where it ends -- the "
              "final destination. " if self._opening().get("mode") == "oneshot" else
              "Every adventure starts from a premise: a fantastic place, and something grabby to do there. ")
-            + "Choose one of each, write your own, or ask for other options.",
+            + "Choose one, write your own, or ask for other options.\n\n" + listed,
             prompt=PremisePrompt(tuple(places), tuple(activities)))
 
     async def on_premise(self, interaction: "discord.Interaction", place: str, activity: str) -> None:

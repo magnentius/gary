@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 
+import discord
 import pytest
 
 from gary import opening
@@ -14,28 +15,28 @@ from gary.state.backend import InMemoryStateBackend
 from gary.state.store import CampaignStore
 
 OFFER = """Here you go:
-PLACE: a lighthouse on the back of a sleeping sea turtle
-- PLACE: The drowned bell-towers of Old Marrow
-**PLACE**: a glass forest where every tree remembers
-PLACE: the moving market of the salt flats
-PLACE: one too many
-ACTIVITY: smuggle a cargo through the duke's blockade
-ACTIVITY: steal back a book from a noble's estate during a masked ball
-ACTIVITY: escort a dying god to its grave
-ACTIVITY: win the Drowned Regatta"""
+PREMISE: a lighthouse on a tidal rock | relight the lamp before the smugglers' ship runs aground
+- PREMISE: The drowned bell-towers of Old Marrow | ring the bells that call the drowned to rest
+**PREMISE**: a glass forest where every tree remembers | find which tree saw the duke's murder
+PREMISE: the moving market of the salt flats | win back a stolen stall in the traders' court
+PREMISE: one too many | it should be dropped
+PREMISE: a place with no activity
+PLACE: an old-format line | ignored"""
 
 
-def test_the_offer_is_read_however_the_model_dresses_it():
+def test_the_offer_is_read_however_the_model_dresses_it_with_each_activity_beside_its_place():
     places, activities = opening.parse_offer(OFFER)
-    assert places == ["a lighthouse on the back of a sleeping sea turtle", "The drowned bell-towers of Old Marrow",
+    assert places == ["a lighthouse on a tidal rock", "The drowned bell-towers of Old Marrow",
                       "a glass forest where every tree remembers", "the moving market of the salt flats"]
-    assert len(activities) == 4 and activities[0] == "smuggle a cargo through the duke's blockade"
+    assert activities[0] == "relight the lamp before the smugglers' ship runs aground"
+    assert activities[2] == "find which tree saw the duke's murder"
     assert opening.parse_offer("I'd rather not.") == ([], [])
 
 
 def test_the_prompt_asks_for_a_place_and_an_activity_and_names_the_rejects():
     text = opening.premise_prompt(["a glass forest"])
     assert "a location and a grabby activity" in text and "Call no tools" in text
+    assert "PREMISE: <a fantastic place> | <a grabby activity there>" in text and "PLACE:" not in text
     assert "- a glass forest" in text
     assert "passed over" not in opening.premise_prompt()
 
@@ -399,3 +400,16 @@ def test_a_long_premise_runs_on_into_the_options_description_instead_of_being_cu
     option = wrapped_option(text, "0")
     assert len(option.label) <= 45 and f"{option.label} {option.description}" == text
     assert wrapped_option("A short place", "1").description is None
+
+
+def test_a_premise_is_one_option_its_place_the_label_and_its_activity_the_line_under_it():
+    from gary.adapters.discord_bot import PremiseView
+
+    async def build():
+        return PremiseView(PremisePrompt(("a tidal lighthouse", "a glass forest"),
+                                         ("relight the lamp", "find the witness tree")))
+
+    view = asyncio.run(build())
+    (select,) = [c for c in view.children if isinstance(c, discord.ui.Select)]
+    assert [(o.label, o.description) for o in select.options] == [
+        ("a tidal lighthouse", "relight the lamp"), ("a glass forest", "find the witness tree")]
