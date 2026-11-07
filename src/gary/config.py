@@ -106,6 +106,9 @@ class Settings:
     gemini_api_key: str = ""
     gemini_model: str = "gemini-3.8-flash"
     gemini_summary_model: str = "gemini-3.5-flash-lite"
+    # The narrator's thinking level: minimal | low | medium | high; empty is the model's default (high).
+    # Low measured ~4x faster than the default on the fight playtest (2026-11-07), with no worse rules.
+    gemini_thinking_level: str = "low"
     # §1 requires a timeout on every model call. Without one a hung request
     # blocks the turn forever: no log, no retry, and nothing at the table.
     gemini_timeout_seconds: float = 90.0
@@ -174,6 +177,7 @@ class Settings:
             gemini_api_key=e.get("GEMINI_API_KEY", ""),
             gemini_model=e.get("GARY_GEMINI_MODEL", "gemini-3.8-flash"),
             gemini_summary_model=e.get("GARY_GEMINI_SUMMARY_MODEL", "gemini-3.5-flash-lite"),
+            gemini_thinking_level=e.get("GARY_GEMINI_THINKING", "low"),
             gemini_timeout_seconds=float(e.get("GARY_GEMINI_TIMEOUT", 90.0)),
             gemini_fallback_model=e.get("GARY_GEMINI_FALLBACK_MODEL", "gemini-3.7-flash"),
             gemini_image_model=e.get("GARY_GEMINI_IMAGE_MODEL", "gemini-3.1-flash-image"),

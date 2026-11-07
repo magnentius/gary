@@ -126,6 +126,7 @@ class GeminiNarrator:
         fallback_model: str = "",
         max_context_chars: int = 160_000,
         summarize: bool = True,
+        thinking_level: str = "",
     ) -> None:
         self._client = client
         self._director = director
@@ -141,6 +142,9 @@ class GeminiNarrator:
         self._fallback_model = fallback_model
         self._max_context_chars = max_context_chars
         self._summarize = summarize
+        # How hard the narrator thinks before answering ("minimal", "low", "medium", "high");
+        # empty leaves the model's default. Thinking is most of a turn's latency.
+        self._thinking_level = thinking_level
         self._tasks: set = set()
         self._turn_locks: Dict[int, asyncio.Lock] = {}
         # Who spoke to start the turn now running, per channel. Read only under that
@@ -1789,12 +1793,20 @@ class GeminiNarrator:
             # We dispatch calls ourselves: make_move must go through the Director, and
             # the SDK's automatic loop would answer it immediately rather than deferring.
             automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+            thinking_config=(types.ThinkingConfig(thinking_level=self._thinking_level.upper())
+                             if self._thinking_level else None),
         )
-        return await self._with_retries(
+        started = time.monotonic()
+        response = await self._with_retries(
             lambda model: self._client.aio.models.generate_content(
                 model=model, contents=contents, config=config
             )
         )
+        usage = getattr(response, "usage_metadata", None)
+        log.info("model call %.1fs: %s prompt, %s thinking, %s out tokens",
+                 time.monotonic() - started, getattr(usage, "prompt_token_count", "?"),
+                 getattr(usage, "thoughts_token_count", "?"), getattr(usage, "candidates_token_count", "?"))
+        return response
 
     async def _with_retries(self, make_call) -> Any:
         """Retry the primary model, then try the fallback once before giving up.
