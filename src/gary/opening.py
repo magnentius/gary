@@ -143,16 +143,17 @@ def questions_event(premise_text: str, party: Sequence[Dict], oneshot: bool = Fa
             "characters": who,
             "instruction": (
                 "A one-shot starts now; there is no world yet, and the table builds it. The characters already know "
-                "each other and are travelling to the same place: the final destination in the premise. Ask "
-                "questions, each to one CHARACTER by name, that build three things: the SETTING (ask the characters "
-                "tied to places first -- a Druid's land, a Ranger's wilds, a Barbarian's homeland, a Thief's city "
-                "-- then the others), the PREMISES (what each of them is doing and why; several premises are fine, "
-                "even at odds with one another, but every one must lead to the final destination, and every "
-                "character must have a stake in at least one), and the OPPOSITION (who or what guards the "
-                "destination; ask one question that names the final enemy). Draw on their class choices -- appetites, "
-                "lore, deities, poisons. Assert as much as you ask; ask several questions about one thing to give it "
-                "edges. Do not narrate a scene yet. As answers come in, record each as fact (upsert_npc, record_note) "
-                "and follow up until the premises are clear. Do not create fronts."
+                "each other and are travelling to the same place: the final destination in the premise. Start with "
+                "exactly ONE question per character, addressed to that CHARACTER by name, never to the group: one "
+                "sentence with one question mark, never a list of questions or a question with several parts. "
+                "Assert as much as you ask: state the setting, the stakes and the opposition yourself as fact, and "
+                "ask only about the part where the character's answer matters most -- what they are doing and why "
+                "(it must lead to the final destination), or their tie to a place, person or danger their class "
+                "suggests (a Druid's land, a Ranger's wilds, a Thief's city, a Cleric's deity, a poisoner's oils). "
+                "Invent the city and the enemy guarding the destination yourself unless a character is clearly tied "
+                "to them. Do not narrate a scene yet. As answers come in, record each as fact (upsert_npc, "
+                "record_note) and follow up with one question at a time until the premise is clear. "
+                "Do not create fronts."
                 + _outsider_instruction(outsiders(party))
             ),
         }
@@ -163,14 +164,15 @@ def questions_event(premise_text: str, party: Sequence[Dict], oneshot: bool = Fa
         "instruction": (
             "The adventure starts now, and the world is built at the table. Ask hook questions that pin down "
             "the premise -- its motive, stakes, urgency, dangers, details and complications -- and how the "
-            "characters know each other and came together, as the book asks during introductions. Ask one to three "
-            "per character -- start with one each -- each addressed to a CHARACTER by name, never to the "
-            "group. Assert as much as you ask, so each question has hard edges ('Mara, the smuggler who "
-            "hired you betrayed your brother once. Why do you trust her now?'). Ask for something that "
-            "matters, not just a name; get personal -- their past, feelings and ties. Leave room for their "
+            "characters know each other and came together, as the book asks during introductions. Start with "
+            "exactly ONE question per character, addressed to that CHARACTER by name, never to the group: one "
+            "sentence with one question mark, never a list or a question with several parts. Assert as "
+            "much as you ask, so each question has hard edges ('Mara, the smuggler who hired you "
+            "betrayed your brother once. Why do you trust her now?'). Ask for something that matters, not just a name; get personal -- their past, feelings and ties. Leave room for their "
             "answer. Do not narrate a scene or start play yet. As answers come in on later turns, record "
             "each as fact (upsert_npc for people, record_note for places, dangers and lore), build on it, "
-            "and ask follow-ups until the core of the premise is clear -- leave some questions open for play."
+            "and ask follow-ups, one question at a time, until the core of the premise is clear -- leave "
+            "some questions open for play."
             + _outsider_instruction(outsiders(party))
         ),
     }

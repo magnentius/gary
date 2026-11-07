@@ -317,7 +317,7 @@ def test_a_one_shot_runs_three_scenes_a_break_and_an_epilogue(table):
     assert sent[-1][1] == OpeningPrompt(("questions",))  # no introductions: they travel together
 
     asyncio.run(client.on_opening_step(_Interaction(), "questions"))
-    assert ran[-1].payload["event"] == "One-shot: questions" and "OPPOSITION" in ran[-1].payload["instruction"]
+    assert ran[-1].payload["event"] == "One-shot: questions" and "ONE question" in ran[-1].payload["instruction"]
     asyncio.run(client.on_opening_step(_Interaction(), "bonds"))
     asyncio.run(client.on_opening_step(_Interaction(), "playing"))
     assert ran[-1].payload["event"].startswith("One-shot: scene 1 of 3")
