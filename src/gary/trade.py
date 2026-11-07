@@ -237,6 +237,21 @@ def recovered(thrown: Sequence[Dict[str, Any]], name: str) -> Optional[Dict[str,
         (t for t in thrown if wanted and (wanted in t["name"].lower() or t["name"].lower() in wanted)), None)
 
 
+def named_but_kept(sheet: Dict[str, Any], text: str) -> List[str]:
+    """What they still carry that ``text`` names -- by its whole name, or its last word ("bow" for
+    "Ragged bow"). take_items was called with only the arrows while its reason said "Ragged bow
+    and quiver knocked into the water": the narration lost the bow and the sheet kept it."""
+    said = " ".join(str(text or "").split()).lower()
+    out: List[str] = []
+    for g in sheet.get("gear") or ():
+        name = str(g.get("name", ""))
+        last = name.lower().split()[-1] if name.split() else ""
+        if name.lower() in said or (len(last) >= 3 and re.search(rf"\b{re.escape(last)}s?\b", said)):
+            if name not in out:
+                out.append(name)
+    return out
+
+
 def remove_items(sheet: Dict[str, Any], names: Sequence[str]) -> Tuple[Dict[str, Any], List[str]]:
     """Take items away -- dropped, lost, stolen, used up. Refuses one they do not carry,
     so the model narrates the truth rather than a loss that never happened."""

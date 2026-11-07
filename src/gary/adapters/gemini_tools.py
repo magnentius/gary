@@ -1322,7 +1322,8 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
     types.FunctionDeclaration(
         name=TAKE_ITEMS,
         description=(
-            "A character loses items -- dropped, used up, stolen, broken. Refused for "
+            "A character loses items -- dropped, used up, stolen, broken. List EVERY item "
+            "lost, by its name on the sheet (a bow and its arrows are two). Refused for "
             "anything they do not carry. Dropping a weapon or armor changes what they can "
             "attack with and their armor at once. Not for sales: use sell."
         ),

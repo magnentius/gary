@@ -157,3 +157,12 @@ def test_a_supply_price_is_bounded():
     assert cost == 300 and label == "Moonlit blade"
     with pytest.raises(trade.TradeError, match="1 to 500"):
         trade.buy(thorin(coins=900), "Moonlit blade", price=800)
+
+
+def test_a_loss_whose_reason_names_more_than_was_taken_says_what_is_still_carried():
+    """take_items got only the arrows while its reason read "Ragged bow and quiver knocked into
+    the water": the narration lost the bow and the sheet kept it (2026-11-07)."""
+    sheet = {"gear": [{"name": "Dagger"}, {"name": "Short sword"}, {"name": "Ragged bow"}]}
+    assert trade.named_but_kept(sheet, "Ragged bow and quiver knocked into the cellar water") == ["Ragged bow"]
+    assert trade.named_but_kept(sheet, "his bows fall away") == ["Ragged bow"]
+    assert trade.named_but_kept(sheet, "arrows spent in the fight") == []

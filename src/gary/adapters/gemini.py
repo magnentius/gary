@@ -1077,6 +1077,11 @@ class GeminiNarrator:
                 new, lost = trade.remove_items(sheet, [str(i) for i in args.get("items", [])])
                 line = f"🎒 **{actor}** loses {', '.join(lost)}" + (f" — {reason}" if reason else "") + "."
                 result = {"ok": True, "lost": lost}
+                kept = trade.named_but_kept(new, reason)
+                if kept:
+                    result["still_carried"] = kept
+                    result["note"] = (f"Your reason names {', '.join(kept)}, still on {actor}'s sheet. If that is "
+                                      "lost too, call take_items for it now; narrate only what the sheet shows.")
             elif name == T.GIVE_COINS:
                 amount = int(args.get("amount", 0))
                 new = trade.give_coins(sheet, amount)
