@@ -142,7 +142,7 @@ class ChooseSelect(
                 min_values=choice.count,
                 max_values=choice.count,
                 options=[
-                    discord.SelectOption(label=o.text[:100], value=str(i))
+                    wrapped_option(o.text, str(i))
                     for i, o in enumerate(choice.options)
                 ],
                 custom_id=f"gary:choose:{check_id}:{move}:{band}",
@@ -294,6 +294,18 @@ class CureButton(
         await interaction.client.on_cure(interaction, self.user_id, self.debility)
 
 
+def wrapped_option(text: str, value: str, width: int = 45) -> "discord.SelectOption":
+    """A select option that shows all of a long text: Discord cuts the label off at one line (about
+    45 characters), so the rest runs on in the grey description line under it."""
+    text = text.strip()
+    if len(text) <= width:
+        return discord.SelectOption(label=text, value=value)
+    cut = text.rfind(" ", 0, width + 1)
+    cut = cut if cut > 0 else width
+    return discord.SelectOption(label=text[:cut].rstrip()[:100], value=value,
+                                description=text[cut:].strip()[:100] or None)
+
+
 @dataclass(frozen=True)
 class PremisePrompt:
     """Gemini's places and activities, to choose a premise from (/begin)."""
@@ -310,9 +322,9 @@ class PremiseView(discord.ui.View):
         super().__init__(timeout=3600)
         self.place = self.activity = ""
         self._place = discord.ui.Select(placeholder="Choose a fantastic place", row=0, options=[
-            discord.SelectOption(label=p[:100], value=str(i)) for i, p in enumerate(prompt.places)])
+            wrapped_option(p, str(i)) for i, p in enumerate(prompt.places)])
         self._activity = discord.ui.Select(placeholder="Choose a grabby activity", row=1, options=[
-            discord.SelectOption(label=a[:100], value=str(i)) for i, a in enumerate(prompt.activities)])
+            wrapped_option(a, str(i)) for i, a in enumerate(prompt.activities)])
         self._place.callback = self._chose(lambda v: setattr(self, "place", prompt.places[int(v)]))
         self._activity.callback = self._chose(lambda v: setattr(self, "activity", prompt.activities[int(v)]))
         accept = discord.ui.Button(label="Accept", emoji="✅", style=discord.ButtonStyle.success, row=2)

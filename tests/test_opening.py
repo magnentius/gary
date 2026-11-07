@@ -390,3 +390,12 @@ def test_the_prompt_draws_fresh_ingredients_and_shows_no_fixed_examples():
         assert echoed not in one
     drawn = one.split("kinds of place -- ")[1].split(";")[0].split(", ")
     assert len(drawn) == 6 and set(drawn) <= set(opening.PLACE_KINDS)
+
+
+def test_a_long_premise_runs_on_into_the_options_description_instead_of_being_cut_off():
+    from gary.adapters.discord_bot import wrapped_option
+
+    text = "A flooded monastic library where scholars pole flatboats among the drowned stacks"
+    option = wrapped_option(text, "0")
+    assert len(option.label) <= 45 and f"{option.label} {option.description}" == text
+    assert wrapped_option("A short place", "1").description is None
