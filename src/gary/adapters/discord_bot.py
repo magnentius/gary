@@ -19,11 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 import signal
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import discord
 
@@ -57,6 +58,39 @@ from .sender import ChannelSender
 
 log = logging.getLogger("gary.discord")
 
+
+
+NICK_MAX = 32  # Discord's limit on a server nickname
+_TAG = re.compile(r"\s*\([^()]*\)\s*$")
+
+
+def tagged_nickname(current: str, actor: str) -> str:
+    """``current`` with its character tag set to ``actor``: "Magnentius (Slymin)". An old
+    tag is replaced rather than stacked, and the name is cut, not the tag, to fit 32."""
+    base = _TAG.sub("", current or "").strip()
+    tag = f" ({actor})"[:NICK_MAX]
+    return (base[:NICK_MAX - len(tag)].rstrip() + tag).strip()
+
+
+async def tag_nickname(member: Any, actor: str) -> None:
+    """Show who plays whom in the member list by setting the player's server nickname.
+
+    Best effort: it needs Manage Nicknames and a role above the player's, and Discord never
+    lets a bot rename the server owner, so a failure is logged and play goes on.
+    """
+    guild = getattr(member, "guild", None)
+    if guild is None or not hasattr(member, "edit"):
+        return  # a DM, or a user rather than a member
+    if getattr(guild, "owner_id", None) == member.id:
+        log.info("not tagging %s: Discord does not let bots rename the server owner", member)
+        return
+    wanted = tagged_nickname(member.nick or member.display_name, actor)
+    if wanted == member.nick:
+        return
+    try:
+        await member.edit(nick=wanted, reason=f"playing {actor}")
+    except discord.HTTPException as exc:  # Forbidden included: no permission, or role too low
+        log.warning("could not set %s's nickname to %r: %s", member, wanted, exc)
 
 class RollButton(
     discord.ui.DynamicItem[discord.ui.Button],
@@ -1192,6 +1226,7 @@ class GaryClient(discord.Client):
             return "That could not be saved: " + "; ".join(r for _, r in diff.rejected)
         self.director.set_player_character(user_id, name)
         await self.sender.send(channel_id, f"**{name}** joins the party — {describe(sheet, with_name=False)}")
+        await tag_nickname(interaction.user, name)
         if fallen and current.get("stage") in ("playing", "session", "done"):
             from .. import opening
 
@@ -1916,6 +1951,7 @@ class GaryClient(discord.Client):
             await self.sender.send(
                 channel_id, f"Noted — **{message.author.display_name}** is playing **{actor}**."
             )
+            await tag_nickname(message.author, actor)
             return
 
         if command == "undo":

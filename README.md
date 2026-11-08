@@ -18,6 +18,9 @@ creatures, the clock, the journal — in a local campaign store.
   speak to Gary with `@Gary …`, a reply to one of his messages, or `/do …` — the text Discord
   sends any bot. Only for freeform channels (see below) do you need the **Message Content**
   privileged intent, enabled in the Developer Portal and with `GARY_MESSAGE_CONTENT=1`.
+  Give his role **Manage Nicknames**, placed above the players' roles, and `/playing` or `/new`
+  tags each player's server nickname with their character: "Magnentius (Slymin)". Discord never
+  lets a bot rename the server owner, so the owner sets their own with `/nick`.
 - **A game channel's id** — right-click the channel → Copy Channel ID (turn on Developer
   Mode in Discord's settings first).
 - **Python 3.11+**, or Docker.
