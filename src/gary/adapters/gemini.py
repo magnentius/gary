@@ -1158,7 +1158,7 @@ class GeminiNarrator:
 
         store.apply([Mutation(MutationKind.SHEET, actor, {"sheet": new})], reason=line)
         result.update(coins=new.get("coins", 0), armor=new["armor"])
-        return [SendMessage(channel_id, f"{line} ({new.get('coins', 0)} coins)")], result
+        return [SendMessage(channel_id, f"{line} (now {new.get('coins', 0)} coins)")], result
 
     def _found_stronghold(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Landed: the stronghold goes on the map as a keep steading, and on the sheet."""

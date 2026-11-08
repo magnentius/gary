@@ -859,7 +859,7 @@ async def test_found_loot_goes_on_the_sheet_and_is_announced(clock):
     sheet = store.state()["sheets"]["Kethra"]
     assert [g["name"] for g in sheet["gear"]] == ["Long Sword"] and sheet["coins"] == 32
     assert any(isinstance(e, SendMessage) and e.text == (
-        "🎒 **Kethra** gets Long Sword (close, +1 damage), 12 coins — from the bandit. (32 coins)"
+        "🎒 **Kethra** gets Long Sword (close, +1 damage), 12 coins — from the bandit. (now 32 coins)"
     ) for e in result.effects)
     store.undo_last()
     assert store.state()["sheets"]["Kethra"]["coins"] == 20
