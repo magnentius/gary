@@ -104,6 +104,7 @@ Little is prepared: the world is built at the table, from the players' answers. 
 | `/sheet` | Your sheet, privately, with buttons for moves, spells, bonds, companion, alignment and level-up. |
 | `/moves` | Your character's moves in full, and everyone's moves with when they come up, privately; `move:` for one in full. |
 | `/playing character:` | Claim a character someone else made. |
+| `/away` · `/back` | A character sits out while their player is missing: Gary leaves them out of every scene, and they make no moves, until `/back`. |
 | `/checks` | What Gary is waiting on, with a button to cancel your own move. |
 | `/dice` | How the table's dice have fallen, against fair 2d6; `character:` for one character. |
 | `/npcs` | The people you've met or heard of, how they feel about you; `name:` for one. |

@@ -35,6 +35,7 @@ __Starting__
 `/begin` — start the adventure (a premise, introductions, hook questions, bonds, the first scene), and later each session
 `/end` — end the session: the end-of-session questions, XP, and the GM's work between sessions
 `/new` — make a character (a private form) · `/playing character:` — claim one someone else made
+`/away` · `/back` — a character sits out while their player is missing, and rejoins
 
 __At the table__
 `/do` — what your character does or says: `/do I hurl my spear at the archer` (or just write `@Gary …`, or reply to him)
@@ -225,6 +226,18 @@ def register(client: "GaryClient") -> app_commands.CommandTree:
     @app_commands.autocomplete(character=characters)
     async def playing(interaction: "discord.Interaction", character: str) -> None:
         await run(interaction, f"playing {character}")
+
+    @tree.command(name="away", description="A character sits out: their player isn't at the table")
+    @app_commands.describe(character="Who is away (yours if left out)")
+    @app_commands.autocomplete(character=characters)
+    async def away(interaction: "discord.Interaction", character: Optional[str] = None) -> None:
+        await run(interaction, f"away {character or ''}")
+
+    @tree.command(name="back", description="A character who was away rejoins the party")
+    @app_commands.describe(character="Who is back (yours if left out)")
+    @app_commands.autocomplete(character=characters)
+    async def back(interaction: "discord.Interaction", character: Optional[str] = None) -> None:
+        await run(interaction, f"back {character or ''}")
 
     @tree.command(name="checks", description="What Gary is waiting to be rolled")
     async def checks(interaction: "discord.Interaction") -> None:

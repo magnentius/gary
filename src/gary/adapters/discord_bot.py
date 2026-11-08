@@ -1494,6 +1494,30 @@ class GaryClient(discord.Client):
                 out["levelup"] = str(exc)
         return out
 
+    async def _away(self, message: Any, channel_id: int, command: str, named: str) -> None:
+        """`/away` and `/back`: a character whose player is not at the table is out of the story
+        -- in no scene, addressed by nobody, rolling nothing -- until they are back."""
+        sheets = self.store.state().get("sheets") or {}
+        actor = (next((a for a in sheets if a.lower() == named.lower()), None) if named
+                 else self.director.players.get(message.author.id))
+        if actor is None or actor not in sheets:
+            await self.sender.send(channel_id, f"No character {named!r}." if named
+                                   else f"`/{command} character:` — whose? You haven't claimed one with `/playing`.")
+            return
+        away = command == "away"
+        if bool(sheets[actor].get("away")) == away:
+            await self.sender.send(channel_id, f"**{actor}** is already {'away' if away else 'here'}.")
+            return
+        changes = [Mutation(MutationKind.SHEET, actor, {"sheet": {**sheets[actor], "away": away}})]
+        apart = dict((self.store.state().get("scene") or {}).get("apart") or {})
+        if actor in apart:  # away is out of every scene, and back is back with the party
+            apart.pop(actor)
+            changes.append(Mutation(MutationKind.SCENE, "", {"apart": apart}))
+        self.store.apply(changes, reason=f"{actor} is {'away' if away else 'back'}")
+        await self.sender.send(channel_id, (
+            f"**{actor}** is away. Gary leaves them out of the story until `/back`." if away
+            else f"**{actor}** is back with the party."))
+
     async def _sheet_hub(self, message, channel_id: int, prefix: str, only: Optional[str] = None,
                          reply=None) -> None:
         """`/sheet`: the sheet, with a button for everything this character can open --
@@ -1952,6 +1976,10 @@ class GaryClient(discord.Client):
                 channel_id, f"Noted — **{message.author.display_name}** is playing **{actor}**."
             )
             await tag_nickname(message.author, actor)
+            return
+
+        if command in ("away", "back"):
+            await self._away(message, channel_id, command, body[len(command):].strip())
             return
 
         if command == "undo":

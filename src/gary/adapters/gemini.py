@@ -231,7 +231,8 @@ class GeminiNarrator:
         blocks = [DM_SYSTEM_INSTRUCTION, render_live_state(state)]
         sheets = state.get("sheets") or {}
         seated = sorted({a for a in (state.get("players") or {}).values()
-                         if not (sheets.get(a) or {}).get("dead") and not out_of_play(sheets.get(a) or {})})
+                         if not (sheets.get(a) or {}).get("dead") and not out_of_play(sheets.get(a) or {})
+                         and not (sheets.get(a) or {}).get("away")})
         tally = spotlight(moments_in(contents), seated)
         if tally:
             blocks.append(tally)
@@ -832,6 +833,12 @@ class GeminiNarrator:
                 continue
 
             if name == T.MAKE_MOVE:
+                gone = next((a for a, sh in (self._store.state().get("sheets") or {}).items()
+                             if a.lower() == str(args.get("actor", "")).strip().lower() and sh.get("away")), None)
+                if gone:
+                    responses.append(types.Part.from_function_response(name=name, response={
+                        "ok": False, "error": f"{gone} is away: their player isn't at the table. They make no moves."}))
+                    continue
                 waiting = self._opened_this_turn(channel_id, str(args.get("actor", "")))
                 if waiting is not None:
                     responses.append(types.Part.from_function_response(name=name, response={
@@ -1666,6 +1673,18 @@ class GeminiNarrator:
             payload = {"location": str(args.get("location", ""))}
             if args.get("summary"):
                 payload["summary"] = str(args["summary"])
+            if "apart" in args:
+                sheets_now = store.state().get("sheets") or {}
+                apart: Dict[str, str] = {}
+                for entry in args.get("apart") or []:
+                    who, _, where = str(entry).partition(":")
+                    actor = next((a for a in sheets_now if a.lower() == who.strip().lower()), None)
+                    if actor is None:
+                        return {"ok": False, "error": f"apart: no character {who.strip()!r}. Write 'Name: where'."}
+                    if sheets_now[actor].get("away"):
+                        return {"ok": False, "error": f"{actor} is away (their player isn't here): in no scene at all."}
+                    apart[actor] = " ".join(where.split()) or "elsewhere"
+                payload["apart"] = apart
             if "steading" in args:
                 # The steading they are in, or "" for none (the wilds, a dungeon).
                 from ..steadings import slug

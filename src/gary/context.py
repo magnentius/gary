@@ -299,6 +299,13 @@ def render_live_state(state: Dict[str, Any]) -> str:
         lines.append(f"- Location: {scene['location']}")
     if scene.get("summary"):
         lines.append(f"- Scene: {scene['summary']}")
+    apart = {a: w for a, w in (scene.get("apart") or {}).items()
+             if not ((state.get("sheets") or {}).get(a) or {}).get("away")}
+    if apart:
+        lines.append("- The party is split. NOT at this location: "
+                     + "; ".join(f"{a} ({w})" for a, w in sorted(apart.items()))
+                     + ". They don't see, hear or act in this scene. Cut between the groups; when you cut to "
+                       "one, say where. Reunited: set_scene with apart [].")
 
     # Everyone at the table, from `/playing`, union whoever has acquired anything.
     # Without the roster the model only learns a character exists when they speak: it
@@ -334,6 +341,9 @@ def render_live_state(state: Dict[str, Any]) -> str:
                 ally = sheets[actor]
                 who += (f" — summoned by {ally['summoned_by']} ({ally.get('summoned_spell')}): their character, basic "
                         "moves only" + (f"; {'; '.join(ally.get('traits') or [])}" if ally.get("traits") else ""))
+            if (sheets.get(actor) or {}).get("away"):
+                who += (" — AWAY: their player isn't at the table. Not in any scene: don't narrate, address or "
+                        "threaten them; they make no moves. The story carries on without them until they're back")
             if (sheets.get(actor) or {}).get("mentor"):
                 who += " — a mentor travelling with their apprentice: YOU play them now; they make no moves"
             lines.append(f"    - {who}: {carried}")

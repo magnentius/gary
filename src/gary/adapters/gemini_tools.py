@@ -1486,6 +1486,10 @@ DECLARATIONS: List[types.FunctionDeclaration] = [
                 "setting": _s(type=_STRING, enum=["Caverns", "Depths", "Experiments", "Folk", "Hordes", "Planes",
                                                   "Swamp", "Undead", "Woods"], description=(
                     "A new dungeon's monster setting, from the bestiary: its inhabitants come first from it.")),
+                "apart": _s(type=_ARRAY, items=_s(type=_STRING), description=(
+                    "The party has split: each character who is NOT at this location, as 'Name: where they are' "
+                    "('Slymin: scouting the cliff path'). location is where the rest are. [] when everyone is "
+                    "together again; leave it out to keep it as it was.")),
             },
             required=["location"],
         ),
