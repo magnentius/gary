@@ -70,3 +70,36 @@ def test_a_druid_packs_no_rations(director, sheets):
     sheets["Eva"]["class"] = "Druid"
     effects, result = director.perilous_journey(channel_id=CHANNEL, destination="x", days=2)
     assert "Eva" not in result["rations"]
+
+
+async def test_a_second_roll_in_the_same_turn_does_not_replace_the_journey_roll(clock):
+    """2026-11-08: the model opened the Trailblazer roll, then a Defy Danger for the same boat
+    trip, which silently replaced it. The second make_move is refused; the journey roll stands."""
+    from gary.adapters import gemini_tools as T
+    from gary.fsm import Director
+    from gary.models import Mutation, MutationKind
+    from gary.registry import PendingCheckRegistry
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.history import InMemoryHistoryBackend
+    from gary.state.store import CampaignStore
+    from tests.test_gemini import CHANNEL, call_response, narrator, player, text_response
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
+    registry = PendingCheckRegistry(clock=clock)
+    director = Director(registry=registry, clock=clock, game_channels={CHANNEL},
+                        players={1: "Dorn"}, sheet_for=lambda a: (store.state().get("sheets") or {}).get(a))
+    store.apply([Mutation(MutationKind.SHEET, "Dorn", {"sheet": {
+        "name": "Dorn", "class": "Fighter", "race": "Human", "level": 1, "xp": 0, "hp": 20, "max_hp": 20,
+        "armor": 0, "damage": "d10", "stats": {"str": 16, "dex": 9, "con": 15, "int": 8, "wis": 12, "cha": 13},
+        "gear": [], "rations": 10}}),
+        Mutation(MutationKind.SCENE, "", {"location": "Fenwick"})], reason="setup")
+    n = narrator((director, store, InMemoryHistoryBackend()),
+                 call_response(T.PERILOUS_JOURNEY, {"destination": "The Barrow", "days": 1, "trailblazer": "Dorn"}),
+                 call_response(T.MAKE_MOVE, {"actor": "Dorn", "move": "defy_danger", "stat": "wis",
+                                             "stakes": "the reefs"}),
+                 text_response("You push off."))
+    await player(n, "we set out for the barrow")
+    refused = n.client.calls[2]["contents"][-1].parts[0].function_response.response
+    assert refused["ok"] is False and "already has a roll waiting" in refused["error"]
+    [check] = registry.open_checks(CHANNEL)
+    assert check.move != "defy_danger"

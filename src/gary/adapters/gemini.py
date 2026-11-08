@@ -42,6 +42,7 @@ from ..fsm import NO_STEADING, Director
 from .. import healing, trade
 from ..class_moves import render as render_class_moves
 from ..fsm import SendMessage
+from ..moves import MOVES
 from ..models import Mutation, MutationKind
 from ..monsters import describe as describe_monster, natures, prepare as prepare_monsters
 from ..registry import normalize_actor
@@ -131,6 +132,11 @@ class GeminiNarrator:
         self._client = client
         self._director = director
         self._store = store
+        # Checks already open when each channel's turn began. A check opened during the
+        # turn is one the model is waiting on; a second make_move for that player would
+        # silently replace it (2026-11-08: a journey's Trailblazer roll replaced by a
+        # Defy Danger for the same boat trip).
+        self._open_at_start: Dict[int, set] = {}
         self._history = history_backend
         self._model = model
         self._summary_model = summary_model
@@ -327,6 +333,8 @@ class GeminiNarrator:
     ) -> Tuple[List[str], List[types.Content], List[Any]]:
         texts: List[str] = []
         effects: List[Any] = []
+        self._open_at_start[channel_id] = {
+            c.check_id for c in self._director.registry.open_checks(channel_id)}
 
         for iteration in range(self._max_iterations):
             response = await self._generate(contents, system_instruction)
@@ -824,6 +832,15 @@ class GeminiNarrator:
                 continue
 
             if name == T.MAKE_MOVE:
+                waiting = self._opened_this_turn(channel_id, str(args.get("actor", "")))
+                if waiting is not None:
+                    responses.append(types.Part.from_function_response(name=name, response={
+                        "ok": False,
+                        "error": (f"{waiting.actor} already has a roll waiting from this turn: "
+                                  f"{MOVES[waiting.move].name}. That roll covers it; do not add another. "
+                                  "Narrate up to the roll and stop."),
+                    }))
+                    continue
                 effects.extend(self._make_move(channel_id, args))
                 if len(calls) > 1:
                     log.warning("make_move issued alongside %d other call(s); skipping them", len(calls) - 1)
@@ -841,6 +858,13 @@ class GeminiNarrator:
             responses.append(types.Part.from_function_response(name=name, response=result))
 
         return False, responses
+
+    def _opened_this_turn(self, channel_id: int, actor: str):
+        """The check this actor's player was given earlier in this same turn, or None."""
+        check = self._director.registry.for_player(channel_id, self._user_id_for(channel_id, actor))
+        if check is None or check.check_id in self._open_at_start.get(channel_id, set()):
+            return None
+        return check
 
     def _make_move(self, channel_id: int, args: Dict[str, Any]) -> List[Any]:
         """Route the model's request through the Director, which owns the decision."""
