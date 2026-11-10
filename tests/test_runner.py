@@ -462,3 +462,74 @@ async def test_a_death_posts_what_happens_next(clock):
     sender = FakeSender()
     await EffectRunner(sender, EchoNarrator(), store=store).run([UpdateSheet(CHANNEL, "Dorn", {"dead": True})])
     assert any("Dorn** is dead, and stays dead" in text and "/new" in text for _, text in sender.sent)
+
+
+# -- endings the model mustn't be left to remember (2026-11-09) -------------------------------
+
+
+def _table_store(sheets, opening=None):
+    from gary.models import Mutation, MutationKind
+    from gary.state.backend import InMemoryStateBackend
+    from gary.state.store import CampaignStore
+
+    store = CampaignStore(backend=InMemoryStateBackend(), clock=lambda: 0.0)
+    store.apply([Mutation(MutationKind.SHEET, s["name"], {"sheet": s}) for s in sheets]
+                + [Mutation(MutationKind.PLAYER_CHARACTER, str(i), {"actor": s["name"]})
+                   for i, s in enumerate(sheets, 1)]
+                + ([Mutation(MutationKind.OPENING, "", opening)] if opening else []), reason="setup")
+    return store
+
+
+async def test_a_lone_character_marked_and_down_dies_and_the_one_shot_ends():
+    """A solo Thief missed his Last Breath; the model narrated Death taking him without calling
+    death_comes. Nobody can act, so Death comes now, and the one-shot goes to its ending."""
+    store = _table_store([{"name": "Slymin", "hp": 0, "deaths_mark": True}],
+                         {"mode": "oneshot", "stage": "playing", "scene": 1})
+    sender, narrator = FakeSender(), ScriptedNarrator(NarrationResult(text="The tide takes the church."))
+    await EffectRunner(sender, narrator, store=store).run([SendMessage(CHANNEL, "The bell tolls.")])
+
+    state = store.state()
+    assert state["sheets"]["Slymin"]["dead"] is True
+    assert state["opening"]["stage"] == "epilogue"
+    texts = [t for _, t in sender.sent]
+    assert any("Slymin" in t and "crosses the threshold" in t for t in texts)
+    assert any("`/end`" in t for t in texts)
+    assert narrator.calls[0][0] == "rules_event"
+    assert "everyone has died" in narrator.calls[0][1]["event"]
+
+
+async def test_death_waits_while_anyone_still_stands():
+    store = _table_store([{"name": "Slymin", "hp": 0, "deaths_mark": True}, {"name": "Sibel", "hp": 4}],
+                         {"mode": "oneshot", "stage": "playing", "scene": 1})
+    sender = FakeSender()
+    await EffectRunner(sender, EchoNarrator(), store=store).run([SendMessage(CHANNEL, "The bell tolls.")])
+    assert not store.state()["sheets"]["Slymin"].get("dead")
+    assert store.state()["opening"]["stage"] == "playing"
+
+
+async def test_death_waits_for_a_last_breath_still_to_roll():
+    """Down but not yet marked: their Last Breath is still to come and might save them."""
+    store = _table_store([{"name": "Slymin", "hp": 0, "deaths_mark": True}, {"name": "Sibel", "hp": 0}],
+                         {"mode": "oneshot", "stage": "playing", "scene": 1})
+    await EffectRunner(FakeSender(), EchoNarrator(), store=store).run([SendMessage(CHANNEL, "...")])
+    assert not store.state()["sheets"]["Slymin"].get("dead")
+
+
+async def test_a_dead_party_in_a_campaign_is_told_to_make_new_characters_not_ended():
+    store = _table_store([{"name": "Slymin", "hp": 0, "dead": True}],
+                         {"mode": "campaign", "stage": "playing"})
+    narrator = ScriptedNarrator()
+    await EffectRunner(FakeSender(), narrator, store=store).run([SendMessage(CHANNEL, "...")])
+    assert store.state()["opening"]["stage"] == "playing"
+    assert narrator.calls == []
+
+
+async def test_a_one_shot_ends_once_when_the_last_character_dies():
+    store = _table_store([{"name": "Slymin", "hp": 0, "dead": True}, {"name": "Sibel", "hp": 0, "dead": True}],
+                         {"mode": "oneshot", "stage": "playing", "scene": 3})
+    sender, narrator = FakeSender(), ScriptedNarrator()
+    r = EffectRunner(sender, narrator, store=store)
+    await r.run([SendMessage(CHANNEL, "...")])
+    await r.run([SendMessage(CHANNEL, "...")])
+    assert len(narrator.calls) == 1
+    assert narrator.calls[0][1]["characters"] == "Sibel, Slymin"

@@ -248,6 +248,47 @@ def newcomer_event(name: str, fallen: Sequence[str]) -> Dict:
         "in. The dead stay dead.")}
 
 
+def table(state: Dict) -> List[Dict]:
+    """Every player's character, the dead included: the party, as far as an ending is concerned.
+    Retired characters and mentors the GM plays aren't anyone's to lose."""
+    sheets = state.get("sheets") or {}
+    names = sorted({a for a in (state.get("players") or {}).values() if a in sheets})
+    return [sheets[a] for a in names if not sheets[a].get("retired") and not sheets[a].get("mentor")]
+
+
+def helpless_doomed(party: Sequence[Dict]) -> List[str]:
+    """Characters marked as Death's own when nobody is left standing. "The GM will tell you
+    when" -- but when every living character is down and marked, no one can act, no one can
+    save them, and nothing is left for the story to wait on: the moment is now. Anyone still
+    owed a Last Breath roll (down, not marked) holds it open."""
+    living = [s for s in party if not s.get("dead")]
+    if not living or any(int(s.get("hp", 1)) > 0 or not s.get("deaths_mark") for s in living):
+        return []
+    return [s["name"] for s in living]
+
+
+def wiped(party: Sequence[Dict]) -> bool:
+    """Everyone at the table has died."""
+    return bool(party) and all(s.get("dead") for s in party)
+
+
+def wipe_event(party: Sequence[Dict]) -> Dict:
+    """A one-shot whose whole party has died: its ending comes now, whatever scene it reached."""
+    names = ", ".join(s["name"] for s in party)
+    return {
+        "event": "One-shot: the end -- everyone has died",
+        "characters": names,
+        "instruction": (
+            "Every character is dead, so the one-shot ends here, whatever scene it had reached. Don't undo it: no "
+            "rescue, no resurrection, no last-moment bargain. In a few sentences, show what their deaths leave "
+            "behind -- what becomes of the goal they came for, of the enemies who outlived them, of the places "
+            "and people they touched. Then ask each player, by name, for one last image of their character -- "
+            "how they are remembered, or what Death shows them beyond the Black Gate -- and let that be the "
+            "ending. No rolls."
+        ),
+    }
+
+
 def doomed(party: Sequence[Dict]) -> List[str]:
     """Characters marked as Death's own and not yet dead (a Last Breath miss)."""
     return [s["name"] for s in party if s.get("deaths_mark") and not s.get("dead")]

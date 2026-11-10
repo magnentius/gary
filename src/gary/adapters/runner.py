@@ -73,6 +73,39 @@ class EffectRunner:
 
         for effect in effects:
             await self._run_one(effect, depth)
+        if depth == 0:
+            channel_id = next((getattr(e, "channel_id", None) for e in effects
+                               if getattr(e, "channel_id", None) is not None), None)
+            if channel_id is not None:
+                await self._settle_deaths(channel_id)
+
+    async def _settle_deaths(self, channel_id: int) -> None:
+        """After a whole turn -- its rolls, sheets and narration -- two endings the model must not
+        be left to remember (2026-11-09: a solo Thief missed his Last Breath; Gemini narrated Death
+        dragging him through the Black Gate but never called death_comes, so the one-shot sat open
+        with him at 0 HP). When everyone living is down and marked as Death's own, Death comes now;
+        and a one-shot whose whole party is dead ends now, whatever scene it reached."""
+        if self._store is None:
+            return
+        from .. import opening
+
+        state = self._store.state()
+        for name in opening.helpless_doomed(opening.table(state)):
+            self._update_sheet(name, {"dead": True, "hp": 0},
+                               f"⚰️ {name} crosses the threshold: nobody is left standing")
+            await self._send(SendMessage(channel_id, f"⚰️ **{name}** crosses the threshold — with nobody left "
+                                                     "standing, Death doesn't wait."))
+        state = self._store.state()
+        current = state.get("opening") or {}
+        party = opening.table(state)
+        if current.get("mode") != "oneshot" or current.get("stage") != "playing" or not opening.wiped(party):
+            return
+        self._store.apply([Mutation(MutationKind.OPENING, "", {"stage": "epilogue"})],
+                          reason="opening: the whole party is dead")
+        await self._send(SendMessage(channel_id, "📖 **The end.** Everyone has died, so the one-shot ends here. "
+                                                 "When each player has given their last image, `/end` closes the "
+                                                 "game."))
+        await self.run([PromptModel(channel_id, "rules_event", opening.wipe_event(party))], 1)
 
     async def _run_one(self, effect: Effect, depth: int) -> None:
         if isinstance(effect, SendMessage):

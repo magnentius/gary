@@ -1336,6 +1336,8 @@ class GaryClient(discord.Client):
         party = [sheets[a] for a in sorted(set(self.director.players.values()))
                  if a in sheets and not sheets[a].get("dead")]
         if not party:
+            if any(a in sheets for a in self.director.players.values()):
+                return "Nobody at the table is left alive to mark XP."
             return "Nobody at the table has a character sheet."
         from .session import BEST
 
