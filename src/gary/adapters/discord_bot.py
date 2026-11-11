@@ -893,6 +893,10 @@ class GaryClient(discord.Client):
             number = int(self._opening().get("session") or 1)
             await self.sender.send(channel_id, f"Session {number} is under way. `/end` finishes it.")
             return
+        if stage == "finished" and current.get("mode") == "oneshot" and opening.wiped(opening.table(self.store.state())):
+            await self.sender.send(channel_id, "This one-shot is finished, and nobody survived it. `/reset` starts "
+                                               "something new; Gary keeps a copy of this one first.")
+            return
         if stage == "finished" and current.get("mode") == "oneshot":
             await self.sender.send(channel_id, "This one-shot is finished. Keep going with these characters as a "
                                                "campaign, or `/reset` to start something new.",
@@ -1384,9 +1388,13 @@ class GaryClient(discord.Client):
         if stage == "epilogue":
             # The last session: no more front work, just the record of what was.
             self._set_opening("campaign closed", stage="finished")
-            closing = ("The one-shot is over. `/begin` can carry these characters on as a campaign; `/reset` "
-                       "starts something new, keeping a copy of this one first." if current.get("mode") == "oneshot"
-                       else "The campaign is closed. `/reset` starts a new one; Gary keeps a copy of this one first.")
+            if current.get("mode") != "oneshot":
+                closing = "The campaign is closed. `/reset` starts a new one; Gary keeps a copy of this one first."
+            elif opening.wiped(opening.table(self.store.state())):
+                closing = "The one-shot is over. `/reset` starts something new, keeping a copy of this one first."
+            else:
+                closing = ("The one-shot is over. `/begin` can carry these characters on as a campaign; `/reset` "
+                           "starts something new, keeping a copy of this one first.")
             asyncio.create_task(self.sender.send(channel_id, opening.chronicle(self.store.state()) + "\n\n" + closing))
             return line
         if stage == "playing":
@@ -1923,6 +1931,12 @@ class GaryClient(discord.Client):
                        if actor in sheets and sheets[actor].get("alignment") and not sheets[actor].get("dead")}
             living = {uid: a for uid, a in self.director.players.items()
                       if a in sheets and not sheets[a].get("dead")}
+            if not living and any(a in sheets for a in self.director.players.values()):
+                # Everyone at the table has died: no XP to ask about, so close the session now.
+                line = await self._end_session_then_fronts(channel_id, 0, frozenset(), {})
+                if line and self._opening().get("stage") != "finished":
+                    await self.sender.send(channel_id, line)
+                return
             view = EndOfSession(
                 lambda yeses, fulfilled, resolved: self._end_session_then_fronts(channel_id, yeses, fulfilled,
                                                                                  resolved),

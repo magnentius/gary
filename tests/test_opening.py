@@ -49,6 +49,14 @@ def test_the_premise_reads_as_the_adventure():
         "The adventure: Steal the Choir's Bell -- at the drowned bell-towers."
 
 
+def test_a_premise_place_reads_mid_sentence_without_a_capital_article():
+    assert opening.premise("A salt-gnawed island ringed with wrecks", "recover a relic", oneshot=True) == \
+        "A one-shot: recover a relic -- and it ends at a salt-gnawed island ringed with wrecks, the final destination."
+    assert opening.premise("The Glass Spire.", "steal the bell").endswith("-- at the Glass Spire.")
+    assert opening.premise("Blackwater Quay", "steal the bell").endswith("-- at Blackwater Quay.")
+    assert opening.premise("An", "steal the bell").endswith("-- at An.")
+
+
 def test_the_opening_is_kept_and_undone_a_step_at_a_time(clock):
     store = CampaignStore(backend=InMemoryStateBackend(), clock=clock)
     store.apply([Mutation(MutationKind.OPENING, "", {"stage": "premise", "starter": 11})], reason="t")
@@ -356,6 +364,21 @@ def test_a_one_shot_runs_three_scenes_a_break_and_an_epilogue(table):
     assert ran[-1].payload["event"] == "Opening: fronts after the first session"
 
 
+def test_a_one_shot_nobody_survived_closes_offering_only_a_reset(table):
+    client, store, sent, ran = table
+    store.apply([Mutation(MutationKind.PLAYER_CHARACTER, "11", {"actor": "Gorm"}),
+                 Mutation(MutationKind.SHEET, "Gorm", {"sheet": {**store.state()["sheets"]["Gorm"], "hp": 0,
+                                                                  "dead": True}}),
+                 Mutation(MutationKind.OPENING, "", {"stage": "epilogue", "mode": "oneshot", "scene": 1,
+                                                     "starter": 11})], reason="t")
+    asyncio.run(_ender(client)())
+    assert store.state()["opening"]["stage"] == "finished"
+    assert sent[-1][0].startswith("📖 **The chronicle of this one-shot**") and "— died" in sent[-1][0]
+    assert "`/reset`" in sent[-1][0] and "`/begin`" not in sent[-1][0]
+    asyncio.run(client._begin(_Msg(), 7))
+    assert "nobody survived" in sent[-1][0] and sent[-1][1] is None
+
+
 def test_a_one_shot_ended_early_still_closes_with_its_chronicle(table):
     client, store, sent, ran = table
     store.apply([Mutation(MutationKind.OPENING, "", {"stage": "playing", "mode": "oneshot", "scene": 2,
@@ -416,3 +439,33 @@ def test_a_premise_is_one_option_its_place_the_label_and_its_activity_the_line_u
     (select,) = [c for c in view.children if isinstance(c, discord.ui.Select)]
     assert [(o.label, o.description) for o in select.options] == [
         ("a tidal lighthouse", "relight the lamp"), ("a glass forest", "find the witness tree")]
+
+
+def test_end_with_nobody_left_alive_closes_without_the_xp_questions(table):
+    client, store, sent, ran = table
+    store.apply([Mutation(MutationKind.PLAYER_CHARACTER, "11", {"actor": "Gorm"}),
+                 Mutation(MutationKind.SHEET, "Gorm", {"sheet": {**store.state()["sheets"]["Gorm"], "hp": 0,
+                                                                  "dead": True}}),
+                 Mutation(MutationKind.OPENING, "", {"stage": "epilogue", "mode": "oneshot", "starter": 11})],
+                reason="t")
+    posted = []
+
+    class _Channel:
+        id = 7
+
+        async def send(self, text, view=None):
+            posted.append((text, view))
+
+    class _EndMsg(_Msg):
+        content, channel = "?dm end", _Channel()
+
+    type(client).settings = type("S", (), {"command_prefix": "?dm "})()
+    type(client)._end_session = GaryClient._end_session
+
+    async def end():
+        await GaryClient._on_dm_command(client, _EndMsg())
+        await asyncio.sleep(0)
+
+    asyncio.run(end())
+    assert not posted  # no End of session buttons
+    assert store.state()["opening"]["stage"] == "finished" and sent[-1][0].startswith("📖 **The chronicle of this one-shot**")

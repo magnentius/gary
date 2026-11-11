@@ -130,12 +130,20 @@ def parse_offer(text: str) -> Tuple[List[str], List[str]]:
     return places[:OFFERED], activities[:OFFERED]
 
 
+def _mid_sentence(place: str) -> str:
+    """A premise place read inside a sentence: "A salt-gnawed island" -> "a salt-gnawed island".
+    Only a leading article is lowered, so names ("Blackwater Quay") keep their capitals."""
+    place = place.strip().rstrip('.')
+    first, _, rest = place.partition(" ")
+    return f"{first.lower()} {rest}" if rest and first in ("A", "An", "The") else place
+
+
 def premise(place: str, activity: str, oneshot: bool = False) -> str:
     """The standing premise, as the model will read it every turn."""
     if oneshot:
-        return (f"A one-shot: {activity.strip().rstrip('.')} -- and it ends at {place.strip().rstrip('.')}, "
+        return (f"A one-shot: {activity.strip().rstrip('.')} -- and it ends at {_mid_sentence(place)}, "
                 "the final destination.")
-    return f"The adventure: {activity.strip().rstrip('.')} -- at {place.strip().rstrip('.')}."
+    return f"The adventure: {activity.strip().rstrip('.')} -- at {_mid_sentence(place)}."
 
 
 def introductions(party: Sequence[Dict]) -> str:
@@ -491,7 +499,8 @@ def chronicle(state: Dict) -> str:
     characters and what became of them, the fronts and how they ended, the people met."""
     from .npcs import known
 
-    lines = ["📖 **The chronicle of this campaign**"]
+    oneshot = (state.get("opening") or {}).get("mode") == "oneshot"
+    lines = [f"📖 **The chronicle of this {'one-shot' if oneshot else 'campaign'}**"]
     if state.get("setting"):
         lines.append(f"*{state['setting']}*")
     sessions = int((state.get("opening") or {}).get("session") or 0)
